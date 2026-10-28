@@ -3,7 +3,7 @@
 Pixel-artowa wojenna piaskownica dark fantasy: Mount & Blade połączone z globalną strategią.
 
 ## Stan
-Wersja 0.1: prototyp bitwy. Bohater i 20 na 20 (ludzie kontra Martwe Królestwo).
+Build 0.2: prototyp bitwy z trybem rozkazów (Q). Bohater i 20 na 20 (ludzie kontra Martwe Królestwo).
 
 ## Budowanie
 Wymaga TypeScript (`tsc`) i Pythona 3.

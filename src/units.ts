@@ -56,6 +56,7 @@ const HERO_LOADOUTS = [
   { name: "Łuk", weapon: "dagger", shield: false, bow: true },
 ];
 
-type Formation = "line" | "wall" | "loose" | "wedge";
-const FORMATION_NAME: Record<Formation, string> = { line: "Linia", wall: "Mur tarcz", loose: "Luźny szyk", wedge: "Klin" };
-const FORMATIONS: Formation[] = ["line", "wall", "loose", "wedge"];
+type Formation = "line" | "wall" | "loose" | "wedge" | "column" | "circle";
+const FORMATION_NAME: Record<Formation, string> = { line: "Linia", wall: "Mur tarcz", loose: "Luźny szyk", wedge: "Klin", column: "Kolumna", circle: "Koło" };
+const FORMATIONS: Formation[] = ["line", "wall", "loose", "wedge", "column", "circle"];
+const FORMATION_SPACING: Record<Formation, number> = { line: 12, wall: 9, loose: 20, wedge: 12, column: 11, circle: 11 };

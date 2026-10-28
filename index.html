@@ -48,6 +48,15 @@ button{font:600 1.15em var(--px);color:#0d0b0e;background:var(--gold);border:2px
 button:hover{background:#d6ad55}
 button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
 .tip{color:var(--muted);font-size:.9em}
+#build{left:50%;transform:translateX(-50%);top:.5em;color:var(--muted);font-size:clamp(10px,calc(var(--s)*3.6px),13px)}
+#cmd{left:50%;bottom:.6em;transform:translateX(-50%);pointer-events:auto;min-width:16em;display:grid;gap:.15em}
+#cmd .head{color:var(--gold);display:flex;justify-content:space-between;gap:1em;border-bottom:1px solid var(--edge);padding-bottom:.2em;margin-bottom:.15em}
+#cmd .crumb{color:var(--muted)}
+#cmd button{all:unset;cursor:pointer;display:flex;gap:.5em;align-items:center;padding:.05em .3em;color:var(--text)}
+#cmd button:hover,#cmd button:focus-visible{background:#3d3a4b}
+#cmd button.on{color:var(--gold)}
+#cmd .foot{color:var(--muted);font-size:.85em;border-top:1px solid var(--edge);padding-top:.2em;margin-top:.15em}
+.badge{display:inline-block;border:1px solid var(--edge);padding:0 .4em;color:var(--muted);font-size:.85em}
 </style>
 
 <div id="wrap">
@@ -68,11 +77,13 @@ button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
   <div class="hud" id="banner" hidden></div>
   <div class="hud" id="slow" hidden>Czas zwolniony: wydawaj rozkazy</div>
   <div class="hud" id="pause" hidden>Pauza (P)</div>
+  <div class="hud" id="build"></div>
+  <div class="hud frame" id="cmd" hidden></div>
 
   <div class="overlay" id="deploy">
     <div class="card frame">
       <h1>Sztandary Popiołu</h1>
-      <p class="tip">Prototyp bitwy · wersja 0.1</p>
+      <p class="tip"><span class="badge" id="build-badge"></span> Prototyp bitwy</p>
       <p>Twój oddział (12 zbrojnych i 8 łuczników) staje naprzeciw kohorty Martwego Królestwa: szkieletów, szkieletów-łuczników i Rycerza Śmierci. Gdy padnie Rycerz, klątwa słabnie i nieumarli zaczną się rozpadać.</p>
       <div class="cols">
         <div>
@@ -91,14 +102,14 @@ button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
         <div>
           <h2>Dowodzenie</h2>
           <div class="ctl">
-            <span>1 · 2 · 3</span><span>piechota · łucznicy · wszyscy</span>
-            <span>Z</span><span>stać przy kursorze</span>
-            <span>X</span><span>za mną</span>
-            <span>C</span><span>szarża</span>
-            <span>V</span><span>formacja: linia, mur tarcz, luźny szyk, klin</span>
-            <span>B</span><span>łucznicy: strzelać / wstrzymać</span>
+            <span>Q</span><span>tryb rozkazów: czas zwalnia, pojawia się panel</span>
+            <span>1 · 2 · 3</span><span>w panelu: oddział, potem rozkaz z listy, potem znów oddział</span>
+            <span>PPM (przeciągnij)</span><span>w panelu: narysuj linię frontu, długość to szerokość szyku</span>
+            <span>LPM na żołnierzu</span><span>w panelu: wybiera jego oddział</span>
+            <span>0 · Backspace</span><span>w panelu: poziom wstecz</span>
+            <span>Z · X · C · V · B</span><span>skróty: stać, za mną, szarża, formacja, ogień</span>
             <span>Spacja</span><span>spowolnienie czasu</span>
-            <span>Q · P · R</span><span>kamera · pauza · nowa bitwa</span>
+            <span>M · P · R</span><span>muzyka · pauza · nowa bitwa</span>
           </div>
         </div>
       </div>

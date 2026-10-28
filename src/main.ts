@@ -1,5 +1,7 @@
 // Start gry: płótno, skalowanie, interfejs (HUD) i pętla.
 
+const BUILD = "Build 0.2";
+
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
 const ctx = canvas.getContext("2d");
@@ -17,7 +19,36 @@ const ui = {
   ours: $("ours"), foes: $("foes"), morale: $("morale"), groups: $("groups"),
   log: $("log"), banner: $("banner"), deploy: $("deploy"), end: $("end"),
   endTitle: $("end-title"), endText: $("end-text"), pause: $("pause"), slow: $("slow"),
+  cmd: $("cmd"), build: $("build"),
 };
+
+ui.build.textContent = BUILD;
+$("build-badge").textContent = BUILD;
+document.title = "Sztandary Popiołu · " + BUILD;
+ui.cmd.addEventListener("mousedown", (e) => {
+  e.stopPropagation();
+  const b = (e.target as HTMLElement).closest("button") as HTMLButtonElement | null;
+  if (!b) return;
+  const n = Number(b.dataset.n);
+  if (n === 0) battle.cmdBack(); else battle.cmdChoose(n);
+  cmdKey = "";
+});
+let cmdKey = "";
+function renderCmd() {
+  const b = battle;
+  ui.cmd.hidden = !b.cmdOpen;
+  if (!b.cmdOpen) { cmdKey = ""; return; }
+  const items = b.cmdMenu();
+  const key = b.cmdLevel + "|" + b.selected.join(",") + "|" + items.map((i) => i.label + (i.on ? "*" : "")).join(";");
+  if (key === cmdKey) return;
+  cmdKey = key;
+  const title = b.cmdLevel === "groups" ? "Wybierz oddział" : b.cmdLevel === "orders" ? "Rozkaz" : "Formacja";
+  const crumb = b.cmdLevel === "groups" ? "" : b.groupName(b.selected);
+  ui.cmd.innerHTML = `<div class="head"><span>${title}</span><span class="crumb">${crumb}</span></div>`
+    + items.map((i) => `<button data-n="${i.n}" class="${i.on ? "on" : ""}"><span class="key">${i.n}</span>${i.label}</button>`).join("")
+    + (b.cmdLevel !== "groups" ? `<button data-n="0"><span class="key">0</span>Wstecz</button>` : "")
+    + `<div class="foot">PPM: przeciągnij linię frontu · Q: zamknij</div>`;
+}
 
 function fit() {
   const s = Math.max(1, Math.min(innerWidth / W, innerHeight / H));
@@ -79,7 +110,7 @@ function hud(dt: number) {
   if (b.banner) { ui.banner.textContent = b.banner.text; ui.banner.style.color = b.banner.col; ui.banner.hidden = false; ui.banner.style.opacity = String(clamp(b.banner.t * 2, 0, 1)); }
   else ui.banner.hidden = true;
   ui.pause.hidden = !b.paused;
-  ui.slow.hidden = !b.slowmo;
+  ui.slow.hidden = !b.slowmo || b.cmdOpen;
   if (b.phase === "end" && ui.end.hidden) {
     ui.end.hidden = false;
     const lost = b.units.filter((u) => u.team === 0 && !u.hero && !u.active).length;
@@ -99,6 +130,7 @@ function frame(now: number) {
   battle.update(dt);
   battle.render(ctx);
   hud(dt);
+  renderCmd();
   input.endFrame();
   requestAnimationFrame(frame);
 }
