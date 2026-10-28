@@ -1,7 +1,7 @@
 // Grafika rysowana kodem. Ludzie: szablony pikselowe z wariantami (hełm, broda, skóra, barwy).
 // Nieumarli: rysowani proceduralnie. Kierunki: 0 = w dół, 1 = w górę, 2 = w bok (prawo; lewo to odbicie).
 
-type BodyKind = "hero" | "inf" | "arch" | "skel" | "skelArch" | "dk";
+type BodyKind = "hero" | "inf" | "arch" | "skel" | "skelArch" | "dk" | "ghoul";
 type Frames = HTMLCanvasElement[][]; // [kierunek][klatka]
 interface SpriteSet { frames: Frames; white: Frames; w: number; h: number; }
 
@@ -26,6 +26,25 @@ function outline(c: HTMLCanvasElement) {
   for (let i = 0; i < add.length; i += 2) {
     const k = (add[i + 1] * w + add[i]) * 4;
     d[k] = 13; d[k + 1] = 11; d[k + 2] = 14; d[k + 3] = 235;
+  }
+  g.putImageData(im, 0, 0);
+}
+
+// Cieniowanie: światło z lewej góry. Krawędź lewa i górna jaśniejsza, prawa i dolna ciemniejsza.
+function shadeVolume(c: HTMLCanvasElement) {
+  const g = c.getContext("2d");
+  const im = g.getImageData(0, 0, c.width, c.height);
+  const d = im.data, w = c.width, h = c.height;
+  const a = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 200;
+  const src = new Uint8ClampedArray(d);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!a(x, y)) continue;
+    const k = (y * w + x) * 4;
+    let f = 1;
+    if (!a(x - 1, y) || !a(x, y - 1)) f = 1.14;
+    if (!a(x + 1, y)) f = 0.8;
+    else if (!a(x, y + 1)) f = 0.86;
+    if (f !== 1) for (let i = 0; i < 3; i++) d[k + i] = Math.min(255, src[k + i] * f);
   }
   g.putImageData(im, 0, 0);
 }
@@ -133,8 +152,20 @@ function drawHuman(kind: BodyKind, v: number, dir: number, frame: number): HTMLC
     if (dir === 0) { set(11, 8, "Q"); set(12, 7, "B" === "B" ? "q" : "q"); }
   }
   const col = humanColors(kind, v);
+  const pattern = kind === "inf" ? vpick(v, 11, ["stripe", "quarter", "chevron", "plain"]) : "stripe";
   const [c, g] = mkCanvas(16, 22);
-  rows.forEach((r, y) => r.forEach((ch, x) => { if (ch !== "." && col[ch]) { g.fillStyle = col[ch]; g.fillRect(x, y, 1, 1); } }));
+  rows.forEach((r, y) => r.forEach((ch0, x) => {
+    let ch = ch0;
+    if (ch === "." || !col[ch]) return;
+    if ((ch === "M" || ch === "A") && (x + y) % 2 === 0 && kind !== "arch") ch = ch === "M" ? "m" : "a";   // kolczuga
+    if (ch === "C" && pattern === "plain") ch = "T";
+    if (ch === "T" && y >= 9 && y <= 16) {
+      if (pattern === "quarter" && ((x < 8) !== (y < 13))) ch = "C";
+      if (pattern === "chevron" && Math.floor(Math.abs(x - 7.5)) + 10 === y) ch = "C";
+    }
+    g.fillStyle = col[ch]; g.fillRect(x, y, 1, 1);
+  }));
+  shadeVolume(c);
   outline(c);
   return c;
 }
@@ -215,6 +246,33 @@ function drawUndead(kind: BodyKind, v: number, dir: number, frame: number): HTML
     else if (dir === 2) { P(8, 4, 4, 1, PAL.black); P(10, 4, 1, 1, PAL.purpleL); }
   }
   if (big && dir === 1) { P(4, 9, 8, 10, PAL.purple); P(4, 9, 8, 1, PAL.ink); P(5, 18, 1, 1, PAL.ink); P(9, 18, 1, 1, PAL.ink); P(7, 10, 2, 6, PAL.dusk); }
+  shadeVolume(c);
+  outline(c);
+  return c;
+}
+
+// Ghul: zgarbiony, szybki, z pazurami.
+function drawGhoul(v: number, dir: number, frame: number): HTMLCanvasElement {
+  const [c, g] = mkCanvas(16, 22);
+  const P = (x: number, y: number, w: number, h: number, col: string) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const sk = vpick(v, 12, [[PAL.ash, PAL.stone], [PAL.moss, PAL.grassD], [PAL.stone, PAL.slate]]);
+  const st = frame === 1 ? 1 : frame === 2 ? -1 : 0;
+  // nogi ugięte
+  if (dir === 2) { P(6 - st, 16, 2, 4, sk[1]); P(9 + st, 16, 2, 4, sk[0]); P(5 - st, 20, 3, 1, sk[1]); P(9 + st, 20, 3, 1, sk[0]); }
+  else { P(4, 16 + (st > 0 ? 1 : 0), 2, 4, sk[1]); P(10, 16 + (st < 0 ? 1 : 0), 2, 4, sk[1]); P(3, 20, 3, 1, sk[1]); P(10, 20, 3, 1, sk[1]); }
+  // tułów pochylony
+  if (dir === 2) { P(4, 10, 8, 6, sk[0]); P(5, 9, 6, 1, sk[0]); P(4, 13, 8, 1, sk[1]); P(6, 11, 1, 1, sk[1]); P(8, 11, 1, 1, sk[1]); P(4, 15, 6, 2, PAL.dirtD); }
+  else { P(3, 10, 10, 6, sk[0]); P(4, 9, 8, 1, sk[0]); P(5, 11, 1, 3, sk[1]); P(10, 11, 1, 3, sk[1]); P(7, 10, 2, 5, dir === 1 ? sk[1] : sk[0]); P(4, 15, 8, 2, PAL.dirtD); }
+  // ramiona długie z pazurami
+  if (dir === 2) { P(10, 11, 2, 6, sk[1]); P(11, 17, 3, 1, PAL.boneHi); }
+  else { P(1, 11, 2, 6, sk[1]); P(13, 11, 2, 6, sk[1]); P(0, 17, 3, 1, PAL.boneHi); P(13, 17, 3, 1, PAL.boneHi); }
+  // głowa nisko i do przodu
+  const hx = dir === 2 ? 8 : 5;
+  P(hx, 5, 6, 5, sk[0]); P(hx + 1, 4, 4, 1, sk[0]);
+  if (dir === 0) { P(6, 7, 1, 1, PAL.purpleL); P(9, 7, 1, 1, PAL.purpleL); P(6, 9, 4, 1, PAL.black); P(7, 9, 1, 1, PAL.boneHi); P(9, 9, 1, 1, PAL.boneHi); }
+  if (dir === 2) { P(12, 7, 1, 1, PAL.purpleL); P(11, 9, 3, 1, PAL.black); P(12, 9, 1, 1, PAL.boneHi); }
+  if (dir === 1) { P(6, 5, 4, 2, sk[1]); }
+  shadeVolume(c);
   outline(c);
   return c;
 }
@@ -222,13 +280,58 @@ function drawUndead(kind: BodyKind, v: number, dir: number, frame: number): HTML
 const SPRITE_CACHE = new Map<string, SpriteSet>();
 function getSprites(kind: BodyKind, v: number): SpriteSet {
   const human = kind === "hero" || kind === "inf" || kind === "arch";
-  const key = kind + ":" + (human || kind === "skel" ? v % 64 : 0);
+  const key = kind + ":" + (human || kind === "skel" || kind === "ghoul" ? v % 64 : 0);
   let s = SPRITE_CACHE.get(key);
   if (s) return s;
-  const frames = [0, 1, 2].map((d) => [0, 1, 2].map((f) => human ? drawHuman(kind, v % 64, d, f) : drawUndead(kind, v % 64, d, f)));
+  const frames = [0, 1, 2].map((d) => [0, 1, 2].map((f) => human ? drawHuman(kind, v % 64, d, f) : kind === "ghoul" ? drawGhoul(v % 64, d, f) : drawUndead(kind, v % 64, d, f)));
   s = { frames, white: frames.map((r) => r.map(whiteOf)), w: frames[0][0].width, h: frames[0][0].height };
   SPRITE_CACHE.set(key, s);
   return s;
+}
+
+// ---------- Konie ----------
+// Kierunki jak u ludzi; 4 klatki galopu. Bok: 30 x 22, przód/tył: 16 x 26.
+interface HorseSet { frames: HTMLCanvasElement[][]; }
+const HORSE_CACHE = new Map<string, HorseSet>();
+function getHorse(v: number, team: number): HorseSet {
+  const key = (v % 4) + ":" + team;
+  let h = HORSE_CACHE.get(key);
+  if (h) return h;
+  const coat = [[PAL.dirt, PAL.dirtD, PAL.black], [PAL.ink, PAL.black, PAL.dusk], [PAL.ash, PAL.stone, PAL.slate], [PAL.wood, PAL.woodD, PAL.black]][v % 4];
+  const cap = team === 0 ? [PAL.red, PAL.bloodD, PAL.gold] : [PAL.dusk, PAL.ink, PAL.purpleL];
+  const frames = [0, 1, 2].map((dir) => [0, 1, 2, 3].map((f) => {
+    const side = dir === 2;
+    const [c, g] = mkCanvas(side ? 30 : 16, side ? 22 : 26);
+    const P = (x: number, y: number, w: number, hh: number, col: string) => { g.fillStyle = col; g.fillRect(x, y, w, hh); };
+    if (side) {
+      // nogi (galop: 4 klatki)
+      const legs = [[0, 0, 0, 0], [2, -1, 1, -2], [0, 2, -2, 1], [-2, 1, 2, -1]][f];
+      const lx = [8, 11, 19, 22];
+      lx.forEach((x, i) => { const o = legs[i]; P(x + o, 15, 2, 5, i % 2 ? coat[1] : coat[0]); P(x + o, 20, 2, 1, coat[2]); });
+      P(5, 8, 19, 8, coat[0]); P(6, 7, 16, 1, coat[0]); P(5, 14, 19, 2, coat[1]);    // tułów
+      P(21, 4, 4, 6, coat[0]); P(23, 1, 4, 5, coat[0]); P(26, 3, 2, 3, coat[0]);      // szyja i łeb
+      P(26, 5, 2, 1, coat[2]); P(24, 2, 1, 1, PAL.black); P(23, 0, 1, 2, coat[1]);
+      P(20, 3, 2, 6, coat[2]); P(22, 1, 1, 3, coat[2]);                                 // grzywa
+      P(2, 8, 3, 2, coat[2]); P(1, 10, 2, 5, coat[2]);                                  // ogon
+      P(8, 7, 12, 6, cap[0]); P(8, 12, 12, 1, cap[2]); P(8, 7, 12, 1, cap[1]);          // czaprak
+      P(12, 6, 5, 2, PAL.woodD);                                                        // siodło
+    } else {
+      const front = dir === 0;
+      const st = f % 2 === 0 ? 0 : 1;
+      P(4, 6, 8, 15, coat[0]); P(5, 5, 6, 1, coat[0]);
+      P(4, 18 - st, 2, 6, coat[1]); P(10, 18 + st - 1, 2, 6, coat[1]); P(4, 23, 2, 1, coat[2]); P(10, 23, 2, 1, coat[2]);
+      if (front) { P(5, 18, 6, 6, coat[0]); P(6, 23, 4, 2, coat[0]); P(6, 21, 1, 1, PAL.black); P(9, 21, 1, 1, PAL.black); P(7, 18, 2, 3, coat[2]); }
+      else { P(6, 0, 4, 6, coat[0]); P(7, 0, 2, 4, coat[2]); P(7, 20, 2, 5, coat[2]); }
+      P(3, 8, 10, 9, cap[0]); P(3, 16, 10, 1, cap[2]); P(3, 8, 1, 9, cap[1]); P(12, 8, 1, 9, cap[1]);
+      P(5, 10, 6, 3, PAL.woodD);
+    }
+    shadeVolume(c);
+    outline(c);
+    return c;
+  }));
+  h = { frames };
+  HORSE_CACHE.set(key, h);
+  return h;
 }
 
 // ---------- Otoczenie ----------

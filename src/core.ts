@@ -1,6 +1,8 @@
 // Rdzeń: paleta, matematyka, losowość, wejście, dźwięk.
 
-const W = 480, H = 270;
+// Rozdzielczość gry zmienia się z przybliżeniem (kółko myszy), 16:9.
+let W = 480, H = 270;
+const ZOOMS = [[384, 216], [480, 270], [640, 360]];
 
 // Stała, ponura paleta (32 kolory).
 const PAL = {
@@ -49,10 +51,11 @@ class Input {
   mReleased = [false, false, false];
   motion: { x: number; y: number; t: number }[] = [];
   canvas: HTMLCanvasElement;
+  wheel = 0;
 
   attach(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const block = ["Space", "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    const block = ["Space", "Tab", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
     addEventListener("keydown", (e) => {
       if (block.includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
@@ -68,6 +71,7 @@ class Input {
       this.motion.push({ x: e.movementX, y: e.movementY, t: performance.now() });
       if (this.motion.length > 64) this.motion.shift();
     });
+    canvas.addEventListener("wheel", (e) => { e.preventDefault(); this.wheel += Math.sign(e.deltaY); }, { passive: false });
     canvas.addEventListener("mousedown", (e) => {
       if (e.button > 2) return;
       this.down[e.button] = true; this.mPressed[e.button] = true;
@@ -88,6 +92,7 @@ class Input {
   hit(code: string) { return this.pressed.has(code); }
   held(code: string) { return this.keys.has(code); }
   endFrame() {
+    this.wheel = 0;
     this.pressed.clear();
     this.mPressed = [false, false, false];
     this.mReleased = [false, false, false];

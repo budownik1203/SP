@@ -14,7 +14,7 @@ class Sfx {
   private plucks = new Map<number, AudioBuffer>();
   private nextNote = 0;
   private phrase: number[] = [];
-  private step = 0;
+  private noteStep = 0;
   private crowT = 8;
 
   init() {
@@ -235,6 +235,78 @@ class Sfx {
   }
   ui() { if (!this.ok("ui", 40)) return; const o = this.out(0, 0.05); this.tone(o, 900, 700, 0.05, "square", 0.04); }
 
+  // Głos: krótki samogłoskowy dźwięk przez dwa formanty.
+  private voice(dest: AudioNode, f0: number, f1: number, dur: number, peak: number, formants: number[], at = 0) {
+    const c = this.ctx, t = c.currentTime + at;
+    const o = c.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const mix = c.createGain(); mix.gain.value = 1;
+    for (const fq of formants) {
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = fq; bp.Q.value = 5;
+      o.connect(bp); bp.connect(mix);
+    }
+    const g = c.createGain(); this.env(g, peak, dur, at, 0.02);
+    mix.connect(g); g.connect(dest);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  pain(v = 1, pan = 0) {
+    if (!this.ok("pain", 140)) return;
+    const o = this.out(pan, 0.25);
+    const f = rr(120, 190);
+    this.voice(o, f * 1.15, f * 0.8, rr(0.18, 0.3), 0.18 * v, [rr(500, 750), rr(1000, 1300)]);
+  }
+  scream(v = 1, pan = 0) {
+    if (!this.ok("scream", 200)) return;
+    const o = this.out(pan, 0.4);
+    const f = rr(170, 240);
+    this.voice(o, f, f * 0.5, rr(0.5, 0.8), 0.16 * v, [rr(650, 850), rr(1100, 1400)]);
+  }
+  battleCry(v = 1) {
+    if (!this.ok("cry", 900)) return;
+    const o = this.out(0, 0.5);
+    for (let i = 0; i < 9; i++) {
+      const f = rr(100, 170), d = rr(0, 0.25);
+      this.voice(o, f, f * rr(1.1, 1.35), rr(0.8, 1.3), 0.05 * v, [rr(600, 800), rr(1050, 1250)], d);
+    }
+    this.tone(o, 70, 50, 0.6, "sine", 0.2 * v);
+  }
+  moan(v = 1, pan = 0) {
+    if (!this.ok("moan", 700)) return;
+    const o = this.out(pan, 0.6);
+    const f = rr(70, 110);
+    this.voice(o, f, f * 0.7, rr(1, 1.6), 0.09 * v, [rr(300, 450), rr(700, 900)]);
+  }
+  step(v = 1, heavy = 1) {
+    if (!this.ok("step", 90)) return;
+    const o = this.out(0, 0.05);
+    this.tone(o, 90 * heavy, 50, 0.08, "sine", 0.18 * v);
+    this.noise(o, 0.06, 900, 300, 1, 0.07 * v, "lowpass");
+    if (chance(0.6)) this.noise(o, 0.05, 6000, 4000, 4, 0.025 * v, "bandpass", 0.01);   // brzęk kolczugi
+  }
+  hoof(v = 1, pan = 0) {
+    if (!this.ok("hoof", 55)) return;
+    const o = this.out(pan, 0.1);
+    this.tone(o, 140, 60, 0.07, "sine", 0.3 * v);
+    this.noise(o, 0.05, 1200, 500, 2, 0.12 * v, "bandpass");
+  }
+  neigh(v = 1, pan = 0) {
+    if (!this.ok("neigh", 1500)) return;
+    const o = this.out(pan, 0.5);
+    const c = this.ctx, t = c.currentTime;
+    const osc = c.createOscillator(); osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(700, t); osc.frequency.linearRampToValueAtTime(950, t + 0.15); osc.frequency.linearRampToValueAtTime(500, t + 0.8);
+    const lfo = c.createOscillator(); lfo.frequency.value = 22; const lg = c.createGain(); lg.gain.value = 60; lfo.connect(lg); lg.connect(osc.frequency);
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 2;
+    const g = c.createGain(); this.env(g, 0.08 * v, 0.85, 0, 0.03);
+    osc.connect(bp); bp.connect(g); g.connect(o); osc.start(t); lfo.start(t); osc.stop(t + 0.9); lfo.stop(t + 0.9);
+  }
+  trample(v = 1, pan = 0) {
+    if (!this.ok("trample", 60)) return;
+    const o = this.out(pan, 0.3);
+    this.tone(o, 80, 30, 0.35, "sine", 0.9 * v);
+    this.crunch(o, 0.2, 0.35 * v, 500);
+  }
+
   // ---- Tło ----
   private startAmbience() {
     const c = this.ctx;
@@ -332,12 +404,12 @@ class Sfx {
     const scale = [146.83, 164.81, 174.61, 196, 220, 246.94, 261.63, 293.66, 329.63, 349.23, 392, 440];
     const beat = 0.34;
     while (this.nextNote < c.currentTime + 0.25) {
-      if (this.step >= this.phrase.length) {
-        this.phrase = this.makePhrase(); this.step = 0;
+      if (this.noteStep >= this.phrase.length) {
+        this.phrase = this.makePhrase(); this.noteStep = 0;
         if (chance(0.35)) { this.nextNote += beat * 4; continue; }   // oddech między frazami
       }
-      const n = this.phrase[this.step++];
-      const long = this.step === this.phrase.length;
+      const n = this.phrase[this.noteStep++];
+      const long = this.noteStep === this.phrase.length;
       if (n >= 0) {
         this.pluck(scale[n], this.nextNote, 0.22);
         if (long || chance(0.18)) this.pluck(scale[Math.max(0, n - 4)] / (n >= 4 ? 1 : 2), this.nextNote + 0.012, 0.13);

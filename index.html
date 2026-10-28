@@ -33,8 +33,8 @@ body{background:var(--bg);color:var(--text);font:15px/1.35 var(--px);overflow:hi
 .key{display:inline-block;min-width:1.2em;text-align:center;border:1px solid var(--edge);background:#0d0b0e;margin-right:.4em;color:var(--text)}
 #log{right:.6em;bottom:.6em;text-align:right;display:grid;gap:.1em;max-width:45%}
 #banner{left:0;right:0;top:22%;text-align:center;font-size:clamp(20px,calc(var(--s)*11px),46px);font-weight:700;letter-spacing:.04em}
-#slow{left:0;right:0;top:.7em;text-align:center;color:#a066cc}
-#pause{left:0;right:0;top:45%;text-align:center;font-size:clamp(18px,calc(var(--s)*9px),36px)}
+#slow{left:0;right:0;top:1.9em;text-align:center;color:#a066cc}
+
 .overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(13,11,14,.72);padding:1em;overflow:auto}
 .card{max-width:46em;width:100%;font-size:clamp(12px,calc(var(--s)*4.2px),16px)}
 .card h1{font-size:2.3em;margin:0;line-height:1;color:var(--gold);letter-spacing:.03em}
@@ -57,26 +57,60 @@ button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
 #cmd button.on{color:var(--gold)}
 #cmd .foot{color:var(--muted);font-size:.85em;border-top:1px solid var(--edge);padding-top:.2em;margin-top:.15em}
 .badge{display:inline-block;border:1px solid var(--edge);padding:0 .4em;color:var(--muted);font-size:.85em}
+#hp-fill.low{background:linear-gradient(#e0523f,#a12b26);animation:pulse .6s infinite alternate}
+@keyframes pulse{to{filter:brightness(1.5)}}
+@media (prefers-reduced-motion:reduce){#hp-fill.low{animation:none}}
+#horse-fill{background:linear-gradient(#6e5841,#4f3d2e)}
+.bar b{position:absolute;right:.3em;top:50%;transform:translateY(-50%);font-size:.7em;font-weight:400;color:var(--text);line-height:1}
+.bar.tall{height:.95em}
+.lbl{display:flex;justify-content:space-between;font-size:.8em;color:var(--muted)}
+.gname{font-weight:600}
+.mbar{display:inline-block;width:3.2em;height:.4em;background:#0d0b0e;border:1px solid var(--edge);margin-left:.5em;vertical-align:middle;position:relative}
+.mbar i{position:absolute;inset:0 auto 0 0;background:#4f5a37}
+.mbar i.warn{background:#c39a42}.mbar i.bad{background:#b1443a}
+#log .big{font-size:1.2em;font-weight:600}
+#log .cnt{color:var(--muted);font-size:.85em}
+#cmd button.dim{color:var(--muted)}
+.menu{display:grid;gap:.5em;margin-top:.6em}
+.menu label{display:flex;gap:.6em;align-items:center;cursor:pointer;pointer-events:auto}
+.menu input{accent-color:#c39a42;width:1.1em;height:1.1em}
+#pause{pointer-events:auto;inset:0;display:grid;place-items:center;background:rgba(13,11,14,.6);top:0}
+#pause .card{max-width:24em}
+.btns{display:flex;gap:.6em;flex-wrap:wrap}
+button.alt{background:#3d3a4b;color:var(--text);box-shadow:inset 0 -3px 0 #2a2433,0 2px 0 #000}
+button.alt:hover{background:#5c5a6a}
 </style>
 
 <div id="wrap">
   <canvas id="game" width="480" height="270"></canvas>
 
   <div class="hud frame" id="tl">
-    <div class="row"><span>Zdrowie</span><span class="muted" id="weapon">Miecz i tarcza</span></div>
-    <div class="bar"><i id="hp-fill" style="width:100%"></i></div>
+    <div class="row"><span>Bohater</span><span class="muted" id="weapon">Miecz i tarcza</span></div>
+    <div class="bar tall"><i id="hp-fill" style="width:100%"></i><b id="hp-txt">170 / 170</b></div>
+    <div class="lbl"><span>Wytrzymałość</span></div>
     <div class="bar"><i id="st-fill" style="width:100%"></i></div>
-    <div class="muted" id="dir">Cios: z prawej</div>
+    <div id="horse-row" hidden><div class="lbl"><span>Koń</span></div><div class="bar"><i id="horse-fill" style="width:100%"></i></div></div>
+    <div class="muted" id="dir">Następne cięcie: z prawej</div>
   </div>
   <div class="hud frame" id="tr">
-    <div><span class="ally">Twoi</span> <b id="ours">21</b> · morale <b id="morale">100%</b></div>
-    <div><span class="foe">Nieumarli</span> <b id="foes">20</b></div>
+    <div><span class="ally">Twoi</span> <b id="ours">50</b></div>
+    <div><span class="foe">Nieumarli</span> <b id="foes">45</b></div>
   </div>
   <div class="hud frame" id="bl"><div id="groups"></div></div>
   <div class="hud" id="log"></div>
   <div class="hud" id="banner" hidden></div>
-  <div class="hud" id="slow" hidden>Czas zwolniony: wydawaj rozkazy</div>
-  <div class="hud" id="pause" hidden>Pauza (P)</div>
+  <div class="hud" id="slow" hidden>Tryb rozkazów: czas zwolniony</div>
+  <div class="hud" id="pause" hidden>
+    <div class="card frame">
+      <h1>Pauza</h1>
+      <div class="menu">
+        <label><input type="checkbox" id="opt-numbers"> Liczby obrażeń nad głowami</label>
+        <label><input type="checkbox" id="opt-gesture"> Kierunek ciosu ruchem myszy (stare sterowanie)</label>
+        <label><input type="checkbox" id="opt-music"> Muzyka (M)</label>
+      </div>
+      <div class="btns"><button id="resume-btn">Wróć do bitwy (P)</button><button class="alt" id="restart-btn">Nowa bitwa (R)</button></div>
+    </div>
+  </div>
   <div class="hud" id="build"></div>
   <div class="hud frame" id="cmd" hidden></div>
 
@@ -84,37 +118,36 @@ button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
     <div class="card frame">
       <h1>Sztandary Popiołu</h1>
       <p class="tip"><span class="badge" id="build-badge"></span> Prototyp bitwy</p>
-      <p>Twój oddział (12 zbrojnych i 8 łuczników) staje naprzeciw kohorty Martwego Królestwa: szkieletów, szkieletów-łuczników i Rycerza Śmierci. Gdy padnie Rycerz, klątwa słabnie i nieumarli zaczną się rozpadać.</p>
+      <p>Twoje 49 wojska (22 zbrojnych, 14 łuczników, 13 jeźdźców) staje na polu pełnym wzgórz i lasów naprzeciw 50 sług Martwego Królestwa. Uważaj na skrzydła i na las. Gdy bohater padnie, oddziały bez oficera ruszą do szarży.</p>
       <div class="cols">
         <div>
           <h2>Walka</h2>
           <div class="ctl">
-            <span>WASD</span><span>ruch, Shift: sprint</span>
-            <span>Mysz</span><span>kierunek patrzenia</span>
-            <span>Ruch myszy</span><span>wybiera kierunek ciosu: ← z lewej, → z prawej, ↑ z góry, ↓ pchnięcie</span>
-            <span>LPM</span><span>atak; przytrzymaj, by wzmocnić</span>
-            <span>PPM</span><span>blok tarczą; tuż przed trafieniem to parowanie</span>
-            <span>PPM w zamachu</span><span>zwód</span>
-            <span>F</span><span>kopnięcie (łamie gardę)</span>
-            <span>Tab</span><span>broń: miecz, buława, łuk</span>
+            <span>WASD</span><span>ruch, Shift: sprint lub galop</span>
+            <span>Mysz</span><span>kierunek patrzenia; kółko: przybliżenie</span>
+            <span>LPM</span><span>cięcie, na przemian z prawej i z lewej</span>
+            <span>E</span><span>cios z góry: wolniejszy, mocniejszy, trafia w głowę</span>
+            <span>Spacja</span><span>pchnięcie z wypadem</span>
+            <span>Przytrzymaj</span><span>wzmacnia każdy cios</span>
+            <span>PPM</span><span>blok tarczą; tuż przed trafieniem to parowanie; w zamachu to zwód</span>
+            <span>F · Tab</span><span>kopnięcie · broń: miecz, buława, łuk</span>
           </div>
         </div>
         <div>
           <h2>Dowodzenie</h2>
           <div class="ctl">
             <span>Q</span><span>tryb rozkazów: czas zwalnia, pojawia się panel</span>
-            <span>1 · 2 · 3</span><span>w panelu: oddział, potem rozkaz z listy, potem znów oddział</span>
-            <span>PPM (przeciągnij)</span><span>w panelu: narysuj linię frontu, długość to szerokość szyku</span>
-            <span>LPM na żołnierzu</span><span>w panelu: wybiera jego oddział</span>
-            <span>0 · Backspace</span><span>w panelu: poziom wstecz</span>
+            <span>1–9</span><span>w panelu: oddział, potem rozkaz, potem znów oddział</span>
+            <span>PPM (przeciągnij)</span><span>linia frontu; jej długość to szerokość szyku</span>
+            <span>LPM: ramka</span><span>zaznacza żołnierzy; cyfra przenosi ich do oddziału 1–8</span>
+            <span>0 · Backspace</span><span>poziom wstecz</span>
             <span>Z · X · C · V · B</span><span>skróty: stać, za mną, szarża, formacja, ogień</span>
-            <span>Spacja</span><span>spowolnienie czasu</span>
-            <span>M · P · R</span><span>muzyka · pauza · nowa bitwa</span>
+            <span>P · Esc</span><span>pauza i ustawienia</span>
           </div>
         </div>
       </div>
-      <p class="tip">Czerwona strzałka nad wrogiem zapowiada jego cios. Szara kreska pokazuje, z której strony się zasłania: uderz z innej. Szkielety źle znoszą obuch (buława), a strzały słabo je ranią.</p>
-      <button id="start-btn">Do boju (Enter)</button>
+      <p class="tip">Czerwona strzałka zapowiada cios wymierzony w ciebie. Szara kreska pokazuje gardę wroga, na którego patrzysz: uderz z innej strony. Szkielety źle znoszą obuch, a strzały słabo je ranią. Konnica tratuje piechotę w pełnym galopie.</p>
+      <div class="btns"><button id="start-btn">Do boju pieszo (Enter)</button><button class="alt" id="start-horse-btn">Do boju konno</button></div>
     </div>
   </div>
 
