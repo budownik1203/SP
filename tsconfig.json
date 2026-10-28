@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "strict": false,
+    "noImplicitAny": false,
+    "outDir": "build",
+    "rootDir": "src",
+    "removeComments": false,
+    "skipLibCheck": true
+  },
+  "files": ["src/core.ts", "src/sprites.ts", "src/units.ts", "src/battle.ts", "src/main.ts"]
+}

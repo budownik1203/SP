@@ -1,0 +1,121 @@
+<title>Sztandary Popiołu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap">
+<style>
+/* Jeden ciemny wygląd z wyboru: metal i skóra. */
+:root{
+  --bg:#0d0b0e; --panel:#1a1620; --panel2:#2a2433; --edge:#3d3a4b; --metal:#767e8e;
+  --text:#e6dfc9; --muted:#8a8794; --gold:#c39a42; --red:#b1443a; --blood:#701719; --green:#4f5a37;
+  --px:"Pixelify Sans","Courier New",monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.35 var(--px);overflow:hidden;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px));
+  display:grid;place-items:center;user-select:none}
+#wrap{position:relative;--s:2;max-width:100%;max-height:100%}
+#game{width:100%;height:100%;display:block;image-rendering:pixelated;cursor:none;background:#000}
+.hud{position:absolute;pointer-events:none;font-size:clamp(11px,calc(var(--s)*4.6px),17px);text-shadow:0 1px 0 #000,1px 0 0 #000,-1px 0 0 #000,0 -1px 0 #000}
+.frame{background:linear-gradient(#2a2433,#1a1620);border:2px solid #0d0b0e;box-shadow:inset 0 0 0 1px var(--edge),0 2px 0 #000;padding:.35em .6em}
+#tl{left:.6em;top:.6em;width:15em;display:grid;gap:.3em}
+.bar{height:.6em;background:#0d0b0e;border:1px solid var(--edge);position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;display:block}
+#hp-fill{background:linear-gradient(#b1443a,#701719)}
+#st-fill{background:linear-gradient(#c39a42,#86682b)}
+.row{display:flex;justify-content:space-between;gap:.5em}
+.muted{color:var(--muted)}
+#tr{right:.6em;top:.6em;display:grid;gap:.15em;text-align:right;min-width:9em}
+#tr b{font-weight:600}
+.foe{color:#a066cc}.ally{color:#b1443a}
+.bad{color:#b1443a}
+#bl{left:.6em;bottom:.6em;display:grid;gap:.2em;max-width:60%}
+.grp{opacity:.7}.grp.sel{opacity:1;color:var(--gold)}
+.key{display:inline-block;min-width:1.2em;text-align:center;border:1px solid var(--edge);background:#0d0b0e;margin-right:.4em;color:var(--text)}
+#log{right:.6em;bottom:.6em;text-align:right;display:grid;gap:.1em;max-width:45%}
+#banner{left:0;right:0;top:22%;text-align:center;font-size:clamp(20px,calc(var(--s)*11px),46px);font-weight:700;letter-spacing:.04em}
+#slow{left:0;right:0;top:.7em;text-align:center;color:#a066cc}
+#pause{left:0;right:0;top:45%;text-align:center;font-size:clamp(18px,calc(var(--s)*9px),36px)}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(13,11,14,.72);padding:1em;overflow:auto}
+.card{max-width:46em;width:100%;font-size:clamp(12px,calc(var(--s)*4.2px),16px)}
+.card h1{font-size:2.3em;margin:0;line-height:1;color:var(--gold);letter-spacing:.03em}
+.card h2{font-size:1.05em;margin:.9em 0 .3em;color:var(--red);text-transform:uppercase;letter-spacing:.08em}
+.card p{margin:.4em 0;color:var(--text)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:0 1.5em}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+.ctl{display:grid;grid-template-columns:7.5em 1fr;gap:.15em .6em;font-size:.95em}
+.ctl span:nth-child(odd){color:var(--gold)}
+button{font:600 1.15em var(--px);color:#0d0b0e;background:var(--gold);border:2px solid #0d0b0e;box-shadow:inset 0 -3px 0 #86682b,0 2px 0 #000;padding:.35em 1.2em;cursor:pointer;margin-top:1em}
+button:hover{background:#d6ad55}
+button:focus-visible{outline:2px dashed var(--text);outline-offset:3px}
+.tip{color:var(--muted);font-size:.9em}
+</style>
+
+<div id="wrap">
+  <canvas id="game" width="480" height="270"></canvas>
+
+  <div class="hud frame" id="tl">
+    <div class="row"><span>Zdrowie</span><span class="muted" id="weapon">Miecz i tarcza</span></div>
+    <div class="bar"><i id="hp-fill" style="width:100%"></i></div>
+    <div class="bar"><i id="st-fill" style="width:100%"></i></div>
+    <div class="muted" id="dir">Cios: z prawej</div>
+  </div>
+  <div class="hud frame" id="tr">
+    <div><span class="ally">Twoi</span> <b id="ours">21</b> · morale <b id="morale">100%</b></div>
+    <div><span class="foe">Nieumarli</span> <b id="foes">20</b></div>
+  </div>
+  <div class="hud frame" id="bl"><div id="groups"></div></div>
+  <div class="hud" id="log"></div>
+  <div class="hud" id="banner" hidden></div>
+  <div class="hud" id="slow" hidden>Czas zwolniony: wydawaj rozkazy</div>
+  <div class="hud" id="pause" hidden>Pauza (P)</div>
+
+  <div class="overlay" id="deploy">
+    <div class="card frame">
+      <h1>Sztandary Popiołu</h1>
+      <p class="tip">Prototyp bitwy · wersja 0.1</p>
+      <p>Twój oddział (12 zbrojnych i 8 łuczników) staje naprzeciw kohorty Martwego Królestwa: szkieletów, szkieletów-łuczników i Rycerza Śmierci. Gdy padnie Rycerz, klątwa słabnie i nieumarli zaczną się rozpadać.</p>
+      <div class="cols">
+        <div>
+          <h2>Walka</h2>
+          <div class="ctl">
+            <span>WASD</span><span>ruch, Shift: sprint</span>
+            <span>Mysz</span><span>kierunek patrzenia</span>
+            <span>Ruch myszy</span><span>wybiera kierunek ciosu: ← z lewej, → z prawej, ↑ z góry, ↓ pchnięcie</span>
+            <span>LPM</span><span>atak; przytrzymaj, by wzmocnić</span>
+            <span>PPM</span><span>blok tarczą; tuż przed trafieniem to parowanie</span>
+            <span>PPM w zamachu</span><span>zwód</span>
+            <span>F</span><span>kopnięcie (łamie gardę)</span>
+            <span>Tab</span><span>broń: miecz, buława, łuk</span>
+          </div>
+        </div>
+        <div>
+          <h2>Dowodzenie</h2>
+          <div class="ctl">
+            <span>1 · 2 · 3</span><span>piechota · łucznicy · wszyscy</span>
+            <span>Z</span><span>stać przy kursorze</span>
+            <span>X</span><span>za mną</span>
+            <span>C</span><span>szarża</span>
+            <span>V</span><span>formacja: linia, mur tarcz, luźny szyk, klin</span>
+            <span>B</span><span>łucznicy: strzelać / wstrzymać</span>
+            <span>Spacja</span><span>spowolnienie czasu</span>
+            <span>Q · P · R</span><span>kamera · pauza · nowa bitwa</span>
+          </div>
+        </div>
+      </div>
+      <p class="tip">Czerwona strzałka nad wrogiem zapowiada jego cios. Szara kreska pokazuje, z której strony się zasłania: uderz z innej. Szkielety źle znoszą obuch (buława), a strzały słabo je ranią.</p>
+      <button id="start-btn">Do boju (Enter)</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="end" hidden>
+    <div class="card frame" style="max-width:30em;text-align:center">
+      <h1 id="end-title">Zwycięstwo</h1>
+      <p id="end-text"></p>
+      <button id="again-btn">Jeszcze raz (R)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*__GAME__*/
+</script>
