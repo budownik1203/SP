@@ -381,7 +381,9 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
     case "arena": {
       const tour = s.tournament > 0, night = isNight(w);
       const wins = (s as any).arenaWins || 0, champ = (s as any).champion === "player";
-      const card = (mode: string, title: string, desc: string, prize: string, pic2: string, fee = 0) => `<div class="acard"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`;
+      // każde wyzwanie raz na kilka dni (bez farmienia złota), najwyżej 3 walki dziennie w jednym mieście
+      const cd = ((s as any).arenaCd ||= {}) as Record<string, number>, today = ((s as any).arenaDay === w.day ? (s as any).arenaToday : 0) || 0;
+      const card = (mode: string, title: string, desc: string, prize: string, pic2: string, fee = 0) => { const left = (cd[mode] || 0) - w.day; const ok = left <= 0 && today < 3 && P.gold >= fee; return `<div class="acard ${left > 0 ? "cool" : ""}"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${ok ? "" : "disabled"}>${left > 0 ? `Znów za ${left} d.` : today >= 3 ? "Dość na dziś" : fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`; };
       const kitRow = `<div class="row"><span>Zestaw:</span>${ARENA_KITS.map((k, i) => `<button class="mini ${SET.kit === i ? "on" : ""}" data-a="kit" data-v="${i}">${k.name}</button>`).join("")}</div>`;
       return {
         html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu.${wins ? ` Twoje zwycięstwa tutaj: <b>${wins}</b>.` : ""}${champ ? ` <span class="gold">${ic("crown")} Mistrz areny ${s.name}</span>` : ` <span class="muted">(10 zwycięstw: tytuł mistrza areny)</span>`}</p>
@@ -402,7 +404,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
         acts: {
           bet: (v) => { SET.bet = clamp(Math.round(Number(v) || 0), 0, P.gold); },
           kit: (v) => { SET.kit = Number(v); re(); },
-          pick: (v) => { const [mode, fee] = v.split(":"); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
+          pick: (v) => { const [mode, fee] = v.split(":"); const sw = s as any; if (sw.arenaDay !== w.day) { sw.arenaDay = w.day; sw.arenaToday = 0; } sw.arenaToday++; sw.arenaCd[mode] = w.day + (mode === "death" ? 5 : 3); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
           tour: () => { startTourney(s, 0); },
         },
       };

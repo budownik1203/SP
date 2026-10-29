@@ -258,7 +258,7 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .bk{border:1px solid #6b5234;background:#1c1610;padding:4px 8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bk.you{border-color:#e9c45e;color:#e9c45e}.bk.out{opacity:.4;text-decoration:line-through}.bk.empty{color:#665;text-align:center}
 .advbar{height:.5em;background:#7a2a20;border:1px solid #000;position:relative}.advbar i{position:absolute;left:0;top:0;bottom:0;background:#5d9a46;transition:width .4s}
-#mini{display:block;margin-top:.3em;border:1px solid rgba(0,0,0,.6);width:7.5em;margin-left:auto;opacity:.78;background:rgba(20,22,14,.35)}
+#mini{pointer-events:auto;cursor:zoom-in;display:block;margin-top:.3em;border:1px solid rgba(0,0,0,.6);width:7.5em;margin-left:auto;opacity:.78;background:rgba(20,22,14,.35)}
 #mini.big{position:fixed;right:1.2%;top:16%;width:min(34vw,400px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
 .grp .ic{width:1.1em;height:1.1em;vertical-align:-.15em;margin-right:.25em}
 #abil .ab{min-width:6.5em;min-height:3.4em}#abil .ab .ic{width:1.6em;height:1.6em;display:block;margin:0 auto .1em}
@@ -275,6 +275,9 @@ p.rel{color:#e9c45e}
 .acard{display:flex;flex-direction:column;gap:.15em;background:#1c1610;border:1px solid #3a2e22;padding:.4em;font-size:.9em}.acard:hover{border-color:#8a6d2a}
 .apic{height:42px;display:flex;justify-content:center;align-items:flex-end;gap:2px;background:linear-gradient(#2a2119,#3b2e1d)}.apic canvas{height:38px;width:auto}
 .bracket.b16 .bk{font-size:11px;padding:2px 5px}.bk.lord{border-color:#a78a3a}
+.minitog{pointer-events:auto;all:unset;cursor:pointer;font-size:.75em;color:var(--muted);display:block;text-align:right;margin-top:.1em}.minitog:hover{color:var(--gold)}
+#mini.big+.minitog{position:fixed;right:1.4%;top:calc(16% - 1.4em);z-index:5;color:var(--gold)}
+.acard.cool{opacity:.5}
 </style>
 
 <div id="wrap">
@@ -295,6 +298,7 @@ p.rel{color:#e9c45e}
       <div><span class="foe" id="foe-name">Wróg</span> <b id="foes">0</b></div>
       <div class="advbar"><i id="adv" style="width:50%"></i></div><div class="muted" id="adv-t" style="font-size:.85em"></div>
       <canvas id="mini" width="96" height="64"></canvas>
+      <button id="minitog" class="minitog">⤢ mapa (N)</button>
     </div>
     <div class="hud frame" id="bl"><div id="groups"></div></div>
     <div class="hud" id="abil"></div>
@@ -13456,6 +13460,7 @@ function recruitPool(s) {
     return list;
 }
 function settlementPane(s, hostileS) {
+    var _a;
     const w = WORLD, P = w.player, p = playerParty(w);
     const re = () => renderSettlement();
     switch (SET.tab) {
@@ -13569,7 +13574,9 @@ function settlementPane(s, hostileS) {
         case "arena": {
             const tour = s.tournament > 0, night = isNight(w);
             const wins = s.arenaWins || 0, champ = s.champion === "player";
-            const card = (mode, title, desc, prize, pic2, fee = 0) => `<div class="acard"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`;
+            // każde wyzwanie raz na kilka dni (bez farmienia złota), najwyżej 3 walki dziennie w jednym mieście
+            const cd = ((_a = s).arenaCd || (_a.arenaCd = {})), today = (s.arenaDay === w.day ? s.arenaToday : 0) || 0;
+            const card = (mode, title, desc, prize, pic2, fee = 0) => { const left = (cd[mode] || 0) - w.day; const ok = left <= 0 && today < 3 && P.gold >= fee; return `<div class="acard ${left > 0 ? "cool" : ""}"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${ok ? "" : "disabled"}>${left > 0 ? `Znów za ${left} d.` : today >= 3 ? "Dość na dziś" : fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`; };
             const kitRow = `<div class="row"><span>Zestaw:</span>${ARENA_KITS.map((k, i) => `<button class="mini ${SET.kit === i ? "on" : ""}" data-a="kit" data-v="${i}">${k.name}</button>`).join("")}</div>`;
             return {
                 html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu.${wins ? ` Twoje zwycięstwa tutaj: <b>${wins}</b>.` : ""}${champ ? ` <span class="gold">${ic("crown")} Mistrz areny ${s.name}</span>` : ` <span class="muted">(10 zwycięstw: tytuł mistrza areny)</span>`}</p>
@@ -13590,7 +13597,10 @@ function settlementPane(s, hostileS) {
                 acts: {
                     bet: (v) => { SET.bet = clamp(Math.round(Number(v) || 0), 0, P.gold); },
                     kit: (v) => { SET.kit = Number(v); re(); },
-                    pick: (v) => { const [mode, fee] = v.split(":"); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
+                    pick: (v) => { const [mode, fee] = v.split(":"); const sw = s; if (sw.arenaDay !== w.day) {
+                        sw.arenaDay = w.day;
+                        sw.arenaToday = 0;
+                    } sw.arenaToday++; sw.arenaCd[mode] = w.day + (mode === "death" ? 5 : 3); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
                     tour: () => { startTourney(s, 0); },
                 },
             };
@@ -14654,7 +14664,7 @@ function showSettings(back) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.10";
+const BUILD = "Build 0.10.1";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -14749,7 +14759,7 @@ function setZoom(i) {
 // ---------- HUD bitwy ----------
 const AB_ICON = { faith: "cross", mana: "eye", fury: "fire" };
 // Minimapa w rogu; w trybie rozkazów (Q) powiększona do mapy taktycznej z numerami oddziałów.
-let miniBig = false;
+let miniBig = false, miniWant = false; // mapa taktyczna rozwijana na żądanie (klik w minimapę lub klawisz N)
 function drawMini(b) {
     const cv = $("mini");
     if (!cv)
@@ -14759,10 +14769,11 @@ function drawMini(b) {
         return;
     }
     cv.hidden = false;
-    const big = b.cmdOpen;
+    const big = miniWant && b.phase !== "end";
     if (big !== miniBig) {
         miniBig = big;
         cv.className = big ? "big" : "";
+        $("minitog").textContent = big ? "× zwiń mapę (N)" : "⤢ mapa (N)";
     }
     const M = b.map, Wc = big ? 240 : 96, Hc = Math.round(Wc * M.h / M.w);
     if (cv.width !== Wc || cv.height !== Hc) {
@@ -14913,8 +14924,14 @@ $("mini").addEventListener("mousedown", (e) => {
     e.stopPropagation();
     e.preventDefault();
     const b = G.battle;
-    if (!b || !b.cmdOpen)
+    if (!b)
         return;
+    if (!miniBig) {
+        miniWant = true;
+        return;
+    } // mała minimapa: klik rozwija
+    if (!b.cmdOpen)
+        b.toggleCmd(true);
     const r = e.target.getBoundingClientRect();
     const wx = (e.clientX - r.left) / r.width * b.map.w, wy = (e.clientY - r.top) / r.height * b.map.h;
     if (!b.selected.length)
@@ -14926,6 +14943,7 @@ $("mini").addEventListener("mousedown", (e) => {
     b.sfx.ui();
 });
 $("mini").addEventListener("contextmenu", (e) => e.preventDefault());
+$("minitog").addEventListener("mousedown", (e) => { e.stopPropagation(); e.preventDefault(); miniWant = !miniWant; });
 $("startfight").addEventListener("mousedown", (e) => { e.stopPropagation(); G.battle?.startFight(); });
 $("cmd").addEventListener("mousedown", (e) => {
     e.stopPropagation();
@@ -15053,6 +15071,8 @@ function frameInner(now) {
         }
         if (input.wheel)
             setZoom(zoomIdx + input.wheel);
+        if (input.hit("KeyN"))
+            miniWant = !miniWant;
         if (screenOpen() && b.phase === "fight")
             b.paused = true;
         b.update(dt);

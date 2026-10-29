@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.10";
+const BUILD = "Build 0.10.1";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -74,13 +74,13 @@ function setZoom(i: number) {
 // ---------- HUD bitwy ----------
 const AB_ICON: Record<string, string> = { faith: "cross", mana: "eye", fury: "fire" };
 // Minimapa w rogu; w trybie rozkazów (Q) powiększona do mapy taktycznej z numerami oddziałów.
-let miniBig = false;
+let miniBig = false, miniWant = false;   // mapa taktyczna rozwijana na żądanie (klik w minimapę lub klawisz N)
 function drawMini(b: Battle) {
   const cv = $("mini") as HTMLCanvasElement; if (!cv) return;
   if (settings.minimap === false && !b.cmdOpen) { cv.hidden = true; return; }
   cv.hidden = false;
-  const big = b.cmdOpen;
-  if (big !== miniBig) { miniBig = big; cv.className = big ? "big" : ""; }
+  const big = miniWant && b.phase !== "end";
+  if (big !== miniBig) { miniBig = big; cv.className = big ? "big" : ""; $("minitog").textContent = big ? "× zwiń mapę (N)" : "⤢ mapa (N)"; }
   const M = b.map, Wc = big ? 240 : 96, Hc = Math.round(Wc * M.h / M.w);
   if (cv.width !== Wc || cv.height !== Hc) { cv.width = Wc; cv.height = Hc; }
   const g = cv.getContext("2d"), k = Wc / M.w;
@@ -186,7 +186,9 @@ function renderCmd() {
 // mapa taktyczna: klik = oddziały idą w to miejsce, PPM = szarża
 $("mini").addEventListener("mousedown", (e) => {
   e.stopPropagation(); e.preventDefault();
-  const b = G.battle; if (!b || !b.cmdOpen) return;
+  const b = G.battle; if (!b) return;
+  if (!miniBig) { miniWant = true; return; }            // mała minimapa: klik rozwija
+  if (!b.cmdOpen) b.toggleCmd(true);
   const r = (e.target as HTMLElement).getBoundingClientRect();
   const wx = (e.clientX - r.left) / r.width * b.map.w, wy = (e.clientY - r.top) / r.height * b.map.h;
   if (!b.selected.length) b.selected = b.liveSquads();
@@ -194,6 +196,7 @@ $("mini").addEventListener("mousedown", (e) => {
   b.sfx.ui();
 });
 $("mini").addEventListener("contextmenu", (e) => e.preventDefault());
+$("minitog").addEventListener("mousedown", (e) => { e.stopPropagation(); e.preventDefault(); miniWant = !miniWant; });
 $("startfight").addEventListener("mousedown", (e) => { e.stopPropagation(); G.battle?.startFight(); });
 $("cmd").addEventListener("mousedown", (e) => {
   e.stopPropagation();
@@ -275,6 +278,7 @@ function frameInner(now: number) {
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (input.wheel) setZoom(zoomIdx + input.wheel);
+    if (input.hit("KeyN")) miniWant = !miniWant;
     if (screenOpen() && b.phase === "fight") b.paused = true;
     b.update(dt);
     renderBattle(b, ctx);
