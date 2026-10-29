@@ -3,7 +3,7 @@ root = pathlib.Path(__file__).parent
 r = subprocess.run(["tsc", "-p", str(root)], capture_output=True, text=True)
 if r.returncode != 0:
     print(r.stdout, r.stderr); sys.exit(1)
-order = ["core", "sprites", "units", "audio", "battleMap", "battle", "abilities", "battleRender", "world", "skills", "worldRender", "ui", "campaign", "screens", "main"]
+order = ["core", "sprites", "units", "audio", "battleMap", "battle", "abilities", "battleRender", "world", "politics", "skills", "worldRender", "ui", "campaign", "screens", "main"]
 js = "\n".join((root / "build" / f"{n}.js").read_text() for n in order)
 js = "(function(){\n" + js + "\n})();"
 html = (root / "index.html").read_text().replace("/*__GAME__*/", js)

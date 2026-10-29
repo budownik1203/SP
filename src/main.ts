@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.13";
+const BUILD = "Build 0.14";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -17,19 +17,36 @@ const settings: Settings = {
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
   atkMode: "mouse", horseMode: "dir", deploy: true, borders: true, typeText: true, voices: true, gore: true, dmgHeroOnly: true, outline: true,
+  fxVol: 1, voiceVol: 1, uiVol: 0.8, keys: {}, seenTips: [], loadScreens: true,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
   if (s) { Object.assign(settings, s); if (!s.ver || s.ver < 9) { settings.tells = false; settings.atkMode = s.gesture ? "screen" : "mouse"; settings.dmgHeroOnly = true; } }
-  (settings as any).ver = 9;
+  if (s && (!s.ver || s.ver < 10) && settings.uiScale === 1) settings.uiScale = 1.15;   // B14: większa czcionka domyślnie
+  if (!s) settings.uiScale = 1.15;
+  (settings as any).ver = 10;
 } catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try { localStorage.setItem("sztandary-settings", JSON.stringify(settings)); } catch (e) { /* ignoruj */ } }
 sfx.volume = settings.volume;
 sfx.musicVol = settings.musicVol;
+sfx.busVol = { fx: settings.fxVol ?? 1, voice: settings.voiceVol ?? 1, ui: settings.uiVol ?? 0.8 };
 applyUiScale();
 function applyUiScale() { document.getElementById("wrap").style.setProperty("--uis", String(settings.uiScale)); }
 sfx.musicOn = settings.music;
 sfxUi = () => sfx.ui();
+toastStamp = () => WORLD ? [WORLD.day, Math.floor(WORLD.hour)] : [0, 0];
+seenTip = (id) => (settings.seenTips || []).includes(id);
+markTip = (id) => { (settings.seenTips ||= []).push(id); saveSettings(); };
+// przypisywanie klawiszy: następny wciśnięty klawisz trafia do czekającej akcji
+let KEYWAIT = "";
+let KEYBACK: (() => void) | null = null;
+addEventListener("keydown", (e) => {
+  if (!KEYWAIT) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.code !== "Escape") { (settings.keys ||= {})[KEYWAIT] = e.code; saveSettings(); }
+  KEYWAIT = "";
+  if (KEYBACK) showSettings(KEYBACK);
+}, true);
 addLogMsg = (t, c) => { if (G.state === "map") toast(t, c); };
 onChronicle = (t, c) => { if (G.state === "map" && WORLD && settings.toastsOn) { const p = playerParty(WORLD); if (p) toast(t, c || PAL.bone); } };
 
@@ -227,6 +244,7 @@ function battleEndCheck(dt: number) {
   endT += dt;
   if (endT < 2.2 || endShown) return;
   endShown = true;
+  if (G.ctx.kind === "escape") { hideBattleHud(); G.ctx.onEnd?.(G.battle.result.win); return; }
   if (G.ctx.kind === "custom") {
     hideBattleHud();
     const r = b.result;
@@ -257,11 +275,13 @@ $("maphud").addEventListener("click", (e) => {
 });
 function openWin(k: string) {
   if (!WORLD || WORLD.player.captive) return;
-  const cur = SCREEN ? SCREEN.el.className : "";
+  const cur = SCREEN ? SCREEN.el.className.replace(" fresh", "") : "";
   const map: Record<string, [string, () => void]> = { char: ["char-scr", showCharacter], inv: ["inv-scr", showInventory], party: ["party-scr", showParty], fac: ["fac-scr", showFactions], chron: ["chron-scr", showChronicle], quest: ["quest-scr", showQuests] };
+  map.log = ["log-scr", showLog]; map.help = ["help-scr", showHelp];
   const [cls, fn] = map[k];
   if (cur === "win " + cls) { closeScreen(); return; }
-  if (SCREEN && !["char-scr", "inv-scr", "party-scr", "fac-scr", "chron-scr", "quest-scr"].some((c) => cur === "win " + c)) return;   // nie przerywaj osady ani rozmowy
+  if (SCREEN && !["char-scr", "inv-scr", "party-scr", "fac-scr", "chron-scr", "quest-scr", "log-scr", "help-scr"].some((c) => cur === "win " + c)) return;   // nie przerywaj osady ani rozmowy
+  sfx.open();
   fn();
 }
 
@@ -286,7 +306,7 @@ function frameInner(now: number) {
   last = now;
   const typing = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT");
   if (typing) input.pressed.clear();
-  if (input.hit("KeyM")) { settings.music = sfx.toggleMusic(); saveSettings(); toast(settings.music ? "Muzyka: włączona" : "Muzyka: wyłączona"); }
+  if (input.hit(KB("music"))) { settings.music = sfx.toggleMusic(); saveSettings(); toast(settings.music ? "Muzyka: włączona" : "Muzyka: wyłączona"); }
   if (input.hit("F11")) toggleFullscreen();
   if (G.state === "battle" && G.battle) {
     const b = G.battle;
@@ -294,7 +314,7 @@ function frameInner(now: number) {
     if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (W !== ZOOMS[zoomIdx][0]) setRes(ZOOMS[zoomIdx][0], ZOOMS[zoomIdx][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);
-    if (input.hit("KeyN")) miniWant = !miniWant;
+    if (input.hit(KB("mini"))) miniWant = !miniWant;
     if (screenOpen() && b.phase === "fight") b.paused = true;
     b.update(dt);
     renderBattle(b, ctx);
@@ -313,27 +333,61 @@ function frameInner(now: number) {
       }
       if (bs.length && input.hit("Enter")) { const f = bs.find((b) => b.classList.contains("focus")); if (f && !f.disabled) f.click(); }
     }
-    if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr/.test(SCREEN.el.className)) {
-      if (input.hit("KeyC")) openWin("char"); if (input.hit("KeyI")) openWin("inv"); if (input.hit("KeyP")) openWin("party");
-      if (input.hit("KeyF")) openWin("fac"); if (input.hit("KeyK")) openWin("chron"); if (input.hit("KeyJ")) openWin("quest");
+    if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr|log-scr|help-scr/.test(SCREEN.el.className)) {
+      if (input.hit(KB("char"))) openWin("char"); if (input.hit(KB("inv"))) openWin("inv"); if (input.hit(KB("party"))) openWin("party");
+      if (input.hit(KB("fac"))) openWin("fac"); if (input.hit(KB("chron"))) openWin("chron"); if (input.hit(KB("quest"))) openWin("quest"); if (input.hit(KB("log"))) openWin("log");
     }
     if (input.wheel && !screenOpen()) mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
     if (mapZ !== mapZT) mapZ += Math.sign(mapZT - mapZ);
     if (W !== MAPZ[mapZ][0]) setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
-    if (input.hit("Tab") && !screenOpen()) G.view.overview = !G.view.overview;
-    if (input.hit("KeyB") && !screenOpen()) { settings.borders = settings.borders === false; saveSettings(); toast(settings.borders ? "Granice: widoczne" : "Granice: ukryte"); }
+    if (input.hit(KB("help")) && !screenOpen()) showHelp();
+    if (input.hit(KB("overview")) && !screenOpen()) G.view.overview = !G.view.overview;
+    if (input.hit(KB("borders")) && !screenOpen()) { settings.borders = settings.borders === false; saveSettings(); toast(settings.borders ? "Granice: widoczne" : "Granice: ukryte"); }
     if (!screenOpen()) mapUpdate(dt); else G.view.time += dt;
     renderWorld(WORLD, G.view, ctx);
     mapHudT -= dt;
     if (mapHudT <= 0) { mapHudT = 0.5; if ($("maphud").hidden && !screenOpen() && !WORLD.player.captive) showMapHud(); else if (!$("maphud").hidden) refreshMapHud(); }
-    sfx.tick(dt, 0, WORLD.rain);
+    mapSound(dt);
   } else {
     // tło menu: mapa świata albo ciemność z popiołem
     ctx.fillStyle = PAL.black; ctx.fillRect(0, 0, W, H);
     titleBg(dt);
+    sfx.setMood("title");
     sfx.tick(dt, 0, false);
   }
   input.endFrame();
+}
+
+// Dźwięk mapy: nastrój zależy od regionu, pory dnia i miejsca w osadzie; tło: ptaki, rzeka, kroki.
+let ambWater = 0, ambT = 0;
+function mapSound(dt: number) {
+  const w = WORLD, p = playerParty(w);
+  ambT -= dt;
+  if (ambT <= 0) {
+    ambT = 0.5;
+    const cx = Math.floor(p.x / WCELL), cy = Math.floor(p.y / WCELL);
+    let n = 0;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const t = terrAt(w, cx + dx, cy + dy); if (t === T_RIVER || t === T_SEA || t === T_BEACH) n++; }
+    ambWater = clamp(n / 18, 0, 1);
+  }
+  let mood = "";
+  const cls = SCREEN ? SCREEN.el.className : "";
+  if (/settle-scr/.test(cls)) {
+    const s = w.settlements[SET.id];
+    mood = SET.tab === "tavern" ? "tavern" : SET.tab === "market" || SET.tab === "smith" ? "market" : s && s.kind !== "village" && (SET.tab === "main" || SET.tab === "throne" || SET.tab === "rule" || SET.tab === "dungeon") && s.kind === "castle" ? "castle" : SET.tab === "throne" ? "castle" : "";
+  }
+  if (!mood) {
+    if (isNight(w)) mood = "night";
+    else {
+      const s = nearestSettlement(w, p.x, p.y);
+      const blight = w.blight[cellOf(p.x, p.y)] > 0;
+      const cul = blight ? "undead" : s ? FACTIONS[s.faction]?.culture : "";
+      mood = cul === "aurelia" ? "map_aurelia" : cul === "varus" ? "map_varus" : cul === "dwarf" ? "map_dwarf" : cul === "orc" ? "map_orc" : cul === "undead" ? "map_undead" : "map_wild";
+    }
+  }
+  sfx.setMood(mood);
+  const day = !isNight(w);
+  sfx.tick(dt, 0, w.rain, { day, water: /settle-scr/.test(cls) ? 0 : ambWater, moving: !screenOpen() && p.path.length > 0 && !G.camping, mounted: !!w.player.equip.horse, winter: season(w) === 3 });
 }
 
 // Tło ekranu tytułowego: płonący horyzont, sztandary i popiół.
@@ -359,4 +413,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard };

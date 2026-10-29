@@ -27,12 +27,56 @@ function deserializeWorld(json: string): World {
   // przedmioty z jakością odtwarzamy z identyfikatorów
   for (const id of w.player.items) ensureItem(id);
   for (const id of Object.values(w.player.equip)) if (id) ensureItem(id as string);
+  recomputeBlight(w);
+  applyCrest(w.player);
   return w;
 }
 function autosave() { if (!WORLD) return; try { localStorage.setItem(SAVE_AUTO, serializeWorld(WORLD)); } catch (e) { /* brak miejsca */ } }
-function saveSlot() { try { localStorage.setItem(SAVE_SLOT, serializeWorld(WORLD)); toast("Zapisano grę.", PAL.gold); } catch (e) { toast("Nie udało się zapisać gry.", PAL.redL); } }
+// 5 miejsc na zapis; pierwsze to dawny pojedynczy zapis. Obok zapisu leży opis: imię, dzień, poziom, data.
+const NSLOTS = 5;
+function slotKey(n: number) { return n === 1 ? SAVE_SLOT : `sztandary-b14-slot${n}`; }
+function slotMeta(k: string): { name: string; day: number; level: number; race: string; origin: string; when: number; status?: string; look?: Look } | null {
+  try { const m = localStorage.getItem(k + "-meta"); if (m) return JSON.parse(m); if (localStorage.getItem(k)) return { name: "Stary zapis", day: 0, level: 0, race: "", origin: "", when: 0 }; } catch (e) { /* brak */ }
+  return null;
+}
+function anySlot() { for (let n = 1; n <= NSLOTS; n++) if (hasSave(slotKey(n))) return true; return false; }
+function saveSlot(n = 1) {
+  try {
+    localStorage.setItem(slotKey(n), serializeWorld(WORLD));
+    const P = WORLD.player;
+    localStorage.setItem(slotKey(n) + "-meta", JSON.stringify({ name: P.name, day: WORLD.day, level: P.level, race: P.race, origin: P.origin, when: Date.now(), status: P.status, look: P.look }));
+    toast(`Zapisano grę (miejsce ${n}).`, PAL.gold);
+  } catch (e) { toast("Nie udało się zapisać gry. Brak miejsca w przeglądarce.", PAL.redL); }
+}
+function showSaves(mode: "save" | "load", back: () => void) {
+  const rows: string[] = [];
+  const all: [string, string][] = [[SAVE_AUTO, "Autozapis"], ...Array.from({ length: NSLOTS }, (_, i) => [slotKey(i + 1), `Miejsce ${i + 1}`] as [string, string])];
+  for (const [k, lab] of all) {
+    if (mode === "save" && k === SAVE_AUTO) continue;
+    const m = slotMeta(k);
+    const n = k === SAVE_AUTO ? 0 : all.findIndex((a) => a[0] === k);
+    const face = m && m.look ? pic(drawPortrait(m.look, PAL.gold), "") : `<span class="ic big">${ic("scroll", "big")}</span>`;
+    rows.push(`<div class="slot2 ${m ? "" : "empty"}">${face}<div><b>${lab}</b>${m ? ` · ${esc(m.name)}${m.level ? ` · poziom ${m.level}` : ""}${m.day ? ` · dzień ${m.day}` : ""}${m.status ? ` · ${m.status}` : ""}<br><span class="muted">${m.when ? new Date(m.when).toLocaleString("pl-PL") : ""}</span>` : `<br><span class="muted">puste</span>`}</div>
+      <div>${mode === "save" ? `<button class="mini" data-a="save" data-v="${n}">${m ? "Nadpisz" : "Zapisz"}</button>` : `<button class="mini" data-a="load" data-v="${k}" ${m ? "" : "disabled"}>Wczytaj</button>`}${m && k !== SAVE_AUTO ? `<button class="mini danger" data-a="del" data-v="${k}">Usuń</button>` : ""}</div></div>`);
+  }
+  showScr(`<div class="card frame"><h1>${mode === "save" ? "Zapisz grę" : "Wczytaj grę"}</h1><div class="slots">${rows.join("")}</div><div class="btns"><button class="alt" data-a="back">Wróć</button></div></div>`, {
+    save: (v) => { saveSlot(Number(v)); showSaves("save", back); },
+    load: (v) => loadSave(v),
+    del: (v) => { try { localStorage.removeItem(v); localStorage.removeItem(v + "-meta"); } catch (e) { /* nic */ } showSaves(mode, back); },
+    back: () => back(),
+  }, "saves-scr");
+}
 function hasSave(k: string) { try { return !!localStorage.getItem(k); } catch (e) { return false; } }
-function loadSave(k: string) {
+function loadScene() {
+  const kinds = ["castle", "town", "village", "ruins", "cemetery", "camp", "tavern", "arena", "shrine"];
+  const cul = pick(["aurelia", "varus", "dwarf", "orc", "undead"]);
+  const src = drawScene(pick(kinds), Math.floor(rr(1, 999)), cul, chance(0.4));
+  const [c, g] = mkCanvas(src.width, src.height); g.drawImage(src, 0, 0);
+  return c;
+}
+function withLoading(fn: () => void) { if (settings.loadScreens === false) fn(); else showLoading(loadScene(), fn); }
+function loadSave(k: string) { withLoading(() => loadSaveNow(k)); }
+function loadSaveNow(k: string) {
   let json: string | null = null;
   try { json = localStorage.getItem(k); } catch (e) { /* brak */ }
   if (!json) { toast("Brak zapisu.", PAL.redL); return; }
@@ -59,7 +103,7 @@ function showTitle() {
     <div class="col-btns">
       <button data-a="new">Nowa gra</button>
       <button class="alt" data-a="cont" ${hasSave(SAVE_AUTO) ? "" : "disabled"}>Kontynuuj (autozapis)</button>
-      <button class="alt" data-a="load" ${hasSave(SAVE_SLOT) ? "" : "disabled"}>Wczytaj zapis</button>
+      <button class="alt" data-a="load" ${anySlot() || hasSave(SAVE_AUTO) ? "" : "disabled"}>Wczytaj grę</button>
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
@@ -67,26 +111,66 @@ function showTitle() {
   </div>`, {
     new: () => showCreator(),
     cont: () => loadSave(SAVE_AUTO),
-    load: () => loadSave(SAVE_SLOT),
+    load: () => showSaves("load", () => showTitle()),
     quick: () => showQuickBattle(),
     opts: () => showSettings(() => showTitle()),
   }, "title");
 }
 
 // ---------- Kreator ----------
-const CRE = { name: "Wędrowiec", race: "human", origin: "merc", skin: 0, hair: 0, beard: 1, scar: 0, build: 1 };
+// Etapy: wygląd → dzieciństwo → młodość → obecnie (pochodzenie) → herb i świat.
+interface Crest { col: string; shade: string; trim: string; pattern: Pattern; charge: string; }
+const CRE = { stage: 0, name: "Wędrowiec", race: "human", origin: "merc", skin: 0, hair: 0, beard: 1, scar: 0, build: 1, hairStyle: 0, eyes: 0, paint: 0,
+  child: "village", youth: "pit", plot: true, prologue: true,
+  crest: { col: PAL.goldD, shade: PAL.ink, trim: PAL.gold, pattern: "chevron" as Pattern, charge: "star" } as Crest,
+  diff: { dmg: 1, enemy: 1, gold: 1, aggro: 1, plague: 1, xp: 1 } };
+const CHILDHOOD: Record<string, { name: string; desc: string; attr: Partial<Record<HAttr, number>>; skill?: [string, number]; bio: string; extra?: (P: PlayerState) => void; race?: string[] }> = {
+  village: { name: "Chata we wsi", desc: "Orka, żniwa, głód przed wiosną.", attr: { end: 1 }, skill: ["ironflesh", 1], bio: "Dorastał przy pługu, gdzie każda zima to próba.", extra: (P) => { P.goods.grain = (P.goods.grain || 0) + 8; } },
+  city: { name: "Ulice miasta", desc: "Targ, zaułki, krzyk przekupek.", attr: { cha: 1 }, skill: ["trade", 1], bio: "Wychowały go miejskie zaułki i targowe kłótnie." },
+  forest: { name: "Puszcza", desc: "Chata gajowego, tropy i cisza.", attr: { agi: 1 }, skill: ["tracking", 1], bio: "Las nauczył go chodzić bez szelestu." },
+  castle: { name: "Służba zamkowa", desc: "Kuchnie, stajnie i rozmowy panów.", attr: { int: 1 }, skill: ["riding", 1], bio: "Wyrósł w cieniu murów, podsłuchując panów przy stole." },
+  camp: { name: "Tabor wojskowy", desc: "Matka prała żołnierzom, ojciec ginął co wiosnę.", attr: { str: 1 }, skill: ["tactics", 1], bio: "Pierwsze słowa, jakie poznał, to komendy sierżantów." },
+  temple: { name: "Sierociniec przy świątyni", desc: "Modlitwy, post i kij przeora.", attr: { int: 1 }, skill: ["medicine", 1], bio: "Kapłani nauczyli go liter i opatrywania ran.", extra: (P) => { P.faith += 20; } },
+  clan: { name: "Hala klanowa", desc: "Kamień, kuźnia i pieśni przodków.", attr: { end: 1 }, skill: ["ironflesh", 1], bio: "W hali klanu nauczył się, że kamień pamięta krzywdy.", race: ["dwarf"] },
+  tribe: { name: "Obóz plemienny", desc: "Walki o mięso, bęben i ogień.", attr: { str: 1 }, skill: ["ironflesh", 1], bio: "W plemieniu silniejszy jadł pierwszy, a on szybko urósł.", race: ["orc"] },
+  grave: { name: "Mogiła", desc: "Nic nie pamiętasz sprzed ciemności.", attr: { int: 1 }, bio: "Obudził się w ziemi, z kawałkami cudzych wspomnień.", race: ["undead"] },
+};
+const YOUTH: Record<string, { name: string; desc: string; attr: Partial<Record<HAttr, number>>; skill?: [string, number]; bio: string; extra?: (P: PlayerState) => void }> = {
+  smith: { name: "Czeladnik kowala", desc: "Młot, żar i oparzenia. Kowale dadzą ci lepszą cenę.", attr: { str: 1 }, bio: "Jako chłopak dźwigał młot w kuźni.", extra: (P) => { P.perks.smithB = (P.perks.smithB || 0) + 0.1; } },
+  squire: { name: "Giermek", desc: "Czyściłeś zbroję rycerza i jeździłeś za nim.", attr: { agi: 1 }, skill: ["riding", 1], bio: "Był giermkiem rycerza, który zginął pod obcym sztandarem." },
+  thief: { name: "Złodziejaszek", desc: "Sakiewki, dachy, ucieczki.", attr: { agi: 1 }, bio: "Kradł, by przeżyć, i nauczył się szybko uciekać.", extra: (P) => { P.gold += 60; } },
+  acolyte: { name: "Akolita", desc: "Służba przy ołtarzu i pierwsze modlitwy.", attr: { cha: 1 }, bio: "Służył przy ołtarzu, zanim zwątpił albo uwierzył.", extra: (P) => { P.faith += 20; } },
+  pit: { name: "Walki w dołach", desc: "Pięści za miedziaki w karczemnej piwnicy.", attr: { str: 1 }, skill: ["powerstrike", 1], bio: "Bił się w dołach za garść miedziaków.", extra: (P) => { P.renown += 5; } },
+  hunter: { name: "Pomocnik łowcy", desc: "Łuk, wnyki, skórowanie.", attr: { agi: 1 }, skill: ["archery", 1], bio: "Pomagał łowcy i nauczył się strzelać.", extra: (P) => { P.ammo += 10; } },
+  scribe: { name: "Pisarz", desc: "Księgi, rachunki i sekrety.", attr: { int: 1 }, skill: ["trade", 1], bio: "Prowadził rachunki kupca i znał jego sekrety." },
+  drover: { name: "Poganiacz bydła", desc: "Szlaki, deszcz i stada.", attr: { end: 1 }, bio: "Pędził stada przez pół królestwa.", extra: (P) => { P.perks.mapSpeed = (P.perks.mapSpeed || 0) + 0.04; } },
+};
+const CREST_COLS = [PAL.red, PAL.bloodD, PAL.goldD, PAL.gold, PAL.moss, PAL.grassD, PAL.steel, PAL.steelD, PAL.purple, PAL.dusk, PAL.bone, PAL.ink, PAL.dirt, PAL.rust, PAL.white];
+const CHARGES = ["none", "star", "crown", "skull", "sword", "tower", "wolf", "cross", "moon"];
+const CHARGE_NAME: Record<string, string> = { none: "brak", star: "gwiazda", crown: "korona", skull: "czaszka", sword: "miecz", tower: "wieża", wolf: "wilk", cross: "krzyż", moon: "księżyc" };
+const PATTERN_NAME: Record<string, string> = { plain: "jednolity", stripe: "pas", quarter: "w ćwierci", chevron: "krokiew", cross: "krzyż" };
 function creatorLook(): Look {
   const R = RACES[CRE.race];
-  const skins: [string, string][] = CRE.race === "orc" ? [[PAL.moss, PAL.grassD], [PAL.grassL, PAL.grass], [PAL.stone, PAL.slate]] : CRE.race === "undead" ? [[PAL.bone, PAL.ash], [PAL.boneHi, PAL.bone]] : [[PAL.skin, PAL.skinD], [PAL.skinD, PAL.dirt], [PAL.bone, PAL.skin]];
-  const hairs = [PAL.dirtD, PAL.black, PAL.rust, PAL.ash, PAL.woodD, PAL.bone];
+  const skins: [string, string][] = CRE.race === "orc" ? [[PAL.moss, PAL.grassD], [PAL.grassL, PAL.grass], [PAL.stone, PAL.slate], [PAL.ash, PAL.stone]] : CRE.race === "undead" ? [[PAL.bone, PAL.ash], [PAL.boneHi, PAL.bone]] : [[PAL.skin, PAL.skinD], [PAL.skinD, PAL.dirt], [PAL.bone, PAL.skin], [PAL.dirt, PAL.dirtD]];
+  const hairs = [PAL.dirtD, PAL.black, PAL.rust, PAL.ash, PAL.woodD, PAL.bone, PAL.goldD, PAL.boneHi];
+  const eyes = [PAL.black, PAL.steelD, PAL.moss, PAL.dirt, PAL.purple, PAL.redL];
   const O = ORIGINS[CRE.origin];
   return {
-    race: R.race, build: CRE.build, tall: CRE.race === "orc", skin: skins[CRE.skin % skins.length], hair: hairs[CRE.hair % hairs.length],
-    beard: CRE.race === "dwarf" ? 3 : CRE.race === "orc" || CRE.race === "undead" ? 0 : CRE.beard % 3, scar: CRE.scar % 3,
+    race: R.race, build: CRE.build % 3, tall: CRE.race === "orc", skin: skins[CRE.skin % skins.length], hair: hairs[CRE.hair % hairs.length],
+    beard: CRE.race === "dwarf" ? [3, 2, 4, 5][CRE.beard % 4] : CRE.race === "orc" || CRE.race === "undead" ? 0 : CRE.beard % 6, scar: CRE.scar % 6,
+    hairStyle: CRE.hairStyle % 6, eyes: eyes[CRE.eyes % eyes.length], paint: CRE.paint % 4,
     helm: O.equip.head ? ITEMS[O.equip.head].helm : "none", body: O.equip.body ? ITEMS[O.equip.body].body : "rags", tabard: null,
-    cape: CRE.origin === "noble" ? [PAL.red, PAL.bloodD] : undefined, hood: CRE.origin === "mage" ? [PAL.purple, PAL.dusk] : CRE.origin === "hunter" ? [PAL.moss, PAL.grassD] : undefined,
+    cape: CRE.origin === "noble" ? [CRE.crest.col, CRE.crest.shade] : undefined, hood: CRE.origin === "mage" ? [PAL.purple, PAL.dusk] : CRE.origin === "hunter" ? [PAL.moss, PAL.grassD] : undefined,
     pants: PAL.dirt, boots: PAL.woodD, quiver: CRE.origin === "hunter", scabbard: true, dirt: 0.4, blood: 0.15, seed: 77,
   };
+}
+function creBio() {
+  const C = CHILDHOOD[CRE.child], Y = YOUTH[CRE.youth], O = ORIGINS[CRE.origin];
+  return `${C ? C.bio : ""} ${Y ? Y.bio : ""} ${O.desc}`;
+}
+function creAttr(k: string) {
+  const O = ORIGINS[CRE.origin], R = RACES[CRE.race], C = CHILDHOOD[CRE.child], Y = YOUTH[CRE.youth];
+  return 4 + (O.attr[k] || 0) + (R.attr[k] || 0) + ((C?.attr as any)[k] || 0) + ((Y?.attr as any)[k] || 0);
 }
 function showCreator() {
   G.state = "creator";
@@ -94,37 +178,121 @@ function showCreator() {
   const portrait = drawPortrait(L, PAL.gold);
   const spr = spritesFor(L, "creator:" + JSON.stringify(CRE)).frames[0][0];
   const O = ORIGINS[CRE.origin], R = RACES[CRE.race];
-  const raceBtns = Object.keys(RACES).map((k) => `<button class="chip ${CRE.race === k ? "on" : ""}" data-a="race" data-v="${k}">${RACES[k].name}</button>`).join("");
-  const orBtns = Object.keys(ORIGINS).map((k) => `<button class="chip ${CRE.origin === k ? "on" : ""}" data-a="origin" data-v="${k}">${ORIGINS[k].name}</button>`).join("");
-  const look = (lab: string, key: string) => `<div class="row"><span>${lab}</span><span><button class="mini" data-a="look" data-v="${key}:-1">‹</button><button class="mini" data-a="look" data-v="${key}:1">›</button></span></div>`;
+  const stages = ["Wygląd", "Dzieciństwo", "Młodość", "Obecnie", "Herb i świat"];
+  const st = CRE.stage;
+  const look = (lab: string, key: string, cur: string) => `<div class="row"><span>${lab}</span><span><button class="mini" data-a="look" data-v="${key}:-1">‹</button><small class="muted" style="display:inline-block;min-width:6em;text-align:center">${cur}</small><button class="mini" data-a="look" data-v="${key}:1">›</button></span></div>`;
+  const card = (act: string, k: string, on: boolean, name: string, desc: string, bonus: string) => `<button class="optc ${on ? "on" : ""}" data-a="${act}" data-v="${k}"><b>${name}</b><small>${desc}</small><small class="gold">${bonus}</small></button>`;
+  const bonusTxt = (a: Partial<Record<string, number>>, sk?: [string, number]) => [...Object.keys(a).map((k) => `+${a[k]} ${ATTR_INFO[k].name}`), ...(sk ? [`+${sk[1]} ${SKILL_NAME[sk[0]]}`] : [])].join(", ");
+  let body = "";
+  if (st === 0) {
+    const raceBtns = Object.keys(RACES).map((k) => `<button class="chip ${CRE.race === k ? "on" : ""}" data-a="race" data-v="${k}">${RACES[k].name}</button>`).join("");
+    const HS = ["krótkie", "łysy", "długie", "irokez", "warkocze", "kucyk"], SC = ["brak", "policzek", "przez nos", "przez oko", "oparzenie", "opaska"], PT = ["brak", "pas przez oczy", "kreski", "czaszka"], BR = CRE.race === "dwarf" ? ["zaplatana", "długa", "kozia", "wąsy"] : ["brak", "krótka", "długa", "zaplatana", "kozia", "wąsy"];
+    body = `<h2>Rasa</h2><div class="chips">${raceBtns}</div><p class="tip">${R.desc}</p>
+      <label class="field">Imię <input data-in="name" maxlength="20" value="${esc(CRE.name)}"></label>
+      <div class="looks">${look("Skóra", "skin", String(CRE.skin % 4 + 1))}${look("Kolor włosów", "hair", String(CRE.hair % 8 + 1))}${CRE.race !== "undead" ? look("Fryzura", "hairStyle", HS[CRE.hairStyle % 6]) : ""}${CRE.race === "human" || CRE.race === "dwarf" ? look("Broda", "beard", BR[CRE.beard % BR.length]) : ""}${CRE.race !== "undead" ? look("Oczy", "eyes", String(CRE.eyes % 6 + 1)) : ""}${look("Blizna", "scar", SC[CRE.scar % 6])}${look("Malunek", "paint", PT[CRE.paint % 4])}${look("Budowa", "build", ["chudy", "zwykły", "krępy"][CRE.build % 3])}</div>`;
+  } else if (st === 1) {
+    const ks = Object.keys(CHILDHOOD).filter((k) => !CHILDHOOD[k].race || CHILDHOOD[k].race.includes(CRE.race));
+    if (!ks.includes(CRE.child)) CRE.child = ks[0];
+    body = `<h2>Gdzie dorastałeś?</h2><div class="opts3">${ks.map((k) => card("child", k, CRE.child === k, CHILDHOOD[k].name, CHILDHOOD[k].desc, bonusTxt(CHILDHOOD[k].attr, CHILDHOOD[k].skill))).join("")}</div>`;
+  } else if (st === 2) {
+    body = `<h2>Czym zajmowałeś się jako młodzik?</h2><div class="opts3">${Object.keys(YOUTH).map((k) => card("youth", k, CRE.youth === k, YOUTH[k].name, YOUTH[k].desc, bonusTxt(YOUTH[k].attr, YOUTH[k].skill))).join("")}</div>`;
+  } else if (st === 3) {
+    body = `<h2>Kim jesteś teraz?</h2><div class="opts3">${Object.keys(ORIGINS).map((k) => card("origin", k, CRE.origin === k, ORIGINS[k].name, ORIGINS[k].desc, `${bonusTxt(ORIGINS[k].attr)} · ${NODE(ORIGINS[k].node).name}`)).join("")}</div>
+      <p class="tip">${ic("coin")} ${O.gold} · ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")} · sprzęt (nędzny): ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>`;
+  } else {
+    const C = CRE.crest, D = CRE.diff;
+    const sw = (k: string) => `<div class="swatches">${CREST_COLS.map((c) => `<button style="background:${c}" class="${(C as any)[k] === c ? "on" : ""}" data-a="ccol" data-v="${k}:${c}"></button>`).join("")}</div>`;
+    const dr = (k: string, label: string, tip: string) => `<label class="opt"><span>${label}<small>${tip}</small></span><input type="range" min="0.5" max="1.5" step="0.1" value="${(D as any)[k]}" data-in="d:${k}"><b id="dv-${k}">${Math.round((D as any)[k] * 100)}%</b></label>`;
+    body = `<h2>Herb</h2><div class="crestEd crest">${pic(drawCrest(C, 2), "")}<div>
+        <div class="row"><span>Tło</span>${sw("col")}</div><div class="row"><span>Cień</span>${sw("shade")}</div><div class="row"><span>Godło i wzór</span>${sw("trim")}</div>
+        <div class="chips">${(["plain", "stripe", "quarter", "chevron", "cross"] as Pattern[]).map((p) => `<button class="chip ${C.pattern === p ? "on" : ""}" data-a="cpat" data-v="${p}">${PATTERN_NAME[p]}</button>`).join("")}</div>
+        <div class="chips">${CHARGES.map((c) => `<button class="chip ${C.charge === c ? "on" : ""}" data-a="cchg" data-v="${c}">${CHARGE_NAME[c]}</button>`).join("")}</div></div></div>
+      <h2>Świat</h2>
+      <label class="opt"><input type="checkbox" data-in="plot" ${CRE.plot ? "checked" : ""}><span>Wątek główny: Popiół Morvatha<small>opcjonalna opowieść; bez niej czysty sandbox bez prowadzenia</small></span></label>
+      <label class="opt"><input type="checkbox" data-in="prologue" ${CRE.prologue ? "checked" : ""}><span>Prolog: bitwa samouczek<small>krótka potyczka z podpowiedziami sterowania</small></span></label>
+      <h2>Trudność</h2><div class="diffs">${dr("dmg", "Obrażenia, które otrzymujesz", "ty i twoi ludzie")}${dr("enemy", "Siła wrogich armii", "liczebność band i armii lordów")}${dr("gold", "Zarobki", "łupy, nagrody, dochód z ziem")}${dr("aggro", "Agresja władców", "jak często wybuchają wojny i oblężenia")}${dr("plague", "Zaraza Morvatha", "jak szybko rozlewa się martwa ziemia")}${dr("xp", "Doświadczenie", "tempo awansów")}</div>
+      <p class="tip">Mapa jest zawsze ta sama. Startujesz w nędznym sprzęcie z garstką ludzi.</p>`;
+  }
   showScr(`<div class="creator frame">
     <h1>Twój bohater</h1>
+    <div class="stages">${stages.map((n, i) => `<span class="${i === st ? "on" : ""}">${i + 1}. ${n}</span>`).join("")}</div>
     <div class="cre-grid">
       <div class="cre-left">
         ${pic(portrait, "portrait big")}
         ${pic(spr, "sprite", 3)}
-        <label class="field">Imię <input data-in="name" maxlength="20" value="${esc(CRE.name)}"></label>
-        <div class="looks">${look("Skóra", "skin")}${look("Włosy", "hair")}${CRE.race === "human" ? look("Broda", "beard") : ""}${look("Blizna", "scar")}${look("Budowa", "build")}</div>
+        <p><b>${esc(CRE.name)}</b><br><span class="muted">${R.name} · ${O.name}</span></p>
+        <div class="cre-attrs">${ATTRS.map((k) => { const v = creAttr(k); return `<div class="attr"><span class="an" style="color:${ATTR_INFO[k].col}">${ATTR_INFO[k].name}</span><div class="bar"><i style="width:${(v / 15) * 100}%;background:${ATTR_INFO[k].col}"></i></div><b>${v}</b></div>`; }).join("")}</div>
+        ${st > 0 ? `<p class="tip parch" style="font-size:.85em">${esc(creBio())}</p>` : ""}
       </div>
-      <div class="cre-right">
-        <h2>Rasa</h2><div class="chips">${raceBtns}</div><p class="tip">${R.desc}</p>
-        <h2>Pochodzenie</h2><div class="chips">${orBtns}</div>
-        <p>${O.desc}</p>
-        <div class="cre-attrs">${ATTRS.map((k) => { const v = 4 + (O.attr[k] || 0) + (R.attr[k] || 0); return `<div class="attr"><span class="an" style="color:${ATTR_INFO[k].col}">${ATTR_INFO[k].name}</span><div class="bar"><i style="width:${(v / 15) * 100}%;background:${ATTR_INFO[k].col}"></i></div><b>${v}</b></div>`; }).join("")}</div>
-        <p class="tip">Na start: ${ic(NODE(O.node).icon)} <b>${NODE(O.node).name}</b> i 2 punkty drzewek · ${O.hint}</p>
-        <p class="tip">${ic("coin")} ${O.gold} · ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")}</p>
-        <p class="tip">Sprzęt (nędzny): ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>
-      </div>
+      <div class="cre-right">${body}</div>
     </div>
-    <div class="btns"><button data-a="start">Ruszaj w świat</button><button class="alt" data-a="back">Wróć</button></div>
+    <div class="btns">${st > 0 ? `<button class="alt" data-a="prev">‹ Wstecz</button>` : `<button class="alt" data-a="back">Wróć</button>`}${st < 4 ? `<button data-a="next">Dalej ›</button>` : `<button data-a="start">Ruszaj w świat</button>`}</div>
   </div>`, {
     race: (v) => { CRE.race = v; showCreator(); },
     origin: (v) => { CRE.origin = v; showCreator(); },
-    look: (v) => { const [k, d] = v.split(":"); (CRE as any)[k] = ((CRE as any)[k] + Number(d) + 6) % 6; if (k === "build") CRE.build = CRE.build % 3; showCreator(); },
+    child: (v) => { CRE.child = v; showCreator(); },
+    youth: (v) => { CRE.youth = v; showCreator(); },
+    look: (v) => { const [k, d] = v.split(":"); (CRE as any)[k] = ((CRE as any)[k] + Number(d) + 24) % 24; showCreator(); },
     name: (v) => { CRE.name = v.trim() || "Wędrowiec"; },
-    start: () => { closeScreen(); startNewGame(newPlayer(CRE.name, CRE.race, CRE.origin, creatorLook())); },
+    ccol: (v) => { const [k, c] = v.split(":"); (CRE.crest as any)[k] = c; showCreator(); },
+    cpat: (v) => { CRE.crest.pattern = v as Pattern; showCreator(); },
+    cchg: (v) => { CRE.crest.charge = v; showCreator(); },
+    plot: (v) => { CRE.plot = !!v; }, prologue: (v) => { CRE.prologue = !!v; },
+    ...Object.fromEntries(["dmg", "enemy", "gold", "aggro", "plague", "xp"].map((k) => [`d:${k}`, (v: string) => { (CRE.diff as any)[k] = Number(v); const e = document.getElementById("dv-" + k); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; }])),
+    prev: () => { CRE.stage--; showCreator(); },
+    next: () => { CRE.stage++; showCreator(); },
+    start: () => { closeScreen(); CRE.stage = 0; withLoading(() => startNewGame(creatorPlayer(), { plot: CRE.plot, prologue: CRE.prologue, diff: { ...CRE.diff } })); },
     back: () => showTitle(),
   }, "creator-scr");
+}
+function creatorPlayer() {
+  const P = newPlayer(CRE.name, CRE.race, CRE.origin, creatorLook());
+  for (const X of [CHILDHOOD[CRE.child], YOUTH[CRE.youth]]) {
+    if (!X) continue;
+    for (const k in X.attr) P.attr[k] += (X.attr as any)[k];
+    if (X.skill) P.skills[X.skill[0]] = (P.skills[X.skill[0]] || 0) + X.skill[1];
+    if (X.extra) X.extra(P);
+  }
+  (P as any).bio = creBio();
+  (P as any).crest = { ...CRE.crest };
+  P.hp = heroMaxHp(P);
+  return P;
+}
+// Herb na tarczy: tło, wzór i godło w pikselach.
+function drawCrest(C: Crest, scale = 1): HTMLCanvasElement {
+  const P = new Pix(20, 24);
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 20; x++) {
+    const inside = y < 13 ? x >= 1 && x <= 18 : Math.abs(x - 9.5) < 9 - (y - 13) * 0.85;
+    if (!inside || y < 1) continue;
+    const edge = y === 1 || x === 1 || x === 18 || (y >= 13 && Math.abs(x - 9.5) >= 8 - (y - 13) * 0.85);
+    let c = x > 12 ? C.shade : C.col;
+    const rx = x - 9.5;
+    if (C.pattern === "stripe" && Math.abs(rx) < 2.5) c = C.trim;
+    if (C.pattern === "quarter" && ((x < 10) !== (y < 12))) c = C.trim;
+    if (C.pattern === "chevron" && Math.abs(Math.abs(rx) - (y - 6) * 0.9) < 1.3 && y > 6) c = C.trim;
+    if (C.pattern === "cross" && (Math.abs(rx) < 1.5 || Math.abs(y - 10) < 1.5)) c = C.trim;
+    P.p(x, y, edge ? PAL.black : c);
+  }
+  const t = C.pattern === "plain" || C.pattern === "chevron" ? C.trim : C.pattern === "quarter" ? PAL.black : C.trim === C.col ? PAL.black : C.trim;
+  const g = (pts: number[][]) => { for (const [x, y, w, h] of pts) P.r(x, y, w || 1, h || 1, t); };
+  const ch = C.charge;
+  if (ch === "star") g([[9, 5, 2, 9], [6, 8, 8, 2], [7, 6, 1, 1], [12, 6, 1, 1], [7, 12, 1, 1], [12, 12, 1, 1]]);
+  if (ch === "crown") g([[5, 10, 10, 3], [5, 6, 1, 4], [9, 5, 2, 5], [14, 6, 1, 4], [7, 8, 1, 2], [12, 8, 1, 2]]);
+  if (ch === "skull") { g([[6, 5, 8, 7], [7, 12, 6, 2]]); P.r(7, 7, 2, 2, PAL.black); P.r(11, 7, 2, 2, PAL.black); P.r(9, 10, 2, 1, PAL.black); }
+  if (ch === "sword") g([[9, 3, 2, 12], [6, 13, 8, 1], [9, 15, 2, 3], [9, 18, 2, 1]]);
+  if (ch === "tower") g([[6, 7, 8, 10], [6, 5, 2, 2], [9, 5, 2, 2], [12, 5, 2, 2]]);
+  if (ch === "wolf") g([[5, 8, 9, 4], [13, 6, 3, 4], [14, 5, 1, 1], [5, 12, 1, 3], [8, 12, 1, 3], [12, 12, 1, 3], [3, 7, 2, 1]]);
+  if (ch === "cross") g([[9, 4, 2, 13], [5, 8, 10, 2]]);
+  if (ch === "moon") { for (let y = 4; y < 16; y++) for (let x = 4; x < 16; x++) { const a = Math.hypot(x - 9.5, y - 10), b = Math.hypot(x - 12, y - 9); if (a < 5.5 && b > 4.5) P.p(x, y, t); } }
+  const c = P.toCanvas(false, false);
+  if (scale === 1) return c;
+  const [c2, g2] = mkCanvas(20 * scale, 24 * scale); g2.imageSmoothingEnabled = false; g2.drawImage(c, 0, 0, 20 * scale, 24 * scale); return c2;
+}
+function applyCrest(P: PlayerState) {
+  const C: Crest | undefined = (P as any).crest;
+  if (!C) return;
+  const F = FACTIONS[PLAYER_FACTION];
+  F.col = C.col; F.shade = C.shade; F.trim = C.trim; F.pattern = C.pattern;
 }
 
 // ---------- Szybka bitwa ----------
@@ -176,8 +344,8 @@ function startQuickBattle() {
 }
 
 // ---------- HUD mapy ----------
-function showMapHud() { const h = document.getElementById("maphud"); if (h) h.hidden = false; document.getElementById("build").hidden = true; refreshMapHud(); }
-function hideMapHud() { const h = document.getElementById("maphud"); if (h) h.hidden = true; document.getElementById("build").hidden = false; const t = document.getElementById("tip"); if (t) t.hidden = true; }
+function showMapHud() { const h = document.getElementById("maphud"); if (h) { h.hidden = false; h.querySelectorAll(".mbtn[data-win]").forEach((b) => { const k = b.querySelector("kbd"); if (k) k.textContent = keyName(KB((b as HTMLElement).dataset.win)); }); } document.getElementById("build").hidden = true; refreshMapHud(); }
+function hideMapHud() { const tb = document.getElementById("toasts"); if (tb) tb.innerHTML = ""; const h = document.getElementById("maphud"); if (h) h.hidden = true; document.getElementById("build").hidden = false; const t = document.getElementById("tip"); if (t) t.hidden = true; }
 function timeWord(h: number) { return h < 5 ? "noc" : h < 8 ? "świt" : h < 12 ? "ranek" : h < 17 ? "dzień" : h < 21 ? "zmierzch" : "noc"; }
 function refreshMapHud() {
   const w = WORLD;
@@ -198,10 +366,25 @@ function refreshMapHud() {
     ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
     <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
   const qp = document.getElementById("mh-quest");
-  if (qp) { const q = P.quests.find((x) => !x.done && !x.hide); const pos = q && questPos(w, q); qp.hidden = !q; if (q) qp.innerHTML = `${ic("scroll")} <span style="color:${QUEST_COL}">${esc(q.text.length > 60 ? q.text.slice(0, 58) + "…" : q.text)}</span><br><span class="muted">${q.days} dni${pos ? ` · ${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól` : ""} · ${ic("coin")} ${q.reward}</span>`; }
+  if (qp) { const q = P.quests.find((x) => !x.done && !x.hide); const pos = q && questPos(w, q); qp.hidden = !q; if (q) qp.innerHTML = `${ic("scroll")} <span style="color:${QUEST_COL}">${esc(q.text.length > 60 ? q.text.slice(0, 58) + "…" : q.text)}</span><br><span class="muted">${q.days > 900 ? "wątek główny" : `${q.days} dni`}${pos ? ` · ${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól` : ""}${q.reward ? ` · ${ic("coin")} ${q.reward}` : ""}</span>`; }
   const sp = document.getElementById("mh-speed");
   const cm = (P as any).campMode || "rest";
   if (sp) sp.innerHTML = `${[1, 2, 4, 8].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${ic("tent")} ${G.camping ? "Zwiń obóz" : "Obóz"}</button>${G.camping ? `<span class="campm">${[["rest", "Odpoczynek", "heart"], ["train", "Trening", "sword"], ["guard", "Wartownicy", "eye"]].map(([k, n, i]) => `<button class="mini ${cm === k ? "on" : ""}" data-sp="cm:${k}" title="${k === "rest" ? "rany goją się szybko" : k === "train" ? "żołnierze zbierają doświadczenie, zużywa zboże" : "nikt was nie zaskoczy"}">${ic(i)} ${n}</button>`).join("")}</span>` : ""}`;
+}
+// Dłuższe dymki: skład armii, szybkość, relacje, odległość w dniach marszu.
+function tipDays(x: number, y: number) { const w = WORLD, p = playerParty(w); const d = dist(x, y, p.x, p.y) / Math.max(0.5, partySpeed(w, p)) / (24 * HOURS_PER_SEC * 2.2); return d < 0.5 ? "pół dnia drogi" : `${Math.max(1, Math.round(d))} dni drogi`; }
+function tipExtraParty(o: Party) {
+  const w = WORLD, p = playerParty(w);
+  const top = o.troops.slice().sort((a, b) => b.n - a.n).slice(0, 3).map((t) => `${t.n}× ${UNITS[t.type]?.name || t.type}`).join(", ");
+  const sp = partySpeed(w, o) / Math.max(0.1, partySpeed(w, p));
+  const L = o.lord !== undefined ? lordById(w, o.lord) : null;
+  return `<span class="tt-s">${top}${o.prisoners.length ? ` · jeńcy ${troopCount(o.prisoners)}` : ""}</span><span class="tt-s">${sp > 1.08 ? "szybszy od ciebie" : sp < 0.92 ? "wolniejszy od ciebie" : "tak szybki jak ty"} · ${tipDays(o.x, o.y)}${L ? ` · relacja z tobą ${L.relation >= 0 ? "+" : ""}${L.relation} (${L.personality})` : ""}</span>`;
+}
+function tipExtraSet(s: Settlement) {
+  const w = WORLD;
+  const b = (s as any).build ? Object.keys((s as any).build).filter((k) => (s as any).build[k]) : [];
+  const rich = GOOD_KEYS.filter((k) => s.stock[k] > 60).map((k) => GOODS[k].name).slice(0, 3);
+  return `<span class="tt-s">Relacja ${s.relation >= 0 ? "+" : ""}${Math.round(s.relation)} · ochotnicy ${s.recruits}${s.kind !== "village" ? ` · obrona: ${strengthWord(partyPower(w, playerParty(w)) / Math.max(0.1, troopPower(s.garrison) * 2.1))}` : ""}</span>${rich.length ? `<span class="tt-s">Dużo: ${rich.join(", ")}</span>` : ""}${b.length ? `<span class="tt-s">Budowle: ${b.length}</span>` : ""}<span class="tt-s">${tipDays(s.cx * WCELL, s.cy * WCELL)}</span>`;
 }
 function updateTip() {
   const tip = document.getElementById("tip");
@@ -214,12 +397,12 @@ function updateTip() {
     if (!o) { tip.hidden = true; return; }
     const ratio = partyPower(w, playerParty(w)) / Math.max(0.1, partyPower(w, o));
     const st: Record<string, string> = { siege: "oblega", raid: "idzie grabić", besiege: "idzie na oblężenie", patrol: "patroluje", chase: "ściga", flee: "ucieka", rest: "wraca do domu", wander: "krąży" };
-    html = `${QM.party.has(o.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}`;
+    html = `${QM.party.has(o.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}${tipExtraParty(o)}`;
   } else if (hv.kind === "settlement") {
     const s = w.settlements[hv.id];
     const owner = s.owner === -2 ? "ty" : s.owner >= 0 ? `${lordById(w, s.owner).title} ${lordById(w, s.owner).name}` : "korona";
     const kind = s.kind === "town" ? "Miasto" : s.kind === "castle" ? "Zamek" : "Wioska";
-    html = `${QM.set.has(s.id) ? `<span style="color:${QUEST_COL}">◆ ${esc(QM.set.get(s.id).text)}</span><br>` : ""}<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}`;
+    html = `${QM.set.has(s.id) ? `<span style="color:${QUEST_COL}">◆ ${esc(QM.set.get(s.id).text)}</span><br>` : ""}<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}${tipExtraSet(s)}`;
   } else {
     const pl = w.places[hv.id];
     const d: Record<string, string> = { ruins: "Ruiny pełne nieumarłych i skarbów.", lair: "Leże bestii.", shrine: "Miejsce modlitwy. Odnawia wiarę.", camp: "Obóz zbójców. Stąd wychodzą bandy.", cemetery: "Przeklęta ziemia. Umarli nie śpią." };
@@ -246,7 +429,16 @@ function enterSettlement(s: Settlement) {
   if (s.kind !== "village") sfx.bell?.();
   renderSettlement();
 }
+const TAB_TIPS: Record<string, [string, string]> = {
+  main: ["Osada", "Kliknij miejsca na ilustracji albo zakładki. Rekrutujesz u sołtysa i w koszarach, handlujesz na targu, zadania dają rada i lordowie."],
+  tavern: ["Karczma", "Tu najmiesz kompanów, posłuchasz plotek (gdzie stoją armie, co jest drogie) i zagrasz w kości. Bard zaśpiewa o twoich czynach."],
+  smith: ["Kowal", "Naprawia zużyty sprzęt, ulepsza jakość i robi broń na zamówienie. Zardzewiałe rzeczy możesz przetopić."],
+  market: ["Targ", "Przeciągaj towary między kolumnami albo klikaj. Ctrl lub Shift przesuwa po 5. Ceny zależą od zapasów i regionu."],
+  arena: ["Arena", "Walki mają odnowienie i dzienny limit. Turnieje to drabinka 16 zawodników: pojedynki, łucznictwo i kopie."],
+  dungeon: ["Loch", "Sprzedasz tu jeńców. Lordów możesz wymienić, wykupić albo stracić (to hańba)."],
+};
 function renderSettlement() {
+  if (TAB_TIPS[SET.tab]) firstTip("set-" + SET.tab, TAB_TIPS[SET.tab][0], TAB_TIPS[SET.tab][1]);
   const w = WORLD, P = w.player, s = w.settlements[SET.id], p = playerParty(w);
   const hostileS = playerAtWarWith(w, s.faction);
   const mine = s.owner === -2;
@@ -338,12 +530,22 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
     }
     case "dungeon": {
       const held = w.lords.filter((l) => l.alive && l.captive === (s.owner === -2 ? PLAYER_FACTION : s.faction));
+      const comps = ((w as any).capComp || []).filter((c: any) => c.at === s.id);
+      const hostileS = playerAtWarWith(w, s.faction);
+      const rescueCost = (c: any) => 250 + (c.comp.level || 1) * 80;
       return {
-        html: `<p>Wilgotne lochy, szczur, łańcuchy.</p>${held.length ? held.map((l) => `<div class="row"><span>${ic("chain")} ${l.title} ${l.name} (${factionShort(l.faction)}) · relacja ${l.relation}</span>${s.owner === -2 ? `<span><button class="mini" data-a="ransom" data-v="${l.id}">Okup ${300 + Math.round(l.renown)}</button><button class="mini" data-a="free" data-v="${l.id}">Uwolnij</button></span>` : `<button class="mini" data-a="bribe" data-v="${l.id}" ${P.gold >= 400 ? "" : "disabled"}>Przekup strażnika i uwolnij (400)</button>`}</div>`).join("") : "<p class='muted'>Lochy stoją puste.</p>"}`,
+        html: `<p>Wilgotne lochy, szczur, łańcuchy.</p>
+        ${comps.length ? `<h2>Twoi ludzie w celach</h2>${comps.map((c: any) => `<div class="row"><span>${ic("chain")} <b>${c.comp.name}</b></span><span><button class="mini" data-a="cbuy" data-v="${c.comp.id}" ${P.gold >= rescueCost(c) && !hostileS ? "" : "disabled"}>Wykup (${rescueCost(c)})${hostileS ? " · wojna" : ""}</button><button class="mini" data-a="cbribe" data-v="${c.comp.id}" ${P.gold >= 150 ? "" : "disabled"}>Przekup straż (150, ${Math.round(clamp(0.3 + P.attr.cha * 0.04, 0.2, 0.8) * 100)}%)</button>${held.find((l) => exchangeTarget(w, l)) ? "" : ""}</span></div>`).join("")}` : ""}
+        ${held.length ? `<h2>Więźniowie</h2>${held.map((l) => `<div class="row"><span>${ic("chain")} ${l.title} ${l.name} (${factionShort(l.faction)}) · relacja ${l.relation}</span>${s.owner === -2 ? `<span><button class="mini" data-a="ransom" data-v="${l.id}">Okup ${300 + Math.round(l.renown)}</button><button class="mini" data-a="free" data-v="${l.id}">Wypuść</button>${exchangeTarget(w, l) ? `<button class="mini" data-a="swap" data-v="${l.id}">Wymień: ${exchangeTarget(w, l).name}</button>` : ""}</span>` : `<button class="mini" data-a="bribe" data-v="${l.id}" ${P.gold >= 400 ? "" : "disabled"}>Przekup straż (400)</button>`}</div>`).join("")}` : comps.length ? "" : "<p class='muted'>Cele są puste.</p>"}
+        <h2>Kasztelan kupi jeńców</h2>${p.prisoners.length ? `<table class="tbl">${p.prisoners.map((t, i) => `<tr><td>${t.n}× ${UNITS[t.type].name}</td><td>${Math.round(prisonerValue(t) * 0.85)}/szt.</td><td><button class="mini" data-a="sellP" data-v="${i}">Sprzedaj</button></td></tr>`).join("")}</table><p class="tip">Zamek płaci trochę mniej niż handlarz w mieście.</p>` : "<p class='muted'>Nie prowadzisz jeńców.</p>"}`,
         acts: {
-          ransom: (v) => { const L = lordById(w, Number(v)); P.gold += 300 + Math.round(L.renown); L.captive = -1; rel(L, -5); chron(w, `${L.title} ${L.name} wykupiony z niewoli u ${P.name}.`); sfx.coin(); re(); },
-          free: (v) => { const L = lordById(w, Number(v)); L.captive = -1; rel(L, 15); P.honor += 3; chron(w, `${P.name} wypuszcza z niewoli: ${L.title} ${L.name}.`, PAL.moss); re(); },
-          bribe: (v) => { const L = lordById(w, Number(v)); if (P.gold < 400) return; P.gold -= 400; L.captive = -1; rel(L, 20); s.relation -= 10; const ow = s.owner >= 0 ? lordById(w, s.owner) : null; if (ow) rel(ow, -10); chron(w, `${L.title} ${L.name} ucieka z lochów ${s.name}. Mówią, że pomógł mu ${P.name}.`, PAL.moss); re(); },
+          ransom: (v) => { const L = lordById(w, Number(v)); P.gold += 300 + Math.round(L.renown); L.captive = -1; rel(L, -5, "kazałeś zapłacić za wolność"); chron(w, `${L.title} ${L.name} wykupiony z niewoli u ${P.name}.`); sfx.coin(); re(); },
+          free: (v) => { const L = lordById(w, Number(v)); L.captive = -1; rel(L, 15, "wypuściłeś go z niewoli za darmo"); P.honor += 3; chron(w, `${P.name} wypuszcza z niewoli: ${L.title} ${L.name}.`, PAL.moss); re(); },
+          swap: (v) => { const L = lordById(w, Number(v)); const t = exchangeTarget(w, L); if (t) doExchange(w, L, t); re(); },
+          bribe: (v) => { const L = lordById(w, Number(v)); if (P.gold < 400) return; P.gold -= 400; L.captive = -1; rel(L, 20, "przekupiłeś strażników i go uwolniłeś"); s.relation -= 10; const ow = s.owner >= 0 ? lordById(w, s.owner) : null; if (ow) rel(ow, -10, "uwolniłeś jeńca z jego lochu"); chron(w, `${L.title} ${L.name} ucieka z lochu ${s.name}.`, PAL.moss); re(); },
+          cbuy: (v) => { const c = comps.find((x: any) => x.comp.id === v); if (!c || P.gold < rescueCost(c)) return; P.gold -= rescueCost(c); freeCompanion(w, v); sfx.coin(); re(); },
+          cbribe: (v) => { if (P.gold < 150) return; P.gold -= 150; if (chance(clamp(0.3 + P.attr.cha * 0.04, 0.2, 0.8))) { freeCompanion(w, v); toast("Strażnik odwraca wzrok. Twój kompan wymyka się z celi.", PAL.gold); } else { s.relation -= 5; toast("Strażnik bierze złoto i śmieje ci się w twarz.", PAL.redL); } re(); },
+          sellP: (v) => { const t = p.prisoners[Number(v)]; P.gold += Math.round(prisonerValue(t) * 0.85) * t.n; p.prisoners.splice(Number(v), 1); sfx.coin(); re(); },
         },
       };
     }
@@ -462,7 +664,6 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const comps = s.companions.filter((id) => !P.companions.some((c) => c.id === id));
       const captiveLords = w.lords.filter((l) => l.captive === PLAYER_FACTION && l.alive);
       const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length);
-      const prisonerValue = (t: Troop) => Math.round(18 * Math.pow(UNITS[t.type].tier, 1.6) * (1 + perk(P, "prisB")));
       // kompania najemna: cały oddział do wynajęcia, raz na tydzień w mieście
       const wk = Math.floor(w.day / 7), ch = hashInt(s.seed * 3 + wk);
       const company = ch % 3 !== 0 && !(P as any)["comp" + s.id + "_" + wk] ? (() => { const nm = ["Czarne Wilki", "Kompania Szarej Róży", "Synowie Burzy", "Żelazna Kompania", "Kruki z Brodów"][ch % 5]; const tr: Troop[] = [{ type: "m_sword", n: 5 + (ch % 4), wounded: 0, xp: 0 }, { type: "m_xbow", n: 3 + (ch >>> 3) % 3, wounded: 0, xp: 0 }]; const elite = pick(["a_maa", "v_veteran", "d_ironguard", "o_blackfang"].filter((k) => UNITS[k])); tr.push({ type: elite, n: 2, wounded: 0, xp: 0 }); const price = Math.round(tr.reduce((a, t) => a + UNITS[t.type].cost * t.n, 0) * 1.1); return { name: nm, troops: tr, price }; })() : null;
@@ -489,8 +690,8 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
           bard: () => { P.gold -= 5; const mine = w.chronicle.filter((c) => c.text.includes(P.name)).slice(-3); const e = document.getElementById("bardline"); const song = mine.length ? `Bard śpiewa: „…a ${P.name} ${pick(mine).text.replace(P.name, "").replace(/^\s*/, "").toLowerCase()}…” Ludzie stukają kuflami.` : P.renown > 100 ? `Bard śpiewa o ${P.name}, choć myli fakty. Ludzie słuchają.` : "Bard śpiewa o dawnych królach. O tobie jeszcze nikt nie śpiewa."; if (e) e.textContent = song; if (mine.length && !(P as any)["bard" + s.id + "_" + wk]) { (P as any)["bard" + s.id + "_" + wk] = 1; P.renown += 2; s.relation += 1; } },
           drink: () => { P.gold -= 40; P.morale = Math.min(100, P.morale + 8); s.relation += 1; sfx.coin(); toast("Ludzie piją za twoje zdrowie. Morale rośnie."); re(); },
           sellP: (v) => { const t = p.prisoners[Number(v)]; P.gold += prisonerValue(t) * t.n; p.prisoners.splice(Number(v), 1); sfx.coin(); re(); },
-          ransom: (v) => { const L = lordById(w, Number(v)); P.gold += 300 + Math.round(L.renown); L.captive = -1; L.relation -= 5; chron(w, `${L.title} ${L.name} wykupiony z niewoli u ${P.name}.`); sfx.coin(); re(); },
-          free: (v) => { const L = lordById(w, Number(v)); L.captive = -1; L.relation += 15; P.honor += 3; chron(w, `${P.name} wypuszcza z niewoli: ${L.title} ${L.name}. Szlachetny gest.`, PAL.moss); re(); },
+          ransom: (v) => { const L = lordById(w, Number(v)); P.gold += 300 + Math.round(L.renown); L.captive = -1; lordRel(w, L, -5, "kazałeś zapłacić za wolność"); chron(w, `${L.title} ${L.name} wykupiony z niewoli u ${P.name}.`); sfx.coin(); re(); },
+          free: (v) => { const L = lordById(w, Number(v)); L.captive = -1; lordRel(w, L, 15, "wypuściłeś go z niewoli za darmo"); P.honor += 3; chron(w, `${P.name} wypuszcza z niewoli: ${L.title} ${L.name}. Szlachetny gest.`, PAL.moss); re(); },
         },
       };
     }
@@ -682,7 +883,7 @@ function raidVillage(s: Settlement) {
   const n = Math.round(6 + s.prosperity / 8);
   const go = (mode: "loot" | "burn" | "press") => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: [{ type: mil, n, wounded: 0, xp: 0 }], settlement: s, title: `Grabież: ${s.name}`, onWin: (lines) => {
     s.raided = 14;
-    for (const L of w.lords) if (L.faction === s.faction) L.relation -= 3;
+    for (const L of w.lords) if (L.faction === s.faction) lordRel(w, L, -3, `grabiłeś wioskę ${s.name}`);
     if (mode === "loot") { const loot = Math.round(150 + s.prosperity * 4); s.prosperity = Math.max(5, s.prosperity - 15); P.gold += loot; P.goods.grain = (P.goods.grain || 0) + 10; P.goods.meat = (P.goods.meat || 0) + 4; P.honor -= 3; s.relation -= 20; lines.push(`Zabierasz zapasy: ${loot} denarów i żywność.`); }
     if (mode === "burn") { s.prosperity = Math.max(3, s.prosperity - 40); s.relation -= 40; P.honor -= 6; P.renown += 5; P.gold += 60; lines.push("Wioska płonie. Dym widać z daleka."); }
     if (mode === "press") { const k = Math.min(Math.max(3, s.recruits), partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length)); if (k > 0) addTroops(p.troops, mil, k); s.recruits = 0; s.relation -= 25; P.honor -= 3; s.prosperity = Math.max(5, s.prosperity - 10); lines.push(`Bierzesz ${Math.max(0, k)} chłopów w kamasze siłą.`); }
@@ -739,7 +940,7 @@ function completeQuest(q: Quest, lines: string[]) {
   // łańcuch: kolejne zadania dla tego samego zleceniodawcy budują zaufanie
   const ck = q.giverLord != null ? "L" + q.giverLord : "S" + q.giver, chains = ((P as any).chains ||= {}) as Record<string, number>;
   chains[ck] = (chains[ck] || 0) + 1;
-  if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) { rel(L, 6); if (chains[ck] === 3) lines.push(`${L.title} ${L.name} ufa ci teraz. Zapytaj go o „zadanie zaufania”.`); } }
+  if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) { rel(L, 6, "wykonałeś jego zadanie"); if (chains[ck] === 3) lines.push(`${L.title} ${L.name} ufa ci teraz. Zapytaj go o „zadanie zaufania”.`); } }
   gainXp(P, 60 + Math.round(q.reward / 5), lines);
   lines.push(`Zadanie wykonane: ${q.text} Nagroda: ${q.reward} denarów.`);
   chron(w, `${P.name} wykonuje zadanie dla ${s ? s.name : "ludzi"}.`, PAL.moss);
@@ -811,7 +1012,7 @@ function tourneyAdvance(heroWon: boolean, lines: string[]) {
   const T = TOUR, w = WORLD, P = w.player;
   const block = 2 ** T.round;
   const kill = (k: number) => { T.alive[k] = false; T.out[k] = T.round; };
-  if (heroWon) { kill(T.opp); if (T.lords[T.opp] >= 0) { const L = lordById(w, T.lords[T.opp]); if (L) { L.relation += 3; lines.push(`${L.title} ${L.name} docenia twoją rękę (+3 relacji).`); } } } else kill(0);
+  if (heroWon) { kill(T.opp); if (T.lords[T.opp] >= 0) { const L = lordById(w, T.lords[T.opp]); if (L) { lordRel(w, L, 3, "pokonałeś go uczciwie w turnieju"); lines.push(`${L.title} ${L.name} docenia twoją rękę (+3 relacji).`); } } } else kill(0);
   for (let g = 0; g < 16; g += block) {
     if (g === 0) continue;
     const grp = [...Array(block).keys()].map((k) => g + k).filter((k) => T.alive[k]);
@@ -838,7 +1039,7 @@ function arenaFinished(r: BattleResult) {
     if (A.round >= 4) {
       const prize = 800;
       P.gold += prize; P.renown += 70; s.relation += 10; P.skillPts += 1;
-      for (const L of w.lords) if (L.faction === s.faction) L.relation += 2;
+      for (const L of w.lords) if (L.faction === s.faction) lordRel(w, L, 2, `wygrałeś turniej w ${s.name}`);
       lines.push(`Wygrywasz turniej w ${s.name}! ${prize} denarów, wielka sława i +1 punkt drzewka.`);
       chron(w, `${P.name} wygrywa turniej w ${s.name}.`, PAL.gold);
       s.tournament = 0; TOUR = null;
@@ -875,6 +1076,10 @@ function enterPlace(pl: SpecialPlace) {
   };
   const acts: Acts = { leave: () => closeScreen() };
   let btns = "";
+  if (pl.kind === "shrine" && w.plot && w.plot.stage === 0 && w.plot.hermit === pl.id) {
+    btns += `<button data-a="hermit">Podejdź do starca przy ołtarzu</button>`;
+    acts.hermit = () => { const t = plotHermit(w); showScr(`<div class="dialog frame"><div class="scene">${pic(scene, "scene-img")}</div><h1>Pustelnik</h1><p class="dlg">${t}</p><div class="btns"><button data-a="ok">Wyruszam</button></div></div>`, { ok: () => { closeScreen(); refreshMapHud(); } }, "dialog-scr"); };
+  }
   if (pl.kind === "shrine") {
     btns += `<button data-a="pray" ${pl.cleared > 0 ? "disabled" : ""}>Módl się${pl.cleared > 0 ? ` (za ${pl.cleared} dni)` : ""}</button>`;
     const used = (P as any).shrines || ((P as any).shrines = []);
@@ -901,7 +1106,7 @@ function enterPlace(pl: SpecialPlace) {
 // ---------- Spotkanie z oddziałem ----------
 function say2(t: string) { const e = document.getElementById("bubble"); if (e) { e.dataset.full = t; typeBubble(); } }
 // Zmiana relacji z widocznym skutkiem.
-function rel(L: Lord, d: number) { if (d > 0) d = Math.round(d * (1 + perk(WORLD.player, "relB"))); L.relation += d; if (d) toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}`, d > 0 ? PAL.moss : PAL.redL); }
+function rel(L: Lord, d: number, why = "") { if (d > 0) d = Math.round(d * (1 + perk(WORLD.player, "relB"))); lordRel(WORLD, L, d, why); if (d) toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}${why ? ` (${why})` : ""}`, d > 0 ? PAL.moss : PAL.redL); }
 function meetParty(o: Party, ambushed: boolean) {
   const w = WORLD, P = w.player, p = playerParty(w);
   p.path = [];
@@ -1013,12 +1218,12 @@ function showLordTalk(L: Lord, back: () => void) {
       if (fief) { fief.owner = -2; }
       chron(w, `${P.name} składa przysięgę: ${L.title} ${L.name}, ${factionName(L.faction)}.`, PAL.gold);
       say(`„Powstań, ${P.name}. Od dziś służysz koronie.${fief ? ` Na utrzymanie dostajesz ${fief.name}.` : ""}”`);
-      rel(L, 10); refreshMapHud();
+      rel(L, 10, "złożyłeś mu przysięgę"); refreshMapHud();
     };
   }
   if (L.ruler && P.liege === L.faction && P.status === "wasal") {
     opts.push(`<button class="alt" data-a="unvassal">Zwolnij mnie z przysięgi</button>`);
-    acts.unvassal = () => { leaveLiege(w, false); rel(L, -15); chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
+    acts.unvassal = () => { leaveLiege(w, false); rel(L, -15, "zrzekłeś się przysięgi"); chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
   }
   if (L.ruler && playerAtWarWith(w, L.faction) && (P.status === "król" || P.liege === 0) && L.faction !== 5) {
     const price = 400 + Math.round(P.renown);
@@ -1028,14 +1233,14 @@ function showLordTalk(L: Lord, back: () => void) {
       if (L.relation < -40 && chance(0.6)) { say("„Prędzej zgniję, niż podam ci rękę.”"); return; }
       P.gold -= price;
       if (P.status === "król") setWar(w, PLAYER_FACTION, L.faction, false); else { P.wars = P.wars.filter((f) => f !== L.faction); chron(w, `${P.name} zawiera pokój z ${factionName(L.faction)}.`, PAL.moss); }
-      rel(L, 10); say("„Niech będzie. Na razie.”"); refreshMapHud();
+      rel(L, 10, "zawarliście pokój"); say("„Niech będzie. Na razie.”"); refreshMapHud();
     };
   }
   if (P.status === "król" && !L.ruler && L.faction !== PLAYER_FACTION && L.faction !== 5) {
     opts.push(`<button class="alt" data-a="defect">Przyłącz się do mojego królestwa</button>`);
     acts.defect = () => {
       const chanceOk = (L.relation - 20) / 60 + (L.personality === "chciwy" ? 0.2 : L.personality === "honorowy" ? -0.3 : 0) + P.renown / 2000;
-      if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) { say("„Nie zdradzę swego władcy.”"); rel(L, -3); return; }
+      if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) { say("„Nie zdradzę swego władcy.”"); rel(L, -3, "namawiałeś go do zdrady"); return; }
       const old = L.faction;
       L.faction = PLAYER_FACTION;
       const party = partyById(w, L.party); if (party) party.faction = PLAYER_FACTION;
@@ -1046,7 +1251,7 @@ function showLordTalk(L: Lord, back: () => void) {
   }
   if (!playerAtWarWith(w, L.faction)) {
     opts.push(`<button class="alt" data-a="gift">Podaruj 200 denarów</button>`);
-    acts.gift = () => { if (P.gold < 200) return; P.gold -= 200; rel(L, L.personality === "chciwy" ? 8 : 4); say("„Hojność zostanie zapamiętana.”"); };
+    acts.gift = () => { if (P.gold < 200) return; P.gold -= 200; rel(L, L.personality === "chciwy" ? 8 : 4, L.personality === "chciwy" ? "dostał prezent (chciwy, cieszy się podwójnie)" : "dostał prezent"); say("„Hojność zostanie zapamiętana.”"); };
   }
   // pamięć rozmów: lord pamięta, ile razy i kiedy rozmawialiście
   const LM = L as any; const met = LM.talks || 0, since = met ? w.day - (LM.lastTalk || 0) : -1;
@@ -1060,7 +1265,7 @@ function showLordTalk(L: Lord, back: () => void) {
   if (persuadeQ) {
     const giver = lordById(w, persuadeQ.giverLord);
     opts.push(`<button class="alt" data-a="persuade">Przychodzę od ${giver ? giver.name : "twego władcy"}. Posłuchaj mnie. (charyzma ${P.attr.cha})</button>`);
-    acts.persuade = () => { if ((L as any).persDay === w.day) { say("„Już mówiłem. Wróć jutro.”"); return; } (L as any).persDay = w.day; const ch2 = clamp(0.25 + P.attr.cha * 0.06 + L.relation / 120, 0.1, 0.9); if (chance(ch2)) { const lines: string[] = []; completeQuest(persuadeQ, lines); lines.forEach((l) => toast(l, PAL.gold)); say(`„Niech będzie. Powiedz mu, że dotrzymam słowa.” (${Math.round(ch2 * 100)}%)`); } else { rel(L, -2); say(`„Nie przekonałeś mnie.” (${Math.round(ch2 * 100)}%)`); } };
+    acts.persuade = () => { if ((L as any).persDay === w.day) { say("„Już mówiłem. Wróć jutro.”"); return; } (L as any).persDay = w.day; const ch2 = clamp(0.25 + P.attr.cha * 0.06 + L.relation / 120, 0.1, 0.9); if (chance(ch2)) { const lines: string[] = []; completeQuest(persuadeQ, lines); lines.forEach((l) => toast(l, PAL.gold)); say(`„Niech będzie. Powiedz mu, że dotrzymam słowa.” (${Math.round(ch2 * 100)}%)`); } else { rel(L, -2, "nie dał się przekonać i jest zirytowany"); say(`„Nie przekonałeś mnie.” (${Math.round(ch2 * 100)}%)`); } };
   }
   if (!playerAtWarWith(w, L.faction) && L.relation >= -5 && !myQ && L.faction !== 5) {
     const trust = (((P as any).chains || {})["L" + L.id] || 0) >= 3 && !(L as any).trustGiven;
@@ -1078,7 +1283,7 @@ function showLordTalk(L: Lord, back: () => void) {
       if (L.relation < 35) { say(`„Najpierw zdobądź moje zaufanie.” (relacja ${L.relation}/35)`); return; }
       if (P.renown < 250) { say(`„Moja krew nie wyjdzie za kogoś bez imienia.” (sława ${P.renown}/250)`); return; }
       const nm = pick(["Adela", "Brunhilda", "Ewelina", "Ingrid", "Jagna", "Ottokar", "Radomir", "Wit"]);
-      (P as any).spouse = `${nm} z rodu ${L.name}`; rel(L, 20); P.renown += 30;
+      (P as any).spouse = `${nm} z rodu ${L.name}`; rel(L, 20, "ślub z jego rodem"); P.renown += 30;
       chron(w, `${P.name} zawiera małżeństwo: ${(P as any).spouse}.`, PAL.gold);
       say(`„Niech więc będzie. ${nm} będzie twoja. Nasze rody są odtąd jednym.”`);
     };
@@ -1157,6 +1362,7 @@ function showAftermath(r: BattleResult, gold: number, items: string[], lines: st
 
 // ---------- Niewola ----------
 function showCaptivity() {
+  firstTip("capt", "Niewola", "Możesz czekać, zapłacić okup albo spróbować ucieczki. Ucieczka to krótka walka: kompani w celi pomogą.");
   const w = WORLD, P = w.player;
   hideMapHud();
   const c = P.captive;
@@ -1164,8 +1370,10 @@ function showCaptivity() {
   const esc2 = clamp(0.15 + P.attr.agi * 0.025, 0.1, 0.6);
   showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("captive", w.day, "aurelia", true), "scene-img")}</div>
     <h1>Niewola</h1><p>Trzymają cię ludzie frakcji ${factionName(c.by)}. Łańcuch obciera kostki, strażnik ziewa. Do wypuszczenia: ok. ${c.days} dni.</p>
-    <div class="btns"><button data-a="escape">Spróbuj uciec (${Math.round(esc2 * 100)}%)</button><button class="alt" data-a="ransom" ${P.gold >= ransom ? "" : "disabled"}>Zapłać okup (${ransom})</button><button class="alt" data-a="wait">Czekaj dzień</button></div></div>`, {
-    escape: () => { passDay(); if (chance(esc2)) releaseFromCaptivity("Uciekasz nocą przez rów z gnojem. Wolny!"); else { P.hp = Math.max(1, P.hp - 15); c.days++; toast("Złapali cię. Kij spadł na plecy.", PAL.redL); showCaptivity(); } },
+    ${(c as any).comps?.length ? `<p class="tip">W celi obok: ${(c as any).comps.map((x: CompanionState) => x.name).join(", ")}. Pomogą w ucieczce.</p>` : ""}
+    <div class="btns"><button data-a="fight">Ucieczka siłą (walka)</button><button class="alt" data-a="escape">Wymknij się po cichu (${Math.round(esc2 * 100)}%)</button><button class="alt" data-a="ransom" ${P.gold >= ransom ? "" : "disabled"}>Zapłać okup (${ransom})</button><button class="alt" data-a="wait">Czekaj dzień</button></div></div>`, {
+    fight: () => startEscape(),
+    escape: () => { passDay(); if (chance(esc2)) { for (const x of (c as any).comps || []) if (chance(0.5)) { P.companions.push(x); (c as any).comps = (c as any).comps.filter((y: any) => y !== x); } releaseFromCaptivity("Uciekasz nocą przez rów z gnojem. Wolny!"); } else { P.hp = Math.max(1, P.hp - 15); c.days++; toast("Złapali cię. Kij spadł na plecy.", PAL.redL); showCaptivity(); } },
     ransom: () => { P.gold -= ransom; releaseFromCaptivity("Okup zapłacony. Wypuszczają cię za bramę."); },
     wait: () => { passDay(); c.days--; if (c.days <= 0) releaseFromCaptivity("Puszczają cię wolno. Nie jesteś wart chleba, który zjadasz."); else showCaptivity(); },
   }, "dialog-scr");
@@ -1175,6 +1383,7 @@ function passDay() { const w = WORLD; for (let i = 0; i < 24; i++) worldTick(w, 
 // ---------- Okna postaci ----------
 const CH = { flash: "" as string, tree: "", node: "" };
 function showCharacter() {
+  firstTip("char", "Postać", "Punkty atrybutów dodajesz plusem. Drzewka mają 20 węzłów; niektóre się wykluczają (np. ciężki i lekki pancerz). Respec kosztuje złoto i działa tylko w mieście.");
   const w = WORLD, P = w.player;
   const portrait = drawPortrait(heroCfgFromPlayer(P).look, PAL.gold);
   const O = ORIGINS[P.origin];
@@ -1226,6 +1435,7 @@ function showCharacter() {
 const SLOT_IC: Record<ESlot, string> = { head: "crown", body: "shield", hands: "hammer", feet: "wind", weapon: "sword", shield: "shield", bow: "bow", horse: "horse" };
 const INV = { dir: 0, filter: "all", sort: "tier", who: "hero" };
 function showInventory() {
+  firstTip("inv", "Ekwipunek", "Przeciągnij przedmiot z juków na postać albo odwrotnie. Waga spowalnia w walce. Jakość: zardzewiały, zwykły, dobry, mistrzowski.");
   const w = WORLD, P = w.player;
   const H2 = heroCfgFromPlayer(P);
   const comp = INV.who === "hero" ? null : P.companions.find((c) => c.id === INV.who) || null;
@@ -1296,6 +1506,7 @@ function refreshCompGear(c: CompanionState) {
 const PS = { sel: "", tab: "troops", view: "list" };
 function upCost(from: string, to: string) { return Math.max(15, Math.round((UNITS[to].cost - UNITS[from].cost) * 0.85 * (1 - perk(WORLD.player, "upB")) + UNITS[to].tier * 8)); }   // awans droższy niż dawniej
 function showParty() {
+  firstTip("party", "Armia", "Widok Szyk pokazuje oddziały. Przypisz typ żołnierza do oddziału 1–5, by dowodzić nim w bitwie. Jeńcy wymagają straży.");
   const w = WORLD, P = w.player, p = playerParty(w);
   const list = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier);
   if (!list.some((t) => t.type === PS.sel)) PS.sel = list[0]?.type || "";
@@ -1324,7 +1535,8 @@ function showParty() {
   let body = "";
   if (PS.tab === "troops") body = `<div class="row"><button class="mini ${PS.view !== "form" ? "on" : ""}" data-a="view" data-v="list">Lista</button><button class="mini ${PS.view === "form" ? "on" : ""}" data-a="view" data-v="form">Szyk</button></div>${moraleFactors()}` + (PS.view === "form" ? armyFormation() : `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`);
   else if (PS.tab === "comp") body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>${(c as any).away > w.day ? `<p class="gold">Na misji (${{ scout: "zwiad", trade: "handel", recruit: "werbunek" }[(c as any).mission] || "misja"}), wróci za ${(c as any).away - w.day} dni.</p>` : `Dowodzi: ${[1, 2, 3, 4, 5].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")}<br>Wyślij: <button class="mini" data-a="mis" data-v="${c.id}:scout">Zwiad (3 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:trade">Handel (5 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:recruit">Werbunek (4 dni)</button>`} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button>${COMP_TRAITS[c.id] ? `<p class="tip">Lubi: ${COMP_TRAITS[c.id].likes.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo szczególnie"} · nie znosi: ${COMP_TRAITS[c.id].hates.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo"}</p>` : ""}</div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
-  else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button>${(p as any).willing > 0 ? `<button class="mini" data-a="recP">Zwerbuj chętnych (${(p as any).willing})</button>` : `<span class="muted"> po 3 dniach w niewoli część jeńców zechce ci służyć</span>`}<table class="tbl">${p.prisoners.map((t2) => `<tr><td>${t2.n}× ${UNITS[t2.type].name}</td><td>${ic("coin")} ${Math.round(18 * Math.pow(UNITS[t2.type].tier, 1.6) * (1 + perk(P, "prisB")))}/szt. u handlarza</td></tr>`).join("")}</table><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie albo w zamku. Czasem sami przechodzą na twoją stronę.</p>` : "<p class='muted'>Nie masz jeńców.</p>";
+  else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button>${(p as any).willing > 0 ? `<button class="mini" data-a="recP">Zwerbuj chętnych (${(p as any).willing})</button>` : `<span class="muted"> po 3 dniach w niewoli część jeńców zechce ci służyć</span>`}<table class="tbl">${p.prisoners.map((t2) => `<tr><td>${t2.n}× ${UNITS[t2.type].name}</td><td>${ic("coin")} ${prisonerValue(t2)}/szt. u handlarza</td><td>${(P as any).askDay === w.day ? "<span class='muted'>przesłuchani dziś</span>" : `<button class="mini" data-a="ask" data-v="${t2.type}:0">Przesłuchaj</button><button class="mini danger" data-a="ask" data-v="${t2.type}:1" title="pewne, ale −2 honoru">Zmuś</button>`}</td></tr>`).join("")}</table>
+    <p class="tip">Sprzedasz ich handlarzowi okupu w karczmie albo kasztelanowi w zamku. Jeńcy potrzebują straży: gdy jest ich więcej niż twoich zdrowych ludzi, marsz zwalnia, a nocą uciekają.</p><div id="askres" class="why"></div>` : "<p class='muted'>Nie masz jeńców.</p>";
   showScr(`<div class="card frame wide party">
     <div class="phead"><h1>Armia</h1><span>${ic("man")} ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)}</span><span>${ic("coin")} żołd ${partyWages(w)}/dzień</span><span>${ic("heart")} morale ${Math.round(P.morale)}</span><span>${ic("horse")} szybkość ${partySpeed(w, p).toFixed(1)}</span></div>
     <div class="s-tabs">${tabs}</div>${body}
@@ -1340,41 +1552,232 @@ function showParty() {
     mis: (v) => { const [id, m] = v.split(":"); const c = P.companions.find((x) => x.id === id) as any; if (!c) return; c.mission = m; c.away = w.day + (m === "scout" ? 3 : m === "trade" ? 5 : 4); toast(`${c.name} wyrusza na misję.`, PAL.gold); showParty(); },
     recP: () => { const pa = p as any; let n = Math.min(pa.willing || 0, partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length)); const got = n; for (const t of p.prisoners.slice()) { const k = Math.min(n, t.n); if (k <= 0) break; removeTroops(p.prisoners, t.type, k); addTroops(p.troops, t.type, k); n -= k; } pa.willing = 0; toast(`${got} jeńców przechodzi pod twój sztandar.`, PAL.gold); showParty(); },
     freeP: () => { p.prisoners = []; P.honor += 1; showParty(); },
+    ask: (v) => { const [type, h] = v.split(":"); const txt = interrogate(w, type, h === "1"); showParty(); const e = document.getElementById("askres"); if (e) e.innerHTML = txt; },
     close: () => closeScreen(),
   }, "party-scr");
 }
 
+// Przesłuchanie jeńca: zdradza pozycje armii jego frakcji i najsłabszą twierdzę.
+function interrogate(w: World, type: string, harsh: boolean) {
+  const P = w.player; (P as any).askDay = w.day;
+  const cul = UNITS[type]?.culture; const f = cul === "bandit" ? 6 : FACTION_OF_CULTURE[cul] || 0;
+  if (harsh) { P.honor -= 2; } else if (!chance(clamp(0.3 + P.attr.cha * 0.05 + P.attr.int * 0.02, 0.2, 0.85))) return `<p class="neg">Jeniec spluwa ci pod nogi i milczy.</p>`;
+  const reveal = (x: number, y: number) => { const cx = Math.floor(x / WCELL), cy = Math.floor(y / WCELL); for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const X = cx + dx, Y = cy + dy; if (X >= 0 && Y >= 0 && X < WGW && Y < WGH) w.explored[Y * WGW + X] = 1; } };
+  const out: string[] = [];
+  if (f === 6) {
+    const camp = w.places.filter((pl) => pl.kind === "camp" && pl.cleared <= 0).sort((a, b) => dist(a.cx * WCELL, a.cy * WCELL, playerParty(w).x, playerParty(w).y) - dist(b.cx * WCELL, b.cy * WCELL, playerParty(w).x, playerParty(w).y))[0];
+    if (camp) { camp.seen = true; reveal(camp.cx * WCELL, camp.cy * WCELL); out.push(`„Obóz? ${camp.name}. Tam siedzi reszta.” Miejsce zaznaczone na mapie.`); }
+  } else if (f > 0) {
+    const armies = w.parties.filter((o) => o.kind === "lord" && o.faction === f).sort(() => rnd() - 0.5).slice(0, harsh ? 3 : 2);
+    for (const a of armies) { reveal(a.x, a.y); out.push(`${a.name}: ok. ${troopCount(a.troops)} ludzi w pobliżu ${nearestSettlement(w, a.x, a.y).name}${a.state === "siege" || a.state === "besiege" ? ", idzie na oblężenie" : ""}.`); }
+    const weak = w.settlements.filter((s) => s.faction === f && s.kind !== "village").sort((a, b) => troopPower(a.garrison) - troopPower(b.garrison))[0];
+    if (weak) out.push(`Najsłabsza załoga: ${weak.name} (${troopCount(weak.garrison)} ludzi).`);
+  }
+  if (!out.length) return `<p class="muted">Jeniec nic nie wie.</p>`;
+  return `<p class="pos">${harsh ? "Po kilku razach mówi wszystko:" : "Jeniec mówi:"}</p>${out.map((o) => `<p>${esc(o)}</p>`).join("")}`;
+}
+function prisonerValue(t: Troop) { return Math.round(18 * Math.pow(UNITS[t.type].tier, 1.6) * (1 + perk(WORLD.player, "prisB"))); }
+// ---------- Frakcje: przegląd, lordowie, dyplomacja, herb ----------
+const FW = { tab: "over", lord: -1 };
+let TERR_CACHE: { ver: number; c: HTMLCanvasElement } | null = null;
+function territoryMap(w: World) {
+  if (TERR_CACHE && TERR_CACHE.ver === w.ownerVersion) return TERR_CACHE.c;
+  const [c, g] = mkCanvas(WGW, WGH);
+  const im = g.createImageData(WGW, WGH), d = im.data;
+  const hex = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const cols: Record<number, number[]> = {};
+  for (let i = 0; i < WGW * WGH; i++) {
+    const t = w.terr[i];
+    let rgb: number[];
+    if (t === T_SEA) rgb = [14, 18, 24];
+    else { const s = w.settlements[w.nearest[i]]; const f = s ? s.faction : 0; rgb = cols[f] ||= hex(factionCol(f)[0]); if (t === T_MOUNT) rgb = rgb.map((v) => v * 0.6); if (!w.explored[i]) rgb = rgb.map((v) => v * 0.45); }
+    d[i * 4] = rgb[0]; d[i * 4 + 1] = rgb[1]; d[i * 4 + 2] = rgb[2]; d[i * 4 + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  for (const s of w.settlements) { g.fillStyle = s.kind === "village" ? "#000" : "#fff"; g.fillRect(s.cx - (s.kind === "town" ? 1 : 0), s.cy - (s.kind === "town" ? 1 : 0), s.kind === "town" ? 3 : s.kind === "castle" ? 2 : 1, s.kind === "town" ? 3 : s.kind === "castle" ? 2 : 1); }
+  const p = playerParty(w); g.fillStyle = PAL.gold; g.fillRect(Math.floor(p.x / WCELL) - 1, Math.floor(p.y / WCELL) - 1, 3, 3);
+  TERR_CACHE = { ver: w.ownerVersion, c };
+  return c;
+}
+function strengthChart(w: World, ids: number[]) {
+  const series = ids.map((f) => [f, (fst(w, f)?.hist || []).slice(-90)] as [number, number[]]).filter(([, h]) => h.length > 1);
+  const max = Math.max(10, ...series.flatMap(([, h]) => h));
+  const n = Math.max(2, ...series.map(([, h]) => h.length));
+  const line = (h: number[]) => h.map((v, i) => `${((i + n - h.length) / (n - 1)) * 300},${100 - (v / max) * 92}`).join(" ");
+  return `<svg viewBox="0 0 300 104" preserveAspectRatio="none">${series.map(([f, h]) => `<polyline points="${line(h)}" fill="none" stroke="${factionCol(f)[f === 5 ? 2 : 0]}" stroke-width="2"/>`).join("")}</svg>
+    <div class="chl">${series.map(([f, h]) => `<span style="color:${factionCol(f)[f === 5 ? 2 : 0]}">■</span> ${factionShort(f)} ${h[h.length - 1]}`).join(" · ")} <span class="muted">· ostatnie ${n} dni</span></div>`;
+}
 function showFactions() {
+  firstTip("fac", "Frakcje", "Kliknij lorda, by zobaczyć, skąd wzięła się jego relacja z tobą. Jako król wyślesz posłów: pokój, sojusz, trybut, ślub.");
   const w = WORLD, P = w.player;
   const ids = [1, 2, 3, 4, 5, ...(w.factions[PLAYER_FACTION] ? [PLAYER_FACTION] : [])];
+  const tabs: [string, string][] = [["over", "Przegląd"], ["lords", "Lordowie"], ["dipl", "Dyplomacja i wyprawy"], ["crest", "Herb"]];
+  let body = "";
+  if (FW.tab === "over") {
+    body = `<table class="tbl wide"><tr><th>Frakcja</th><th>Władca</th><th>Osady</th><th>Lordowie</th><th>Siła</th><th>Wojny</th><th>Sojusze</th><th>Z tobą</th></tr>
+    ${ids.map((f) => { const F = fst(w, f); if (!F) return ""; const wars = Object.keys(F.war).filter((k) => F.war[Number(k)]).map((k) => factionShort(Number(k))); const al = Object.keys(F.ally || {}).filter((k) => F.ally[Number(k)]).map((k) => factionShort(Number(k))); const lords = w.lords.filter((l) => l.faction === f && l.alive).length; const set = w.settlements.filter((s) => s.faction === f).length; const atw = f !== PLAYER_FACTION && playerAtWarWith(w, f);
+      return `<tr class="${F.alive ? "" : "muted"}"><td><span class="sw" style="background:${factionCol(f)[0]}"></span>${factionName(f)}${F.camp ? ` <span class="gold" title="trwa wyprawa">⚑</span>` : ""}</td><td>${f === PLAYER_FACTION ? P.name : FACTIONS[f].ruler}</td><td>${set}</td><td>${lords}</td><td>${factionPower(w, f)}</td><td>${wars.join(", ") || "pokój"}</td><td>${al.join(", ") || "—"}</td><td>${f === PLAYER_FACTION ? "—" : atw ? "<span class='bad'>wojna</span>" : isAlly(w, PLAYER_FACTION, f) ? "<span class='good'>sojusz</span>" : "pokój"}</td></tr>`; }).join("")}
+    </table>
+    <div class="facgrid"><div><h2>Ziemie</h2><div class="facmap">${pic(territoryMap(w), "")}</div><p class="tip">Kolory to frakcje; jasne punkty to miasta i zamki, złoty to ty. Ciemne pola nieodkryte.</p></div>
+    <div><h2>Siła armii</h2><div class="strch">${strengthChart(w, ids)}</div>
+    <h2>Ostatnio w polityce</h2><div class="why">${w.chronicle.filter((c) => c.cat === "war" || c.cat === "peace" || c.cat === "lord").slice(-6).reverse().map((c) => `<p><span class="muted">D${c.day}</span> ${esc(c.text)}</p>`).join("") || "<p class='muted'>Cisza.</p>"}</div></div></div>`;
+  } else if (FW.tab === "lords") {
+    const list = w.lords.filter((l) => l.alive).sort((a, b) => a.faction - b.faction || Number(b.ruler) - Number(a.ruler) || b.renown - a.renown);
+    if (FW.lord < 0 && list.length) FW.lord = list[0].id;
+    const sel = lordById(w, FW.lord);
+    const relCol = (r: number) => r >= 20 ? "#7fbf5a" : r <= -20 ? "#d0503c" : "#b8933a";
+    body = `<div class="facgrid"><div class="lordl">${list.map((l) => { const p = partyById(w, l.party); const fiefs = w.settlements.filter((s) => s.owner === l.id && s.kind !== "village").length; return `<div class="lordc ${l.id === FW.lord ? "sel" : ""}" data-a="lord" data-v="${l.id}">${pic(drawPortrait(l.look, factionCol(l.faction)[0]), "")}<div><b>${l.title} ${l.name}</b><small><span class="sw" style="background:${factionCol(l.faction)[0]}"></span>${factionShort(l.faction)} · ${l.captive >= 0 ? "w niewoli" : p ? `${troopCount(p.troops)} ludzi` : "bez armii"}${fiefs ? ` · lenna ${fiefs}` : ""}</small><div class="relbar"><i style="left:50%;width:${Math.abs(l.relation) / 2}%;${l.relation < 0 ? `left:${50 - Math.abs(l.relation) / 2}%;` : ""}background:${relCol(l.relation)}"></i></div></div></div>`; }).join("")}</div>
+    <div>${sel ? (() => { const log: { day: number; d: number; why: string }[] = (sel as any).why || []; const fiefs = w.settlements.filter((s) => s.owner === sel.id); const p = partyById(w, sel.party); const lo = lordLoyal(sel);
+      return `<div class="row" style="gap:.6em;align-items:center">${pic(drawPortrait(sel.look, factionCol(sel.faction)[0]), "portrait big")}<div><h2 style="margin:0">${sel.title} ${sel.name}</h2>${factionName(sel.faction)}${sel.ruler ? " · władca" : ""}<br><span class="muted">${sel.personality} · sława ${sel.renown}</span></div></div>
+        <p>Relacja z tobą: <b style="color:${relCol(sel.relation)}">${sel.relation >= 0 ? "+" : ""}${sel.relation}</b> · lojalność wobec korony: <b class="${lo < 25 ? "bad" : ""}">${lo}</b>${lo < 25 ? " <span class='bad'>(może zdradzić)</span>" : ""}</p>
+        <p class="tip">${sel.captive >= 0 ? `W niewoli: ${factionName(sel.captive)}` : p ? `Armia: ${troopCount(p.troops)} ludzi, ${p.state === "siege" ? "oblega" : p.state === "besiege" ? "idzie na oblężenie" : p.state === "raid" ? "grabi" : "w polu"} w pobliżu ${nearestSettlement(w, p.x, p.y).name}` : "Zbiera nowe wojsko."}${fiefs.length ? `<br>Lenna: ${fiefs.map((s) => s.name).join(", ")}` : ""}</p>
+        <h2>Skąd ta relacja</h2><div class="why">${log.length ? log.slice().reverse().map((e) => `<p class="${e.d > 0 ? "pos" : "neg"}">${e.d > 0 ? "+" : ""}${e.d} · ${esc(e.why)} <span class="muted">(dzień ${e.day})</span></p>`).join("") : "<p class='muted'>Jeszcze nic was nie łączy. Zadania, pomoc w bitwie, prezenty i przysięga podnoszą relację; napady, niewola i zdrada ją niszczą.</p>"}</div>`; })() : ""}</div></div>`;
+  } else if (FW.tab === "dipl") {
+    const king = P.status === "król" && !!w.factions[PLAYER_FACTION];
+    const myF = king ? PLAYER_FACTION : P.liege;
+    const C = myF > 0 ? fst(w, myF)?.camp : null;
+    const pend = envoys(w);
+    let html = "";
+    if (C) { const t = w.settlements[C.target]; const m = C.marshal === -2 ? P.name : `${lordById(w, C.marshal)?.title} ${lordById(w, C.marshal)?.name}`; html += `<h2>Wyprawa ${factionShort(myF)}</h2><p>Marszałek: <b>${m}</b> · cel: <b>${t?.name}</b> · ${C.stage === "gather" ? `zbiórka pod ${w.settlements[C.gather]?.name}` : "marsz"} · do dnia ${C.until}</p>${C.marshal === -2 ? `<p class="tip">Lordowie idą za tobą. Zacznij oblężenie, a dołączą.</p><button class="mini danger" data-a="campEnd">Rozwiąż wyprawę</button>` : `<button class="mini" data-a="campGo">Idź do marszałka</button>`}`; }
+    else if (myF > 0 && (king || (P.status === "wasal" && P.renown >= 350))) {
+      const targets = enemyTargets(w, myF).sort((a, b) => dist(a.cx * WCELL, a.cy * WCELL, playerParty(w).x, playerParty(w).y) - dist(b.cx * WCELL, b.cy * WCELL, playerParty(w).x, playerParty(w).y)).slice(0, 6);
+      html += `<h2>Ogłoś wyprawę</h2><p class="tip">${king ? "Jako władca" : "Masz dość sławy, by"} poprowadzić lordów ${factionShort(myF)} na wrogą twierdzę.</p><div class="dipl">${targets.map((t) => `<button class="mini" data-a="campStart" data-v="${t.id}">${t.name} (${factionShort(t.faction)}, załoga ${troopCount(t.garrison)})</button>`).join("") || "<span class='muted'>Brak celów: nie toczysz wojny.</span>"}</div>`;
+    } else html += `<p class="tip">Wyprawy ogłasza władca. Jako wasal dostaniesz wezwanie od marszałka; z sławą 350 sam możesz zostać marszałkiem.</p>`;
+    if (king) {
+      html += `<h2>Posłowie</h2><p class="tip">Poseł dociera po 2–4 dniach; odpowiedź przyjdzie w kronice i jako wiadomość.</p><table class="tbl wide"><tr><th>Frakcja</th><th>Relacja</th><th>Siła wobec ciebie</th><th>Wyślij posła</th></tr>${MAJOR.filter((f) => w.factions[f].alive).map((f) => { const r0 = Math.round(fst(w, f).relation[PLAYER_FACTION] || 0); const ratio = factionPower(w, f) / Math.max(1, factionPower(w, PLAYER_FACTION)); const war = atWar(w, PLAYER_FACTION, f); const busy = pend.some((e) => e.to === f);
+        return `<tr><td><span class="sw" style="background:${factionCol(f)[0]}"></span>${factionName(f)}</td><td>${r0 >= 0 ? "+" : ""}${r0}</td><td>${ratio > 1.5 ? "dużo silniejsi" : ratio > 1.1 ? "silniejsi" : ratio > 0.8 ? "równi" : "słabsi"}</td><td class="dipl">${busy ? "<span class='muted'>poseł w drodze</span>" : war ? `<button class="mini" data-a="env" data-v="${f}:peace:0">Pokój</button><button class="mini" data-a="env" data-v="${f}:peace:500" ${P.gold >= 500 ? "" : "disabled"}>Pokój + 500</button><button class="mini" data-a="env" data-v="${f}:tribute:0">Żądaj trybutu</button>` : `<button class="mini" data-a="env" data-v="${f}:alliance:0">Sojusz</button><button class="mini" data-a="env" data-v="${f}:nonaggr:0">Rozejm 60 dni</button><button class="mini" data-a="env" data-v="${f}:marriage:0" ${(P as any).spouse ? "disabled" : ""}>Ślub</button><button class="mini" data-a="env" data-v="${f}:tribute:0">Żądaj trybutu</button>${isAlly(w, PLAYER_FACTION, f) ? "" : `<button class="mini danger" data-a="war" data-v="${f}">Wojna</button>`}`}</td></tr>`; }).join("")}</table>`;
+    } else html += `<h2>Posłowie</h2><p class="tip">Posłów wysyła władca. Zostań królem (zdobądź twierdzę na własny rachunek), by prowadzić dyplomację.</p>`;
+    const capt = w.lords.filter((l) => l.alive && l.captive === PLAYER_FACTION);
+    if (capt.length) html += `<h2>Twoi jeńcy</h2>${capt.map((l) => `<div class="row"><span>${l.title} ${l.name} <span class="muted">(${factionShort(l.faction)})</span></span><span><button class="mini" data-a="lfree" data-v="${l.id}">Uwolnij (+relacja, honor)</button><button class="mini" data-a="lswap" data-v="${l.id}" ${exchangeTarget(w, l) ? "" : "disabled"}>Wymień${exchangeTarget(w, l) ? `: ${exchangeTarget(w, l).name}` : ""}</button><button class="mini danger" data-a="lexec" data-v="${l.id}">Zetnij (−15 honoru)</button></span></div>`).join("")}<p class="tip">Okup przyjdzie z posłem albo w lochu miasta.</p>`;
+    body = html;
+  } else {
+    const C: Crest = (P as any).crest ||= { col: PAL.goldD, shade: PAL.ink, trim: PAL.gold, pattern: "chevron", charge: "star" };
+    const sw = (k: string) => `<div class="swatches">${CREST_COLS.map((c) => `<button style="background:${c}" class="${(C as any)[k] === c ? "on" : ""}" data-a="ccol" data-v="${k}:${c}"></button>`).join("")}</div>`;
+    body = `<div class="crestEd crest">${pic(drawCrest(C, 3), "")}<div><p class="tip">Herb nosi twoja armia: sztandary na mapie i w bitwie, tabardy twojego królestwa.</p>
+      <div class="row"><span>Tło</span>${sw("col")}</div><div class="row"><span>Cień</span>${sw("shade")}</div><div class="row"><span>Godło i wzór</span>${sw("trim")}</div>
+      <div class="chips">${(["plain", "stripe", "quarter", "chevron", "cross"] as Pattern[]).map((p) => `<button class="chip ${C.pattern === p ? "on" : ""}" data-a="cpat" data-v="${p}">${PATTERN_NAME[p]}</button>`).join("")}</div>
+      <div class="chips">${CHARGES.map((c) => `<button class="chip ${C.charge === c ? "on" : ""}" data-a="cchg" data-v="${c}">${CHARGE_NAME[c]}</button>`).join("")}</div></div></div>`;
+  }
   showScr(`<div class="card frame wide">
     <h1>Frakcje i dyplomacja</h1>
-    <p>Twój status: <b>${P.status}</b>${P.liege > 0 ? ` · służysz: ${factionName(P.liege)}` : ""}${P.wars.length && P.liege === 0 ? ` · twoje wojny: ${P.wars.map(factionShort).join(", ")}` : ""}</p>
-    <table class="tbl wide"><tr><th>Frakcja</th><th>Władca</th><th>Osady</th><th>Lordowie</th><th>Wojny</th><th>Z tobą</th>${P.status === "król" ? "<th></th>" : ""}</tr>
-    ${ids.map((f) => { const F = w.factions[f]; if (!F) return ""; const wars = Object.keys(F.war).filter((k) => F.war[Number(k)]).map((k) => factionShort(Number(k))); const lords = w.lords.filter((l) => l.faction === f && l.alive).length; const set = w.settlements.filter((s) => s.faction === f).length; const atw = f !== PLAYER_FACTION && playerAtWarWith(w, f);
-      return `<tr class="${F.alive ? "" : "muted"}"><td><span class="sw" style="background:${factionCol(f)[0]}"></span>${factionName(f)}</td><td>${f === PLAYER_FACTION ? P.name : FACTIONS[f].ruler}</td><td>${set}</td><td>${lords}</td><td>${wars.join(", ") || "pokój"}</td><td>${f === PLAYER_FACTION ? "—" : atw ? "<span class='bad'>wojna</span>" : "pokój"}</td>${P.status === "król" && f !== PLAYER_FACTION ? `<td>${atw ? "<span class='muted'>pokój: porozmawiaj z władcą</span>" : `<button class="mini danger" data-a="war" data-v="${f}">Wypowiedz wojnę</button>`}</td>` : P.status === "król" ? "<td></td>" : ""}</tr>`; }).join("")}
-    </table>
-    <h2>Lordowie</h2><div class="lords">${w.lords.filter((l) => l.alive).map((l) => { const p = partyById(w, l.party); return `<div class="lord"><span class="sw" style="background:${factionCol(l.faction)[0]}"></span>${l.title} ${l.name} <span class="muted">${l.relation >= 0 ? "+" : ""}${l.relation}${l.captive >= 0 ? " · w niewoli" : p ? ` · ${troopCount(p.troops)} ludzi` : " · bez armii"}</span></div>`; }).join("")}</div>
-    <div class="btns"><button data-a="close">Zamknij (F)</button></div></div>`, {
+    <p>Twój status: <b>${P.status}</b>${P.liege > 0 ? ` · służysz: ${factionName(P.liege)}` : ""}${P.wars.length && P.liege === 0 ? ` · twoje wojny: ${P.wars.map(factionShort).join(", ")}` : ""}${(P as any).spouse ? ` · małżonek: ${(P as any).spouse}` : ""}</p>
+    <div class="s-tabs">${tabs.map(([k, n]) => `<button class="tab ${FW.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("")}</div>
+    ${body}
+    <div class="btns"><button data-a="close">Zamknij (${keyName(KB("fac"))})</button></div></div>`, {
+    tab: (v) => { FW.tab = v; showFactions(); },
+    lord: (v) => { FW.lord = Number(v); showFactions(); },
     war: (v) => { setWar(w, PLAYER_FACTION, Number(v), true); showFactions(); refreshMapHud(); },
+    env: (v) => { const [f, k, g] = v.split(":"); sendEnvoy(w, Number(f), k as any, Number(g)); toast("Poseł wyrusza w drogę.", PAL.gold); showFactions(); },
+    campStart: (v) => { playerStartCampaign(w, P.status === "król" ? PLAYER_FACTION : P.liege, Number(v)); toast("Wyprawa ogłoszona. Lordowie ciągną za tobą.", PAL.gold); showFactions(); },
+    campEnd: () => { const F = fst(w, P.status === "król" ? PLAYER_FACTION : P.liege); if (F) { F.camp = null; F.lastCamp = w.day; chron(w, `${P.name} rozwiązuje wyprawę.`, PAL.ash, "siege"); } showFactions(); },
+    campGo: () => { const C = fst(w, P.liege)?.camp; const L = C && lordById(w, C.marshal); const mp = L && partyById(w, L.party); if (mp) { closeScreen(); goTo(w, playerParty(w), mp.x, mp.y); } },
+    lfree: (v) => { const L = lordById(w, Number(v)); L.captive = -1; lordRel(w, L, 15, "wypuściłeś go z niewoli za darmo"); P.honor += 3; chron(w, `${P.name} wypuszcza z niewoli: ${L.title} ${L.name}.`, PAL.moss, "lord"); showFactions(); },
+    lswap: (v) => { const L = lordById(w, Number(v)); const t = exchangeTarget(w, L); if (!t) return; doExchange(w, L, t); showFactions(); },
+    lexec: (v) => { const L = lordById(w, Number(v)); showScr(`<div class="dialog frame"><h1>Egzekucja?</h1><p>Ścięcie ${L.title} ${L.name} to hańba (−15 honoru). Cały ród i frakcja ${factionName(L.faction)} tego nie zapomną.</p><div class="btns"><button class="danger" data-a="yes">Zetnij</button><button class="alt" data-a="no">Wróć</button></div></div>`, { yes: () => { executeLord(w, L); showFactions(); }, no: () => showFactions() }, "dialog-scr"); },
+    ccol: (v) => { const [k, c] = v.split(":"); ((P as any).crest as any)[k] = c; applyCrest(P); SICON.clear(); showFactions(); },
+    cpat: (v) => { (P as any).crest.pattern = v; applyCrest(P); SICON.clear(); showFactions(); },
+    cchg: (v) => { (P as any).crest.charge = v; showFactions(); },
     close: () => closeScreen(),
   }, "fac-scr");
 }
+function freeCompanion(w: World, id: string) {
+  const list: any[] = (w as any).capComp || [];
+  const i = list.findIndex((c) => c.comp.id === id); if (i < 0) return;
+  const c = list[i]; list.splice(i, 1);
+  w.player.companions.push(c.comp);
+  for (const q of w.player.quests) if (!q.done && (q.kind as string) === "rescue" && (q as any).comp === id) { q.done = true; }
+  chron(w, `${c.comp.name} wraca do drużyny ${w.player.name}.`, PAL.moss, "player");
+}
+// Wymiana jeńców: twój lord-jeniec za kompana albo lorda twojej korony w ich lochu.
+function exchangeTarget(w: World, L: Lord): { kind: "comp" | "lord"; id: string | number; name: string } | null {
+  const cc = ((w as any).capComp || []).find((c: any) => c.by === L.faction);
+  if (cc) return { kind: "comp", id: cc.comp.id, name: cc.comp.name };
+  const myF = w.player.status === "król" ? PLAYER_FACTION : w.player.liege;
+  const ml = myF > 0 ? w.lords.find((o) => o.alive && o.faction === myF && o.captive === L.faction) : null;
+  return ml ? { kind: "lord", id: ml.id, name: `${ml.title} ${ml.name}` } : null;
+}
+function doExchange(w: World, L: Lord, t: { kind: "comp" | "lord"; id: string | number; name: string }) {
+  L.captive = -1;
+  if (t.kind === "comp") { const list = (w as any).capComp as any[]; const i = list.findIndex((c) => c.comp.id === t.id); if (i >= 0) { w.player.companions.push(list[i].comp); list.splice(i, 1); } }
+  else { const o = lordById(w, Number(t.id)); if (o) { o.captive = -1; lordRel(w, o, 12, "wymieniłeś go z niewoli"); } }
+  lordRel(w, L, 3, "wymiana jeńców");
+  chron(w, `Wymiana jeńców: ${L.title} ${L.name} za ${t.name}.`, PAL.moss, "lord");
+  toast(`Wymiana: ${t.name} wraca do ciebie.`, PAL.gold);
+}
 
+// ---------- Kronika z filtrami i ilustrowanymi wydarzeniami ----------
+const CHR = { f: "all" };
+const CHRON_CATS: [string, string, string][] = [["all", "Wszystko", "scroll"], ["war", "Wojny", "sword"], ["siege", "Oblężenia", "castle"], ["peace", "Pokój i sojusze", "crown"], ["lord", "Lordowie", "banner"], ["plague", "Zaraza", "skull"], ["player", "Ty", "star"], ["trade", "Handel i turnieje", "coin"], ["misc", "Inne", "eye"]];
+function chronScene(c: ChronEntry, i: number) {
+  const k = c.cat === "siege" ? "castle" : c.cat === "plague" ? "cemetery" : c.cat === "war" ? "camp" : c.cat === "peace" ? "town" : c.cat === "lord" ? "castle" : "village";
+  const src = drawScene(k, c.day * 13 + i, c.cat === "plague" ? "undead" : pick(["aurelia", "varus", "dwarf"]), c.cat === "plague");
+  const [cv, g] = mkCanvas(src.width, src.height); g.drawImage(src, 0, 0); return cv;
+}
 function showChronicle() {
   const w = WORLD;
-  showScr(`<div class="card frame wide"><h1>Kronika</h1><div class="chron">${w.chronicle.slice().reverse().map((c) => `<p><span class="muted">Dzień ${c.day}</span> <span style="${c.col ? `color:${c.col}` : ""}">${esc(c.text)}</span></p>`).join("")}</div><div class="btns"><button data-a="close">Zamknij (K)</button></div></div>`, { close: () => closeScreen() }, "chron-scr");
+  const list = w.chronicle.map((c, i) => [c, i] as [ChronEntry, number]).filter(([c]) => CHR.f === "all" || (c.cat || chronCat(c.text, c.col)) === CHR.f).reverse();
+  let ill = 0;
+  const rows = list.slice(0, 160).map(([c, i]) => {
+    const cat = c.cat || chronCat(c.text, c.col);
+    const icn = CHRON_CATS.find((x) => x[0] === cat)?.[2] || "scroll";
+    const big = (cat === "siege" || cat === "peace" || cat === "plague" || (cat === "war" && /wypowiada/.test(c.text))) && ill < 8;
+    if (big) { ill++; return `<div class="ev">${pic(chronScene(c, i), "")}<div><span class="muted">Dzień ${c.day}</span><br><span style="${c.col ? `color:${c.col}` : ""}">${esc(c.text)}</span></div></div>`; }
+    return `<p><span class="ci">${ic(icn)}</span><span class="muted">Dzień ${c.day}</span> <span style="${c.col ? `color:${c.col}` : ""}">${esc(c.text)}</span></p>`;
+  }).join("");
+  showScr(`<div class="card frame wide"><h1>Kronika</h1><div class="fbar">${CHRON_CATS.map(([k, n, icn]) => `<button class="mini ${CHR.f === k ? "on" : ""}" data-a="f" data-v="${k}">${ic(icn)} ${n}</button>`).join("")}</div><div class="chron">${rows || "<p class='muted'>Nic takiego jeszcze się nie wydarzyło.</p>"}</div><div class="btns"><button data-a="close">Zamknij (${keyName(KB("chron"))})</button></div></div>`, {
+    f: (v) => { CHR.f = v; showChronicle(); }, close: () => closeScreen(),
+  }, "chron-scr");
 }
+
+// ---------- Zdarzenia czekające na decyzję gracza ----------
+function showPending(ev: PendingEv) {
+  const w = WORLD, P = w.player;
+  const list = pending(w); const drop = () => { const i = list.indexOf(ev); if (i >= 0) list.splice(i, 1); };
+  const L = ev.lord !== undefined ? lordById(w, ev.lord) : null;
+  const s = ev.s !== undefined ? w.settlements[ev.s] : null;
+  const dlg = (title: string, text: string, btns: string, acts: Acts, scene = "castle") => showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(scene, w.day, FACTIONS[ev.f]?.culture || "aurelia", isNight(w)), "scene-img")}</div><h1>${title}</h1><p>${text}</p><div class="btns col-btns">${btns}</div></div>`, acts, "dialog-scr pend-scr");
+  const done = (msg?: string) => { drop(); closeScreen(); if (msg) toast(msg, PAL.gold); refreshMapHud(); };
+  if (ev.kind === "vote" && s) {
+    const fiefs = (id: number) => w.settlements.filter((x) => x.kind !== "village" && x.owner === id).length;
+    const btns = ev.cands.map((id, k) => id === -2 ? `<button class="choice" data-a="v" data-v="-2">${k + 1}. Zgłoś siebie (sława ${P.renown}, lenna ${fiefs(-2)})</button>` : (() => { const o = lordById(w, id); return `<button class="choice alt" data-a="v" data-v="${id}">${k + 1}. Poprzyj: ${o.title} ${o.name} (sława ${o.renown}, lenna ${fiefs(id)}, relacja ${o.relation})</button>`; })()).join("") + `<button class="choice alt" data-a="v" data-v="-9">Wstrzymaj się</button>`;
+    dlg(`Rada: komu ${s.name}?`, `${factionName(ev.f)} zdobyła ${s.name}. Władca zwołuje radę, by nadać lenno. Twój głos coś znaczy, a poparty lord to zapamięta. Mniej lenn i więcej sławy to większe szanse.`, btns, { v: (v) => done(resolveVote(w, ev, Number(v))) });
+  } else if (ev.kind === "summon" && s) {
+    dlg("Wezwanie marszałka", `${L ? `${L.title} ${L.name}` : "Marszałek"} wzywa lordów ${factionShort(ev.f)} na wyprawę. Zbiórka pod ${s.name}. Udział da sławę i łupy, nieobecność władca zauważy.`, `<button class="choice" data-a="go">Ruszam pod ${s.name}</button><button class="choice alt" data-a="later">Później</button>`, {
+      go: () => { drop(); closeScreen(); goTo(w, playerParty(w), s.cx * WCELL + 4, s.cy * WCELL + 18); toast(`Maszerujesz pod ${s.name}.`, PAL.gold); },
+      later: () => { const R = w.lords.find((l) => l.faction === ev.f && l.ruler); if (R) lordRel(w, R, -2, "zignorowałeś wezwanie marszałka"); done(); },
+    });
+  } else if (ev.kind === "marshalOffer" && s) {
+    dlg("Buława marszałka", `Władca ${factionName(ev.f)} proponuje ci dowództwo wyprawy na ${s.name}. Lordowie pójdą za twoją armią.`, `<button class="choice" data-a="yes">Przyjmuję buławę</button><button class="choice alt" data-a="no">Odmawiam</button>`, {
+      yes: () => { playerStartCampaign(w, ev.f, s.id); const R = w.lords.find((l) => l.faction === ev.f && l.ruler); if (R) lordRel(w, R, 5, "przyjąłeś buławę marszałka"); done("Jesteś marszałkiem. Ruszaj na " + s.name + "."); },
+      no: () => done(),
+    });
+  } else if (ev.kind === "ransomOffer" && L) {
+    if (L.captive !== PLAYER_FACTION || !L.alive) { drop(); return; }
+    dlg("Poseł z okupem", `Poseł ${factionName(ev.f)} kłania się nisko: „Za uwolnienie ${L.title} ${L.name} mój pan daje ${ev.gold} denarów.”`, `<button class="choice" data-a="yes">Przyjmij (${ev.gold})</button><button class="choice alt" data-a="haggle">Targuj się (charyzma)</button><button class="choice alt" data-a="no">Odeślij posła</button>`, {
+      yes: () => { P.gold += ev.gold; L.captive = -1; lordRel(w, L, 2, "uczciwy okup"); sfx.coin(); chron(w, `${L.title} ${L.name} wykupiony z niewoli u ${P.name} za ${ev.gold}.`, PAL.gold, "lord"); done(`+${ev.gold} denarów.`); },
+      haggle: () => { const ch2 = clamp(0.25 + P.attr.cha * 0.05, 0.1, 0.8); if (chance(ch2)) { ev.gold = Math.round(ev.gold * 1.35); toast(`Poseł zgrzyta zębami i podbija: ${ev.gold}.`, PAL.gold); showPending(ev); } else { lordRel(w, L, -4, "targowałeś się o jego głowę"); done("Poseł odjeżdża urażony."); } },
+      no: () => done(),
+    });
+  } else if (ev.kind === "envoyBack") {
+    dlg("Poseł wraca", ev.text || "", `<button class="choice" data-a="ok">Dobrze</button>`, { ok: () => done() }, "town");
+  } else if (ev.kind === "peaceOffer") {
+    dlg("Propozycja pokoju", `${factionName(ev.f)} proponuje pokój${ev.gold ? ` i ${ev.gold} denarów odszkodowania` : ""}.`, `<button class="choice" data-a="yes">Przyjmij</button><button class="choice alt" data-a="no">Walczymy dalej</button>`, {
+      yes: () => { setWar(w, PLAYER_FACTION, ev.f, false); if (ev.gold) P.gold += ev.gold; done("Pokój zawarty."); },
+      no: () => done(),
+    });
+  } else drop();
+}
+
 function showQuests() {
   const w = WORLD, P = w.player;
   const act = P.quests.filter((q) => !q.done);
-  const icon: Record<string, string> = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf", defend: "shield", cattle: "food", militia: "man", capture: "castle", persuade: "crown" };
+  const icon: Record<string, string> = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf", defend: "shield", cattle: "food", militia: "man", capture: "castle", persuade: "crown", plot: "skull", rescue: "chain" };
   const done = P.quests.filter((q) => q.done).slice(-6).reverse();
-  showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => { const pos = questPos(w, q); const gl = q.giverLord != null ? lordById(w, q.giverLord) : null; return `<div class="quest">${ic(icon[q.kind] || "scroll", "big")}<div><div class="qtop"><span class="gold">${ic("coin")} ${q.reward}${q.item ? ` + ${ITEMS[q.item]?.name}` : ""}</span><span class="${q.days <= 3 ? "bad" : "muted"}">${ic("sun")} ${q.days} dni</span></div><b style="color:${QUEST_COL}">${q.text}</b><br><span class="muted">Zleca: ${gl ? `${gl.title} ${gl.name}` : w.settlements[q.giver]?.name || "?"}</span><br>${pos ? `<button class="mini" data-a="show" data-v="${q.id}">Pokaż na mapie (${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól)</button> <button class="mini" data-a="go" data-v="${q.id}">Idź tam</button>` : `<span class="tip">Cel jeszcze nieznany. Szukaj w okolicy lub pytaj w karczmach.</span>`} <button class="mini ${q.hide ? "" : "on"}" data-a="mark" data-v="${q.id}">${q.hide ? "Znacznik: wył." : "Znacznik: wł."}</button> <button class="mini danger" data-a="drop" data-v="${q.id}">Porzuć</button></div></div>`; }).join("") : "<p class='muted'>Brak zadań. Rady miast, sołtysi wiosek i lordowie mają robotę.</p>"}
+  showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => { const pos = questPos(w, q); const gl = q.giverLord != null ? lordById(w, q.giverLord) : null; return `<div class="quest">${ic(icon[q.kind] || "scroll", "big")}<div><div class="qtop"><span class="gold">${ic("coin")} ${q.reward}${q.item ? ` + ${ITEMS[q.item]?.name}` : ""}</span><span class="${q.days <= 3 ? "bad" : "muted"}">${q.days > 900 ? "" : `${ic("sun")} ${q.days} dni`}</span></div><b style="color:${QUEST_COL}">${q.text}</b><br><span class="muted">${(q.kind as string) === "plot" ? "Wątek główny" : (q.kind as string) === "rescue" ? "Twoja sprawa" : `Zleca: ${gl ? `${gl.title} ${gl.name}` : w.settlements[q.giver]?.name || "?"}`}</span><br>${pos ? `<button class="mini" data-a="show" data-v="${q.id}">Pokaż na mapie (${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól)</button> <button class="mini" data-a="go" data-v="${q.id}">Idź tam</button>` : `<span class="tip">Cel jeszcze nieznany. Szukaj w okolicy lub pytaj w karczmach.</span>`} <button class="mini ${q.hide ? "" : "on"}" data-a="mark" data-v="${q.id}">${q.hide ? "Znacznik: wył." : "Znacznik: wł."}</button> <button class="mini danger" data-a="drop" data-v="${q.id}">Porzuć</button></div></div>`; }).join("") : "<p class='muted'>Brak zadań. Rady miast, sołtysi wiosek i lordowie mają robotę.</p>"}
     ${done.length ? `<h2>Ostatnio</h2>${done.map((q) => `<p class="${q.failed ? "bad" : "muted"}">${q.failed ? "✗" : "✓"} ${q.text}</p>`).join("")}` : ""}
     <p class="tip">Cele zadań mają na mapie złotą nazwę, znacznik i strzałkę przy krawędzi ekranu z odległością.</p><div class="btns"><button data-a="close">Zamknij (J)</button></div></div>`, {
     mark: (v) => { const q = P.quests.find((x) => x.id === Number(v)); if (q) q.hide = !q.hide; showQuests(); },
-    drop: (v) => { const q = P.quests.find((x) => x.id === Number(v)); if (!q) return; q.done = true; q.failed = true; const s2 = w.settlements[q.giver]; if (s2) s2.relation -= 10; if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) rel(L, -8); } toast("Porzucasz zadanie.", PAL.redL); showQuests(); },
+    drop: (v) => { const q = P.quests.find((x) => x.id === Number(v)); if (!q) return; q.done = true; q.failed = true; const s2 = w.settlements[q.giver]; if (s2) s2.relation -= 10; if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) rel(L, -8, "porzuciłeś jego zadanie"); } toast("Porzucasz zadanie.", PAL.redL); showQuests(); },
     show: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos) return; closeScreen(); G.view.cam.x = pos.x - W / 2; G.view.cam.y = pos.y - H / 2; G.pan.t = G.view.time + 3; },
     go: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos) return; closeScreen(); const p = playerParty(w); const r = questRef(w, q); if (r) G.target = { kind: r.kind as any, id: r.id }; goTo(w, p, pos.x, pos.y); },
     close: () => closeScreen(),
@@ -1385,15 +1788,16 @@ function showPauseMenu() {
   showScr(`<div class="card frame small"><h1>Menu</h1><div class="col-btns">
     <button data-a="resume">Wróć do gry</button>
     ${G.state === "map" && WORLD ? `<button class="alt" data-a="save">Zapisz grę</button>` : ""}
-    <button class="alt" data-a="load" ${hasSave(SAVE_SLOT) ? "" : "disabled"}>Wczytaj zapis</button>
-    <button class="alt" data-a="loadAuto" ${hasSave(SAVE_AUTO) ? "" : "disabled"}>Wczytaj autozapis</button>
+    <button class="alt" data-a="load" ${anySlot() || hasSave(SAVE_AUTO) ? "" : "disabled"}>Wczytaj grę</button>
+    <button class="alt" data-a="help">Skróty klawiszowe</button>
     <button class="alt" data-a="opts">Ustawienia</button>
     ${G.state === "battle" && G.battle && G.battle.phase === "fight" && G.ctx.kind !== "custom" && G.ctx.kind !== "arena" ? `<button class="alt danger" data-a="retreat">Zarządź odwrót</button>` : ""}
     <button class="alt" data-a="title">Menu główne</button></div>
     <p class="tip">${BUILD}</p></div>`, {
     resume: () => { closeScreen(); if (G.battle) G.battle.paused = false; },
-    save: () => { saveSlot(); closeScreen(); },
-    load: () => loadSave(SAVE_SLOT), loadAuto: () => loadSave(SAVE_AUTO),
+    save: () => showSaves("save", () => showPauseMenu()),
+    load: () => showSaves("load", () => showPauseMenu()),
+    help: () => showHelp(),
     opts: () => showSettings(() => showPauseMenu()),
     retreat: () => { closeScreen(); G.battle.paused = false; G.battle.retreat(); },
     title: () => { if (WORLD && G.state === "map") autosave(); G.battle = null; closeScreen(); showTitle(); },
@@ -1402,18 +1806,45 @@ function showPauseMenu() {
 }
 
 const SETT = { tab: "game" };
+function keysTab() {
+  const groups = ["Mapa", "Mapa i bitwa", "Bitwa"];
+  return `<p class="tip">Kliknij klawisz, a potem wciśnij nowy (Esc anuluje). Ruch WSAD, mysz i 1–3 umiejętności są stałe.</p><div class="keys">${groups.map((g) => `<h2>${g}</h2>${KEYDEF.filter((k) => k[3] === g).map(([id, , name]) => `<div><span>${name}</span><button class="mini kb ${KEYWAIT === id ? "wait" : ""}" data-a="bind" data-v="${id}">${KEYWAIT === id ? "…" : keyName(KB(id))}</button></div>`).join("")}`).join("")}</div><div class="btns"><button class="alt mini" data-a="unbind">Przywróć domyślne klawisze</button></div>`;
+}
+// Lista skrótów pod F1.
+function showHelp() {
+  const row = (k: string, d: string) => `<div><span>${d}</span><span class="kb">${k}</span></div>`;
+  const kd = (g: string) => KEYDEF.filter((k) => k[3] === g).map(([id, , n]) => row(keyName(KB(id)), n)).join("");
+  showScr(`<div class="card frame wide"><h1>Skróty klawiszowe</h1><div class="keys">
+    <h2>Mapa</h2>${row("LPM", "Idź / wejdź (przytrzymaj: maszeruj za kursorem)")}${row("PPM", "Przesuń widok")}${row("Kółko", "Przybliż / oddal")}${kd("Mapa")}${kd("Mapa i bitwa")}${row("1–9, ↑↓ Enter", "Odpowiedzi w rozmowach")}${row("Esc", "Menu / zamknij okno")}${row("F11", "Pełny ekran")}
+    <h2>Bitwa</h2>${row("WSAD", "Ruch")}${row("Shift", "Sprint")}${row("LPM", "Cios (kierunek z ruchu myszy, przytrzymaj = mocniej)")}${row("PPM", "Blok (w ostatniej chwili = kontra)")}${row("ŚPM", "Pchnięcie")}${kd("Bitwa")}${row("1–3", "Umiejętności")}${row("F1–F5", "Rozkazy: tutaj, za mną, szarża, stój, strzelaj")}${row("Z X C V B", "Rozkazy dla zaznaczonych (tryb Q)")}${row("Enter", "Rozpocznij bitwę po rozstawieniu")}${row("P / Esc", "Pauza")}
+  </div><p class="tip">Klawisze zmienisz w Ustawieniach → Klawisze.</p><div class="btns"><button class="alt" data-a="keys">Zmień klawisze</button><button data-a="close">Zamknij (${keyName(KB("help"))})</button></div></div>`, {
+    keys: () => { SETT.tab = "keys"; showSettings(() => G.battle ? showPauseMenu() : closeScreen()); },
+    close: () => G.battle ? showPauseMenu() : closeScreen(),
+  }, "help-scr");
+}
+// Dziennik powiadomień z filtrem.
+const NLOG = { f: "all" };
+function showLog() {
+  const cat = (c?: string) => c === PAL.redL || c === PAL.red ? "bad" : c === PAL.gold ? "gold" : c === PAL.moss || c === PAL.grassL ? "good" : "info";
+  const list = TOASTLOG.slice().reverse().filter((e) => NLOG.f === "all" || cat(e.c) === NLOG.f);
+  const fb = [["all", "Wszystko"], ["bad", "Złe wieści"], ["good", "Dobre"], ["gold", "Ważne"], ["info", "Inne"]].map(([k, n]) => `<button class="mini ${NLOG.f === k ? "on" : ""}" data-a="f" data-v="${k}">${n}</button>`).join("");
+  showScr(`<div class="card frame"><h1>Dziennik powiadomień</h1><div class="fbar">${fb}</div><div class="nlog chron">${list.length ? list.map((e) => `<p><span class="d">D${e.d} ${String(e.h).padStart(2, "0")}:00</span><span style="${e.c ? `color:${e.c}` : ""}">${esc(e.t)}</span></p>`).join("") : "<p class='muted'>Pusto.</p>"}</div><div class="btns"><button data-a="close">Zamknij (${keyName(KB("log"))})</button></div></div>`, {
+    f: (v) => { NLOG.f = v; showLog(); }, close: () => closeScreen(),
+  }, "log-scr");
+}
 function showSettings(back: () => void) {
   const S = settings;
   const chk = (k: keyof Settings, label: string, tip = "") => `<label class="opt"><input type="checkbox" data-in="b:${k}" ${S[k] ? "checked" : ""}><span>${label}${tip ? `<small>${tip}</small>` : ""}</span></label>`;
   const sel = (k: keyof Settings, label: string, opts: [string | number, string][]) => `<label class="opt"><span>${label}</span><select data-in="s:${k}">${opts.map(([v, n]) => `<option value="${v}" ${String(S[k]) === String(v) ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
   const rng = (k: keyof Settings, label: string, min: number, max: number, step: number) => `<label class="opt"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${S[k]}" data-in="r:${k}"><b id="rv-${k}">${Math.round((S[k] as number) * 100)}%</b></label>`;
-  const tabs: [string, string, string][] = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"]];
+  const tabs: [string, string, string][] = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"], ["keys", "Klawisze", "scroll"]];
   let body = "";
-  if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
+  if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie") + chk("loadScreens", "Ekrany ładowania z cytatami i wskazówkami") + `<div class="opt"><span>Podpowiedzi przy pierwszym użyciu</span><button class="mini" data-a="tipsReset">Pokaż ponownie</button></div>`;
   if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
   if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
-  if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
-  if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
+  if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Muzyka", 0, 1, 0.05) + rng("fxVol", "Efekty (walka, otoczenie)", 0, 1, 0.05) + rng("voiceVol", "Głosy", 0, 1, 0.05) + rng("uiVol", "Interfejs (kliknięcia, strony)", 0, 1, 0.05) + `<p class="tip">Muzyka zmienia się z regionem, porą dnia i miejscem w osadzie. W bitwie narasta z walką i brzmi inaczej przeciw każdej rasie.</p>`;
+  if (SETT.tab === "keys") body = keysTab();
+  if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża (domyślna)"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
   const apply = (k: string, val: any) => {
     (S as any)[k] = val;
     if (k === "music" && sfx.musicOn !== S.music) sfx.toggleMusic();
@@ -1433,9 +1864,16 @@ function showSettings(back: () => void) {
     "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     "r:blood": (v) => { apply("blood", Number(v)); const e = document.getElementById("rv-blood"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     "r:volume": (v) => { apply("volume", Number(v)); const e = document.getElementById("rv-volume"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:fxVol": (v) => { apply("fxVol", Number(v)); sfx.setBus("fx", Number(v)); const e = document.getElementById("rv-fxVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:voiceVol": (v) => { apply("voiceVol", Number(v)); sfx.setBus("voice", Number(v)); sfx.grunt(); const e = document.getElementById("rv-voiceVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:uiVol": (v) => { apply("uiVol", Number(v)); sfx.setBus("ui", Number(v)); const e = document.getElementById("rv-uiVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    tipsReset: () => { settings.seenTips = []; saveSettings(); toast("Podpowiedzi pojawią się znowu."); },
+    bind: (v) => { KEYWAIT = v; KEYBACK = back; showSettings(back); },
+    unbind: () => { settings.keys = {}; saveSettings(); showSettings(back); },
+    "b:loadScreens": (v) => apply("loadScreens", !!v),
     "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
-    reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
+    reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true, fxVol: 1, voiceVol: 1, uiVol: 0.8, loadScreens: true, uiScale: 1.15 }); sfx.setBus("fx", 1); sfx.setBus("voice", 1); sfx.setBus("ui", 0.8); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
     back: () => back(),
   }, "set-scr");
 }

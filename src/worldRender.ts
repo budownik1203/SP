@@ -215,6 +215,8 @@ function questMarks(w: World) {
 }
 // Gdzie leży cel zadania: oddział, miejsce albo osada.
 function questRef(w: World, q: Quest): { kind: "party" | "place" | "settlement"; id: number } | null {
+  if ((q.kind as string) === "plot") return plotRef(w);
+  if ((q.kind as string) === "rescue") return { kind: "settlement", id: q.target };
   if (q.kind === "bandits" || q.kind === "defend") return { kind: "party", id: q.target };
   if (q.kind === "persuade") { const L = lordById(w, q.target); return L && L.party >= 0 ? { kind: "party", id: L.party } : null; }
   if (q.kind === "wolves") return { kind: "place", id: q.target };
@@ -223,6 +225,7 @@ function questRef(w: World, q: Quest): { kind: "party" | "place" | "settlement";
 }
 function questPos(w: World, q: Quest): V | null {
   const r = questRef(w, q);
+  if ((q.kind as string) === "plot") { if (!r) return null; if (r.kind === "place") { const pl = w.places[r.id]; return pl ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; } if (r.kind === "party") { const p = partyById(w, r.id); return p ? { x: p.x, y: p.y } : null; } }
   if (r && r.kind === "party") { const p = partyById(w, r.id); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
   if (q.kind === "bandits") { const p = partyById(w, q.target); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
   if (q.kind === "wolves") { const pl = w.places[q.target]; return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; }

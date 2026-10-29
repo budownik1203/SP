@@ -27,6 +27,9 @@ interface Look {
   blood: number;              // 0..1 plamy krwi
   seed: number;
   plume?: string;             // pióropusz na hełmie (kolor)
+  hairStyle?: number;         // 0 krótkie, 1 łysy, 2 długie, 3 irokez, 4 warkocze, 5 kucyk
+  eyes?: string;              // kolor tęczówek
+  paint?: number;             // malunek: 0 brak, 1 pas przez oczy, 2 kreski na policzkach, 3 czaszka
 }
 interface Rig { sy: number; sx: number; arm: number; sleeve: string; sleeveD: string; hand: string; }
 interface SpriteSet { frames: HTMLCanvasElement[][]; white: HTMLCanvasElement[][]; headless: HTMLCanvasElement[]; w: number; h: number; headY: number; bare?: HTMLCanvasElement[][]; bareWhite?: HTMLCanvasElement[][]; rig?: Rig; }
@@ -662,7 +665,8 @@ function drawPortrait(L: Look, frameCol: string): HTMLCanvasElement {
     }
     const ey = orc ? 17 : 16;
     // oczy
-    for (const ex of [15, 23]) { P.r(ex, ey, 3, 2, orc ? PAL.gold : PAL.white); P.p(ex + 1, ey, PAL.black); P.p(ex + 1, ey + 1, PAL.black); }
+    if (L.paint === 1) P.r(hx0 + 1, ey - 1, hx1 - hx0 - 1, 4, orc ? PAL.black : PAL.bloodD);
+    for (const ex of [15, 23]) { P.r(ex, ey, 3, 2, orc ? PAL.gold : PAL.white); P.p(ex + 1, ey, L.eyes || PAL.black); P.p(ex + 1, ey + 1, PAL.black); }
     P.r(14, ey - 2, 5, 1, orc ? SD : L.hair); P.r(22, ey - 2, 5, 1, orc ? SD : L.hair);
     if (orc) P.r(13, ey - 3, 15, 2, SD);
     // nos, usta
@@ -675,6 +679,11 @@ function drawPortrait(L: Look, frameCol: string): HTMLCanvasElement {
     // blizny
     if (L.scar === 1) { P.line(24, 11, 27, 22, PAL.bloodD); P.line(25, 11, 28, 22, SD); }
     if (L.scar === 2) P.line(13, 21, 27, 18, PAL.bloodD);
+    if (L.scar === 3) { P.line(16, ey - 5, 18, ey + 6, PAL.bloodD); P.r(15, ey, 3, 2, PAL.ash); }                 // przez oko, bielmo
+    if (L.scar === 4) { for (const [x, y] of [[23, 20], [24, 21], [25, 20], [24, 22], [26, 22], [23, 23], [25, 24]]) P.p(x, y, PAL.rust); }   // oparzenie
+    if (L.scar === 5) { P.r(14, ey - 1, 5, 4, PAL.black); P.line(12, ey - 4, 27, ey - 6, PAL.black); }          // opaska na oko
+    if (L.paint === 2) for (const x of [14, 16, 24, 26]) P.r(x, ey + 3, 1, 5, orc ? PAL.black : PAL.steelL);
+    if (L.paint === 3) { P.r(14, ey - 1, 5, 4, PAL.black); P.r(22, ey - 1, 5, 4, PAL.black); P.p(16, ey, PAL.redL); P.p(24, ey, PAL.redL); P.r(18, ey + 8, 4, 1, PAL.bone); }
     // broda
     if (L.beard) {
       const by = ey + (L.beard === 1 ? 6 : 5), bend = L.beard === 1 ? hy1 + 1 : L.beard === 2 ? 34 : 38;
@@ -682,8 +691,21 @@ function drawPortrait(L: Look, frameCol: string): HTMLCanvasElement {
       P.r(17, ey + 8, 6, 1, PAL.black);
       if (L.beard === 3) { P.r(17, 33, 2, 2, PAL.gold); P.r(22, 33, 2, 2, PAL.gold); }
     }
+    if (L.beard === 4) { P.r(18, ey + 9, 4, 5, L.hair); P.r(17, ey + 7, 6, 1, L.hair); }            // kozia bródka
+    if (L.beard === 5) { P.r(15, ey + 7, 10, 1, L.hair); P.r(14, ey + 8, 2, 3, L.hair); P.r(24, ey + 8, 2, 3, L.hair); }   // wąsy
     // włosy albo hełm
-    if (L.helm === "none" || L.helm === "cap") { P.r(hx0 + 1, hy0 - 1, hx1 - hx0 - 1, 5, L.hair); P.r(hx0, hy0 + 3, 2, 6, L.hair); P.r(hx1 - 1, hy0 + 3, 2, 6, L.hair); if (orc) P.r(18, 1, 4, 7, PAL.black); }
+    if (L.helm === "none" || L.helm === "cap") {
+      const hs = L.hairStyle || 0;
+      if (hs === 1) { P.r(hx0, hy0 + 4, 2, 4, L.hair); P.r(hx1 - 1, hy0 + 4, 2, 4, L.hair); P.p(15, hy0 + 1, S); P.p(16, hy0 + 1, PAL.boneHi); }
+      else if (hs === 3) { P.r(18, hy0 - 4, 4, 10, L.hair); P.r(19, hy0 - 5, 2, 1, L.hair); }
+      else {
+        P.r(hx0 + 1, hy0 - 1, hx1 - hx0 - 1, 5, L.hair); P.r(hx0, hy0 + 3, 2, 6, L.hair); P.r(hx1 - 1, hy0 + 3, 2, 6, L.hair);
+        if (hs === 2) { P.r(hx0 - 1, hy0 + 3, 3, 22, L.hair); P.r(hx1 - 1, hy0 + 3, 3, 22, L.hair); }
+        if (hs === 4) { for (const x of [hx0 - 1, hx1]) { for (let y = hy0 + 8; y < 36; y++) P.p(x + (y % 3 === 0 ? 1 : 0), y, L.hair); P.r(x, 36, 2, 2, PAL.gold); } }
+        if (hs === 5) { P.r(hx1, hy0 + 2, 4, 3, L.hair); P.r(hx1 + 2, hy0 + 5, 2, 9, L.hair); }
+      }
+      if (orc && hs !== 1 && hs !== 3) P.r(18, 1, 4, 7, PAL.black);
+    }
     else if (L.helm === "hood" || L.helm === "coif") {
       const hc = L.helm === "coif" ? [PAL.steel, PAL.steelD] : L.hood || [PAL.dirt, PAL.dirtD];
       for (let y = 2; y < 32; y++) for (let x = 8; x < 32; x++) { const inFace = x > 13 && x < 27 && y > 11 && y < 30; if (inFace) continue; const r = Math.hypot((x - 20) / 12, (y - 17) / 15); if (r < 1) P.p(x, y, L.helm === "coif" ? ((x + y) % 2 ? hc[0] : hc[1]) : x > 24 ? hc[1] : hc[0]); }

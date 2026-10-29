@@ -55,14 +55,19 @@ let SCREEN: Win | null = null;
 function showScr(html: string, acts: Acts, cls = "") {
   const root = document.getElementById("ui");
   const tipEl = document.getElementById("tip"); if (tipEl) tipEl.hidden = true;   // dymek z mapy nie wisi nad oknem
-  if (!SCREEN || SCREEN.el.className !== "win " + cls) { if (SCREEN) SCREEN.el.remove(); SCREEN = new Win(root, cls); }
+  if (!SCREEN || SCREEN.el.className.replace(" fresh", "") !== "win " + cls) { if (SCREEN) SCREEN.el.remove(); SCREEN = new Win(root, cls); const el = SCREEN.el; el.classList.add("fresh"); setTimeout(() => el.classList.remove("fresh"), 260); }
   SCREEN.set(html, acts);
   return SCREEN;
 }
 function closeScreen() { if (SCREEN) { SCREEN.el.remove(); SCREEN = null; } }
 function screenOpen() { return !!SCREEN; }
 
+// Dziennik powiadomień: każdy komunikat z mapy trafia tu z datą.
+const TOASTLOG: { t: string; c?: string; d: number; h: number }[] = [];
+let toastStamp: () => [number, number] = () => [0, 0];
 function toast(text: string, col?: string) {
+  const [d0, h0] = toastStamp();
+  if (!TOASTLOG.length || TOASTLOG[TOASTLOG.length - 1].t !== text) { TOASTLOG.push({ t: text, c: col, d: d0, h: h0 }); if (TOASTLOG.length > 300) TOASTLOG.shift(); }
   const box = document.getElementById("toasts");
   if (!box) return;
   const d = document.createElement("div");
@@ -416,3 +421,62 @@ function typeBubble() {
 }
 function grunt(kind: string) { if (settings.voices !== false) sfx.grunt(kind); }
 function playerPortrait() { return drawPortrait(heroCfgFromPlayer(WORLD.player).look, PAL.gold); }
+
+// Podpowiedź przy pierwszym użyciu (raz na grę i profil, do wyzerowania w ustawieniach).
+let seenTip: (id: string) => boolean = () => true;
+let markTip: (id: string) => void = () => {};
+function firstTip(id: string, title: string, text: string) {
+  if (seenTip(id)) return;
+  markTip(id);
+  const old = document.getElementById("ftip"); if (old) old.remove();
+  const d = document.createElement("div");
+  d.id = "ftip"; d.className = "parch";
+  d.innerHTML = `<b>${title}</b>${text}<br><button class="mini">Rozumiem</button>`;
+  d.querySelector("button").addEventListener("click", () => d.remove());
+  document.getElementById("wrap").appendChild(d);
+  setTimeout(() => d.remove(), 22000);
+}
+
+// Ekran ładowania: ilustracja, cytat i wskazówka. Krótki, klik pomija.
+const QUOTES: [string, string][] = [
+  ["Popiół pamięta każdy sztandar, który spłonął.", "przysłowie z Doliny"],
+  ["Król bez wojska to tylko człowiek w ładnym kapeluszu.", "Kassian Varus"],
+  ["Kamień nie zapomina. Krasnolud też nie.", "Durgan Kamienna Brew"],
+  ["Silny bierze. Słaby płacze. Mądry ucieka wcześniej.", "Ghrakk Krwawy Kieł"],
+  ["Śmierć to nie koniec. To zaciąg.", "napis na bramie Morvath"],
+  ["Lepiej zjeść suchy chleb w obozie niż ciepłą zupę w lochu.", "stary najemnik"],
+  ["Tarcza, która pękła, wciąż osłoniła jeden cios.", "kowal z Valdmoor"],
+  ["Kto pyta w karczmie, ten wie, co dzieje się w królestwie.", "bard bez imienia"],
+  ["Zboże wygrywa więcej wojen niż miecze.", "kwatermistrz Legionu"],
+  ["Modlitwa nie zastąpi pancerza, ale pomaga go nosić.", "kapłan Zakonu Świtu"],
+];
+const LOADTIPS = [
+  "Przytrzymaj PPM w ostatniej chwili przed ciosem wroga, by skontrować.",
+  "Jeńcy potrzebują straży: zbyt wielu spowalnia armię i może uciec nocą.",
+  "Lordowie pamiętają, co dla nich zrobiłeś. Okno frakcji (F) pokazuje, skąd wzięła się relacja.",
+  "Q otwiera rozkazy. W trybie rozkazów widzisz mapę taktyczną.",
+  "Morvath rośnie jak zaraza. Im dłużej zwlekasz, tym więcej ziem pochłania popiół.",
+  "Kowal naprawi zużyty sprzęt. Zardzewiały miecz tnie gorzej i szybciej pęka.",
+  "W karczmie najmiesz kompanów, posłuchasz plotek i zagrasz w kości.",
+  "F1 na mapie pokazuje wszystkie skróty. Klawisze zmienisz w ustawieniach.",
+  "Wysłannik dotrze do dworu po kilku dniach. Odpowiedź przyjdzie w kronice.",
+  "Marszałek zbiera lordów na wyprawę. Dołącz, a łupy i sława przypadną także tobie.",
+  "Zimą armie wolniej maszerują, a wioski mają mniej zboża.",
+  "Przesłuchany jeniec zdradzi, gdzie stoją wojska jego pana.",
+];
+function showLoading(scene: HTMLCanvasElement | null, done: () => void, minMs = 1100) {
+  const old = document.getElementById("loadscr"); if (old) old.remove();
+  const d = document.createElement("div"); d.id = "loadscr";
+  const [q, who] = pick(QUOTES);
+  d.innerHTML = `<div class="lc"></div>`;
+  const lc = d.querySelector(".lc") as HTMLElement;
+  if (scene) lc.appendChild(scene);
+  lc.insertAdjacentHTML("beforeend", `<q>${q}</q><div class="who">— ${who}</div><div class="lbar"><i></i></div><div class="ltip">${pick(LOADTIPS)}</div>`);
+  document.getElementById("wrap").appendChild(d);
+  const bar = d.querySelector(".lbar i") as HTMLElement;
+  let fin = false;
+  const end = () => { if (fin) return; fin = true; d.remove(); };
+  requestAnimationFrame(() => { bar.style.width = "35%"; });
+  setTimeout(() => { try { done(); } catch (e) { console.error(e); } bar.style.width = "100%"; setTimeout(end, Math.max(150, minMs - 300)); }, 120);
+  d.addEventListener("click", () => { if (bar.style.width === "100%") end(); });
+}

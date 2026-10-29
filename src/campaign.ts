@@ -2,7 +2,8 @@
 
 type GState = "title" | "creator" | "map" | "battle";
 interface BattleCtx {
-  kind: "field" | "siege" | "arena" | "place" | "custom";
+  kind: "field" | "siege" | "arena" | "place" | "custom" | "escape";
+  onEnd?: (win: boolean) => void;
   enemies: Party[]; allies: Party[];
   settlement?: Settlement; place?: SpecialPlace;
   arena?: { tournament: boolean; round: number; bet: number; team: boolean; mode?: string; foe?: string };
@@ -68,9 +69,13 @@ function newPlayer(name: string, raceId: string, originId: string, look: Look): 
   return P;
 }
 
-function startNewGame(P: PlayerState) {
-  const seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
-  WORLD = generateWorld(seed, P);
+const WORLD_SEED = 0x5a7a9d1;   // mapa jest zawsze ta sama
+function startNewGame(P: PlayerState, opt: { plot?: boolean; prologue?: boolean; diff?: Record<string, number> } = {}) {
+  WORLD = generateWorld(WORLD_SEED, P);
+  _seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;   // reszta świata (wydarzenia, bitwy) już losowa
+  WORLD.diff = { dmg: 1, enemy: 1, gold: 1, aggro: 1, plague: 1, xp: 1, ...(opt.diff || {}) };
+  if (opt.plot) WORLD.plot = { stage: 0, relics: 0, day: 1 };
+  applyCrest(P);
   const p = playerParty(WORLD);
   for (const [t, n] of ORIGINS[P.origin].troops) addTroops(p.troops, t, n);
   // nieumarły bohater zaczyna w martwych ziemiach, ork u orków, krasnolud u krasnoludów
@@ -86,6 +91,20 @@ function startNewGame(P: PlayerState) {
   autosave();
   showMapHud();
   toast("Kliknij na mapie, by iść. Kliknij miasto, by wejść. PPM przesuwa widok, Spacja to postój lub obóz.", PAL.gold);
+  firstTip("map", "Mapa świata", `Kliknij, by iść; przytrzymaj LPM, by maszerować za kursorem. ${keyName(KB("help"))} pokazuje wszystkie skróty, ${keyName(KB("log"))} dziennik powiadomień. Żołd płacisz co tydzień, jedzenie znika codziennie.`);
+  if (WORLD.plot) plotStart(WORLD);
+  if (opt.prologue) startPrologue();
+}
+
+// Prolog: mała potyczka z podpowiedziami sterowania tuż po wyjściu z miasta.
+function startPrologue() {
+  const w = WORLD, p = playerParty(w);
+  let e: Party | null = null;
+  for (let k = 0; k < 10 && !e; k++) e = spawnBandits(w, p.x + rr(-30, 30), p.y + rr(10, 40), 5);
+  if (!e) return;
+  e.name = "Zbójcy z traktu";
+  e.troops = []; addTroops(e.troops, "b_bandit", 4); addTroops(e.troops, "b_archer", 1);
+  launchBattle({ kind: "field", enemies: [e], allies: [], title: "Prolog: zbójcy na trakcie" }, { tutorial: true });
 }
 
 // ---------- Mapa: aktualizacja ----------
@@ -93,6 +112,10 @@ function mapUpdate(dt: number) {
   const w = WORLD, P = w.player, p = playerParty(w);
   G.view.time += dt;
   if (P.captive) return;
+  // decyzje czekające na gracza: rada, wezwania, okupy, posłowie
+  const pend = pending(w);
+  while (pend.length && w.day - pend[0].day > 12) pend.shift();
+  if (pend.length && !screenOpen()) { p.path = []; showPending(pend[0]); return; }
   const I = input;
   // kamera: przeciąganie PPM, strzałki, środkowanie na graczu
   if (I.mPressed[2]) { G.pan = { active: true, sx: I.mx, sy: I.my, cx: G.view.cam.x, cy: G.view.cam.y, t: G.view.time }; }
@@ -106,7 +129,7 @@ function mapUpdate(dt: number) {
   if (I.held("ArrowDown") || I.held("KeyS")) { G.view.cam.y += ps; panned = true; }
   if (panned || G.pan.active) G.pan.t = G.view.time;
   if (p.path.length && G.view.time - G.pan.t > 1.5) { G.view.cam.x = lerp(G.view.cam.x, p.x - W / 2, clamp(dt * 3, 0, 1)); G.view.cam.y = lerp(G.view.cam.y, p.y - H / 2, clamp(dt * 3, 0, 1)); }
-  if (I.hit("KeyH")) { G.view.cam.x = p.x - W / 2; G.view.cam.y = p.y - H / 2; G.pan.t = -9; }
+  if (I.hit(KB("home"))) { G.view.cam.x = p.x - W / 2; G.view.cam.y = p.y - H / 2; G.pan.t = -9; }
   // najechanie kursorem
   const wx = G.view.cam.x + I.mx, wy = G.view.cam.y + I.my;
   G.view.hover = null;
@@ -142,7 +165,7 @@ function mapUpdate(dt: number) {
     }
     G.pan.t = -9;
   }
-  if (I.hit("Space")) { if (p.path.length) { p.path = []; toast("Postój."); } else { G.camping = !G.camping; p.state = G.camping ? "camp" : "idle"; toast(G.camping ? "Rozbijasz obóz. Czas płynie, rany goją się szybciej." : "Zwijacie obóz."); } }
+  if (I.hit(KB("camp"))) { if (p.path.length) { p.path = []; toast("Postój."); } else { G.camping = !G.camping; p.state = G.camping ? "camp" : "idle"; toast(G.camping ? "Rozbijasz obóz. Czas płynie, rany goją się szybciej." : "Zwijacie obóz."); } }
   // czas płynie tylko w ruchu, w obozie lub podczas czekania
   const moving = p.path.length > 0;
   if (!moving) checkArrival();
@@ -270,6 +293,7 @@ function nearbyEnemyHelpers(w: World, enemy: Party, r = 56): Party[] {
 function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const w = WORLD, P = w.player, p = playerParty(w);
   closeScreen();
+  firstTip("battle", "Bitwa", "Najpierw rozstaw oddziały (przeciągnij PPM), potem Enter. LPM tnie w kierunku ruchu myszy, PPM blokuje. Q otwiera rozkazy, F1–F5 to szybkie komendy.");
   const enemyTroops: Troop[] = [];
   for (const e of ctx.enemies) for (const t of healthyTroops(e.troops)) addTroops(enemyTroops, t.type, t.n);
   if (ctx.enemyTroops) for (const t of ctx.enemyTroops) addTroops(enemyTroops, t.type, t.n - (t.wounded || 0));
@@ -285,6 +309,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
     maxPerSide: settings.battleSize,
     title: ctx.title,
+    dmgTaken: w.diff && w.diff.dmg !== 1 ? w.diff.dmg : undefined,
     ...cfgExtra,
   };
   if (ctx.kind === "arena") {
@@ -410,9 +435,10 @@ function applyBattleResult(r: BattleResult, auto = false) {
     const renown = Math.round(clamp(enemyPow * 0.6, 1, 60) * (ctx.kind === "siege" ? 2 : 1));
     P.renown += Math.round(renown * (1 + perk(P, "renownB")));
     P.morale = clamp(P.morale + 8, 0, 100);
-    lootGold = Math.round((ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03)) * (1 + perk(P, "lootB")));
+    lootGold = Math.round((ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03)) * (1 + perk(P, "lootB")) * (w.diff?.gold ?? 1));
     if (perk(P, "hunter") && ctx.enemies.some((e) => e.kind === "monster")) { P.goods.meat = (P.goods.meat || 0) + 3; lines.push("Myśliwy: oprawiasz bestie, +3 mięsa."); }
     { const pool = baseItems().filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) { const id = qid(pick(pool).id, chance(0.6) ? 0 : chance(0.9) ? 1 : 2); ensureItem(id); lootItems.push(id); } }   // łupy z pola: zwykle zardzewiałe
+    if (ctx.place && ctx.place.kind === "ruins") plotRuins(w, ctx.place, lines);
     if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); if (chance(0.15)) { const u = pick(UNIQUES.filter((x) => !WORLD.player.items.includes(x))); if (u) { lootItems.push(u); lines.push(`W krypcie leży coś niezwykłego: ${ITEMS[u].name}!`); } } else lootItems.push(pick(baseItems().filter((it) => it.tier >= 2 && it.tier <= 4 && it.slot !== "horse")).id); }
     P.gold += lootGold;
     // jeńcy
@@ -421,14 +447,14 @@ function applyBattleResult(r: BattleResult, auto = false) {
     for (const e of ctx.enemies) {
       if (e.lord !== undefined) {
         const L = lordById(w, e.lord);
-        if (chance(0.5)) { L.captive = PLAYER_FACTION; lines.push(`${L.title} ${L.name} jest twoim jeńcem.`); chron(w, `${P.name} pojmał: ${L.title} ${L.name}.`, PAL.gold); L.relation -= 10; }
+        if (chance(0.5)) { L.captive = PLAYER_FACTION; lines.push(`${L.title} ${L.name} jest twoim jeńcem.`); chron(w, `${P.name} pojmał: ${L.title} ${L.name}.`, PAL.gold); lordRel(w, L, -10, "wziąłeś go do niewoli"); }
         else chron(w, `${P.name} rozbija armię: ${e.name}.`, PAL.gold);
       } else if (e.kind === "bandit" || e.kind === "undead" || e.kind === "monster") chron(w, `${P.name} rozbija: ${e.name} w pobliżu ${nearestSettlement(w, e.x, e.y).name}.`);
       removeParty(w, e);
       // zadania na bandytów
       for (const q of P.quests) if (!q.done && (q.kind === "bandits" || q.kind === "defend") && q.target === e.id) completeQuest(q, lines);
     }
-    for (const a of ctx.allies) { const L = lordById(w, a.lord); if (L) { L.relation += 4; lines.push(`${L.title} ${L.name} docenia twoją pomoc (+4).`); } }
+    for (const a of ctx.allies) { const L = lordById(w, a.lord); if (L) { lordRel(w, L, 4, "pomogłeś mu w bitwie"); lines.push(`${L.title} ${L.name} docenia twoją pomoc (+4).`); } }
     if (ctx.place) {
       ctx.place.cleared = 20;
       for (const q of P.quests) if (!q.done && q.kind === "wolves" && q.target === ctx.place.id) completeQuest(q, lines);
@@ -456,18 +482,19 @@ function applyBattleResult(r: BattleResult, auto = false) {
   }
   // bitwy z lordami zmieniają nastawienie frakcji
   if (auto) lines.unshift(r.win ? "Rozstrzygnięcie bez walki: twoi ludzie zwyciężają." : "Rozstrzygnięcie bez walki: bitwa przegrana.");
+  plotCheckKing(w, lines);
   showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
   G.battle = null;
 }
 
 function gainXp(P: PlayerState, xp: number, lines: string[]) {
-  xp = Math.round(xp * (1 + perk(P, "xpB")));
+  xp = Math.round(xp * (1 + perk(P, "xpB")) * (WORLD?.diff?.xp ?? 1));
   P.xp += xp;
   lines.push(`Doświadczenie: +${xp}.`);
   while (P.xp >= xpForLevel(P.level + 1)) {
     P.level++; P.attrPts += 1; P.skillPts += 1;
     lines.push(`Awans na poziom ${P.level}! +1 punkt atrybutu, +1 punkt drzewka (okno postaci, C).`);
-    sfx.drum(1);
+    sfx.fanfare();
   }
 }
 function xpForLevel(l: number) { return Math.round(120 * Math.pow(l - 1, 1.45)); }
@@ -476,14 +503,68 @@ function captivity(byFaction: number, lines: string[]) {
   const w = WORLD, P = w.player, p = playerParty(w);
   P.captive = { by: byFaction, days: Math.round(rr(3, 7)) };
   lines.push(`Zostajesz pojmany przez: ${factionName(byFaction)}.`);
-  const lostGold = Math.round(P.gold * 0.3); P.gold -= lostGold;
+  const lostGold = Math.round(P.gold * rr(0.3, 0.5)); P.gold -= lostGold;
   if (lostGold) lines.push(`Zabrano ci ${lostGold} denarów.`);
+  // zwycięzcy zabierają część sprzętu
+  const slots = (Object.keys(P.equip) as ESlot[]).filter((k) => P.equip[k] && k !== "body");
+  const nTake = Math.min(slots.length, chance(0.5) ? 2 : 1);
+  for (let i = 0; i < nTake; i++) { const k = slots.splice(Math.floor(rnd() * slots.length), 1)[0]; const it = ensureItem(P.equip[k]); lines.push(`Zabrali ci: ${it.name}.`); P.equip[k] = null; }
+  if (P.items.length) { const n = Math.ceil(P.items.length * 0.4); for (let i = 0; i < n; i++) P.items.splice(Math.floor(rnd() * P.items.length), 1); lines.push(`Juki przetrząśnięte: przepadło ${n} rzeczy.`); }
+  // kompani: część trafia do tej samej celi, reszta ucieka
+  const withYou: CompanionState[] = [];
+  for (const c of P.companions.slice()) if (chance(0.5)) { withYou.push(c); P.companions.splice(P.companions.indexOf(c), 1); }
+  (P.captive as any).comps = withYou;
+  if (withYou.length) lines.push(`W celi obok: ${withYou.map((c) => c.name).join(", ")}.`);
   p.troops = []; p.prisoners = [];
   p.path = []; G.target = null;
-  chron(w, `${P.name} trafia do niewoli (${factionName(byFaction)}).`, PAL.redL);
+  chron(w, `${P.name} trafia do niewoli (${factionName(byFaction)}).`, PAL.redL, "player");
+}
+// Kompani, którzy zostali w lochu po twoim wyjściu: do odbicia zadaniem, wymianą albo szturmem.
+function strandCompanions(w: World) {
+  const P = w.player, c = P.captive as any;
+  if (!c || !c.comps || !c.comps.length) return;
+  const p = playerParty(w);
+  const where = w.settlements.filter((s) => s.faction === c.by && s.kind !== "village").sort((a, b) => dist(p.x, p.y, a.cx * WCELL, a.cy * WCELL) - dist(p.x, p.y, b.cx * WCELL, b.cy * WCELL))[0];
+  const list: any[] = ((w as any).capComp ||= []);
+  for (const comp of c.comps) {
+    list.push({ comp, by: c.by, at: where ? where.id : -1 });
+    if (where) P.quests.push({ id: w.questId++, kind: "rescue" as any, giver: where.id, target: where.id, amount: 0, reward: 0, day: w.day, days: 60, text: `Odbij kompana: ${comp.name} siedzi w lochu ${where.name}. Wykup, przekup straż, wymień na jeńca albo zdobądź twierdzę.`, done: false, comp: comp.id } as any);
+  }
+  c.comps = [];
+  if (where) chron(w, `Kompani ${P.name} zostają w lochu ${where.name}.`, PAL.redL, "player");
+}
+// Ucieczka z niewoli jako krótka walka: bohater z nożem, kompani z celi i kilku strażników.
+function startEscape() {
+  const w = WORLD, P = w.player, c = P.captive as any;
+  const hero = heroCfgFromPlayer(P);
+  hero.weapon = "dagger"; hero.shield = false; hero.bowDmg = 0; hero.ammo = 0; hero.armor = Math.min(hero.armor, 4); hero.mount = null; hero.xbow = false; hero.weapon2 = undefined;
+  hero.hp = Math.max(hero.hp, Math.round(hero.maxHp * 0.6));
+  const comps: CompanionCfg[] = (c.comps || []).map((x: CompanionState) => ({ id: x.id, name: x.name, look: x.look, hp: Math.max(x.hp, x.maxHp * 0.5), maxHp: x.maxHp, weapon: "dagger", shield: false, armor: 2, squad: 1 }));
+  const guards = factionTroops(c.by === PLAYER_FACTION ? 1 : c.by, Math.round(3 + P.level / 3 - comps.length * 0.5 + rr(0, 2)), 0.1).map((t) => ({ type: t.type, n: t.n }));
+  const cfg: BattleConfig = { terrain: c.by === 5 ? "ruins" : "village", night: true, rain: false, fog: true, player: { name: P.name, faction: 0, troops: [], hero, companions: comps }, enemy: { name: "Straż", faction: c.by, troops: guards }, maxPerSide: 20, title: "Ucieczka z niewoli", deploy: false, dmgTaken: w.diff?.dmg };
+  G.ctx = { kind: "escape", enemies: [], allies: [], title: "Ucieczka", onEnd: (win) => {
+    G.battle = null; G.state = "map";
+    if (win) {
+      for (const x of c.comps || []) P.companions.push(x); c.comps = [];
+      releaseFromCaptivity("Strażnicy leżą w błocie. Uciekasz nocą razem z towarzyszami z celi!");
+      P.renown += 10;
+    } else {
+      P.hp = Math.max(1, Math.round(heroMaxHp(P) * 0.15)); c.days += 3;
+      toast("Złapali cię przy murze. Kije, łańcuch, trzy dni dłużej.", PAL.redL);
+      passDay(); showCaptivity();
+    }
+  } };
+  closeScreen();
+  G.battle = new Battle(cfg, input, sfx, settings);
+  G.battle.phase = "fight";
+  G.state = "battle";
+  hideMapHud(); showBattleHud();
+  G.battle.say("Ucieczka! Strażnicy budzą się. Przebij się albo zgiń.", PAL.gold, true);
+  G.battle.shout("Ucieczka", PAL.gold);
 }
 function releaseFromCaptivity(text: string) {
   const w = WORLD, P = w.player, p = playerParty(w);
+  strandCompanions(w);
   P.captive = null;
   const safe = w.settlements.filter((s) => s.kind === "town" && !playerAtWarWith(w, s.faction)).sort((a, b) => dist(p.x, p.y, a.cx * WCELL, a.cy * WCELL) - dist(p.x, p.y, b.cx * WCELL, b.cy * WCELL))[0] || w.settlements[0];
   p.x = safe.cx * WCELL + 10; p.y = safe.cy * WCELL + 16;
@@ -515,6 +596,8 @@ function siegeWon(s: Settlement, lines: string[]) {
   const w = WORLD, P = w.player, p = playerParty(w);
   s.siegeBy = []; s.siegeDays = 0; p.siege = undefined;
   s.garrison = [];
+  for (const c of ((w as any).capComp || []).filter((c: any) => c.at === s.id)) { freeCompanion(w, c.comp.id); lines.push(`${c.comp.name} wychodzi z lochu wolny!`); }
+  for (const L of w.lords) if (L.alive && L.captive === s.faction && chance(0.5)) { const mine = (P.liege > 0 && L.faction === P.liege) || L.faction === PLAYER_FACTION; if (mine) { L.captive = -1; lordRel(w, L, 15, "uwolniłeś go z lochu"); lines.push(`Uwalniasz z lochu: ${L.title} ${L.name}.`); } }
   if (P.status === "wasal" && P.liege > 0) { captureSettlement(w, s, P.liege, -2); lines.push(`${s.name} jest twoim lennem z nadania władcy.`); }
   else if (P.status === "najemnik" && P.liege > 0) { const L = w.lords.find((l) => l.faction === P.liege && l.alive); captureSettlement(w, s, P.liege, L ? L.id : -1); P.gold += 800; lines.push(`Zdobywasz ${s.name} dla frakcji ${factionName(P.liege)}. Premia: 800 denarów.`); }
   else {
@@ -566,15 +649,39 @@ function dropGoods(o: Party) {
   o.wait = 4; o.state = "idle"; o.path = []; G.encounterCooldown = 4; closeScreen();
   toast(`Porzucasz ${n} worków towaru i ${g} denarów. Pościg rzuca się na łupy.`, PAL.ash);
 }
+// Straż tylna: gracz wybiera, kto osłania odwrót (typ żołnierzy albo jeden kompan).
+function rearNeed(o: Party) { const w = WORLD, p = playerParty(w); return Math.max(1, Math.ceil(troopCount(p.troops) * 0.2 * clamp(partyPower(w, o) / Math.max(1, partyPower(w, p)), 0.5, 1.5))); }
 function rearguard(o: Party) {
-  const w = WORLD, p = playerParty(w);
-  const n = Math.max(1, Math.ceil(troopCount(p.troops) * 0.2));
-  const sorted = p.troops.slice().sort((a, b) => UNITS[a.type].tier - UNITS[b.type].tier);
-  let left = n;
-  for (const t of sorted) { const k = Math.min(left, t.n); removeTroops(p.troops, t.type, k); left -= k; if (left <= 0) break; }
+  const w = WORLD, P = w.player, p = playerParty(w);
+  const n = rearNeed(o);
+  const rows = p.troops.filter((t) => t.n - t.wounded > 0).map((t) => { const k = Math.min(n, t.n - t.wounded); return `<button class="choice alt" data-a="type" data-v="${t.type}">Zostaw ${k}× ${UNITS[t.type].name}${k < n ? " (za mało, ale spróbują)" : ""}</button>`; }).join("");
+  const comps = P.companions.filter((c) => c.hp > c.maxHp * 0.4).map((c) => `<button class="choice alt" data-a="comp" data-v="${c.id}">${c.name} sam(a) zatrzyma pościg (może trafić do niewoli)</button>`).join("");
+  showScr(`<div class="dialog frame"><h1>Straż tylna</h1><p>Ktoś musi zostać i kupić wam czas. Potrzeba ok. ${n} ludzi przeciw ${o.name}.</p><div class="btns col-btns"><button class="choice" data-a="weak">Najsłabsi (${n})</button>${rows}${comps}<button class="choice alt" data-a="back">Wróć</button></div></div>`, {
+    weak: () => doRear(o, null, null),
+    type: (v) => doRear(o, v, null),
+    comp: (v) => doRear(o, null, v),
+    back: () => meetParty(o, false),
+  }, "dialog-scr");
+}
+function doRear(o: Party, type: string | null, comp: string | null) {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  const n = rearNeed(o);
+  let msg = "";
+  if (comp) {
+    const c = P.companions.find((x) => x.id === comp);
+    c.hp = Math.max(1, Math.round(c.hp * 0.4));
+    if (chance(0.45) && o.faction !== 6 && o.faction !== 7 && o.kind !== "undead") { P.companions = P.companions.filter((x) => x !== c); ((w as any).capComp ||= []).push({ comp: c, by: o.faction, at: (w.settlements.filter((s) => s.faction === o.faction && s.kind !== "village")[0]?.id ?? -1) }); msg = `${c.name} zatrzymuje pościg, ale trafia do niewoli.`; }
+    else msg = `${c.name} zatrzymuje pościg i dogania was ranny(a).`;
+  } else {
+    const sorted = type ? p.troops.filter((t) => t.type === type) : p.troops.slice().sort((a, b) => UNITS[a.type].tier - UNITS[b.type].tier);
+    let left = n;
+    for (const t of sorted) { const k = Math.min(left, t.n); removeTroops(p.troops, t.type, k); left -= k; if (left <= 0) break; }
+    msg = `Straż tylna (${n - left} ludzi) zostaje, by kupić wam czas.`;
+    if (left > 0 && chance(0.4)) { G.encounterCooldown = 1; toast(msg + " Za mało ich, pościg się przebija!", PAL.redL); meetParty(o, true); return; }
+  }
   o.wait = 3; o.state = "idle"; o.path = [];
   G.encounterCooldown = 4;
   closeScreen();
-  toast(`Straż tylna (${n} ludzi) zostaje, by kupić wam czas.`, PAL.redL);
-  w.player.morale -= 8;
+  toast(msg, PAL.redL);
+  P.morale -= comp ? 3 : 8;
 }

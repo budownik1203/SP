@@ -11,7 +11,20 @@ let UID = 1;
 const SQUAD_NAMES: Record<number, string> = { 1: "Piechota", 2: "Strzelcy", 3: "Konnica", 4: "Oddział 4", 5: "Oddział 5", 6: "Oddział 6", 7: "Oddział 7", 8: "Oddział 8", 11: "Sojusznicza piechota", 12: "Sojuszniczy strzelcy", 13: "Sojusznicza jazda" };
 const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.gold, 4: PAL.bone, 5: PAL.purpleL, 6: PAL.steelL, 7: PAL.dirtL, 8: PAL.ash };
 
+// Klawisze do przypisania: id, domyślny klawisz, opis, gdzie działa.
+const KEYDEF: [string, string, string, string][] = [
+  ["char", "KeyC", "Okno postaci", "Mapa"], ["inv", "KeyI", "Ekwipunek", "Mapa"], ["party", "KeyP", "Armia", "Mapa"], ["fac", "KeyF", "Frakcje", "Mapa"],
+  ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
+  ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"],
+  ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
+  ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["over", "KeyR", "Cios z góry / kopia", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+  ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
+];
+const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
+function KB(id: string): string { return (settings.keys && settings.keys[id]) || KEYDEF_MAP[id]; }
+function keyName(code: string) { return code.replace(/^Key/, "").replace(/^Digit/, "").replace("Space", "Spacja").replace("ShiftLeft", "Shift").replace("Escape", "Esc").replace("Numpad", "Num "); }
 interface Settings {
+  fxVol?: number; voiceVol?: number; uiVol?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
   questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
@@ -34,6 +47,7 @@ interface BattleConfig {
   maxPerSide?: number;
   title?: string;
   allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
+  tutorial?: boolean; dmgTaken?: number;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -941,7 +955,7 @@ class Battle {
   handleOrders() {
     const I = this.input;
     if (this.cfg.arena) return;
-    if (I.hit("KeyQ")) this.toggleCmd();
+    if (I.hit(KB("cmd"))) this.toggleCmd();
     if (!this.heroUp) return;
     if (this.cmdOpen) {
       for (let n = 1; n <= 9; n++) if (I.hit("Digit" + n) || I.hit("Numpad" + n)) this.cmdChoose(n);
@@ -975,14 +989,14 @@ class Battle {
     if (I.hit("F4")) { const cur = this.ensureOrder(this.selected[0]).formation; const f = FORMATIONS[(FORMATIONS.indexOf(cur) + 1) % FORMATIONS.length]; this.orderFormation(this.selected, f); this.flashPreview(this.selected); this.say(`Formacja: ${FORMATION_NAME[f]}`); }
     if (I.hit("F5")) { const archers = this.liveSquads().filter((g) => this.squadUnits(g).some((u) => u.def.bow)); if (archers.length) this.orderVolley(archers); }
     // okrzyk bojowy bohatera: G
-    if (I.hit("KeyG") && this.heroUp && this.cryCd <= 0 && this.hero.stamina >= 25) {
+    if (I.hit(KB("cry")) && this.heroUp && this.cryCd <= 0 && this.hero.stamina >= 25) {
       const h = this.hero; this.cryCd = 25 * (1 - this.P("cryB")); h.stamina -= 25; this.sfx.battleCry(1); this.shout("Za mną!"); this.shake(2);
       const ck = 1 + this.P("cryB");
       for (const u of this.units) if (u.active && dist(u.x, u.y, h.x, h.y) < 170 * ck) { if (u.team === 0) u.morale = Math.min(100, u.morale + 16 * ck); else if (!u.def.undead) u.morale -= 8 * ck; }
       this.parts.push({ x: h.x, y: h.y, z: 4, vx: 14, vy: 0, vz: 0, life: 0.7, max: 0.7, col: PAL.gold, kind: "ring" });
     }
     // trebusz: T strzela w miejsce kursora
-    if (I.hit("KeyT") && this.cfg.engines?.trebuchet && this.map.wall && this.trebAimCd <= 0 && (this.cfg.siegeDefender ?? 1) === 1) {
+    if (I.hit(KB("treb")) && this.cfg.engines?.trebuchet && this.map.wall && this.trebAimCd <= 0 && (this.cfg.siegeDefender ?? 1) === 1) {
       this.trebAimCd = 11; this.boulders.push({ x: this.cam.x + I.mx, y: this.cam.y + I.my, t: 1.6 }); this.say("Trebusz: głaz poleciał!", PAL.gold); const sv = this.vol(200); this.sfx.swing(sv.v, sv.pan, 2);
     }
     if (I.hit("KeyZ")) this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my);
@@ -1005,7 +1019,7 @@ class Battle {
     const wx = this.cam.x + I.mx, wy = this.cam.y + I.my;
     h.wantFace = Math.atan2(wy - (h.y - (h.mounted ? 24 : 12)), wx - h.x);
     // Tab: broń główna → druga broń → łuk/kusza → z powrotem
-    if (I.hit("Tab") && (h.state === "idle" || h.state === "recover") && this.heroCfg) {
+    if (I.hit(KB("swap")) && (h.state === "idle" || h.state === "recover") && this.heroCfg) {
       const H = this.heroCfg; h.drawT = 0; h.state = "idle";
       if (h.loadout === 0 && h.weaponKey === H.weapon && H.weapon2) { h.weaponKey = H.weapon2; h.hasShield = H.shield && !WEAPONS[H.weapon2].twoHanded; this.say(`Broń: ${WEAPONS[H.weapon2].name}`); }
       else if (h.loadout === 0 && H.bowDmg > 0) { h.loadout = 1; this.say(H.xbow ? "Broń: kusza" : "Broń: łuk"); }
@@ -1063,11 +1077,11 @@ class Battle {
     h.stamina = Math.max(0, h.stamina);
     if (this.heroCfg) this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
 
-    h.couched = h.mounted && h.weaponKey === "lance" && I.held("KeyR") && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
+    h.couched = h.mounted && h.weaponKey === "lance" && I.held(KB("over")) && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
     if (this.cmdOpen) { h.blocking = false; return; }
     // umiejętności: 1–3, opatrunek: 4
     for (let i = 0; i < 3; i++) if (I.hit("Digit" + (i + 1))) castHeroAbility(this, i);
-    if (I.hit("Digit4")) useBandage(this);
+    if (I.hit(KB("band"))) useBandage(this);
     if (h.usingBow) { this.heroBow(dt, wx, wy); return; }
 
     if (I.mPressed[2]) {
@@ -1083,23 +1097,23 @@ class Battle {
         let d: Dir = km ? h.nextSide : this.loadDir;
         if (h.mounted && (km || d === "T" || d === "O")) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
         this.startWindup(h, d); h.key2 = "mouse";
-      } else if (I.hit("KeyR") && !h.mounted) { this.startWindup(h, "O"); h.key2 = "KeyR"; }
+      } else if (I.hit(KB("over")) && !h.mounted) { this.startWindup(h, "O"); h.key2 = KB("over"); }
       else if (I.mPressed[1]) { this.startWindup(h, "T"); h.key2 = "mouse1"; }
     }
     // odskok: Spacja, krótki zryw w kierunku ruchu (albo do tyłu), chwila nietykalności
-    if (I.hit("Space") && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
+    if (I.hit(KB("dodge")) && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
       let dx = mx, dy = my; if (!dx && !dy) { dx = -Math.cos(h.face); dy = -Math.sin(h.face); }
       const dl = Math.hypot(dx, dy) || 1; h.dodgeVx = dx / dl * 95; h.dodgeVy = dy / dl * 95;
       h.dodgeT = this.P("dodgeLong") ? 0.34 : 0.24; h.dodgeCd = 0.55; h.stamina -= 18 * (1 - Math.min(0.8, this.P("dodgeCost"))); h.staminaWait = 0.6; (h as any).dodgeBuff = this.time + 1.5; h.state = "idle"; h.t = 0; h.blocking = false;
       this.dust(h.x, h.y, 6); this.sfx.trample?.(0.25, 0);
     }
     // E: zsiadanie i wsiadanie na luźnego konia
-    if (I.hit("KeyE") && (h.state === "idle" || h.state === "recover")) {
+    if (I.hit(KB("mount")) && (h.state === "idle" || h.state === "recover")) {
       if (h.mounted && h.rspeed < 40) this.leaveHorse(h);
       else if (!h.mounted) { const lh = this.looseHorses.find((x) => dist(x.x, x.y, h.x, h.y) < 20); if (lh) this.takeHorse(h, lh); else this.say("Brak konia w pobliżu", PAL.ash); }
     }
     if (h.state === "windup") { const held = h.key2 === "mouse" ? I.down[0] : h.key2 === "mouse1" ? I.down[1] : I.held(h.key2); if (held) h.hold += dt; else h.released = true; }
-    if (I.hit("KeyF") && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
+    if (I.hit(KB("kick")) && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
       h.state = "kick"; h.t = 0; h.hitDone = false; h.stamina -= 15; h.staminaWait = 0.5; h.blocking = false;
       h.vx += Math.cos(h.face) * 30; h.vy += Math.sin(h.face) * 30;
     }
@@ -1446,6 +1460,7 @@ class Battle {
       if (this.heroCfg && this.heroCfg.mana > 50) dmg *= 1 - this.P("manaShield");
       if (!src) dmg *= 1 - this.P("magicRes") * 0.5;
     }
+    if (d.team === 0 && this.cfg.dmgTaken) dmg *= this.cfg.dmgTaken;      // trudność
     dmg = Math.round(dmg);
     d.hp -= dmg; d.flash = 0.08;
     if (d.hero && d.hp <= 0 && this.P("cheat") && !this.cheatUsed) { this.cheatUsed = true; d.hp = 1; this.shout("Jeszcze nie!", PAL.gold); this.say("Ostatkiem sił stajesz na nogi.", PAL.gold, true); this.slowT = 0.8; }
@@ -1461,7 +1476,7 @@ class Battle {
       const plate = d.arm[type] < 0.62;   // ciężka zbroja: iskry i brzęk
       if (plate && type !== "blunt") { this.sfx.clang(s.v * 0.8, s.pan); this.sparks(x, y, 7 + (dmg / 8 | 0), PAL.steelL); }
       this.sfx.hit(s.v, s.pan, type, heavy);
-      if (d.hp > 0 && chance(0.6)) this.sfx.pain(s.v, s.pan);
+      if (d.hp > 0 && chance(0.6)) this.sfx.pain(s.v, s.pan, d.def.undead ? "undead" : d.def.culture);
       this.blood(x, y, (plate ? 10 : 22) + (dmg / 1.3) | 0, src, heavy);
       d.gore = Math.min(1, d.gore + dmg / 160);
       this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
@@ -1504,7 +1519,7 @@ class Battle {
     if (d.companion) { d.state = "down"; d.hp = 0; d.ko = true; this.say(`${d.name} pada ranny!`, PAL.redL, true); this.sfx.scream(s.v, s.pan); for (const u of this.units) if (u.team === 0 && u.squad === d.squad && u.active) u.morale -= 12; if (!this.heroUp && this.orders[d.squad]) this.orders[d.squad].mode = "charge"; return; }
     d.state = "dead";
     if (d.def.undead) this.sfx.death(s.v * 0.8, s.pan, true);
-    else { this.sfx.death(s.v * 0.8, s.pan, false); if (chance(0.5)) this.sfx.scream(s.v * 0.8, s.pan); }
+    else { this.sfx.death(s.v * 0.8, s.pan, false); if (chance(0.5)) this.sfx.scream(s.v * 0.8, s.pan, d.def.culture); }
     if (d.mounted) { d.mounted = false; if (d.horseHp > d.horseMax * 0.3 && !d.mountDef?.undead && chance(0.6)) this.looseHorses.push({ x: d.x + 8, y: d.y + 2, heading: d.heading, def: d.mountDef, hp: d.horseHp, max: d.horseMax, horse: d.horse }); else { const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); } }
     const [dirI] = this.dirIndex(d.face);
     const bones = !!d.def.undead && d.look.race === "skel";
@@ -1949,7 +1964,7 @@ class Battle {
       if (L.length && L.filter((u) => u.def.culture === "orc").length > L.length * 0.6) {
         this.orcCry[team] = true; this.charge[team] = true;
         for (const k of Object.keys(ord)) { const o = ord[Number(k)]; if (o.mode !== "ambush") { o.mode = "charge"; o.flank = null; o.formation = "loose"; } }
-        this.sfx.battleCry(1); this.say(team === 1 ? "Orkowie ryczą i rzucają się do szarży!" : "Twoi orkowie ryczą i ruszają!", PAL.redL, true); this.shake(2);
+        this.sfx.battleCry(1, "orc"); this.say(team === 1 ? "Orkowie ryczą i rzucają się do szarży!" : "Twoi orkowie ryczą i ruszają!", PAL.redL, true); this.shake(2);
       }
     }
     if (defending) {
@@ -2093,6 +2108,39 @@ class Battle {
   }
 
   // ---------- Pętla ----------
+  // Samouczek prologu: kolejne podpowiedzi znikają, gdy gracz wykona ruch.
+  tut = 0; tutT = 0; tutMoved = 0; tutSwung = false; tutBlocked = false; tutOrdered = false;
+  tutorialTick(dt: number) {
+    if (!this.cfg.tutorial || this.phase === "end") return;
+    const steps: [string, () => boolean][] = [
+      ["Rozstaw ludzi: przeciągnij PPM. Enter albo Spacja zaczyna bitwę.", () => this.phase === "fight"],
+      ["Ruch: WSAD. Shift to sprint.", () => this.tutMoved > 80],
+      ["Cios: LPM. Ruch myszy tuż przed kliknięciem wybiera kierunek (lewo, prawo, góra).", () => this.tutSwung],
+      ["Blok: przytrzymaj PPM. Blok w ostatniej chwili przed ciosem to kontra.", () => this.tutBlocked],
+      [`Rozkazy: ${keyName(KB("cmd"))} otwiera menu, albo F3: wszyscy do szarży!`, () => this.tutOrdered],
+      ["Dobrze. Rozbij zbójów. Opatrunek pod 4, gdy krwawisz.", () => false],
+    ];
+    const h = this.hero;
+    if (h && this.phase === "fight") {
+      this.tutMoved += Math.hypot(h.vx || 0, h.vy || 0) * dt;
+      if (h.state === "windup" || h.state === "strike") this.tutSwung = true;
+      if (h.blocking) this.tutBlocked = true;
+      if (this.cmdOpen || (this.orders && Object.values(this.orders).some((o: any) => o && o.mode === "charge"))) this.tutOrdered = true;
+    }
+    this.tutT -= dt;
+    while (this.tut < steps.length - 1 && steps[this.tut][1]()) { this.tut++; this.tutT = 0; this.sfx.page(); }
+    if (this.tutT <= 0) { this.tutT = 7; this.say("Samouczek: " + steps[this.tut][0], PAL.gold, true); }
+  }
+  private bmood = "";
+  // Muzyka bitwy zależy od rasy przeciwnika.
+  battleMood() {
+    if (this.bmood) return this.bmood;
+    const cnt: Record<string, number> = {};
+    for (const u of this.units) if (u.team === 1) cnt[u.def.culture] = (cnt[u.def.culture] || 0) + 1;
+    const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || "aurelia";
+    this.bmood = top === "orc" ? "battle_orc" : top === "undead" ? "battle_undead" : top === "dwarf" ? "battle_dwarf" : top === "monster" ? "battle_beast" : "battle_human";
+    return this.bmood;
+  }
   update(realDt: number) {
     this.real += realDt;
     for (const l of this.log) l.t -= realDt;
@@ -2110,6 +2158,8 @@ class Battle {
     let fighting = 0;
     for (const u of this.units) if (u.active && (u.state === "windup" || u.state === "strike")) fighting++;
     this.intensity = this.phase === "fight" ? clamp(fighting / 14, 0, 1) : 0;
+    this.sfx.setMood(this.phase === "deploy" ? "silence" : this.battleMood());
+    this.tutorialTick(realDt);
     this.sfx.tick(realDt, this.intensity, this.cfg.rain);
     if (this.phase === "deploy" && !this.paused) {
       // rozstawienie: czas stoi, gracz ustawia oddziały (PPM przeciągnij), Enter / Spacja rozpoczyna

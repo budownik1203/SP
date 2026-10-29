@@ -49,7 +49,7 @@ interface Lord {
 }
 interface SpecialPlace { id: number; kind: "ruins" | "lair" | "shrine" | "camp" | "cemetery"; cx: number; cy: number; name: string; cleared: number; seen: boolean; }
 interface Quest { id: number; kind: "bandits" | "letter" | "grain" | "wolves" | "defend" | "cattle" | "militia" | "capture" | "persuade"; giver: number; target: number; amount: number; reward: number; days: number; text: string; done: boolean; giverLord?: number; item?: string; hide?: boolean; failed?: boolean; }
-interface ChronEntry { day: number; text: string; col?: string; }
+interface ChronEntry { day: number; text: string; col?: string; cat?: string; }
 
 const GOODS: Record<string, { name: string; base: number; food?: boolean }> = {
   grain: { name: "Zboże", base: 12, food: true }, meat: { name: "Suszone mięso", base: 26, food: true }, ale: { name: "Piwo", base: 18, food: true },
@@ -90,7 +90,9 @@ interface PlayerState {
 }
 interface CompanionState { id: string; name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; armor: number; bow: number; horse: boolean; role: string; wage: number; bio: string; level: number; squad: number; }
 
+interface Diff { dmg: number; enemy: number; gold: number; aggro: number; plague: number; xp: number; }
 interface World {
+  diff?: Diff; plot?: { stage: number; relics: number; day: number; hermit?: number; done?: boolean };
   seed: number; day: number; hour: number; rain: boolean; fog?: boolean;
   terr: Uint8Array; road: Uint8Array; nearest: Int16Array; explored: Uint8Array; blight: Uint8Array;
   settlements: Settlement[]; parties: Party[]; lords: Lord[]; places: SpecialPlace[];
@@ -138,12 +140,23 @@ function partyPower(w: World, p: Party) {
   if (p.lord !== undefined) pw += 3;
   return pw;
 }
-function chron(w: World, text: string, col?: string) { w.chronicle.push({ day: w.day, text, col }); if (w.chronicle.length > 200) w.chronicle.shift(); if (typeof onChronicle === "function") onChronicle(text, col); }
+function chronCat(text: string, col?: string) {
+  const t = text.toLowerCase();
+  if (/turniej|karawan/.test(t)) return "trade";
+  if (/wojn|napada|szturm|odparty|rozbija|pustoszy|grabi|pali|łupi/.test(t)) return /oblega|szturm|pada!|odparty/.test(t) ? "siege" : "war";
+  if (/oblega|pada!|zdobyt|głód w oblężonym/.test(t)) return "siege";
+  if (/pokój|sojusz|trybut|ślub|rozejm/.test(t)) return "peace";
+  if (/zaraza|zmarli|morvath|martw/.test(t)) return "plague";
+  if (/turniej|karawan|targ|ceny/.test(t)) return "trade";
+  if (/lord|niewol|przysięg|zdrad|bunt|rada /.test(t)) return "lord";
+  return col === PAL.gold ? "player" : "misc";
+}
+function chron(w: World, text: string, col?: string, cat?: string) { w.chronicle.push({ day: w.day, text, col, cat: cat || chronCat(text, col) }); if (w.chronicle.length > 300) w.chronicle.shift(); if (typeof onChronicle === "function") onChronicle(text, col); }
 let onChronicle: (t: string, c?: string) => void = null as any;
 function isNight(w: World) { return w.hour < 5 || w.hour >= 21; }
 function factionName(id: number) { if (id === PLAYER_FACTION) return WORLD?.player.kingdom || "Twoje królestwo"; return FACTIONS[id]?.name || "Nikt"; }
 function factionShort(id: number) { if (id === PLAYER_FACTION) return WORLD?.player.kingdom || "Twoje królestwo"; return FACTIONS[id]?.short || "?"; }
-function factionCol(id: number) { if (id === PLAYER_FACTION) return [PAL.gold, PAL.goldD, PAL.white]; const F = FACTIONS[id]; return F ? [F.col, F.shade, F.trim] : [PAL.dirt, PAL.dirtD, PAL.bone]; }
+function factionCol(id: number) { if (id === PLAYER_FACTION) { const F = FACTIONS[PLAYER_FACTION]; return F.col === PAL.goldD && F.trim === PAL.gold ? [PAL.gold, PAL.goldD, PAL.white] : [F.col, F.shade, F.trim]; } const F = FACTIONS[id]; return F ? [F.col, F.shade, F.trim] : [PAL.dirt, PAL.dirtD, PAL.bone]; }
 
 // ---------- A* ----------
 let AS_G: Float32Array = null as any, AS_CAME: Int32Array = null as any, AS_STAMP: Uint32Array = null as any, AS_CLOSED: Uint32Array = null as any, AS_GEN = 0;
@@ -429,6 +442,7 @@ function lordLook(f: number, ruler: boolean, seed: number): Look {
 }
 
 function spawnBandits(w: World, x: number, y: number, n: number): Party | null {
+  n = Math.max(3, Math.round(n * (w.diff?.enemy ?? 1)));
   const c = cellOf(x, y); if (w.terr[c] === T_SEA || w.terr[c] === T_MOUNT) return null;
   const p = newParty(w, "bandit", pick(["Podpalacze", "Wilcze Kły", "Banda Szczerbatego", "Nocni Goście"]), 6, x, y);
   addTroops(p.troops, "b_bandit", Math.ceil(n * 0.6)); addTroops(p.troops, "b_archer", Math.floor(n * 0.35)); addTroops(p.troops, "b_chief", 1);
@@ -464,7 +478,7 @@ function spawnLordParty(w: World, L: Lord) {
   if (!home) { L.alive = false; return; }
   const p = newParty(w, "lord", `${L.title} ${L.name}`, L.faction, home.cx * WCELL + rr(-10, 10), home.cy * WCELL + rr(8, 16));
   p.lord = L.id; p.home = home.id; p.gold = 500;
-  const size = Math.round((L.ruler ? 70 : 34) + L.renown / 20);
+  const size = Math.round(((L.ruler ? 70 : 34) + L.renown / 20) * (w.diff?.enemy ?? 1));
   p.troops = factionTroops(L.faction, size, L.ruler ? 0.9 : 0.5);
   if (L.faction === 5 && L.ruler) addTroops(p.troops, "u_dk", 1);
   if (L.faction === 5 && L.look.race === "human") addTroops(p.troops, "u_necro", 1);
@@ -483,19 +497,29 @@ function spawnFromPlace(w: World, kind: "camp" | "lair" | "cemetery", place?: Sp
   const x = src.cx * WCELL + rr(-8, 8), y = src.cy * WCELL + rr(-8, 8);
   if (kind === "camp") {
     const p = newParty(w, "bandit", pick(["Zbóje", "Banici", "Rzezimieszki", "Łotrzykowie", "Dezerterzy"]), 6, x, y);
-    const n = Math.round(rr(6, 18) + w.day * 0.15);
+    const n = Math.round((rr(6, 18) + w.day * 0.15) * (w.diff?.enemy ?? 1));
     addTroops(p.troops, "b_bandit", Math.ceil(n * 0.6)); addTroops(p.troops, "b_archer", Math.floor(n * 0.35)); if (n > 12) addTroops(p.troops, "b_chief", 1);
     p.gold = n * 8; p.home = src.id;
   } else if (kind === "lair") {
     const p = newParty(w, "monster", pick(["Wilcza wataha", "Wargi", "Głodne wilki"]), 7, x, y);
-    addTroops(p.troops, "x_wolf", Math.round(rr(5, 12))); p.home = src.id;
+    addTroops(p.troops, "x_wolf", Math.round(rr(5, 12) * (w.diff?.enemy ?? 1))); p.home = src.id;
   } else {
     const p = newParty(w, "undead", pick(["Wstali z grobów", "Kościana horda", "Upiorna procesja"]), 5, x, y);
-    const n = Math.round(rr(8, 20));
+    const n = Math.round(rr(8, 20) * (w.diff?.enemy ?? 1) * (1 + Math.min(1, w.day / 200) * (w.diff?.plague ?? 1)));   // zaraza rośnie z czasem
     addTroops(p.troops, "u_skel", Math.ceil(n * 0.6)); addTroops(p.troops, "u_ghoul", Math.floor(n * 0.3)); addTroops(p.troops, "u_archer", Math.floor(n * 0.15));
     if (chance(0.4)) addTroops(p.troops, "u_necro", 1);
     p.home = src.id;
   }
+}
+
+// Relacja lorda z graczem z zapisanym powodem (okno frakcji pokazuje ostatnie zmiany).
+function lordRel(w: World, L: Lord, d: number, why = "") {
+  if (!d) return;
+  L.relation = clamp(L.relation + d, -100, 100);
+  const log: { day: number; d: number; why: string }[] = ((L as any).why ||= []);
+  const last = log[log.length - 1];
+  if (last && last.why === why && last.day === w.day) last.d += d; else log.push({ day: w.day, d, why: why || "różne sprawy" });
+  if (log.length > 10) log.shift();
 }
 
 // ---------- Wojna i pokój ----------
@@ -503,8 +527,9 @@ function setWar(w: World, a: number, b: number, war: boolean, silent = false) {
   if (!w.factions[a] || !w.factions[b]) return;
   w.factions[a].war[b] = war; w.factions[b].war[a] = war;
   w.factions[a].warDays[b] = 0; w.factions[b].warDays[a] = 0;
-  if (!war) { w.factions[a].truce[b] = 20; w.factions[b].truce[a] = 20; }
-  if (!silent) chron(w, war ? `${factionName(a)} wypowiada wojnę: ${factionName(b)}!` : `${factionName(a)} i ${factionName(b)} zawierają pokój.`, war ? PAL.redL : PAL.moss);
+  if (!war) { w.factions[a].truce[b] = 40; w.factions[b].truce[a] = 40; }
+  if (war) { const A = w.factions[a] as any, B = w.factions[b] as any; if (A.ally?.[b]) { A.ally[b] = false; B.ally[a] = false; } }
+  if (!silent) chron(w, war ? `${factionName(a)} wypowiada wojnę: ${factionName(b)}!` : `${factionName(a)} i ${factionName(b)} zawierają pokój.`, war ? PAL.redL : PAL.moss, war ? "war" : "peace");
 }
 function atWar(w: World, a: number, b: number): boolean {
   if (a === b) return false;
@@ -537,14 +562,14 @@ function playerDeclareWar(w: World, f: number) {
     leaveLiege(w, true);
   }
   P.wars.push(f);
-  for (const L of w.lords) if (L.faction === f) L.relation -= 10;
+  for (const L of w.lords) if (L.faction === f) lordRel(w, L, -10, "napadłeś na ludzi jego frakcji");
   chron(w, `${P.name} napada na ludzi frakcji ${factionName(f)}. To oznacza wojnę.`, PAL.redL);
 }
 function leaveLiege(w: World, betray: boolean) {
   const P = w.player;
   if (P.liege <= 0) return;
   const f = P.liege;
-  if (betray) { for (const L of w.lords) if (L.faction === f) L.relation -= 25; P.honor -= 10; P.wars.push(f); }
+  if (betray) { for (const L of w.lords) if (L.faction === f) lordRel(w, L, -25, "zdradziłeś jego władcę"); P.honor -= 10; P.wars.push(f); }
   // nadania wracają do korony
   for (const s of w.settlements) if (s.owner === -2 && s.faction === f) { s.owner = w.lords.find((l) => l.faction === f && l.alive)?.id ?? -1; }
   P.liege = 0; P.status = "wolny"; P.contractDays = 0;
@@ -570,7 +595,7 @@ const BUILDINGS: Record<string, { name: string; cost: number; days: number; desc
 function fiefIncome(w: World, s: Settlement) {
   const S = s as any, b = S.build || {};
   const base = (s.kind === "town" ? 60 : s.kind === "castle" ? 30 : 15) * (0.5 + s.prosperity / 100) * (s.raided ? 0.2 : 1);
-  const mul = 1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0) + perk(w.player, "fiefB");
+  const mul = (1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0) + perk(w.player, "fiefB")) * (w.diff?.gold ?? 1);
   return Math.round(base * mul);
 }
 function smithItems(s: Settlement): string[] {
@@ -594,7 +619,11 @@ function partySpeed(w: World, p: Party): number {
   if (p.kind === "monster") sp *= 1.15;
   if (p.kind === "undead") sp *= 0.85;
   if (isNight(w)) sp *= 0.85;
-  if (p.prisoners.length) sp -= troopCount(p.prisoners) * 0.02;
+  if (p.prisoners.length) {
+    // jeńcy potrzebują straży: gdy jest ich więcej niż strażników, marsz zwalnia mocniej
+    const pr = troopCount(p.prisoners), guards = Math.max(1, healthyCount(p.troops));
+    sp -= pr * 0.02 + Math.max(0, pr - guards) * 0.04;
+  }
   const i = cellOf(p.x, p.y);
   sp /= moveCost(w, i);
   if (w.blight[i] && p.faction !== 5) sp *= 0.93;
@@ -633,19 +662,8 @@ function dailyTick(w: World) {
   w.rain = chance(win ? 0.3 : 0.22);
   w.fog = !w.rain && chance(season(w) === 2 ? 0.25 : 0.14);
   (w as any).storm = w.rain && !win && chance(0.3);
-  // dyplomacja
-  const F = [1, 2, 3, 4];
-  for (const a of F) for (const b of F) if (a < b && w.factions[a].alive && w.factions[b].alive) {
-    const fa = w.factions[a];
-    if (fa.war[b]) {
-      fa.warDays[b] = (fa.warDays[b] || 0) + 1; w.factions[b].warDays[a] = fa.warDays[b];
-      if (fa.warDays[b] > 18 && chance(0.04 + fa.warDays[b] * 0.001)) setWar(w, a, b, false);
-    } else {
-      fa.truce[b] = Math.max(0, (fa.truce[b] || 0) - 1); w.factions[b].truce[a] = fa.truce[b];
-      const wars = Object.values(fa.war).filter(Boolean).length;
-      if (fa.truce[b] <= 0 && wars < 3 && chance(0.012 + (fa.relation[b] < -10 ? 0.02 : 0))) setWar(w, a, b, true);
-    }
-  }
+  // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
+  dailyPolitics(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
   // osady
   for (const s of w.settlements) {
@@ -658,16 +676,17 @@ function dailyTick(w: World) {
     s.prosperity = clamp(s.prosperity + (s.siegeBy.length || s.raided ? -0.6 : 0.08), 5, 100);
     if (w.day - s.recruitDay >= 5) { s.recruitDay = w.day; const kz = (s as any).build?.koszary ? 1.5 : 1; s.recruits = Math.min(Math.round((s.kind === "village" ? 14 : 20) * kz), s.recruits + Math.round((2 + s.prosperity / 25 + Math.max(0, s.relation) / 15) * kz)); }   // relacja: więcej ochotników
     // załoga rośnie powoli
-    if (s.kind !== "village" && !s.siegeBy.length && troopCount(s.garrison) < (s.kind === "town" ? 42 : 30) + ((s as any).build?.mury ? 15 : 0) && chance(0.3)) fillGarrison(w, s, 2);
+    const und = s.faction === 5;   // umarli wstają szybciej
+    if (s.kind !== "village" && !s.siegeBy.length && troopCount(s.garrison) < (s.kind === "town" ? 42 : 30) + ((s as any).build?.mury ? 15 : 0) + (und ? 20 : 0) && chance(und ? 0.6 : 0.3)) fillGarrison(w, s, und ? 3 : 2);
     if (s.tournament > 0) s.tournament--;
-    if (s.kind === "town" && s.tournament === 0 && chance(0.015)) { s.tournament = 6; chron(w, `W ${s.name} ogłoszono turniej. Nagroda: 600 denarów.`, PAL.gold); }
+    if (s.kind === "town" && s.faction !== 5 && s.tournament === 0 && chance(0.015)) { s.tournament = 6; chron(w, `W ${s.name} ogłoszono turniej. Nagroda: 600 denarów.`, PAL.gold); }
     // oblężenie AI
     if (s.siegeBy.length) {
       s.siegeBy = s.siegeBy.filter((id) => { const p = partyById(w, id); return p && p.siege === s.id && atWar(w, p.faction, s.faction); });
       if (s.siegeBy.length) {
         s.siegeDays++;
         // głód: po wyczerpaniu zapasów załoga słabnie z dnia na dzień
-        if (s.siegeDays > siegeStores(s)) { applyLosses(s.garrison, 0.05); if (s.siegeDays === siegeStores(s) + 1) chron(w, `Głód w oblężonym ${s.name}. Załoga słabnie.`, PAL.redL); }
+        if (s.faction !== 5 && s.siegeDays > siegeStores(s)) { applyLosses(s.garrison, 0.05); if (s.siegeDays === siegeStores(s) + 1) chron(w, `Głód w oblężonym ${s.name}. Załoga słabnie.`, PAL.redL); }
         if (s.siegeDays >= 4 && !s.siegeBy.includes(w.pid)) aiAssault(w, s);
       }
       else s.siegeDays = 0;
@@ -678,7 +697,7 @@ function dailyTick(w: World) {
     if (!L.alive) continue;
     if (L.party < 0 || !partyById(w, L.party)) {
       if (L.captive >= 0) { if (chance(0.06)) { L.captive = -1; chron(w, `${L.title} ${L.name} wraca z niewoli.`); } continue; }
-      L.respawn--;
+      L.respawn -= L.faction === 5 ? 2 : 1;
       if (L.respawn <= 0 && w.settlements.some((s) => s.faction === L.faction)) { spawnLordParty(w, L); const p = partyById(w, L.party); if (p) p.troops = p.troops.slice(0, Math.max(1, Math.floor(p.troops.length * 0.6))); }
     }
   }
@@ -737,7 +756,7 @@ function spawnVillagers(w: World) {
 function aiAssault(w: World, s: Settlement) {
   const att = s.siegeBy.map((id) => partyById(w, id)).filter(Boolean);
   const ap = att.reduce((sum, p) => sum + partyPower(w, p), 0);
-  const dp = troopPower(s.garrison) * 2.1 + 8;
+  const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.35 : 1);   // martwi nie głodują, krasnoludzkie twierdze w skale
   const win = ap * rr(0.75, 1.25) > dp;
   const lossA = clamp((dp / Math.max(1, ap)) * 0.45, 0.05, 0.9), lossD = clamp((ap / Math.max(1, dp)) * 0.5, 0.1, 1);
   for (const p of att) applyLosses(p.troops, win ? lossA : Math.min(0.9, lossA * 1.4));
@@ -753,12 +772,15 @@ function aiAssault(w: World, s: Settlement) {
 }
 function captureSettlement(w: World, s: Settlement, faction: number, ownerLord: number) {
   const old = s.faction;
+  if (s.owner >= 0 && s.kind !== "village") { const OL = lordById(w, s.owner); if (OL) addLoyal(OL, -12); }   // stracone lenno: żal do korony
   s.faction = faction; s.owner = ownerLord;
   s.prosperity = Math.max(10, s.prosperity - 15);
   // wioski przypisane idą za swym zamkiem
   for (const v of w.settlements) if (v.bound === s.id) { v.faction = faction; v.owner = ownerLord; }
   w.ownerVersion++;
-  chron(w, `${s.name} pada! ${factionName(faction)} odbiera to miejsce frakcji ${factionName(old)}.`, PAL.gold);
+  chron(w, `${s.name} pada! ${factionName(faction)} odbiera to miejsce frakcji ${factionName(old)}.`, PAL.gold, "siege");
+  if (old === 5 || faction === 5) recomputeBlight(w);
+  if (ownerLord >= 0) councilVote(w, s, faction, ownerLord);
 }
 function siegeStores(s: Settlement) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)) + ((s as any).build?.mury ? 5 : 0); }
 function applyLosses(list: Troop[], frac: number) {
@@ -859,10 +881,11 @@ function chooseGoal(w: World, p: Party) {
   if (p.kind === "lord") {
     const L = lordById(w, p.lord);
     const n = troopCount(p.troops);
+    if (campaignGoal(w, p, L)) return;
     const home = p.home !== undefined ? w.settlements[p.home] : null;
     // słaba armia: do domu
     if (n < 20 && home && home.faction === p.faction) { p.state = "rest"; goTo(w, p, home.cx * WCELL + 4, home.cy * WCELL + 10); p.wait = 30; return; }
-    const enemies = w.settlements.filter((s) => atWar(w, p.faction, s.faction) && s.faction !== 6);
+    const enemies = w.settlements.filter((s) => atWar(w, p.faction, s.faction) && s.faction !== 6 && (s.faction !== 5 || p.faction === 5 || dist(p.x, p.y, s.cx * WCELL, s.cy * WCELL) < 160 || chance(0.3)));
     if (enemies.length && chance(L.personality === "ostrożny" ? 0.35 : 0.6)) {
       const near = enemies.sort((a, b) => dist(p.x, p.y, a.cx * WCELL, a.cy * WCELL) - dist(p.x, p.y, b.cx * WCELL, b.cy * WCELL)).slice(0, 3);
       const t = pick(near);
@@ -938,6 +961,14 @@ function playerDaily(w: World) {
   for (const k of FOOD_KEYS) { while (need > 0 && (P.goods[k] || 0) > 0) { P.goods[k]--; need--; } }
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }
   else P.morale += kinds >= 2 ? 1.5 : 0.3;
+  // jeńcy uciekają, gdy straż jest za słaba
+  const prN = troopCount(p.prisoners), grd = healthyCount(p.troops) + P.companions.length;
+  if (prN > 0 && prN > grd * 1.2 && chance(0.35)) {
+    const k = Math.max(1, Math.round((prN - grd) * rr(0.2, 0.5)));
+    let left = k;
+    for (const t of p.prisoners.slice().sort(() => rnd() - 0.5)) { const m = Math.min(left, t.n); removeTroops(p.prisoners, t.type, m); left -= m; if (left <= 0) break; }
+    addLogMsg(`Nocą ucieka ${k - left} jeńców. Straż jest za słaba (jeńców ${prN}, strażników ${grd}).`, PAL.redL);
+  }
   // rany
   companionsDaily(w);
   // rasy w jednej armii: orkowie z krasnoludami albo żywi z nieumarłymi kiepsko się znoszą
