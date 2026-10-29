@@ -118,8 +118,17 @@ function mapUpdate(dt: number) {
   if (!G.view.hover && sId >= 0) G.view.hover = { kind: "settlement", id: sId };
   if (!G.view.hover) for (const pl of w.places) { if (!w.explored[cidx(pl.cx, pl.cy)]) continue; if (dist(pl.cx * WCELL + 4, pl.cy * WCELL, wx, wy) < 10) { G.view.hover = { kind: "place", id: pl.id }; break; } }
   updateTip();
+  // widok świata: klik pokazuje miejsce
+  if (G.view.overview) {
+    const o = (G.view as any).ovK;
+    if (I.mPressed[0] && o) { G.view.cam.x = (I.mx - o.ox) / o.k - W / 2; G.view.cam.y = (I.my - o.oy) / o.k - H / 2; G.view.overview = false; G.pan.t = G.view.time; }
+    G.view.hover = null; updateTip();
+  } else
+  // przytrzymanie LPM: ciągły marsz za kursorem
+  if (I.down[0] && !I.mPressed[0] && !screenOpen() && !G.view.hover && G.view.time - (G as any).holdT > 0.3) { (G as any).holdT = G.view.time; G.camping = false; G.target = null; p.state = "move"; goTo(w, p, wx, wy); G.pan.t = -9; }
   // klik: ruch
-  if (I.mPressed[0] && !screenOpen()) {
+  if (I.mPressed[0] && !screenOpen() && !G.view.overview) {
+    (G as any).holdT = G.view.time;
     G.camping = false; G.waitHours = 0; p.state = "move";
     const hv = G.view.hover;
     if (hv) {
@@ -150,6 +159,7 @@ function mapUpdate(dt: number) {
   const prevDay = w.day;
   moveParty(w, p, hours);
   worldTick(w, hours);
+  if (moving) maybeTravelEvent(hours);
   if (w.day !== prevDay) { refreshMapHud(); if (settings.autosaveDays > 0 && w.day - G.lastAuto >= settings.autosaveDays) { G.lastAuto = w.day; autosave(); } }
   G.encounterCooldown = Math.max(0, G.encounterCooldown - hours);
   checkArrival();
@@ -160,7 +170,7 @@ function mapUpdate(dt: number) {
     for (const o of w.parties) {
       if (o === p || G.seen.has(o.id) || !hostile(w, p, o) || !partyVisible(w, o)) continue;
       G.seen.add(o.id);
-      if (partyPower(w, o) > mine * 0.7 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) { p.path = []; G.camping = false; toast(`Uwaga: ${o.name} w zasięgu wzroku (${troopCount(o.troops)} ludzi). Marsz wstrzymany.`, PAL.redL); sfx.drum(0.6); break; }
+      if (partyPower(w, o) > mine * 1.0 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) { p.path = []; G.camping = false; toast(`Uwaga: ${o.name} w zasięgu wzroku (${troopCount(o.troops)} ludzi). Marsz wstrzymany.`, PAL.redL); sfx.drum(0.6); break; }
     }
   }
 }
@@ -182,7 +192,7 @@ function checkEncounters() {
   if (G.encounterCooldown > 0) return;
   for (const o of w.parties) {
     if (o === p || !hostile(w, p, o)) continue;
-    if (dist(p.x, p.y, o.x, o.y) < 9 && (o.state === "chase" && o.target === p.id || dist(p.x, p.y, o.x, o.y) < 6)) { p.path = []; meetParty(o, true); return; }
+    if (dist(p.x, p.y, o.x, o.y) < 9 && (o.state === "chase" && o.target === p.id || dist(p.x, p.y, o.x, o.y) < 6)) { p.path = []; const guarded = G.camping && (w.player as any).campMode === "guard"; if (guarded) toast("Wartownicy podnoszą alarm! Zdążycie się uszykować.", PAL.gold); meetParty(o, !guarded); return; }
   }
 }
 
@@ -517,6 +527,14 @@ function fleeAttempt(o: Party) {
   const mine = partySpeed(w, p) * (1 + w.player.skills.tactics * 0.05), theirs = partySpeed(w, o);
   if (mine * rr(0.85, 1.25) > theirs) { o.wait = 2; o.state = "idle"; o.path = []; G.encounterCooldown = 3; closeScreen(); toast("Udało się zgubić pościg.", PAL.moss); return true; }
   return false;
+}
+// Porzuć towary na drodze: zbóje rzucają się na łupy, a wy uciekacie.
+function dropGoods(o: Party) {
+  const w = WORLD, P = w.player;
+  let n = 0; for (const k of Object.keys(P.goods)) { if (FOOD_KEYS.includes(k)) continue; n += P.goods[k] || 0; P.goods[k] = 0; }
+  const g = Math.round(P.gold * 0.1); P.gold -= g; o.gold += g;
+  o.wait = 4; o.state = "idle"; o.path = []; G.encounterCooldown = 4; closeScreen();
+  toast(`Porzucasz ${n} worków towaru i ${g} denarów. Pościg rzuca się na łupy.`, PAL.ash);
 }
 function rearguard(o: Party) {
   const w = WORLD, p = playerParty(w);

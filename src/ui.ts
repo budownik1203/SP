@@ -396,9 +396,13 @@ function typeBubble() {
   const b = document.getElementById("bubble");
   if (!b) return;
   const full = b.dataset.full || "";
+  if (settings.typeText === false) { b.textContent = full; return; }
   let i = 0;
   const step = () => { if (!document.body.contains(b)) return; i = Math.min(full.length, i + 2); b.textContent = full.slice(0, i); if (i < full.length) setTimeout(step, 14); };
   step();
-  b.addEventListener("click", () => { i = full.length; b.textContent = full; });
+  const skip = () => { i = full.length; b.textContent = full; };
+  b.addEventListener("click", skip);
+  b.closest(".dlg")?.addEventListener("mousedown", (e) => { if (!(e.target as HTMLElement).closest("button")) skip(); }, { once: true });
 }
+function grunt(kind: string) { if (settings.voices !== false) sfx.grunt(kind); }
 function playerPortrait() { return drawPortrait(heroCfgFromPlayer(WORLD.player).look, PAL.gold); }

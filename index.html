@@ -117,7 +117,10 @@ input.num{width:5em}
 .t1{color:var(--text)}.t2{color:#a8b07a}.t3{color:var(--gold)}
 .pic canvas,.portrait canvas,.sprite canvas,.scene-img canvas{image-rendering:pixelated;display:block}
 .portrait canvas{width:calc(var(--s)*20px);height:calc(var(--s)*20px);border:2px solid #0a0908;box-shadow:0 0 0 1px var(--edge)}
-.portrait.big canvas{width:calc(var(--s)*34px);height:calc(var(--s)*34px)}
+.portrait.big canvas{width:calc(var(--s)*46px);height:calc(var(--s)*46px);animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--s)*-.6px))}}
+button.choice.focus{outline:2px solid var(--gold);background:#3d352a}
+.campm{display:inline-flex;gap:2px;margin-left:4px}
 .sprite canvas{width:calc(var(--s)*24px);height:calc(var(--s)*32px)}
 .scene-img canvas{width:100%;height:auto;border:2px solid #0a0908;box-shadow:0 0 0 1px var(--edge)}
 .creator{max-width:52em;width:100%;max-height:100%;overflow:auto}

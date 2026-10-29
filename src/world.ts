@@ -565,14 +565,15 @@ function partySpeed(w: World, p: Party): number {
   let cav = 0, wounded = 0;
   for (const t of p.troops) { if (UNITS[t.type]?.mount || UNITS[t.type]?.speed >= 65) cav += t.n; wounded += t.wounded; }
   let sp = 4.4 - Math.min(1.8, n * 0.012);
-  sp += (cav / n) * 1.3;
-  sp -= (wounded / n) * 1.1;
+  sp += (cav / n) * 1.6;
+  sp -= (wounded / n) * 1.6;
+  if (season(w) === 3) sp *= 0.85;   // zima: śnieg spowalnia
   if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12; }   // lekka przewaga gracza w pościgu
   if (p.kind === "caravan" || p.kind === "villagers") sp *= 0.8;
   if (p.kind === "monster") sp *= 1.15;
   if (p.kind === "undead") sp *= 0.85;
   if (isNight(w)) sp *= 0.85;
-  if (p.prisoners.length) sp -= troopCount(p.prisoners) * 0.01;
+  if (p.prisoners.length) sp -= troopCount(p.prisoners) * 0.02;
   const i = cellOf(p.x, p.y);
   sp /= moveCost(w, i);
   if (w.blight[i] && p.faction !== 5) sp *= 0.93;
@@ -580,8 +581,14 @@ function partySpeed(w: World, p: Party): number {
 }
 function sightRadius(w: World, p?: Party) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 : 0); }
 
+// Pory roku: 30 dni każda. 0 wiosna, 1 lato, 2 jesień, 3 zima.
+function season(w: World) { return Math.floor((w.day - 1) / 30) % 4; }
+const SEASON_NAME = ["wiosna", "lato", "jesień", "zima"];
 function moveParty(w: World, p: Party, hours: number) {
   if (!p.path.length) return;
+  // ślady na mapie (do tropienia)
+  const pa = p as any; pa.trailD = (pa.trailD || 0) + partySpeed(w, p) * hours;
+  if (pa.trailD > 2) { pa.trailD = 0; (pa.trail ||= []).push([Math.round(p.x), Math.round(p.y), w.day * 24 + w.hour]); if (pa.trail.length > 14) pa.trail.shift(); }
   let budget = partySpeed(w, p) * hours * WCELL;
   while (budget > 0 && p.path.length) {
     const c = p.path[0];
@@ -601,8 +608,10 @@ function goTo(w: World, p: Party, x: number, y: number) {
 // Codzienny przebieg świata: żołd, jedzenie, produkcja, rekrutacja, dyplomacja, oblężenia.
 function dailyTick(w: World) {
   w.day++;
-  w.rain = chance(0.22);
-  w.fog = !w.rain && chance(0.14);
+  const win = season(w) === 3;
+  w.rain = chance(win ? 0.3 : 0.22);
+  w.fog = !w.rain && chance(season(w) === 2 ? 0.25 : 0.14);
+  (w as any).storm = w.rain && !win && chance(0.3);
   // dyplomacja
   const F = [1, 2, 3, 4];
   for (const a of F) for (const b of F) if (a < b && w.factions[a].alive && w.factions[b].alive) {
@@ -909,10 +918,13 @@ function playerDaily(w: World) {
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }
   else P.morale += kinds >= 2 ? 1.5 : 0.3;
   // rany
-  const heal = 0.1 + P.skills.medicine * 0.03 + (p.state === "camp" ? 0.15 : 0);
+  const cm = p.state === "camp" ? ((P as any).campMode || "rest") : "";
+  const heal = 0.1 + P.skills.medicine * 0.03 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0);
+  // obóz: trening podnosi doświadczenie (kosztem jedzenia), wartownicy chronią przed zaskoczeniem
+  if (cm === "train") { for (const t of p.troops) t.xp += (6 + P.skills.leadership * 2) * Math.max(1, t.n - t.wounded); if ((P.goods.grain || 0) > 0) P.goods.grain--; }
   for (const t of p.troops) t.wounded = Math.max(0, t.wounded - Math.ceil(t.wounded * heal));
   const maxHp = heroMaxHp(P);
-  P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (p.state === "camp" ? 0.15 : 0)));
+  P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0)));
   for (const c of P.companions) c.hp = Math.min(c.maxHp, c.hp + c.maxHp * 0.15);
   P.faith = Math.min(100, P.faith + (8 + P.attr.cha) * (1 + perk(P, "faith")));
   P.mana = Math.min(100, P.mana + (10 + P.attr.int * 1.5) * (1 + perk(P, "mana")));

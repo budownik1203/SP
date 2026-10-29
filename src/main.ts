@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.10.1";
+const BUILD = "Build 0.11";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -16,7 +16,7 @@ const settings: Settings = {
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
-  atkMode: "mouse", horseMode: "dir", deploy: true, gore: true, dmgHeroOnly: true, outline: true,
+  atkMode: "mouse", horseMode: "dir", deploy: true, borders: true, typeText: true, voices: true, gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -58,6 +58,19 @@ function toggleFullscreen() {
   } catch (e) { toast("Pełny ekran niedostępny w tym oknie.", PAL.ash); }
 }
 
+// Mapa świata: płynne przybliżanie kółkiem (wiele stopni, przejście klatka po klatce).
+const MAPZ: [number, number][] = []; for (let wd = 320; wd <= 1120; wd += 32) MAPZ.push([wd, Math.round(wd * 9 / 16)]);
+let mapZ = MAPZ.findIndex((z) => z[0] === 480), mapZT = mapZ;
+function setRes(nw: number, nh: number) {
+  if (nw === W && nh === H) return;
+  const cam = G.state === "battle" && G.battle ? G.battle.cam : G.view.cam;
+  const cx = cam.x + W / 2, cy = cam.y + H / 2;
+  [W, H] = [nw, nh];
+  canvas.width = W; canvas.height = H;
+  ctx = canvas.getContext("2d"); ctx.imageSmoothingEnabled = false;
+  cam.x = cx - W / 2; cam.y = cy - H / 2;
+  if (G.battle) G.battle.makeOverlays();
+}
 function setZoom(i: number) {
   i = clamp(i, 0, ZOOMS.length - 1);
   if (i === zoomIdx) return;
@@ -234,6 +247,7 @@ $("maphud").addEventListener("click", (e) => {
   if (!t) return;
   sfx.ui();
   if (t.dataset.sp) {
+    if (t.dataset.sp.startsWith("cm:")) { (WORLD.player as any).campMode = t.dataset.sp.slice(3); refreshMapHud(); return; }
     if (t.dataset.sp === "camp") { G.camping = !G.camping; playerParty(WORLD).path = []; playerParty(WORLD).state = G.camping ? "camp" : "idle"; }
     else G.speed = Number(t.dataset.sp);
     refreshMapHud();
@@ -277,6 +291,7 @@ function frameInner(now: number) {
     const b = G.battle;
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
+    if (W !== ZOOMS[zoomIdx][0]) setRes(ZOOMS[zoomIdx][0], ZOOMS[zoomIdx][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);
     if (input.hit("KeyN")) miniWant = !miniWant;
     if (screenOpen() && b.phase === "fight") b.paused = true;
@@ -287,12 +302,25 @@ function frameInner(now: number) {
   } else if (G.state === "map" && WORLD) {
     if (input.hit("Escape")) { if (screenOpen()) { const c = SCREEN.el.className; if (!/after-scr|dialog-scr/.test(c) || /place-scr/.test(c)) closeScreen(); } else showPauseMenu(); }
     // dialogi: odpowiedzi klawiszami 1–9
-    if (screenOpen()) for (let n = 1; n <= 9; n++) if (input.hit("Digit" + n)) { const bs = SCREEN.el.querySelectorAll("button.choice"); const bt = bs[n - 1] as HTMLButtonElement; if (bt && !bt.disabled) bt.click(); }
+    if (screenOpen()) {
+      const bs = Array.from(SCREEN.el.querySelectorAll("button.choice")) as HTMLButtonElement[];
+      for (let n = 1; n <= 9; n++) if (input.hit("Digit" + n)) { const bt = bs[n - 1]; if (bt && !bt.disabled) bt.click(); }
+      // strzałki + Enter w dialogach
+      if (bs.length && (input.hit("ArrowDown") || input.hit("ArrowUp"))) {
+        let i = bs.findIndex((b) => b.classList.contains("focus")); bs.forEach((b) => b.classList.remove("focus"));
+        i = (i + (input.hit("ArrowDown") ? 1 : -1) + bs.length) % bs.length; bs[i].classList.add("focus");
+      }
+      if (bs.length && input.hit("Enter")) { const f = bs.find((b) => b.classList.contains("focus")); if (f && !f.disabled) f.click(); }
+    }
     if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr/.test(SCREEN.el.className)) {
       if (input.hit("KeyC")) openWin("char"); if (input.hit("KeyI")) openWin("inv"); if (input.hit("KeyP")) openWin("party");
       if (input.hit("KeyF")) openWin("fac"); if (input.hit("KeyK")) openWin("chron"); if (input.hit("KeyJ")) openWin("quest");
     }
-    if (input.wheel) setZoom(zoomIdx + input.wheel);
+    if (input.wheel && !screenOpen()) mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
+    if (mapZ !== mapZT) mapZ += Math.sign(mapZT - mapZ);
+    if (W !== MAPZ[mapZ][0]) setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
+    if (input.hit("Tab") && !screenOpen()) G.view.overview = !G.view.overview;
+    if (input.hit("KeyB") && !screenOpen()) { settings.borders = settings.borders === false; saveSettings(); toast(settings.borders ? "Granice: widoczne" : "Granice: ukryte"); }
     if (!screenOpen()) mapUpdate(dt); else G.view.time += dt;
     renderWorld(WORLD, G.view, ctx);
     mapHudT -= dt;
@@ -330,4 +358,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk };

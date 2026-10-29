@@ -14,7 +14,7 @@ const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.
 interface Settings {
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
-  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
 }
 
 interface HeroCfg {

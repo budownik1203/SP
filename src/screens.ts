@@ -9,6 +9,7 @@ function serializeWorld(w: World) {
   let ex = ""; for (let i = 0; i < w.explored.length; i += 8) { let b = 0; for (let k = 0; k < 8; k++) if (w.explored[i + k]) b |= 1 << k; ex += String.fromCharCode(b); }
   o.explored = btoa(ex);
   o.version = 4;
+  o.parties = w.parties.map((p) => { const c: any = { ...p }; delete c.trail; delete c.trailD; return c; });
   return JSON.stringify(o);
 }
 function deserializeWorld(json: string): World {
@@ -182,7 +183,7 @@ function refreshMapHud() {
   if (!el) return;
   const status = P.status === "najemnik" ? `najemnik: ${factionShort(P.liege)} (${P.contractDays} dni)` : P.status === "wasal" ? `wasal: ${factionShort(P.liege)}` : P.status === "król" ? P.kingdom : "wolny";
   const hpK = P.hp / heroMaxHp(P);
-  el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? ` ${ic("rain")} deszcz` : ""}${(w as any).fog ? ` ${ic("wind")} mgła` : ""}</span>
+  el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${SEASON_NAME[season(w)]} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${(w as any).storm ? " · burza" : ""}${w.rain ? ` ${ic("rain")} deszcz` : ""}${(w as any).fog ? ` ${ic("wind")} mgła` : ""}</span>
     <span class="hb" title="Złoto">${ic("coin")} <b class="gold">${P.gold}</b></span>
     <span class="hb" title="Ludzie / limit">${ic("man")} ${n}/${partyLimit(w)}${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
     <span class="hb ${days < 2 ? "bad" : ""}" title="Jedzenie (dni zapasu)">${ic("food")} ${food} <span class="muted">(${days} dni)</span></span>
@@ -191,7 +192,8 @@ function refreshMapHud() {
     ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
     <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
   const sp = document.getElementById("mh-speed");
-  if (sp) sp.innerHTML = `${[1, 2, 4].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${G.camping ? "Zwiń obóz" : "Obóz"}</button>`;
+  const cm = (P as any).campMode || "rest";
+  if (sp) sp.innerHTML = `${[1, 2, 4, 8].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${ic("tent")} ${G.camping ? "Zwiń obóz" : "Obóz"}</button>${G.camping ? `<span class="campm">${[["rest", "Odpoczynek", "heart"], ["train", "Trening", "sword"], ["guard", "Wartownicy", "eye"]].map(([k, n, i]) => `<button class="mini ${cm === k ? "on" : ""}" data-sp="cm:${k}" title="${k === "rest" ? "rany goją się szybko" : k === "train" ? "żołnierze zbierają doświadczenie, zużywa zboże" : "nikt was nie zaskoczy"}">${ic(i)} ${n}</button>`).join("")}</span>` : ""}`;
 }
 function updateTip() {
   const tip = document.getElementById("tip");
@@ -730,6 +732,9 @@ function enterPlace(pl: SpecialPlace) {
 }
 
 // ---------- Spotkanie z oddziałem ----------
+function say2(t: string) { const e = document.getElementById("bubble"); if (e) { e.dataset.full = t; typeBubble(); } }
+// Zmiana relacji z widocznym skutkiem.
+function rel(L: Lord, d: number) { L.relation += d; if (d) toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}`, d > 0 ? PAL.moss : PAL.redL); }
 function meetParty(o: Party, ambushed: boolean) {
   const w = WORLD, P = w.player, p = playerParty(w);
   p.path = [];
@@ -757,6 +762,24 @@ function meetParty(o: Party, ambushed: boolean) {
         no: () => meetParty(o, false),
       }, "dialog-scr");
     },
+    drop: () => dropGoods(o),
+    intim: () => {
+      const k = myPow / Math.max(1, theirPow), ch2 = clamp(0.2 + P.renown / 700 + (k - 1) * 0.35, 0.05, 0.9);
+      if (chance(ch2)) { (o as any).cowed = true; say2(`„Dobra, dobra… nie szukamy guza.” Zbóje opuszczają broń. (szansa ${Math.round(ch2 * 100)}%)`); o.wait = 6; o.state = "flee"; G.encounterCooldown = 6; setTimeout(() => meetParty(o, false), 900); }
+      else { say2(`„Ha! Wielki mi pan!” Zastraszanie nie działa. (szansa ${Math.round(ch2 * 100)}%)`); for (const t of o.troops) t.xp = (t.xp || 0) + 1; }
+    },
+    bluff: () => {
+      const ch2 = clamp(0.1 + P.attr.cha * 0.06, 0.1, 0.75);
+      if (chance(ch2)) { say2(`„Za wzgórzem stoi moja jazda.” Zbóje spoglądają po sobie i się wycofują. (charyzma, ${Math.round(ch2 * 100)}%)`); o.wait = 5; o.state = "flee"; G.encounterCooldown = 5; setTimeout(() => closeScreen(), 1400); }
+      else { say2(`Ktoś parska śmiechem. Blef się nie udał. (${Math.round(ch2 * 100)}%)`); }
+    },
+    bribe: () => { const c = 10 * troopCount(o.troops); if (P.gold < c) return; P.gold -= c; o.gold += c; o.wait = 5; o.state = "idle"; o.path = []; G.encounterCooldown = 5; toast(`Płacisz ${c} denarów. Zbóje odchodzą zadowoleni.`); closeScreen(); },
+    recruit: () => {
+      const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), n = Math.min(room, troopCount(o.troops));
+      if (n <= 0) { say2("„Nie zmieścimy się u ciebie, wodzu.”"); return; }
+      let left = n; for (const t of o.troops.slice()) { const k2 = Math.min(left, t.n); addTroops(p.troops, t.type, k2); left -= k2; if (left <= 0) break; }
+      P.honor -= 1; removeParty(w, o); toast(`${n} zbójów przechodzi pod twój sztandar (honor −1).`, PAL.gold); closeScreen(); refreshMapHud();
+    },
     surrender: () => { // wróg poddaje się bez walki
       const lines: string[] = [];
       for (const t of o.troops) addTroops(p.prisoners, t.type, Math.floor(t.n * 0.6));
@@ -773,7 +796,13 @@ function meetParty(o: Party, ambushed: boolean) {
     if (o.kind === "caravan" || o.kind === "villagers" || (o.kind === "bandit" && myPow > theirPow * 3)) ch.push({ a: "surrender", label: "Złóżcie broń, a darujemy wam życie." });
     if (L) ch.push({ a: "talk", label: "Porozmawiajmy, zanim poleje się krew." });
     if (o.kind === "bandit" && ambushed && P.gold > 20) ch.push({ a: "pay", label: `Weźcie ${Math.round(P.gold * 0.25)} denarów i odejdźcie.` });
-    if (ambushed) { ch.push({ a: "flee", label: "Uciekamy! (próba ucieczki)" }); if (troopCount(p.troops) > 3) ch.push({ a: "rear", label: "Zostawiam straż tylną, reszta za mną." }); }
+    if (o.kind === "bandit") {
+      if ((o as any).cowed && P.attr.cha >= 5) ch.push({ a: "recruit", label: `Przyłączcie się do mnie. Będzie żołd. (charyzma ${P.attr.cha})` });
+      else ch.push({ a: "intim", label: `Zastrasz ich: „Zejdźcie mi z drogi.” (sława, przewaga)` });
+      ch.push({ a: "bluff", label: `Blef: „Moi ludzie otaczają las.” (charyzma ${P.attr.cha})` });
+      if (P.gold >= 10 * troopCount(o.troops)) ch.push({ a: "bribe", label: `Przekup: ${10 * troopCount(o.troops)} denarów za spokój.` });
+    }
+    if (ambushed) { ch.push({ a: "flee", label: "Uciekamy! (próba ucieczki)" }); if (troopCount(p.troops) > 3) ch.push({ a: "rear", label: "Zostawiam straż tylną, reszta za mną." }); if (Object.keys(P.goods).some((k) => !FOOD_KEYS.includes(k) && (P.goods[k] || 0) > 0)) ch.push({ a: "drop", label: "Porzućcie wozy z towarem i w nogi!" }); }
     else ch.push({ a: "leave", label: "Odejdź" });
   } else {
     if (L) ch.push({ a: "talk", label: "Chcę z tobą pomówić." });
@@ -785,8 +814,10 @@ function meetParty(o: Party, ambushed: boolean) {
   const info = `<div class="comp-row">${comp}</div>
     ${host ? `<div class="pow"><span>Ty ${Math.round(myPow)}</span><div class="powbar"><i style="width:${ratio * 100}%"></i></div><span>${Math.round(theirPow)} Wróg</span></div><p class="tip">${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
     ${helpers.length ? `<p class="bad">Na pomoc idą: ${helpers.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}`;
+    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}
+    ${host ? `<p class="tip">${ic(isNight(w) ? "moon" : "sun")} Teren: <b>${TERRAIN_NAME[battleTerrainAt(w, p.x, p.y)]}</b> · ${isNight(w) ? "noc (gorsza widoczność)" : "dzień"} · ${w.rain ? "deszcz (łuki słabsze)" : w.fog ? "mgła (widać na 20 kroków)" : season(w) === 3 ? "zima, śnieg" : "pogodnie"}</p>` : ""}`;
   showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: esc(o.name), sub: `${factionName(o.faction)} · ${troopCount(o.troops)} ludzi`, speech: greet.replace(/<[^>]+>/g, ""), info, choices: ch })}</div>`, acts, "dialog-scr");
+  grunt(o.kind === "monster" ? "wolf" : o.kind === "undead" || o.faction === 5 ? "undead" : look.race);
 }
 
 // ---------- Rozmowa z lordem ----------
@@ -815,12 +846,12 @@ function showLordTalk(L: Lord, back: () => void) {
       if (fief) { fief.owner = -2; }
       chron(w, `${P.name} składa przysięgę: ${L.title} ${L.name}, ${factionName(L.faction)}.`, PAL.gold);
       say(`„Powstań, ${P.name}. Od dziś służysz koronie.${fief ? ` Na utrzymanie dostajesz ${fief.name}.` : ""}”`);
-      L.relation += 10; refreshMapHud();
+      rel(L, 10); refreshMapHud();
     };
   }
   if (L.ruler && P.liege === L.faction && P.status === "wasal") {
     opts.push(`<button class="alt" data-a="unvassal">Zwolnij mnie z przysięgi</button>`);
-    acts.unvassal = () => { leaveLiege(w, false); L.relation -= 15; chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
+    acts.unvassal = () => { leaveLiege(w, false); rel(L, -15); chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
   }
   if (L.ruler && playerAtWarWith(w, L.faction) && (P.status === "król" || P.liege === 0) && L.faction !== 5) {
     const price = 400 + Math.round(P.renown);
@@ -830,14 +861,14 @@ function showLordTalk(L: Lord, back: () => void) {
       if (L.relation < -40 && chance(0.6)) { say("„Prędzej zgniję, niż podam ci rękę.”"); return; }
       P.gold -= price;
       if (P.status === "król") setWar(w, PLAYER_FACTION, L.faction, false); else { P.wars = P.wars.filter((f) => f !== L.faction); chron(w, `${P.name} zawiera pokój z ${factionName(L.faction)}.`, PAL.moss); }
-      L.relation += 10; say("„Niech będzie. Na razie.”"); refreshMapHud();
+      rel(L, 10); say("„Niech będzie. Na razie.”"); refreshMapHud();
     };
   }
   if (P.status === "król" && !L.ruler && L.faction !== PLAYER_FACTION && L.faction !== 5) {
     opts.push(`<button class="alt" data-a="defect">Przyłącz się do mojego królestwa</button>`);
     acts.defect = () => {
       const chanceOk = (L.relation - 20) / 60 + (L.personality === "chciwy" ? 0.2 : L.personality === "honorowy" ? -0.3 : 0) + P.renown / 2000;
-      if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) { say("„Nie zdradzę swego władcy.”"); L.relation -= 3; return; }
+      if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) { say("„Nie zdradzę swego władcy.”"); rel(L, -3); return; }
       const old = L.faction;
       L.faction = PLAYER_FACTION;
       const party = partyById(w, L.party); if (party) party.faction = PLAYER_FACTION;
@@ -848,15 +879,37 @@ function showLordTalk(L: Lord, back: () => void) {
   }
   if (!playerAtWarWith(w, L.faction)) {
     opts.push(`<button class="alt" data-a="gift">Podaruj 200 denarów</button>`);
-    acts.gift = () => { if (P.gold < 200) return; P.gold -= 200; L.relation += L.personality === "chciwy" ? 8 : 4; say("„Hojność zostanie zapamiętana.”"); };
+    acts.gift = () => { if (P.gold < 200) return; P.gold -= 200; rel(L, L.personality === "chciwy" ? 8 : 4); say("„Hojność zostanie zapamiętana.”"); };
   }
-  const line = L.personality === "okrutny" ? "„Mów szybko, nie lubię czekać.”" : L.personality === "chciwy" ? "„Co mi przynosisz?”" : L.personality === "ostrożny" ? "„Słucham. Ostrożnie dobieraj słowa.”" : "„Słucham cię.”";
+  // pamięć rozmów: lord pamięta, ile razy i kiedy rozmawialiście
+  const LM = L as any; const met = LM.talks || 0, since = met ? w.day - (LM.lastTalk || 0) : -1;
+  if (!LM.talkedToday || LM.talkedToday !== w.day) { LM.talks = met + 1; LM.lastTalk = w.day; LM.talkedToday = w.day; }
+  const base = L.personality === "okrutny" ? "Mów szybko, nie lubię czekać." : L.personality === "chciwy" ? "Co mi przynosisz?" : L.personality === "ostrożny" ? "Słucham. Ostrożnie dobieraj słowa." : "Słucham cię.";
+  const mem = met === 0 ? `Nie znamy się. ${base}` : since === 0 ? `Znowu ty? ${base}` : since > 40 ? `${P.name}! Kopę lat. ${base}` : L.relation > 30 ? `Miło cię widzieć, przyjacielu. ${base}` : base;
+  const line = `„${mem}”`;
+  // tematy rozmowy
+  opts.push(`<button class="alt" data-a="rumor">Co słychać w okolicy?</button>`);
+  acts.rumor = () => { const s2 = nearestSettlement(w, partyById(w, L.party)?.x ?? 0, partyById(w, L.party)?.y ?? 0); say(`„${rumor(s2) || "Cicho. Za cicho."}”`); };
+  opts.push(`<button class="alt" data-a="war">Jak idzie wojna?</button>`);
+  acts.war = () => { const ws = wars.filter((f) => f !== 5); const mine = w.settlements.filter((s2) => s2.faction === L.faction).length; say(ws.length ? `„Walczymy z: ${ws.map(factionShort).join(", ")}. Trzymamy ${mine} osad. ${mine > 8 ? "Idzie nam dobrze." : "Potrzeba nam mieczy."}”` : `„Pokój, na razie. Trzymamy ${mine} osad. Ale Morvath nie śpi.”`); };
+  if (!(P as any).spouse) {
+    opts.push(`<button class="alt" data-a="marry">Szukam małżeństwa w twoim rodzie</button>`);
+    acts.marry = () => {
+      if (L.relation < 35) { say(`„Najpierw zdobądź moje zaufanie.” (relacja ${L.relation}/35)`); return; }
+      if (P.renown < 250) { say(`„Moja krew nie wyjdzie za kogoś bez imienia.” (sława ${P.renown}/250)`); return; }
+      const nm = pick(["Adela", "Brunhilda", "Ewelina", "Ingrid", "Jagna", "Ottokar", "Radomir", "Wit"]);
+      (P as any).spouse = `${nm} z rodu ${L.name}`; rel(L, 20); P.renown += 30;
+      chron(w, `${P.name} zawiera małżeństwo: ${(P as any).spouse}.`, PAL.gold);
+      say(`„Niech więc będzie. ${nm} będzie twoja. Nasze rody są odtąd jednym.”`);
+    };
+  }
   const ch: Choice[] = opts.map((h) => { const m = h.match(/data-a="([^"]+)"[^>]*>([^<]+)</); return { a: m[1], label: m[2] }; });
   ch.push({ a: "back", label: "Żegnaj." });
   const relBar = `<div class="pow rel"><span>Wrogość</span><div class="powbar"><i style="width:${clamp((L.relation + 100) / 2, 0, 100)}%"></i></div><span>Przyjaźń</span></div>`;
   const lp = partyById(w, L.party);
   const info = `${relBar}<p class="tip">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality} · nastawienie ${relWord} (${L.relation})${lp ? ` · armia: ${troopCount(lp.troops)}` : ""} · sława ${L.renown}</p>`;
   showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: `${L.title} ${L.name}`, speech: line, info, choices: ch })}</div>`, acts, "dialog-scr");
+  grunt(L.look.race);
 }
 
 // ---------- Po bitwie ----------
@@ -1116,7 +1169,7 @@ function showSettings(back: () => void) {
   const tabs: [string, string, string][] = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"]];
   let body = "";
   if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
-  if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
+  if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
   if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
   if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
   if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
@@ -1133,7 +1186,7 @@ function showSettings(back: () => void) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
     tab: (v) => { SETT.tab = v; showSettings(back); },
-    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
     "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
     "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
     "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
@@ -1144,4 +1197,68 @@ function showSettings(back: () => void) {
     reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
     back: () => back(),
   }, "set-scr");
+}
+
+// ---------- Zdarzenia w podróży ----------
+interface TEvent { id: string; scene: string; title: string; text: string; when?: (w: World) => boolean; ch: { label: string; act: () => string | void; need?: () => boolean }[]; }
+function travelEvents(): TEvent[] {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  const near = nearestSettlement(w, p.x, p.y);
+  const food = () => FOOD_KEYS.find((k) => (P.goods[k] || 0) > 0);
+  return [
+    { id: "wounded", scene: "camp", title: "Ranny wędrowiec", text: "Przy drodze leży mężczyzna z przestrzeloną nogą. Bandyci zabrali mu wszystko poza życiem.", ch: [
+      { label: "Opatrz go i daj jedzenie (−1 żywność, honor +1)", need: () => !!food(), act: () => { P.goods[food()]--; P.honor += 1; near.relation += 3; return `Wędrowiec błogosławi cię. W ${near.name} usłyszą o tym (relacja +3).`; } },
+      { label: "Przeszukaj go — może coś jednak ukrył (honor −2)", act: () => { P.honor -= 2; const g = rr(5, 30) | 0; P.gold += g; return `Znajdujesz ${g} denarów zaszytych w bucie. Patrzy na ciebie bez słowa.`; } },
+      { label: "Jedź dalej", act: () => "Zostawiasz go wroną." },
+    ] },
+    { id: "cart", scene: "camp", title: "Porzucony wóz", text: "Przewrócony wóz kupiecki, koło złamane, woźnica zniknął. Plandeka jeszcze się rusza na wietrze.", ch: [
+      { label: "Przeszukaj wóz", act: () => { if (chance(0.35)) { const b = w.parties.find((o) => o.kind === "bandit" && dist(o.x, o.y, p.x, p.y) < 200); if (b) { setTimeout(() => meetParty(b, true), 50); return "To pułapka! Z krzaków wypadają zbóje."; } } const k = pick(GOOD_KEYS); P.goods[k] = (P.goods[k] || 0) + 3; return `Ładunek ocalał: 3× ${GOODS[k].name}.`; } },
+      { label: "Omiń szerokim łukiem", act: () => "Lepiej nie kusić losu." },
+    ] },
+    { id: "deserters", scene: "camp", title: "Dezerterzy", text: "Kilku obdartych żołnierzy z obciętymi naszywkami prosi, by przyjąć ich na służbę. Za żołd i miskę strawy.", when: () => troopCount(p.troops) + 4 < partyLimit(w), ch: [
+      { label: "Przyjmij ich (honor −1)", act: () => { const f = pick([1, 2, 3, 4]); const k = RECRUITS[FACTIONS[f].culture]?.town?.[1] || "m_sword"; addTroops(p.troops, k, 3 + (rr(0, 3) | 0)); P.honor -= 1; return `Dołączają do ciebie jako ${UNITS[k].name}.`; } },
+      { label: "Odpraw ich", act: () => "Odchodzą, klnąc pod nosem." },
+    ] },
+    { id: "shrine", scene: "shrine", title: "Kapliczka przy drodze", text: "Mała kapliczka, świeczki, kilka monet na kamieniu. Ktoś modlił się tu niedawno.", ch: [
+      { label: "Pomódl się z ludźmi (morale +8)", act: () => { P.morale = Math.min(100, P.morale + 8); return "Ludzie ruszają dalej spokojniejsi."; } },
+      { label: "Zabierz ofiary (+monety, honor −3, spaczenie)", act: () => { const g = rr(10, 40) | 0; P.gold += g; P.honor -= 3; (P as any).corruption = Math.min(100, ((P as any).corruption || 0) + 4); return `Zgarniasz ${g} denarów. Świece gasną same.`; } },
+      { label: "Jedź dalej", act: () => "" },
+    ] },
+    { id: "peasants", scene: "village", title: "Uciekinierzy", text: "Rodzina z wózkiem ucieka drogą. Za nimi, na wzgórzu, dym. „Bandyci! Spalili nam stodołę!”", ch: [
+      { label: "Rozdaj im jedzenie (−2 żywność, relacja +6)", need: () => FOOD_KEYS.reduce((a, k) => a + (P.goods[k] || 0), 0) >= 2, act: () => { let n = 2; for (const k of FOOD_KEYS) while (n > 0 && (P.goods[k] || 0) > 0) { P.goods[k]--; n--; } near.relation += 6; P.honor += 1; return `Dziękują ze łzami. ${near.name} zapamięta (relacja +6).`; } },
+      { label: "Ruszaj za bandytami", act: () => { const b = w.parties.filter((o) => o.kind === "bandit").sort((a, c) => dist(a.x, a.y, p.x, p.y) - dist(c.x, c.y, p.x, p.y))[0]; if (b) { G.target = { kind: "party", id: b.id }; goTo(w, p, b.x, b.y); return `Ślad prowadzi do bandy „${b.name}”. Ruszacie w pościg.`; } return "Ślad się urywa."; } },
+      { label: "Nie nasza sprawa", act: () => "" },
+    ] },
+    { id: "trader", scene: "town", title: "Wędrowny handlarz", text: "Handlarz z mułem objuczonym workami zaczepia was na rozstajach. „Zboże, mięso, tanio, ostatnia okazja!”", ch: [
+      { label: "Kup 5 zboża za 40 denarów", need: () => P.gold >= 40, act: () => { P.gold -= 40; P.goods.grain = (P.goods.grain || 0) + 5; return "Muł wyraźnie lżejszy."; } },
+      { label: "Kup 3 suszonego mięsa za 55 denarów", need: () => P.gold >= 55, act: () => { P.gold -= 55; P.goods.meat = (P.goods.meat || 0) + 3; return "Ludzie się ucieszą."; } },
+      { label: "Podziękuj", act: () => "" },
+    ] },
+    { id: "storm", scene: "camp", title: "Ulewa", text: "Niebo czernieje, lunęło jak z cebra. Droga zamienia się w błoto.", when: () => w.rain, ch: [
+      { label: "Przeczekajcie pod drzewami (4 godziny)", act: () => { for (let i = 0; i < 4; i++) worldTick(w, 1); return "Przemoknięci, ale zdrowi."; } },
+      { label: "Maszerujcie dalej (część ludzi zachoruje)", act: () => { for (const t of p.troops) t.wounded = Math.min(t.n, t.wounded + Math.ceil(t.n * 0.08)); P.morale -= 4; return "Kaszel w szeregach. Kilku ludzi słania się na nogach."; } },
+    ] },
+    { id: "wolves", scene: "lair", title: "Wycie w lesie", text: "Nocą za drzewami błyskają ślepia. Konie się płoszą.", when: () => isNight(w), ch: [
+      { label: "Zapalcie pochodnie i trzymajcie wartę", act: () => { P.morale -= 2; return "Do świtu nikt nie zmrużył oka, ale wilki odeszły."; } },
+      { label: "Na nie! (walka z wilkami)", act: () => { const foes: Troop[] = []; addTroops(foes, "x_wolf", 4 + (rr(0, 4) | 0)); setTimeout(() => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: foes, title: "Wilki" }), 50); return "Ludzie dobywają broni."; } },
+    ] },
+    { id: "whispers", scene: "cemetery", title: "Szepty w szarej ziemi", text: "Na skażonej ziemi Morvath mgła układa się w twarze. Ktoś szepcze twoje imię.", when: () => !!w.blight[cellOf(p.x, p.y)], ch: [
+      { label: "Odpowiedz szeptom (spaczenie +8, mana)", act: () => { (P as any).corruption = Math.min(100, ((P as any).corruption || 0) + 8); P.renown += 2; return "Głos obiecuje moc. Coś w tobie się zmienia."; } },
+      { label: "Każ ludziom się modlić i odejdźcie", act: () => { P.morale -= 3; return "Szepty milkną, ale nikt nie śpi spokojnie."; } },
+    ] },
+  ];
+}
+function maybeTravelEvent(hours: number) {
+  const w = WORLD;
+  if (screenOpen() || G.state !== "map" || (w as any).evCd > w.day * 24 + w.hour) return;
+  if (!chance(hours * 0.035)) return;
+  const list = travelEvents().filter((e) => !e.when || e.when(w));
+  const ev = pick(list);
+  (w as any).evCd = w.day * 24 + w.hour + 30;
+  const acts: Acts = {};
+  ev.ch.forEach((c, i) => { acts["e" + i] = () => { const r = c.act(); closeScreen(); if (r) toast(r, PAL.gold); refreshMapHud(); }; });
+  showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(ev.scene, w.day * 7 + ev.id.length, nearestSettlement(w, playerParty(w).x, playerParty(w).y).culture, isNight(w)), "scene-img")}</div>
+    <h1>${ev.title}</h1><p>${ev.text}</p>
+    <div class="choices">${ev.ch.map((c, i) => `<button class="choice" data-a="e${i}" ${c.need && !c.need() ? "disabled" : ""}><span class="key">${i + 1}</span>${c.label}</button>`).join("")}</div></div>`, acts, "dialog-scr");
+  sfx.page?.();
 }

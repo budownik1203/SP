@@ -79,9 +79,11 @@ function renderWorldMap(w: World) {
       const bl = !!w.blight[i];
       tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >>> 4) % 2 === 0);
       if ((h >>> 8) % 3 > 0) tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
+      if ((h >>> 11) % 2 === 0) tree(x + 1 + ((h >>> 13) % 5), y + 9 + ((h >>> 15) % 2), bl && (h >>> 5) % 2 > 0, (h >>> 9) % 2 === 0);
     } else if (t === T_MOUNT) {
-      if ((cx + cy * 3) % 2 === 0 || (h % 3 === 0)) {
-        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 9 + (h % 5);
+      {
+        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 11 + (h % 7);
+        g.fillStyle = "rgba(10,9,8,0.35)"; for (let k = 0; k < 6; k++) g.fillRect(px + 2 + k, py - 2 + Math.floor(k / 2), 4, 1);   // cień na wschód
         for (let k = 0; k < hh; k++) {
           const half = Math.floor((k * 7) / hh);
           g.fillStyle = PAL.ash; g.fillRect(px - half, py - hh + k, half, 1);
@@ -98,6 +100,8 @@ function renderWorldMap(w: World) {
       g.fillStyle = PAL.dirtL; g.fillRect(x + 2, y + 1, 1, 1);
     } else if (t === T_SEA && h % 9 === 0) {
       g.fillStyle = PAL.waterL; g.fillRect(x + 1, y + 3, 3, 1); g.fillRect(x + 4, y + 2, 2, 1);
+    } else if (t === T_PLAIN && h % 9 === 0 && w.blight[i]) {
+      tree(x + 3 + (h % 3), y + 6, true, false);
     } else if (t === T_PLAIN && h % 31 === 0 && w.blight[i]) {
       g.fillStyle = PAL.bone; g.fillRect(x + 3, y + 4, 2, 1); g.fillRect(x + 2, y + 3, 1, 1);
     }
@@ -241,7 +245,7 @@ function questArrows(w: World, g: CanvasRenderingContext2D, sx: number, sy: numb
   }
 }
 
-interface WorldView { cam: V; hover: { kind: string; id: number } | null; time: number; }
+interface WorldView { cam: V; hover: { kind: string; id: number } | null; time: number; overview?: boolean; }
 
 function cellVisible(w: World, cx: number, cy: number) {
   const p = playerParty(w);
@@ -276,16 +280,46 @@ function partyVisible(w: World, p: Party) {
   return false;
 }
 
+// Widok całego świata (Tab): mapa w skali, osady, armie lordów w zasięgu wzroku, ty.
+function renderOverview(w: World, v: WorldView, g: CanvasRenderingContext2D) {
+  const PW = WGW * WCELL, PH = WGH * WCELL, k = Math.min(W / PW, (H - 14) / PH), ox = Math.round((W - PW * k) / 2), oy = Math.round((H - PH * k) / 2) + 6;
+  g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
+  g.imageSmoothingEnabled = true; g.drawImage(WMAP, 0, 0, PW, PH, ox, oy, PW * k, PH * k);
+  if (settings.borders !== false) g.drawImage(WBORDER, 0, 0, PW, PH, ox, oy, PW * k, PH * k);
+  // nieodkryte ciemne
+  const fg = WFOG.getContext("2d"), fim = fg.createImageData(WGW, WGH);
+  for (let i = 0; i < WGW * WGH; i++) { fim.data[i * 4 + 3] = w.explored[i] ? 0 : 235; }
+  fg.putImageData(fim, 0, 0); g.drawImage(WFOG, 0, 0, WGW, WGH, ox, oy, PW * k, PH * k);
+  g.imageSmoothingEnabled = false;
+  for (const s of w.settlements) {
+    if (!w.explored[cidx(s.cx, s.cy)]) continue;
+    const x = Math.round(ox + (s.cx * WCELL + 4) * k), y = Math.round(oy + (s.cy * WCELL + 4) * k);
+    const [fc] = factionCol(s.faction);
+    g.fillStyle = PAL.ink; g.fillRect(x - 2, y - 2, s.kind === "village" ? 3 : 5, s.kind === "village" ? 3 : 5);
+    g.fillStyle = s.owner === -2 ? PAL.gold : fc; g.fillRect(x - 1, y - 1, s.kind === "village" ? 1 : 3, s.kind === "village" ? 1 : 3);
+    if (s.kind !== "village") wText(g, s.name, x - s.name.length * 2, y + 3, s.siegeBy.length ? PAL.redL : PAL.boneHi);
+  }
+  for (const o of w.parties) if (o.kind === "lord" && partyVisible(w, o)) { g.fillStyle = factionCol(o.faction)[0]; g.fillRect(Math.round(ox + o.x * k), Math.round(oy + o.y * k), 2, 2); }
+  const pp = playerParty(w);
+  if (pp) { const x = Math.round(ox + pp.x * k), y = Math.round(oy + pp.y * k), bl = Math.floor(v.time * 3) % 2; g.fillStyle = bl ? PAL.white : PAL.gold; g.fillRect(x - 1, y - 3, 3, 7); g.fillRect(x - 3, y - 1, 7, 3); }
+  const vx = Math.round(ox + v.cam.x * k), vy = Math.round(oy + v.cam.y * k);
+  g.strokeStyle = "rgba(255,255,255,.45)"; g.strokeRect(vx + 0.5, vy + 0.5, Math.round(W * k), Math.round(H * k));
+  wText(g, `ŚWIAT · ${SEASON_NAME[season(w)].toUpperCase()} · TAB: WRÓĆ · KLIK: POKAŻ MIEJSCE`, 4, H - 22, PAL.gold);
+  (v as any).ovK = { k, ox, oy };
+}
+let MAPZ_LAST_W = 480;
 function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   if (!WMAP) renderWorldMap(w);
   if (WBORDER_VER !== w.ownerVersion) renderBorders(w);
+  if (v.overview) { renderOverview(w, v, g); return; }
+  MAPZ_LAST_W = W;
   const PW = WGW * WCELL, PH = WGH * WCELL;
   QM = questMarks(w);
   const sx = Math.round(clamp(v.cam.x, 0, PW - W)), sy = Math.round(clamp(v.cam.y, 0, PH - H));
   v.cam.x = sx; v.cam.y = sy;
   g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
   g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
-  g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
+  if (settings.borders !== false) g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
   const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
   const t = v.time;
   // fale morza (animacja)
@@ -330,11 +364,25 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       }
       if (s.raided > 0) { for (let k = 0; k < 3; k++) { const ph = (t * 0.4 + k / 3) % 1; g.globalAlpha = (1 - ph) * 0.5; g.fillStyle = PAL.ash; g.fillRect(Math.round(x - sx + k * 4 - 4), Math.round(iy + 4 - ph * 12), 2, 2); } g.globalAlpha = 1; }
       if (s.tournament > 0) { g.fillStyle = PAL.gold; g.fillRect(ix + img.width - 3, iy - 2, 2, 2); }
+      // dym z kominów i powiewające flagi
+      if (!s.raided && !s.siegeBy.length) for (let k = 0; k < (s.kind === "village" ? 2 : 3); k++) {
+        const hh = hashInt(s.seed + k * 17), bx2 = ix + 3 + (hh % Math.max(4, img.width - 6)), by2 = iy + 4 + ((hh >>> 4) % 4);
+        for (let j = 0; j < 3; j++) { const ph = (t * 0.35 + j / 3 + k * 0.21) % 1; g.globalAlpha = (1 - ph) * 0.35; g.fillStyle = PAL.ash; g.fillRect(Math.round(bx2 + Math.sin(ph * 5 + k) * 2 + ph * 3), Math.round(by2 - ph * 11), 1 + (ph > 0.5 ? 1 : 0), 1); }
+        g.globalAlpha = 1;
+      }
+      if (s.kind !== "village") {
+        const [fc, , ft] = factionCol(s.faction), fx2 = ix + Math.round(img.width / 2), fy2 = iy - 6;
+        g.fillStyle = PAL.ink; g.fillRect(fx2, fy2, 1, 8);
+        const wv = Math.floor(t * 4 + s.id) % 3;
+        g.fillStyle = fc; g.fillRect(fx2 + 1, fy2 + (wv === 1 ? 1 : 0), 5, 2); g.fillRect(fx2 + 1, fy2 + 2, wv === 2 ? 3 : 4, 1);
+        g.fillStyle = ft || PAL.bone; g.fillRect(fx2 + 2, fy2 + 1, 1, 1);
+      }
       const label = s.name;
-      const lw = label.length * 4 + 2;
       const qm = settings.questMarkers && QM.set.has(s.id);
-      g.globalAlpha = qm ? 1 : 0.85;
-      wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi);
+      const lcol2 = qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi;
+      g.globalAlpha = qm ? 1 : 0.92;
+      if (s.kind === "village") { const lw = label.length * 4 + 2; wText(g, label, Math.round(x - sx - lw / 2 + 4), iy + img.height + 2, lcol2); crestAt(g, s.faction, Math.round(x - sx - lw / 2 - 5), iy + img.height + 1); }
+      else { const bw = wTextBig(g, label, Math.round(x - sx + 5), iy + img.height + 1, lcol2, 2); crestAt(g, s.faction, Math.round(x - sx + 5 - bw / 2 - 9), iy + img.height + 4); }
       g.globalAlpha = 1;
       if (qm) questPin(g, Math.round(x - sx), iy - 2, t);
     } });
@@ -355,6 +403,25 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     g.globalAlpha = 1;
     const c = pp.path[pp.path.length - 1], x = (c % WGW) * WCELL + 4 - sx, y = Math.floor(c / WGW) * WCELL + 4 - sy;
     g.fillStyle = PAL.gold; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5);
+    // czas dotarcia
+    const hrs = pp.path.length / Math.max(0.5, partySpeed(w, pp));
+    const eta = hrs < 1 ? "<1 H" : hrs < 24 ? `${Math.round(hrs)} H` : `${Math.floor(hrs / 24)} D ${Math.round(hrs % 24)} H`;
+    g.fillStyle = "rgba(10,9,8,0.6)"; g.fillRect(x + 4, y - 9, eta.length * 4 + 3, 8);
+    wText(g, eta, x + 6, y - 7, PAL.gold);
+  }
+  // tropy: ślady innych oddziałów (umiejętność tropienia)
+  const trk = w.player.skills.tracking;
+  if (trk > 0 && pp) {
+    const now = w.day * 24 + w.hour, rr2 = (6 + trk * 4) * WCELL, maxAge = 12 + trk * 10;
+    for (const o of w.parties) {
+      const tr = (o as any).trail as number[][]; if (!tr || o === pp || partyVisible(w, o)) continue;
+      for (const [tx, ty, th] of tr) {
+        const age = now - th; if (age > maxAge || dist(tx, ty, pp.x, pp.y) > rr2 || !vis(tx, ty)) continue;
+        g.globalAlpha = 0.65 * (1 - age / maxAge); g.fillStyle = o.kind === "bandit" ? PAL.redL : o.kind === "lord" ? factionCol(o.faction)[0] : PAL.dirtL;
+        g.fillRect(Math.round(tx - sx), Math.round(ty - sy), 1, 1); g.fillRect(Math.round(tx - sx) + 2, Math.round(ty - sy) + 1, 1, 1);
+      }
+    }
+    g.globalAlpha = 1;
   }
   // mgła wojny
   updateExplored(w);
@@ -378,7 +445,10 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   // pora dnia
   const h = w.hour;
   let dark = 0, warm = 0;
-  if (h < 5 || h >= 21) dark = 0.6; else if (h < 7) { dark = 0.6 * (7 - h) / 2; warm = 0.15; } else if (h >= 18) { dark = 0.6 * (h - 18) / 3; warm = 0.2 * (1 - dark); }
+  const sm = (a: number) => a * a * (3 - 2 * a);   // płynne przejścia świtu i zmierzchu
+  if (h < 4.5 || h >= 21.5) dark = 0.7;
+  else if (h < 7.5) { const k = sm((h - 4.5) / 3); dark = 0.7 * (1 - k); warm = 0.18 * Math.sin(k * Math.PI); }
+  else if (h >= 17.5) { const k = sm((h - 17.5) / 4); dark = 0.7 * k; warm = 0.24 * Math.sin(k * Math.PI); }
   g.globalCompositeOperation = "multiply";
   g.fillStyle = "#ece4d2"; g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = "source-over";
@@ -399,6 +469,26 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     if (pp) { const x = pp.x - sx, y = pp.y - sy; const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, 12); gr.addColorStop(0, `rgba(170,110,40,${0.3 * dark / 0.6})`); gr.addColorStop(1, "rgba(170,110,40,0)"); g.fillStyle = gr; g.fillRect(x - 14, y - 18, 28, 28); }
     g.globalCompositeOperation = "source-over";
   }
+  // zaraza Morvath: szary welon i fioletowe drobiny nad skażoną ziemią
+  for (let cy = Math.floor(sy / WCELL); cy < Math.ceil((sy + H) / WCELL); cy++) for (let cx = Math.floor(sx / WCELL); cx < Math.ceil((sx + W) / WCELL); cx++) {
+    if (cx < 0 || cy < 0 || cx >= WGW || cy >= WGH) continue;
+    const i = cidx(cx, cy); if (!w.blight[i] || !w.explored[i]) continue;
+    const hh = hashInt(i * 31);
+    g.globalAlpha = 0.1 + Math.sin(t * 0.8 + (hh % 60) * 0.1) * 0.04; g.fillStyle = "#3a2f45"; g.fillRect(cx * WCELL - sx, cy * WCELL - sy, WCELL, WCELL);
+    if (hh % 7 === 0) { const ph = (t * 0.25 + (hh % 100) / 100) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * 0.7; g.fillStyle = PAL.purpleL; g.fillRect(cx * WCELL - sx + (hh % 8), cy * WCELL - sy + 6 - Math.round(ph * 10), 1, 1); }
+  }
+  g.globalAlpha = 1;
+  // pora roku: zima bieli ziemię i sypie śniegiem
+  const sea = season(w);
+  if (sea === 3) {
+    g.globalAlpha = 0.11; g.fillStyle = "#dfe6ea"; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
+    g.fillStyle = "rgba(235,240,245,0.75)";
+    for (let i = 0; i < 90; i++) { const s2 = hashInt(i * 11 + 5); const x = ((s2 % 997) * 3 + Math.sin(t + i) * 8 - t * 8) % W, y = (((s2 >>> 10) % 400) + t * 22) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 1); }
+  } else if (sea === 2) { g.globalAlpha = 0.06; g.fillStyle = "#8a5a20"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
+  // mgła: wolno płynące pasy
+  if (w.fog) for (let k = 0; k < 7; k++) { const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20; g.globalAlpha = 0.16; g.fillStyle = "#c9ccc8"; g.beginPath(); g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+  // burza: błyskawice
+  if ((w as any).storm) { const fl = Math.sin(t * 0.7) > 0.995 || (Math.floor(t * 10) % 97 === 0); if (fl) { g.globalAlpha = 0.35; g.fillStyle = "#e8ecff"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; if (!(w as any).thunderT || t - (w as any).thunderT > 2) { (w as any).thunderT = t; sfx.explode?.(0.35, rr(-0.5, 0.5)); } } }
   // deszcz
   if (w.rain) {
     g.fillStyle = "rgba(160,170,170,0.28)";
@@ -429,6 +519,12 @@ function drawPartyFig(w: World, g: CanvasRenderingContext2D, p: Party, sx: numbe
     if (flip) { g.save(); g.translate(x + Math.ceil(img.width / 2), y - img.height + 2); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
     else g.drawImage(img, x - Math.floor(img.width / 2), y - img.height + 2);
   }
+  if (p.kind === "player" && G.camping) {   // obóz: namioty i ognisko
+    for (const [dx, dy] of [[-9, -2], [8, -3], [-2, 5]]) { const tx = x + dx, ty = y + dy; g.fillStyle = PAL.ink; g.fillRect(tx - 4, ty - 5, 9, 6); g.fillStyle = PAL.dirtL; g.fillRect(tx - 3, ty - 4, 7, 4); g.fillRect(tx - 1, ty - 6, 3, 2); g.fillStyle = PAL.dirtD; g.fillRect(tx, ty - 3, 1, 3); }
+    g.fillStyle = Math.floor(t * 8) % 2 ? PAL.gold : PAL.redL; g.fillRect(x + 1, y + 3, 2, 2); g.fillStyle = PAL.woodD; g.fillRect(x, y + 5, 4, 1);
+    for (let j = 0; j < 3; j++) { const ph = (t * 0.5 + j / 3) % 1; g.globalAlpha = (1 - ph) * 0.4; g.fillStyle = PAL.ash; g.fillRect(x + 2 + Math.round(Math.sin(ph * 6) * 2), y + 1 - Math.round(ph * 12), 1, 1); }
+    g.globalAlpha = 1;
+  }
   if (p.kind === "caravan") { g.fillStyle = PAL.wood; g.fillRect(x + 4, y - 5, 6, 4); g.fillStyle = PAL.bone; g.fillRect(x + 4, y - 7, 6, 2); g.fillStyle = PAL.ink; g.fillRect(x + 5, y - 1, 1, 1); g.fillRect(x + 8, y - 1, 1, 1); }
   if (p.state === "siege") { g.fillStyle = Math.floor(t * 4) % 2 ? PAL.gold : PAL.redL; g.fillRect(x - 6, y - 2, 1, 1); }
   const qm = settings.questMarkers && QM.party.has(p.id);
@@ -437,11 +533,43 @@ function drawPartyFig(w: World, g: CanvasRenderingContext2D, p: Party, sx: numbe
   const lcol = qm ? QUEST_COL : p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi;
   const nearTown = w.settlements.some((s2) => dist(s2.cx * WCELL + 4, s2.cy * WCELL + 4, p.x, p.y) < 22);
   const named = qm || hover || (mode === "all" && !nearTown) || (mode === "lords" && p.kind === "lord" && !nearTown);
-  if (p.kind !== "player" && named) { const txt = `${p.name} ${n}`; wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 25, lcol); }
-  else if (p.kind === "player" || p.kind === "lord") { const txt = String(n); wText(g, txt, x - Math.round(txt.length * 2), y - 25, lcol); }
+  if (p.kind === "lord" || p.kind === "player") {   // proporzec nad armią
+    const [fc, , ft] = p.kind === "player" ? [PAL.gold, PAL.goldD, PAL.red] : factionCol(p.faction), bx = x + 5, by = y - 22;
+    g.fillStyle = PAL.ink; g.fillRect(bx, by, 1, 14);
+    const wv = Math.floor(t * 4 + p.id) % 3;
+    g.fillStyle = PAL.ink; g.fillRect(bx + 1, by - 1, 7, 6);
+    g.fillStyle = fc; g.fillRect(bx + 1, by + (wv === 1 ? 1 : 0), 6, 4); g.fillStyle = ft || PAL.bone; g.fillRect(bx + 3, by + 1, 2, 2);
+  }
+  // liczebność: plakietka
+  if (p.kind !== "caravan" && p.kind !== "villagers") { const txt = String(n), bw2 = txt.length * 4 + 3; g.fillStyle = "rgba(10,9,8,0.75)"; g.fillRect(x - Math.round(bw2 / 2), y + 3, bw2, 7); wText(g, txt, x - Math.round(bw2 / 2) + 2, y + 4, lcol); }
+  if (p.kind !== "player" && named) { const txt = p.name; wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 27, lcol); }
   if (qm) questPin(g, x, y - 28, t);
   if (hover) { g.fillStyle = PAL.white; g.fillRect(x - 7, y + 3, 15, 1); }
 }
 
 // Mała czcionka mapy: korzysta z pikselowego fontu bitwy (wielkie litery).
 function wText(g: CanvasRenderingContext2D, t: string, x: number, y: number, col: string) { pxText(g, t.toUpperCase(), x, y, col); }
+
+// Większy napis (×2) z pamięci podręcznej: nazwy miast i zamków.
+const BIGTXT = new Map<string, HTMLCanvasElement>();
+function wTextBig(g: CanvasRenderingContext2D, t: string, cx: number, y: number, col: string, k = 2) {
+  const key = t + col + k;
+  let c = BIGTXT.get(key);
+  if (!c) {
+    const tw = t.length * 4 + 2;
+    const [s1, g1] = mkCanvas(tw + 2, 9);
+    pxText(g1, t.toUpperCase(), 2, 2, PAL.ink); pxText(g1, t.toUpperCase(), 1, 1, col);
+    const [s2, g2] = mkCanvas((tw + 2) * k, 9 * k); g2.imageSmoothingEnabled = false; g2.drawImage(s1, 0, 0, s2.width, s2.height);
+    c = s2; BIGTXT.set(key, c);
+  }
+  g.drawImage(c, Math.round(cx - c.width / 2), y);
+  return c.width;
+}
+// Mały herb frakcji przy nazwie.
+function crestAt(g: CanvasRenderingContext2D, f: number, x: number, y: number) {
+  const [c1, c2, c3] = factionCol(f);
+  g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 8, 9);
+  g.fillStyle = c1; g.fillRect(x, y, 6, 6); g.fillRect(x + 1, y + 6, 4, 1);
+  g.fillStyle = c3 || PAL.bone; g.fillRect(x + 2, y + 1, 2, 4); g.fillRect(x + 1, y + 2, 4, 1);
+  void c2;
+}

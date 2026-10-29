@@ -388,6 +388,16 @@ class Sfx {
       osc.connect(lp); lp.connect(g); g.connect(o); osc.start(t); osc.stop(t + 1.7);
     }
   }
+  // Krótkie mruknięcie w dialogu, inne dla ras.
+  grunt(kind = "human") {
+    if (!this.ok("grunt", 300)) return;
+    const o = this.out(0, 0.4);
+    const f = kind === "orc" ? 90 : kind === "dwarf" ? 120 : kind === "undead" || kind === "skel" ? 70 : kind === "wolf" ? 220 : rr(140, 190);
+    if (kind === "undead" || kind === "skel") { this.noise(o, 0.5, 600, 200, 2, 0.25, "bandpass"); this.tone(o, f, f * 0.7, 0.5, "sawtooth", 0.06); return; }
+    if (kind === "wolf") { this.tone(o, f, f * 0.6, 0.35, "sawtooth", 0.08); this.noise(o, 0.3, 900, 400, 3, 0.15, "bandpass"); return; }
+    this.tone(o, f, f * rr(0.8, 0.95), 0.18, "sawtooth", 0.07); this.tone(o, f * 2.1, f * 1.8, 0.16, "triangle", 0.04, 0.02);
+    this.noise(o, 0.12, 700, 300, 2, 0.08, "bandpass");
+  }
   coin() { if (!this.ok("coin", 60)) return; const o = this.out(0, 0.2); this.tone(o, 1800, 1700, 0.12, "square", 0.04); this.tone(o, 2400, 2300, 0.15, "square", 0.03, 0.06); }
   page() { if (!this.ok("page", 60)) return; const o = this.out(0, 0.1); this.noise(o, 0.12, 3000, 1500, 1, 0.08); }
   drum(v = 1) { if (!this.ok("drum", 120)) return; const o = this.out(0, 0.5); this.tone(o, 70, 40, 0.4, "sine", 0.7 * v); this.noise(o, 0.1, 300, 100, 1, 0.2 * v); }

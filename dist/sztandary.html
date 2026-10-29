@@ -117,7 +117,10 @@ input.num{width:5em}
 .t1{color:var(--text)}.t2{color:#a8b07a}.t3{color:var(--gold)}
 .pic canvas,.portrait canvas,.sprite canvas,.scene-img canvas{image-rendering:pixelated;display:block}
 .portrait canvas{width:calc(var(--s)*20px);height:calc(var(--s)*20px);border:2px solid #0a0908;box-shadow:0 0 0 1px var(--edge)}
-.portrait.big canvas{width:calc(var(--s)*34px);height:calc(var(--s)*34px)}
+.portrait.big canvas{width:calc(var(--s)*46px);height:calc(var(--s)*46px);animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--s)*-.6px))}}
+button.choice.focus{outline:2px solid var(--gold);background:#3d352a}
+.campm{display:inline-flex;gap:2px;margin-left:4px}
 .sprite canvas{width:calc(var(--s)*24px);height:calc(var(--s)*32px)}
 .scene-img canvas{width:100%;height:auto;border:2px solid #0a0908;box-shadow:0 0 0 1px var(--edge)}
 .creator{max-width:52em;width:100%;max-height:100%;overflow:auto}
@@ -2785,6 +2788,26 @@ class Sfx {
             osc.start(t);
             osc.stop(t + 1.7);
         }
+    }
+    // Krótkie mruknięcie w dialogu, inne dla ras.
+    grunt(kind = "human") {
+        if (!this.ok("grunt", 300))
+            return;
+        const o = this.out(0, 0.4);
+        const f = kind === "orc" ? 90 : kind === "dwarf" ? 120 : kind === "undead" || kind === "skel" ? 70 : kind === "wolf" ? 220 : rr(140, 190);
+        if (kind === "undead" || kind === "skel") {
+            this.noise(o, 0.5, 600, 200, 2, 0.25, "bandpass");
+            this.tone(o, f, f * 0.7, 0.5, "sawtooth", 0.06);
+            return;
+        }
+        if (kind === "wolf") {
+            this.tone(o, f, f * 0.6, 0.35, "sawtooth", 0.08);
+            this.noise(o, 0.3, 900, 400, 3, 0.15, "bandpass");
+            return;
+        }
+        this.tone(o, f, f * rr(0.8, 0.95), 0.18, "sawtooth", 0.07);
+        this.tone(o, f * 2.1, f * 1.8, 0.16, "triangle", 0.04, 0.02);
+        this.noise(o, 0.12, 700, 300, 2, 0.08, "bandpass");
     }
     coin() { if (!this.ok("coin", 60))
         return; const o = this.out(0, 0.2); this.tone(o, 1800, 1700, 0.12, "square", 0.04); this.tone(o, 2400, 2300, 0.15, "square", 0.03, 0.06); }
@@ -9908,8 +9931,10 @@ function partySpeed(w, p) {
         wounded += t.wounded;
     }
     let sp = 4.4 - Math.min(1.8, n * 0.012);
-    sp += (cav / n) * 1.3;
-    sp -= (wounded / n) * 1.1;
+    sp += (cav / n) * 1.6;
+    sp -= (wounded / n) * 1.6;
+    if (season(w) === 3)
+        sp *= 0.85; // zima: śnieg spowalnia
     if (p.kind === "player") {
         if (w.player.equip.horse)
             sp += 0.25;
@@ -9925,7 +9950,7 @@ function partySpeed(w, p) {
     if (isNight(w))
         sp *= 0.85;
     if (p.prisoners.length)
-        sp -= troopCount(p.prisoners) * 0.01;
+        sp -= troopCount(p.prisoners) * 0.02;
     const i = cellOf(p.x, p.y);
     sp /= moveCost(w, i);
     if (w.blight[i] && p.faction !== 5)
@@ -9933,9 +9958,21 @@ function partySpeed(w, p) {
     return Math.max(0.8, sp);
 }
 function sightRadius(w, p) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 : 0); }
+// Pory roku: 30 dni każda. 0 wiosna, 1 lato, 2 jesień, 3 zima.
+function season(w) { return Math.floor((w.day - 1) / 30) % 4; }
+const SEASON_NAME = ["wiosna", "lato", "jesień", "zima"];
 function moveParty(w, p, hours) {
     if (!p.path.length)
         return;
+    // ślady na mapie (do tropienia)
+    const pa = p;
+    pa.trailD = (pa.trailD || 0) + partySpeed(w, p) * hours;
+    if (pa.trailD > 2) {
+        pa.trailD = 0;
+        (pa.trail || (pa.trail = [])).push([Math.round(p.x), Math.round(p.y), w.day * 24 + w.hour]);
+        if (pa.trail.length > 14)
+            pa.trail.shift();
+    }
     let budget = partySpeed(w, p) * hours * WCELL;
     while (budget > 0 && p.path.length) {
         const c = p.path[0];
@@ -9963,8 +10000,10 @@ function goTo(w, p, x, y) {
 // Codzienny przebieg świata: żołd, jedzenie, produkcja, rekrutacja, dyplomacja, oblężenia.
 function dailyTick(w) {
     w.day++;
-    w.rain = chance(0.22);
-    w.fog = !w.rain && chance(0.14);
+    const win = season(w) === 3;
+    w.rain = chance(win ? 0.3 : 0.22);
+    w.fog = !w.rain && chance(season(w) === 2 ? 0.25 : 0.14);
+    w.storm = w.rain && !win && chance(0.3);
     // dyplomacja
     const F = [1, 2, 3, 4];
     for (const a of F)
@@ -10494,11 +10533,19 @@ function playerDaily(w) {
     else
         P.morale += kinds >= 2 ? 1.5 : 0.3;
     // rany
-    const heal = 0.1 + P.skills.medicine * 0.03 + (p.state === "camp" ? 0.15 : 0);
+    const cm = p.state === "camp" ? (P.campMode || "rest") : "";
+    const heal = 0.1 + P.skills.medicine * 0.03 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0);
+    // obóz: trening podnosi doświadczenie (kosztem jedzenia), wartownicy chronią przed zaskoczeniem
+    if (cm === "train") {
+        for (const t of p.troops)
+            t.xp += (6 + P.skills.leadership * 2) * Math.max(1, t.n - t.wounded);
+        if ((P.goods.grain || 0) > 0)
+            P.goods.grain--;
+    }
     for (const t of p.troops)
         t.wounded = Math.max(0, t.wounded - Math.ceil(t.wounded * heal));
     const maxHp = heroMaxHp(P);
-    P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (p.state === "camp" ? 0.15 : 0)));
+    P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0)));
     for (const c of P.companions)
         c.hp = Math.min(c.maxHp, c.hp + c.maxHp * 0.15);
     P.faith = Math.min(100, P.faith + (8 + P.attr.cha) * (1 + perk(P, "faith")));
@@ -10864,10 +10911,15 @@ function renderWorldMap(w) {
                 tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >>> 4) % 2 === 0);
                 if ((h >>> 8) % 3 > 0)
                     tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
+                if ((h >>> 11) % 2 === 0)
+                    tree(x + 1 + ((h >>> 13) % 5), y + 9 + ((h >>> 15) % 2), bl && (h >>> 5) % 2 > 0, (h >>> 9) % 2 === 0);
             }
             else if (t === T_MOUNT) {
-                if ((cx + cy * 3) % 2 === 0 || (h % 3 === 0)) {
-                    const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 9 + (h % 5);
+                {
+                    const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 11 + (h % 7);
+                    g.fillStyle = "rgba(10,9,8,0.35)";
+                    for (let k = 0; k < 6; k++)
+                        g.fillRect(px + 2 + k, py - 2 + Math.floor(k / 2), 4, 1); // cień na wschód
                     for (let k = 0; k < hh; k++) {
                         const half = Math.floor((k * 7) / hh);
                         g.fillStyle = PAL.ash;
@@ -10900,6 +10952,9 @@ function renderWorldMap(w) {
                 g.fillStyle = PAL.waterL;
                 g.fillRect(x + 1, y + 3, 3, 1);
                 g.fillRect(x + 4, y + 2, 2, 1);
+            }
+            else if (t === T_PLAIN && h % 9 === 0 && w.blight[i]) {
+                tree(x + 3 + (h % 3), y + 6, true, false);
             }
             else if (t === T_PLAIN && h % 31 === 0 && w.blight[i]) {
                 g.fillStyle = PAL.bone;
@@ -11213,11 +11268,64 @@ function partyVisible(w, p) {
             return true;
     return false;
 }
+// Widok całego świata (Tab): mapa w skali, osady, armie lordów w zasięgu wzroku, ty.
+function renderOverview(w, v, g) {
+    const PW = WGW * WCELL, PH = WGH * WCELL, k = Math.min(W / PW, (H - 14) / PH), ox = Math.round((W - PW * k) / 2), oy = Math.round((H - PH * k) / 2) + 6;
+    g.fillStyle = PAL.black;
+    g.fillRect(0, 0, W, H);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(WMAP, 0, 0, PW, PH, ox, oy, PW * k, PH * k);
+    if (settings.borders !== false)
+        g.drawImage(WBORDER, 0, 0, PW, PH, ox, oy, PW * k, PH * k);
+    // nieodkryte ciemne
+    const fg = WFOG.getContext("2d"), fim = fg.createImageData(WGW, WGH);
+    for (let i = 0; i < WGW * WGH; i++) {
+        fim.data[i * 4 + 3] = w.explored[i] ? 0 : 235;
+    }
+    fg.putImageData(fim, 0, 0);
+    g.drawImage(WFOG, 0, 0, WGW, WGH, ox, oy, PW * k, PH * k);
+    g.imageSmoothingEnabled = false;
+    for (const s of w.settlements) {
+        if (!w.explored[cidx(s.cx, s.cy)])
+            continue;
+        const x = Math.round(ox + (s.cx * WCELL + 4) * k), y = Math.round(oy + (s.cy * WCELL + 4) * k);
+        const [fc] = factionCol(s.faction);
+        g.fillStyle = PAL.ink;
+        g.fillRect(x - 2, y - 2, s.kind === "village" ? 3 : 5, s.kind === "village" ? 3 : 5);
+        g.fillStyle = s.owner === -2 ? PAL.gold : fc;
+        g.fillRect(x - 1, y - 1, s.kind === "village" ? 1 : 3, s.kind === "village" ? 1 : 3);
+        if (s.kind !== "village")
+            wText(g, s.name, x - s.name.length * 2, y + 3, s.siegeBy.length ? PAL.redL : PAL.boneHi);
+    }
+    for (const o of w.parties)
+        if (o.kind === "lord" && partyVisible(w, o)) {
+            g.fillStyle = factionCol(o.faction)[0];
+            g.fillRect(Math.round(ox + o.x * k), Math.round(oy + o.y * k), 2, 2);
+        }
+    const pp = playerParty(w);
+    if (pp) {
+        const x = Math.round(ox + pp.x * k), y = Math.round(oy + pp.y * k), bl = Math.floor(v.time * 3) % 2;
+        g.fillStyle = bl ? PAL.white : PAL.gold;
+        g.fillRect(x - 1, y - 3, 3, 7);
+        g.fillRect(x - 3, y - 1, 7, 3);
+    }
+    const vx = Math.round(ox + v.cam.x * k), vy = Math.round(oy + v.cam.y * k);
+    g.strokeStyle = "rgba(255,255,255,.45)";
+    g.strokeRect(vx + 0.5, vy + 0.5, Math.round(W * k), Math.round(H * k));
+    wText(g, `ŚWIAT · ${SEASON_NAME[season(w)].toUpperCase()} · TAB: WRÓĆ · KLIK: POKAŻ MIEJSCE`, 4, H - 22, PAL.gold);
+    v.ovK = { k, ox, oy };
+}
+let MAPZ_LAST_W = 480;
 function renderWorld(w, v, g) {
     if (!WMAP)
         renderWorldMap(w);
     if (WBORDER_VER !== w.ownerVersion)
         renderBorders(w);
+    if (v.overview) {
+        renderOverview(w, v, g);
+        return;
+    }
+    MAPZ_LAST_W = W;
     const PW = WGW * WCELL, PH = WGH * WCELL;
     QM = questMarks(w);
     const sx = Math.round(clamp(v.cam.x, 0, PW - W)), sy = Math.round(clamp(v.cam.y, 0, PH - H));
@@ -11226,7 +11334,8 @@ function renderWorld(w, v, g) {
     g.fillStyle = PAL.black;
     g.fillRect(0, 0, W, H);
     g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
-    g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
+    if (settings.borders !== false)
+        g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
     const vis = (x, y, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
     const t = v.time;
     // fale morza (animacja)
@@ -11304,11 +11413,42 @@ function renderWorld(w, v, g) {
                     g.fillStyle = PAL.gold;
                     g.fillRect(ix + img.width - 3, iy - 2, 2, 2);
                 }
+                // dym z kominów i powiewające flagi
+                if (!s.raided && !s.siegeBy.length)
+                    for (let k = 0; k < (s.kind === "village" ? 2 : 3); k++) {
+                        const hh = hashInt(s.seed + k * 17), bx2 = ix + 3 + (hh % Math.max(4, img.width - 6)), by2 = iy + 4 + ((hh >>> 4) % 4);
+                        for (let j = 0; j < 3; j++) {
+                            const ph = (t * 0.35 + j / 3 + k * 0.21) % 1;
+                            g.globalAlpha = (1 - ph) * 0.35;
+                            g.fillStyle = PAL.ash;
+                            g.fillRect(Math.round(bx2 + Math.sin(ph * 5 + k) * 2 + ph * 3), Math.round(by2 - ph * 11), 1 + (ph > 0.5 ? 1 : 0), 1);
+                        }
+                        g.globalAlpha = 1;
+                    }
+                if (s.kind !== "village") {
+                    const [fc, , ft] = factionCol(s.faction), fx2 = ix + Math.round(img.width / 2), fy2 = iy - 6;
+                    g.fillStyle = PAL.ink;
+                    g.fillRect(fx2, fy2, 1, 8);
+                    const wv = Math.floor(t * 4 + s.id) % 3;
+                    g.fillStyle = fc;
+                    g.fillRect(fx2 + 1, fy2 + (wv === 1 ? 1 : 0), 5, 2);
+                    g.fillRect(fx2 + 1, fy2 + 2, wv === 2 ? 3 : 4, 1);
+                    g.fillStyle = ft || PAL.bone;
+                    g.fillRect(fx2 + 2, fy2 + 1, 1, 1);
+                }
                 const label = s.name;
-                const lw = label.length * 4 + 2;
                 const qm = settings.questMarkers && QM.set.has(s.id);
-                g.globalAlpha = qm ? 1 : 0.85;
-                wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi);
+                const lcol2 = qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi;
+                g.globalAlpha = qm ? 1 : 0.92;
+                if (s.kind === "village") {
+                    const lw = label.length * 4 + 2;
+                    wText(g, label, Math.round(x - sx - lw / 2 + 4), iy + img.height + 2, lcol2);
+                    crestAt(g, s.faction, Math.round(x - sx - lw / 2 - 5), iy + img.height + 1);
+                }
+                else {
+                    const bw = wTextBig(g, label, Math.round(x - sx + 5), iy + img.height + 1, lcol2, 2);
+                    crestAt(g, s.faction, Math.round(x - sx + 5 - bw / 2 - 9), iy + img.height + 4);
+                }
                 g.globalAlpha = 1;
                 if (qm)
                     questPin(g, Math.round(x - sx), iy - 2, t);
@@ -11340,6 +11480,32 @@ function renderWorld(w, v, g) {
         g.fillStyle = PAL.gold;
         g.fillRect(x - 2, y, 5, 1);
         g.fillRect(x, y - 2, 1, 5);
+        // czas dotarcia
+        const hrs = pp.path.length / Math.max(0.5, partySpeed(w, pp));
+        const eta = hrs < 1 ? "<1 H" : hrs < 24 ? `${Math.round(hrs)} H` : `${Math.floor(hrs / 24)} D ${Math.round(hrs % 24)} H`;
+        g.fillStyle = "rgba(10,9,8,0.6)";
+        g.fillRect(x + 4, y - 9, eta.length * 4 + 3, 8);
+        wText(g, eta, x + 6, y - 7, PAL.gold);
+    }
+    // tropy: ślady innych oddziałów (umiejętność tropienia)
+    const trk = w.player.skills.tracking;
+    if (trk > 0 && pp) {
+        const now = w.day * 24 + w.hour, rr2 = (6 + trk * 4) * WCELL, maxAge = 12 + trk * 10;
+        for (const o of w.parties) {
+            const tr = o.trail;
+            if (!tr || o === pp || partyVisible(w, o))
+                continue;
+            for (const [tx, ty, th] of tr) {
+                const age = now - th;
+                if (age > maxAge || dist(tx, ty, pp.x, pp.y) > rr2 || !vis(tx, ty))
+                    continue;
+                g.globalAlpha = 0.65 * (1 - age / maxAge);
+                g.fillStyle = o.kind === "bandit" ? PAL.redL : o.kind === "lord" ? factionCol(o.faction)[0] : PAL.dirtL;
+                g.fillRect(Math.round(tx - sx), Math.round(ty - sy), 1, 1);
+                g.fillRect(Math.round(tx - sx) + 2, Math.round(ty - sy) + 1, 1, 1);
+            }
+        }
+        g.globalAlpha = 1;
     }
     // mgła wojny
     updateExplored(w);
@@ -11370,15 +11536,18 @@ function renderWorld(w, v, g) {
     // pora dnia
     const h = w.hour;
     let dark = 0, warm = 0;
-    if (h < 5 || h >= 21)
-        dark = 0.6;
-    else if (h < 7) {
-        dark = 0.6 * (7 - h) / 2;
-        warm = 0.15;
+    const sm = (a) => a * a * (3 - 2 * a); // płynne przejścia świtu i zmierzchu
+    if (h < 4.5 || h >= 21.5)
+        dark = 0.7;
+    else if (h < 7.5) {
+        const k = sm((h - 4.5) / 3);
+        dark = 0.7 * (1 - k);
+        warm = 0.18 * Math.sin(k * Math.PI);
     }
-    else if (h >= 18) {
-        dark = 0.6 * (h - 18) / 3;
-        warm = 0.2 * (1 - dark);
+    else if (h >= 17.5) {
+        const k = sm((h - 17.5) / 4);
+        dark = 0.7 * k;
+        warm = 0.24 * Math.sin(k * Math.PI);
     }
     g.globalCompositeOperation = "multiply";
     g.fillStyle = "#ece4d2";
@@ -11417,6 +11586,71 @@ function renderWorld(w, v, g) {
             g.fillRect(x - 14, y - 18, 28, 28);
         }
         g.globalCompositeOperation = "source-over";
+    }
+    // zaraza Morvath: szary welon i fioletowe drobiny nad skażoną ziemią
+    for (let cy = Math.floor(sy / WCELL); cy < Math.ceil((sy + H) / WCELL); cy++)
+        for (let cx = Math.floor(sx / WCELL); cx < Math.ceil((sx + W) / WCELL); cx++) {
+            if (cx < 0 || cy < 0 || cx >= WGW || cy >= WGH)
+                continue;
+            const i = cidx(cx, cy);
+            if (!w.blight[i] || !w.explored[i])
+                continue;
+            const hh = hashInt(i * 31);
+            g.globalAlpha = 0.1 + Math.sin(t * 0.8 + (hh % 60) * 0.1) * 0.04;
+            g.fillStyle = "#3a2f45";
+            g.fillRect(cx * WCELL - sx, cy * WCELL - sy, WCELL, WCELL);
+            if (hh % 7 === 0) {
+                const ph = (t * 0.25 + (hh % 100) / 100) % 1;
+                g.globalAlpha = Math.sin(ph * Math.PI) * 0.7;
+                g.fillStyle = PAL.purpleL;
+                g.fillRect(cx * WCELL - sx + (hh % 8), cy * WCELL - sy + 6 - Math.round(ph * 10), 1, 1);
+            }
+        }
+    g.globalAlpha = 1;
+    // pora roku: zima bieli ziemię i sypie śniegiem
+    const sea = season(w);
+    if (sea === 3) {
+        g.globalAlpha = 0.11;
+        g.fillStyle = "#dfe6ea";
+        g.fillRect(0, 0, W, H);
+        g.globalAlpha = 1;
+        g.fillStyle = "rgba(235,240,245,0.75)";
+        for (let i = 0; i < 90; i++) {
+            const s2 = hashInt(i * 11 + 5);
+            const x = ((s2 % 997) * 3 + Math.sin(t + i) * 8 - t * 8) % W, y = (((s2 >>> 10) % 400) + t * 22) % H;
+            g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 1);
+        }
+    }
+    else if (sea === 2) {
+        g.globalAlpha = 0.06;
+        g.fillStyle = "#8a5a20";
+        g.fillRect(0, 0, W, H);
+        g.globalAlpha = 1;
+    }
+    // mgła: wolno płynące pasy
+    if (w.fog)
+        for (let k = 0; k < 7; k++) {
+            const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20;
+            g.globalAlpha = 0.16;
+            g.fillStyle = "#c9ccc8";
+            g.beginPath();
+            g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2);
+            g.fill();
+            g.globalAlpha = 1;
+        }
+    // burza: błyskawice
+    if (w.storm) {
+        const fl = Math.sin(t * 0.7) > 0.995 || (Math.floor(t * 10) % 97 === 0);
+        if (fl) {
+            g.globalAlpha = 0.35;
+            g.fillStyle = "#e8ecff";
+            g.fillRect(0, 0, W, H);
+            g.globalAlpha = 1;
+            if (!w.thunderT || t - w.thunderT > 2) {
+                w.thunderT = t;
+                sfx.explode?.(0.35, rr(-0.5, 0.5));
+            }
+        }
     }
     // deszcz
     if (w.rain) {
@@ -11468,6 +11702,29 @@ function drawPartyFig(w, g, p, sx, sy, t, hover) {
         else
             g.drawImage(img, x - Math.floor(img.width / 2), y - img.height + 2);
     }
+    if (p.kind === "player" && G.camping) { // obóz: namioty i ognisko
+        for (const [dx, dy] of [[-9, -2], [8, -3], [-2, 5]]) {
+            const tx = x + dx, ty = y + dy;
+            g.fillStyle = PAL.ink;
+            g.fillRect(tx - 4, ty - 5, 9, 6);
+            g.fillStyle = PAL.dirtL;
+            g.fillRect(tx - 3, ty - 4, 7, 4);
+            g.fillRect(tx - 1, ty - 6, 3, 2);
+            g.fillStyle = PAL.dirtD;
+            g.fillRect(tx, ty - 3, 1, 3);
+        }
+        g.fillStyle = Math.floor(t * 8) % 2 ? PAL.gold : PAL.redL;
+        g.fillRect(x + 1, y + 3, 2, 2);
+        g.fillStyle = PAL.woodD;
+        g.fillRect(x, y + 5, 4, 1);
+        for (let j = 0; j < 3; j++) {
+            const ph = (t * 0.5 + j / 3) % 1;
+            g.globalAlpha = (1 - ph) * 0.4;
+            g.fillStyle = PAL.ash;
+            g.fillRect(x + 2 + Math.round(Math.sin(ph * 6) * 2), y + 1 - Math.round(ph * 12), 1, 1);
+        }
+        g.globalAlpha = 1;
+    }
     if (p.kind === "caravan") {
         g.fillStyle = PAL.wood;
         g.fillRect(x + 4, y - 5, 6, 4);
@@ -11487,13 +11744,28 @@ function drawPartyFig(w, g, p, sx, sy, t, hover) {
     const lcol = qm ? QUEST_COL : p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi;
     const nearTown = w.settlements.some((s2) => dist(s2.cx * WCELL + 4, s2.cy * WCELL + 4, p.x, p.y) < 22);
     const named = qm || hover || (mode === "all" && !nearTown) || (mode === "lords" && p.kind === "lord" && !nearTown);
-    if (p.kind !== "player" && named) {
-        const txt = `${p.name} ${n}`;
-        wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 25, lcol);
+    if (p.kind === "lord" || p.kind === "player") { // proporzec nad armią
+        const [fc, , ft] = p.kind === "player" ? [PAL.gold, PAL.goldD, PAL.red] : factionCol(p.faction), bx = x + 5, by = y - 22;
+        g.fillStyle = PAL.ink;
+        g.fillRect(bx, by, 1, 14);
+        const wv = Math.floor(t * 4 + p.id) % 3;
+        g.fillStyle = PAL.ink;
+        g.fillRect(bx + 1, by - 1, 7, 6);
+        g.fillStyle = fc;
+        g.fillRect(bx + 1, by + (wv === 1 ? 1 : 0), 6, 4);
+        g.fillStyle = ft || PAL.bone;
+        g.fillRect(bx + 3, by + 1, 2, 2);
     }
-    else if (p.kind === "player" || p.kind === "lord") {
-        const txt = String(n);
-        wText(g, txt, x - Math.round(txt.length * 2), y - 25, lcol);
+    // liczebność: plakietka
+    if (p.kind !== "caravan" && p.kind !== "villagers") {
+        const txt = String(n), bw2 = txt.length * 4 + 3;
+        g.fillStyle = "rgba(10,9,8,0.75)";
+        g.fillRect(x - Math.round(bw2 / 2), y + 3, bw2, 7);
+        wText(g, txt, x - Math.round(bw2 / 2) + 2, y + 4, lcol);
+    }
+    if (p.kind !== "player" && named) {
+        const txt = p.name;
+        wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 27, lcol);
     }
     if (qm)
         questPin(g, x, y - 28, t);
@@ -11504,6 +11776,38 @@ function drawPartyFig(w, g, p, sx, sy, t, hover) {
 }
 // Mała czcionka mapy: korzysta z pikselowego fontu bitwy (wielkie litery).
 function wText(g, t, x, y, col) { pxText(g, t.toUpperCase(), x, y, col); }
+// Większy napis (×2) z pamięci podręcznej: nazwy miast i zamków.
+const BIGTXT = new Map();
+function wTextBig(g, t, cx, y, col, k = 2) {
+    const key = t + col + k;
+    let c = BIGTXT.get(key);
+    if (!c) {
+        const tw = t.length * 4 + 2;
+        const [s1, g1] = mkCanvas(tw + 2, 9);
+        pxText(g1, t.toUpperCase(), 2, 2, PAL.ink);
+        pxText(g1, t.toUpperCase(), 1, 1, col);
+        const [s2, g2] = mkCanvas((tw + 2) * k, 9 * k);
+        g2.imageSmoothingEnabled = false;
+        g2.drawImage(s1, 0, 0, s2.width, s2.height);
+        c = s2;
+        BIGTXT.set(key, c);
+    }
+    g.drawImage(c, Math.round(cx - c.width / 2), y);
+    return c.width;
+}
+// Mały herb frakcji przy nazwie.
+function crestAt(g, f, x, y) {
+    const [c1, c2, c3] = factionCol(f);
+    g.fillStyle = PAL.ink;
+    g.fillRect(x - 1, y - 1, 8, 9);
+    g.fillStyle = c1;
+    g.fillRect(x, y, 6, 6);
+    g.fillRect(x + 1, y + 6, 4, 1);
+    g.fillStyle = c3 || PAL.bone;
+    g.fillRect(x + 2, y + 1, 2, 4);
+    g.fillRect(x + 1, y + 2, 4, 1);
+    void c2;
+}
 
 "use strict";
 // Interfejs okien (DOM nad płótnem): ekrany, przyciski z akcjami, portrety i ilustracje miejsc rysowane kodem.
@@ -12199,13 +12503,22 @@ function typeBubble() {
     if (!b)
         return;
     const full = b.dataset.full || "";
+    if (settings.typeText === false) {
+        b.textContent = full;
+        return;
+    }
     let i = 0;
     const step = () => { if (!document.body.contains(b))
         return; i = Math.min(full.length, i + 2); b.textContent = full.slice(0, i); if (i < full.length)
         setTimeout(step, 14); };
     step();
-    b.addEventListener("click", () => { i = full.length; b.textContent = full; });
+    const skip = () => { i = full.length; b.textContent = full; };
+    b.addEventListener("click", skip);
+    b.closest(".dlg")?.addEventListener("mousedown", (e) => { if (!e.target.closest("button"))
+        skip(); }, { once: true });
 }
+function grunt(kind) { if (settings.voices !== false)
+    sfx.grunt(kind); }
 function playerPortrait() { return drawPortrait(heroCfgFromPlayer(WORLD.player).look, PAL.gold); }
 
 "use strict";
@@ -12373,8 +12686,31 @@ function mapUpdate(dt) {
             }
         }
     updateTip();
+    // widok świata: klik pokazuje miejsce
+    if (G.view.overview) {
+        const o = G.view.ovK;
+        if (I.mPressed[0] && o) {
+            G.view.cam.x = (I.mx - o.ox) / o.k - W / 2;
+            G.view.cam.y = (I.my - o.oy) / o.k - H / 2;
+            G.view.overview = false;
+            G.pan.t = G.view.time;
+        }
+        G.view.hover = null;
+        updateTip();
+    }
+    else 
+    // przytrzymanie LPM: ciągły marsz za kursorem
+    if (I.down[0] && !I.mPressed[0] && !screenOpen() && !G.view.hover && G.view.time - G.holdT > 0.3) {
+        G.holdT = G.view.time;
+        G.camping = false;
+        G.target = null;
+        p.state = "move";
+        goTo(w, p, wx, wy);
+        G.pan.t = -9;
+    }
     // klik: ruch
-    if (I.mPressed[0] && !screenOpen()) {
+    if (I.mPressed[0] && !screenOpen() && !G.view.overview) {
+        G.holdT = G.view.time;
         G.camping = false;
         G.waitHours = 0;
         p.state = "move";
@@ -12439,6 +12775,8 @@ function mapUpdate(dt) {
     const prevDay = w.day;
     moveParty(w, p, hours);
     worldTick(w, hours);
+    if (moving)
+        maybeTravelEvent(hours);
     if (w.day !== prevDay) {
         refreshMapHud();
         if (settings.autosaveDays > 0 && w.day - G.lastAuto >= settings.autosaveDays) {
@@ -12457,7 +12795,7 @@ function mapUpdate(dt) {
             if (o === p || G.seen.has(o.id) || !hostile(w, p, o) || !partyVisible(w, o))
                 continue;
             G.seen.add(o.id);
-            if (partyPower(w, o) > mine * 0.7 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) {
+            if (partyPower(w, o) > mine * 1.0 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) {
                 p.path = [];
                 G.camping = false;
                 toast(`Uwaga: ${o.name} w zasięgu wzroku (${troopCount(o.troops)} ludzi). Marsz wstrzymany.`, PAL.redL);
@@ -12509,7 +12847,10 @@ function checkEncounters() {
             continue;
         if (dist(p.x, p.y, o.x, o.y) < 9 && (o.state === "chase" && o.target === p.id || dist(p.x, p.y, o.x, o.y) < 6)) {
             p.path = [];
-            meetParty(o, true);
+            const guarded = G.camping && w.player.campMode === "guard";
+            if (guarded)
+                toast("Wartownicy podnoszą alarm! Zdążycie się uszykować.", PAL.gold);
+            meetParty(o, !guarded);
             return;
         }
     }
@@ -13039,6 +13380,26 @@ function fleeAttempt(o) {
     }
     return false;
 }
+// Porzuć towary na drodze: zbóje rzucają się na łupy, a wy uciekacie.
+function dropGoods(o) {
+    const w = WORLD, P = w.player;
+    let n = 0;
+    for (const k of Object.keys(P.goods)) {
+        if (FOOD_KEYS.includes(k))
+            continue;
+        n += P.goods[k] || 0;
+        P.goods[k] = 0;
+    }
+    const g = Math.round(P.gold * 0.1);
+    P.gold -= g;
+    o.gold += g;
+    o.wait = 4;
+    o.state = "idle";
+    o.path = [];
+    G.encounterCooldown = 4;
+    closeScreen();
+    toast(`Porzucasz ${n} worków towaru i ${g} denarów. Pościg rzuca się na łupy.`, PAL.ash);
+}
 function rearguard(o) {
     const w = WORLD, p = playerParty(w);
     const n = Math.max(1, Math.ceil(troopCount(p.troops) * 0.2));
@@ -13080,6 +13441,7 @@ function serializeWorld(w) {
     }
     o.explored = btoa(ex);
     o.version = 4;
+    o.parties = w.parties.map((p) => { const c = { ...p }; delete c.trail; delete c.trailD; return c; });
     return JSON.stringify(o);
 }
 function deserializeWorld(json) {
@@ -13308,7 +13670,7 @@ function refreshMapHud() {
         return;
     const status = P.status === "najemnik" ? `najemnik: ${factionShort(P.liege)} (${P.contractDays} dni)` : P.status === "wasal" ? `wasal: ${factionShort(P.liege)}` : P.status === "król" ? P.kingdom : "wolny";
     const hpK = P.hp / heroMaxHp(P);
-    el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? ` ${ic("rain")} deszcz` : ""}${w.fog ? ` ${ic("wind")} mgła` : ""}</span>
+    el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${SEASON_NAME[season(w)]} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.storm ? " · burza" : ""}${w.rain ? ` ${ic("rain")} deszcz` : ""}${w.fog ? ` ${ic("wind")} mgła` : ""}</span>
     <span class="hb" title="Złoto">${ic("coin")} <b class="gold">${P.gold}</b></span>
     <span class="hb" title="Ludzie / limit">${ic("man")} ${n}/${partyLimit(w)}${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
     <span class="hb ${days < 2 ? "bad" : ""}" title="Jedzenie (dni zapasu)">${ic("food")} ${food} <span class="muted">(${days} dni)</span></span>
@@ -13317,8 +13679,9 @@ function refreshMapHud() {
     ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
     <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
     const sp = document.getElementById("mh-speed");
+    const cm = P.campMode || "rest";
     if (sp)
-        sp.innerHTML = `${[1, 2, 4].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${G.camping ? "Zwiń obóz" : "Obóz"}</button>`;
+        sp.innerHTML = `${[1, 2, 4, 8].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${ic("tent")} ${G.camping ? "Zwiń obóz" : "Obóz"}</button>${G.camping ? `<span class="campm">${[["rest", "Odpoczynek", "heart"], ["train", "Trening", "sword"], ["guard", "Wartownicy", "eye"]].map(([k, n, i]) => `<button class="mini ${cm === k ? "on" : ""}" data-sp="cm:${k}" title="${k === "rest" ? "rany goją się szybko" : k === "train" ? "żołnierze zbierają doświadczenie, zużywa zboże" : "nikt was nie zaskoczy"}">${ic(i)} ${n}</button>`).join("")}</span>` : ""}`;
 }
 function updateTip() {
     const tip = document.getElementById("tip");
@@ -14093,6 +14456,13 @@ function enterPlace(pl) {
     showScr(`<div class="dialog frame"><div class="scene">${pic(scene, "scene-img")}</div><h1>${pl.name}</h1><p>${desc[pl.kind]}</p><div class="btns">${btns}<button class="alt" data-a="leave">Odejdź</button></div></div>`, acts, "place-scr");
 }
 // ---------- Spotkanie z oddziałem ----------
+function say2(t) { const e = document.getElementById("bubble"); if (e) {
+    e.dataset.full = t;
+    typeBubble();
+} }
+// Zmiana relacji z widocznym skutkiem.
+function rel(L, d) { L.relation += d; if (d)
+    toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}`, d > 0 ? PAL.moss : PAL.redL); }
 function meetParty(o, ambushed) {
     const w = WORLD, P = w.player, p = playerParty(w);
     p.path = [];
@@ -14124,6 +14494,58 @@ function meetParty(o, ambushed) {
                 no: () => meetParty(o, false),
             }, "dialog-scr");
         },
+        drop: () => dropGoods(o),
+        intim: () => {
+            const k = myPow / Math.max(1, theirPow), ch2 = clamp(0.2 + P.renown / 700 + (k - 1) * 0.35, 0.05, 0.9);
+            if (chance(ch2)) {
+                o.cowed = true;
+                say2(`„Dobra, dobra… nie szukamy guza.” Zbóje opuszczają broń. (szansa ${Math.round(ch2 * 100)}%)`);
+                o.wait = 6;
+                o.state = "flee";
+                G.encounterCooldown = 6;
+                setTimeout(() => meetParty(o, false), 900);
+            }
+            else {
+                say2(`„Ha! Wielki mi pan!” Zastraszanie nie działa. (szansa ${Math.round(ch2 * 100)}%)`);
+                for (const t of o.troops)
+                    t.xp = (t.xp || 0) + 1;
+            }
+        },
+        bluff: () => {
+            const ch2 = clamp(0.1 + P.attr.cha * 0.06, 0.1, 0.75);
+            if (chance(ch2)) {
+                say2(`„Za wzgórzem stoi moja jazda.” Zbóje spoglądają po sobie i się wycofują. (charyzma, ${Math.round(ch2 * 100)}%)`);
+                o.wait = 5;
+                o.state = "flee";
+                G.encounterCooldown = 5;
+                setTimeout(() => closeScreen(), 1400);
+            }
+            else {
+                say2(`Ktoś parska śmiechem. Blef się nie udał. (${Math.round(ch2 * 100)}%)`);
+            }
+        },
+        bribe: () => { const c = 10 * troopCount(o.troops); if (P.gold < c)
+            return; P.gold -= c; o.gold += c; o.wait = 5; o.state = "idle"; o.path = []; G.encounterCooldown = 5; toast(`Płacisz ${c} denarów. Zbóje odchodzą zadowoleni.`); closeScreen(); },
+        recruit: () => {
+            const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), n = Math.min(room, troopCount(o.troops));
+            if (n <= 0) {
+                say2("„Nie zmieścimy się u ciebie, wodzu.”");
+                return;
+            }
+            let left = n;
+            for (const t of o.troops.slice()) {
+                const k2 = Math.min(left, t.n);
+                addTroops(p.troops, t.type, k2);
+                left -= k2;
+                if (left <= 0)
+                    break;
+            }
+            P.honor -= 1;
+            removeParty(w, o);
+            toast(`${n} zbójów przechodzi pod twój sztandar (honor −1).`, PAL.gold);
+            closeScreen();
+            refreshMapHud();
+        },
         surrender: () => {
             const lines = [];
             for (const t of o.troops)
@@ -14146,10 +14568,21 @@ function meetParty(o, ambushed) {
             ch.push({ a: "talk", label: "Porozmawiajmy, zanim poleje się krew." });
         if (o.kind === "bandit" && ambushed && P.gold > 20)
             ch.push({ a: "pay", label: `Weźcie ${Math.round(P.gold * 0.25)} denarów i odejdźcie.` });
+        if (o.kind === "bandit") {
+            if (o.cowed && P.attr.cha >= 5)
+                ch.push({ a: "recruit", label: `Przyłączcie się do mnie. Będzie żołd. (charyzma ${P.attr.cha})` });
+            else
+                ch.push({ a: "intim", label: `Zastrasz ich: „Zejdźcie mi z drogi.” (sława, przewaga)` });
+            ch.push({ a: "bluff", label: `Blef: „Moi ludzie otaczają las.” (charyzma ${P.attr.cha})` });
+            if (P.gold >= 10 * troopCount(o.troops))
+                ch.push({ a: "bribe", label: `Przekup: ${10 * troopCount(o.troops)} denarów za spokój.` });
+        }
         if (ambushed) {
             ch.push({ a: "flee", label: "Uciekamy! (próba ucieczki)" });
             if (troopCount(p.troops) > 3)
                 ch.push({ a: "rear", label: "Zostawiam straż tylną, reszta za mną." });
+            if (Object.keys(P.goods).some((k) => !FOOD_KEYS.includes(k) && (P.goods[k] || 0) > 0))
+                ch.push({ a: "drop", label: "Porzućcie wozy z towarem i w nogi!" });
         }
         else
             ch.push({ a: "leave", label: "Odejdź" });
@@ -14165,8 +14598,10 @@ function meetParty(o, ambushed) {
     const info = `<div class="comp-row">${comp}</div>
     ${host ? `<div class="pow"><span>Ty ${Math.round(myPow)}</span><div class="powbar"><i style="width:${ratio * 100}%"></i></div><span>${Math.round(theirPow)} Wróg</span></div><p class="tip">${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
     ${helpers.length ? `<p class="bad">Na pomoc idą: ${helpers.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}`;
+    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}
+    ${host ? `<p class="tip">${ic(isNight(w) ? "moon" : "sun")} Teren: <b>${TERRAIN_NAME[battleTerrainAt(w, p.x, p.y)]}</b> · ${isNight(w) ? "noc (gorsza widoczność)" : "dzień"} · ${w.rain ? "deszcz (łuki słabsze)" : w.fog ? "mgła (widać na 20 kroków)" : season(w) === 3 ? "zima, śnieg" : "pogodnie"}</p>` : ""}`;
     showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: esc(o.name), sub: `${factionName(o.faction)} · ${troopCount(o.troops)} ludzi`, speech: greet.replace(/<[^>]+>/g, ""), info, choices: ch })}</div>`, acts, "dialog-scr");
+    grunt(o.kind === "monster" ? "wolf" : o.kind === "undead" || o.faction === 5 ? "undead" : look.race);
 }
 // ---------- Rozmowa z lordem ----------
 function showLordTalk(L, back) {
@@ -14214,13 +14649,13 @@ function showLordTalk(L, back) {
             }
             chron(w, `${P.name} składa przysięgę: ${L.title} ${L.name}, ${factionName(L.faction)}.`, PAL.gold);
             say(`„Powstań, ${P.name}. Od dziś służysz koronie.${fief ? ` Na utrzymanie dostajesz ${fief.name}.` : ""}”`);
-            L.relation += 10;
+            rel(L, 10);
             refreshMapHud();
         };
     }
     if (L.ruler && P.liege === L.faction && P.status === "wasal") {
         opts.push(`<button class="alt" data-a="unvassal">Zwolnij mnie z przysięgi</button>`);
-        acts.unvassal = () => { leaveLiege(w, false); L.relation -= 15; chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
+        acts.unvassal = () => { leaveLiege(w, false); rel(L, -15); chron(w, `${P.name} zrzeka się przysięgi wobec ${factionName(L.faction)}.`); say("„Idź więc. Ale nie wracaj z mieczem.”"); refreshMapHud(); };
     }
     if (L.ruler && playerAtWarWith(w, L.faction) && (P.status === "król" || P.liege === 0) && L.faction !== 5) {
         const price = 400 + Math.round(P.renown);
@@ -14241,7 +14676,7 @@ function showLordTalk(L, back) {
                 P.wars = P.wars.filter((f) => f !== L.faction);
                 chron(w, `${P.name} zawiera pokój z ${factionName(L.faction)}.`, PAL.moss);
             }
-            L.relation += 10;
+            rel(L, 10);
             say("„Niech będzie. Na razie.”");
             refreshMapHud();
         };
@@ -14252,7 +14687,7 @@ function showLordTalk(L, back) {
             const chanceOk = (L.relation - 20) / 60 + (L.personality === "chciwy" ? 0.2 : L.personality === "honorowy" ? -0.3 : 0) + P.renown / 2000;
             if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) {
                 say("„Nie zdradzę swego władcy.”");
-                L.relation -= 3;
+                rel(L, -3);
                 return;
             }
             const old = L.faction;
@@ -14270,15 +14705,50 @@ function showLordTalk(L, back) {
     if (!playerAtWarWith(w, L.faction)) {
         opts.push(`<button class="alt" data-a="gift">Podaruj 200 denarów</button>`);
         acts.gift = () => { if (P.gold < 200)
-            return; P.gold -= 200; L.relation += L.personality === "chciwy" ? 8 : 4; say("„Hojność zostanie zapamiętana.”"); };
+            return; P.gold -= 200; rel(L, L.personality === "chciwy" ? 8 : 4); say("„Hojność zostanie zapamiętana.”"); };
     }
-    const line = L.personality === "okrutny" ? "„Mów szybko, nie lubię czekać.”" : L.personality === "chciwy" ? "„Co mi przynosisz?”" : L.personality === "ostrożny" ? "„Słucham. Ostrożnie dobieraj słowa.”" : "„Słucham cię.”";
+    // pamięć rozmów: lord pamięta, ile razy i kiedy rozmawialiście
+    const LM = L;
+    const met = LM.talks || 0, since = met ? w.day - (LM.lastTalk || 0) : -1;
+    if (!LM.talkedToday || LM.talkedToday !== w.day) {
+        LM.talks = met + 1;
+        LM.lastTalk = w.day;
+        LM.talkedToday = w.day;
+    }
+    const base = L.personality === "okrutny" ? "Mów szybko, nie lubię czekać." : L.personality === "chciwy" ? "Co mi przynosisz?" : L.personality === "ostrożny" ? "Słucham. Ostrożnie dobieraj słowa." : "Słucham cię.";
+    const mem = met === 0 ? `Nie znamy się. ${base}` : since === 0 ? `Znowu ty? ${base}` : since > 40 ? `${P.name}! Kopę lat. ${base}` : L.relation > 30 ? `Miło cię widzieć, przyjacielu. ${base}` : base;
+    const line = `„${mem}”`;
+    // tematy rozmowy
+    opts.push(`<button class="alt" data-a="rumor">Co słychać w okolicy?</button>`);
+    acts.rumor = () => { const s2 = nearestSettlement(w, partyById(w, L.party)?.x ?? 0, partyById(w, L.party)?.y ?? 0); say(`„${rumor(s2) || "Cicho. Za cicho."}”`); };
+    opts.push(`<button class="alt" data-a="war">Jak idzie wojna?</button>`);
+    acts.war = () => { const ws = wars.filter((f) => f !== 5); const mine = w.settlements.filter((s2) => s2.faction === L.faction).length; say(ws.length ? `„Walczymy z: ${ws.map(factionShort).join(", ")}. Trzymamy ${mine} osad. ${mine > 8 ? "Idzie nam dobrze." : "Potrzeba nam mieczy."}”` : `„Pokój, na razie. Trzymamy ${mine} osad. Ale Morvath nie śpi.”`); };
+    if (!P.spouse) {
+        opts.push(`<button class="alt" data-a="marry">Szukam małżeństwa w twoim rodzie</button>`);
+        acts.marry = () => {
+            if (L.relation < 35) {
+                say(`„Najpierw zdobądź moje zaufanie.” (relacja ${L.relation}/35)`);
+                return;
+            }
+            if (P.renown < 250) {
+                say(`„Moja krew nie wyjdzie za kogoś bez imienia.” (sława ${P.renown}/250)`);
+                return;
+            }
+            const nm = pick(["Adela", "Brunhilda", "Ewelina", "Ingrid", "Jagna", "Ottokar", "Radomir", "Wit"]);
+            P.spouse = `${nm} z rodu ${L.name}`;
+            rel(L, 20);
+            P.renown += 30;
+            chron(w, `${P.name} zawiera małżeństwo: ${P.spouse}.`, PAL.gold);
+            say(`„Niech więc będzie. ${nm} będzie twoja. Nasze rody są odtąd jednym.”`);
+        };
+    }
     const ch = opts.map((h) => { const m = h.match(/data-a="([^"]+)"[^>]*>([^<]+)</); return { a: m[1], label: m[2] }; });
     ch.push({ a: "back", label: "Żegnaj." });
     const relBar = `<div class="pow rel"><span>Wrogość</span><div class="powbar"><i style="width:${clamp((L.relation + 100) / 2, 0, 100)}%"></i></div><span>Przyjaźń</span></div>`;
     const lp = partyById(w, L.party);
     const info = `${relBar}<p class="tip">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality} · nastawienie ${relWord} (${L.relation})${lp ? ` · armia: ${troopCount(lp.troops)}` : ""} · sława ${L.renown}</p>`;
     showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: `${L.title} ${L.name}`, speech: line, info, choices: ch })}</div>`, acts, "dialog-scr");
+    grunt(L.look.race);
 }
 // ---------- Po bitwie ----------
 // Wykres liczebności obu stron w czasie bitwy.
@@ -14621,7 +15091,7 @@ function showSettings(back) {
     if (SETT.tab === "game")
         body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
     if (SETT.tab === "map")
-        body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
+        body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
     if (SETT.tab === "battle")
         body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
     if (SETT.tab === "sound")
@@ -14645,7 +15115,7 @@ function showSettings(back) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
         tab: (v) => { SETT.tab = v; showSettings(back); },
-        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
         "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
@@ -14661,10 +15131,90 @@ function showSettings(back) {
         back: () => back(),
     }, "set-scr");
 }
+function travelEvents() {
+    const w = WORLD, P = w.player, p = playerParty(w);
+    const near = nearestSettlement(w, p.x, p.y);
+    const food = () => FOOD_KEYS.find((k) => (P.goods[k] || 0) > 0);
+    return [
+        { id: "wounded", scene: "camp", title: "Ranny wędrowiec", text: "Przy drodze leży mężczyzna z przestrzeloną nogą. Bandyci zabrali mu wszystko poza życiem.", ch: [
+                { label: "Opatrz go i daj jedzenie (−1 żywność, honor +1)", need: () => !!food(), act: () => { P.goods[food()]--; P.honor += 1; near.relation += 3; return `Wędrowiec błogosławi cię. W ${near.name} usłyszą o tym (relacja +3).`; } },
+                { label: "Przeszukaj go — może coś jednak ukrył (honor −2)", act: () => { P.honor -= 2; const g = rr(5, 30) | 0; P.gold += g; return `Znajdujesz ${g} denarów zaszytych w bucie. Patrzy na ciebie bez słowa.`; } },
+                { label: "Jedź dalej", act: () => "Zostawiasz go wroną." },
+            ] },
+        { id: "cart", scene: "camp", title: "Porzucony wóz", text: "Przewrócony wóz kupiecki, koło złamane, woźnica zniknął. Plandeka jeszcze się rusza na wietrze.", ch: [
+                { label: "Przeszukaj wóz", act: () => { if (chance(0.35)) {
+                        const b = w.parties.find((o) => o.kind === "bandit" && dist(o.x, o.y, p.x, p.y) < 200);
+                        if (b) {
+                            setTimeout(() => meetParty(b, true), 50);
+                            return "To pułapka! Z krzaków wypadają zbóje.";
+                        }
+                    } const k = pick(GOOD_KEYS); P.goods[k] = (P.goods[k] || 0) + 3; return `Ładunek ocalał: 3× ${GOODS[k].name}.`; } },
+                { label: "Omiń szerokim łukiem", act: () => "Lepiej nie kusić losu." },
+            ] },
+        { id: "deserters", scene: "camp", title: "Dezerterzy", text: "Kilku obdartych żołnierzy z obciętymi naszywkami prosi, by przyjąć ich na służbę. Za żołd i miskę strawy.", when: () => troopCount(p.troops) + 4 < partyLimit(w), ch: [
+                { label: "Przyjmij ich (honor −1)", act: () => { const f = pick([1, 2, 3, 4]); const k = RECRUITS[FACTIONS[f].culture]?.town?.[1] || "m_sword"; addTroops(p.troops, k, 3 + (rr(0, 3) | 0)); P.honor -= 1; return `Dołączają do ciebie jako ${UNITS[k].name}.`; } },
+                { label: "Odpraw ich", act: () => "Odchodzą, klnąc pod nosem." },
+            ] },
+        { id: "shrine", scene: "shrine", title: "Kapliczka przy drodze", text: "Mała kapliczka, świeczki, kilka monet na kamieniu. Ktoś modlił się tu niedawno.", ch: [
+                { label: "Pomódl się z ludźmi (morale +8)", act: () => { P.morale = Math.min(100, P.morale + 8); return "Ludzie ruszają dalej spokojniejsi."; } },
+                { label: "Zabierz ofiary (+monety, honor −3, spaczenie)", act: () => { const g = rr(10, 40) | 0; P.gold += g; P.honor -= 3; P.corruption = Math.min(100, (P.corruption || 0) + 4); return `Zgarniasz ${g} denarów. Świece gasną same.`; } },
+                { label: "Jedź dalej", act: () => "" },
+            ] },
+        { id: "peasants", scene: "village", title: "Uciekinierzy", text: "Rodzina z wózkiem ucieka drogą. Za nimi, na wzgórzu, dym. „Bandyci! Spalili nam stodołę!”", ch: [
+                { label: "Rozdaj im jedzenie (−2 żywność, relacja +6)", need: () => FOOD_KEYS.reduce((a, k) => a + (P.goods[k] || 0), 0) >= 2, act: () => { let n = 2; for (const k of FOOD_KEYS)
+                        while (n > 0 && (P.goods[k] || 0) > 0) {
+                            P.goods[k]--;
+                            n--;
+                        } near.relation += 6; P.honor += 1; return `Dziękują ze łzami. ${near.name} zapamięta (relacja +6).`; } },
+                { label: "Ruszaj za bandytami", act: () => { const b = w.parties.filter((o) => o.kind === "bandit").sort((a, c) => dist(a.x, a.y, p.x, p.y) - dist(c.x, c.y, p.x, p.y))[0]; if (b) {
+                        G.target = { kind: "party", id: b.id };
+                        goTo(w, p, b.x, b.y);
+                        return `Ślad prowadzi do bandy „${b.name}”. Ruszacie w pościg.`;
+                    } return "Ślad się urywa."; } },
+                { label: "Nie nasza sprawa", act: () => "" },
+            ] },
+        { id: "trader", scene: "town", title: "Wędrowny handlarz", text: "Handlarz z mułem objuczonym workami zaczepia was na rozstajach. „Zboże, mięso, tanio, ostatnia okazja!”", ch: [
+                { label: "Kup 5 zboża za 40 denarów", need: () => P.gold >= 40, act: () => { P.gold -= 40; P.goods.grain = (P.goods.grain || 0) + 5; return "Muł wyraźnie lżejszy."; } },
+                { label: "Kup 3 suszonego mięsa za 55 denarów", need: () => P.gold >= 55, act: () => { P.gold -= 55; P.goods.meat = (P.goods.meat || 0) + 3; return "Ludzie się ucieszą."; } },
+                { label: "Podziękuj", act: () => "" },
+            ] },
+        { id: "storm", scene: "camp", title: "Ulewa", text: "Niebo czernieje, lunęło jak z cebra. Droga zamienia się w błoto.", when: () => w.rain, ch: [
+                { label: "Przeczekajcie pod drzewami (4 godziny)", act: () => { for (let i = 0; i < 4; i++)
+                        worldTick(w, 1); return "Przemoknięci, ale zdrowi."; } },
+                { label: "Maszerujcie dalej (część ludzi zachoruje)", act: () => { for (const t of p.troops)
+                        t.wounded = Math.min(t.n, t.wounded + Math.ceil(t.n * 0.08)); P.morale -= 4; return "Kaszel w szeregach. Kilku ludzi słania się na nogach."; } },
+            ] },
+        { id: "wolves", scene: "lair", title: "Wycie w lesie", text: "Nocą za drzewami błyskają ślepia. Konie się płoszą.", when: () => isNight(w), ch: [
+                { label: "Zapalcie pochodnie i trzymajcie wartę", act: () => { P.morale -= 2; return "Do świtu nikt nie zmrużył oka, ale wilki odeszły."; } },
+                { label: "Na nie! (walka z wilkami)", act: () => { const foes = []; addTroops(foes, "x_wolf", 4 + (rr(0, 4) | 0)); setTimeout(() => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: foes, title: "Wilki" }), 50); return "Ludzie dobywają broni."; } },
+            ] },
+        { id: "whispers", scene: "cemetery", title: "Szepty w szarej ziemi", text: "Na skażonej ziemi Morvath mgła układa się w twarze. Ktoś szepcze twoje imię.", when: () => !!w.blight[cellOf(p.x, p.y)], ch: [
+                { label: "Odpowiedz szeptom (spaczenie +8, mana)", act: () => { P.corruption = Math.min(100, (P.corruption || 0) + 8); P.renown += 2; return "Głos obiecuje moc. Coś w tobie się zmienia."; } },
+                { label: "Każ ludziom się modlić i odejdźcie", act: () => { P.morale -= 3; return "Szepty milkną, ale nikt nie śpi spokojnie."; } },
+            ] },
+    ];
+}
+function maybeTravelEvent(hours) {
+    const w = WORLD;
+    if (screenOpen() || G.state !== "map" || w.evCd > w.day * 24 + w.hour)
+        return;
+    if (!chance(hours * 0.035))
+        return;
+    const list = travelEvents().filter((e) => !e.when || e.when(w));
+    const ev = pick(list);
+    w.evCd = w.day * 24 + w.hour + 30;
+    const acts = {};
+    ev.ch.forEach((c, i) => { acts["e" + i] = () => { const r = c.act(); closeScreen(); if (r)
+        toast(r, PAL.gold); refreshMapHud(); }; });
+    showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(ev.scene, w.day * 7 + ev.id.length, nearestSettlement(w, playerParty(w).x, playerParty(w).y).culture, isNight(w)), "scene-img")}</div>
+    <h1>${ev.title}</h1><p>${ev.text}</p>
+    <div class="choices">${ev.ch.map((c, i) => `<button class="choice" data-a="e${i}" ${c.need && !c.need() ? "disabled" : ""}><span class="key">${i + 1}</span>${c.label}</button>`).join("")}</div></div>`, acts, "dialog-scr");
+    sfx.page?.();
+}
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.10.1";
+const BUILD = "Build 0.11";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -14678,7 +15228,7 @@ const settings = {
     damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
     musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
     questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
-    atkMode: "mouse", horseMode: "dir", deploy: true, gore: true, dmgHeroOnly: true, outline: true,
+    atkMode: "mouse", horseMode: "dir", deploy: true, borders: true, typeText: true, voices: true, gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
     const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -14738,6 +15288,26 @@ function toggleFullscreen() {
     catch (e) {
         toast("Pełny ekran niedostępny w tym oknie.", PAL.ash);
     }
+}
+// Mapa świata: płynne przybliżanie kółkiem (wiele stopni, przejście klatka po klatce).
+const MAPZ = [];
+for (let wd = 320; wd <= 1120; wd += 32)
+    MAPZ.push([wd, Math.round(wd * 9 / 16)]);
+let mapZ = MAPZ.findIndex((z) => z[0] === 480), mapZT = mapZ;
+function setRes(nw, nh) {
+    if (nw === W && nh === H)
+        return;
+    const cam = G.state === "battle" && G.battle ? G.battle.cam : G.view.cam;
+    const cx = cam.x + W / 2, cy = cam.y + H / 2;
+    [W, H] = [nw, nh];
+    canvas.width = W;
+    canvas.height = H;
+    ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    cam.x = cx - W / 2;
+    cam.y = cy - H / 2;
+    if (G.battle)
+        G.battle.makeOverlays();
 }
 function setZoom(i) {
     i = clamp(i, 0, ZOOMS.length - 1);
@@ -14986,6 +15556,11 @@ $("maphud").addEventListener("click", (e) => {
         return;
     sfx.ui();
     if (t.dataset.sp) {
+        if (t.dataset.sp.startsWith("cm:")) {
+            WORLD.player.campMode = t.dataset.sp.slice(3);
+            refreshMapHud();
+            return;
+        }
         if (t.dataset.sp === "camp") {
             G.camping = !G.camping;
             playerParty(WORLD).path = [];
@@ -15069,6 +15644,8 @@ function frameInner(now) {
             else
                 showPauseMenu();
         }
+        if (W !== ZOOMS[zoomIdx][0])
+            setRes(ZOOMS[zoomIdx][0], ZOOMS[zoomIdx][1]);
         if (input.wheel)
             setZoom(zoomIdx + input.wheel);
         if (input.hit("KeyN"))
@@ -15094,14 +15671,27 @@ function frameInner(now) {
                 showPauseMenu();
         }
         // dialogi: odpowiedzi klawiszami 1–9
-        if (screenOpen())
+        if (screenOpen()) {
+            const bs = Array.from(SCREEN.el.querySelectorAll("button.choice"));
             for (let n = 1; n <= 9; n++)
                 if (input.hit("Digit" + n)) {
-                    const bs = SCREEN.el.querySelectorAll("button.choice");
                     const bt = bs[n - 1];
                     if (bt && !bt.disabled)
                         bt.click();
                 }
+            // strzałki + Enter w dialogach
+            if (bs.length && (input.hit("ArrowDown") || input.hit("ArrowUp"))) {
+                let i = bs.findIndex((b) => b.classList.contains("focus"));
+                bs.forEach((b) => b.classList.remove("focus"));
+                i = (i + (input.hit("ArrowDown") ? 1 : -1) + bs.length) % bs.length;
+                bs[i].classList.add("focus");
+            }
+            if (bs.length && input.hit("Enter")) {
+                const f = bs.find((b) => b.classList.contains("focus"));
+                if (f && !f.disabled)
+                    f.click();
+            }
+        }
         if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr/.test(SCREEN.el.className)) {
             if (input.hit("KeyC"))
                 openWin("char");
@@ -15116,8 +15706,19 @@ function frameInner(now) {
             if (input.hit("KeyJ"))
                 openWin("quest");
         }
-        if (input.wheel)
-            setZoom(zoomIdx + input.wheel);
+        if (input.wheel && !screenOpen())
+            mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
+        if (mapZ !== mapZT)
+            mapZ += Math.sign(mapZT - mapZ);
+        if (W !== MAPZ[mapZ][0])
+            setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
+        if (input.hit("Tab") && !screenOpen())
+            G.view.overview = !G.view.overview;
+        if (input.hit("KeyB") && !screenOpen()) {
+            settings.borders = settings.borders === false;
+            saveSettings();
+            toast(settings.borders ? "Granice: widoczne" : "Granice: ukryte");
+        }
         if (!screenOpen())
             mapUpdate(dt);
         else
@@ -15183,6 +15784,6 @@ requestAnimationFrame(frame);
 window.__game = () => ({ G, WORLD, battle: G.battle });
 window.__battle = () => G.battle;
 window.__meet = (o) => meetParty(o, false);
-window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty };
+window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk };
 
 })();</script>
