@@ -14,7 +14,7 @@ const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.
 interface Settings {
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
-  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; crossStyle?: boolean;
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
 }
 
 interface HeroCfg {
@@ -43,6 +43,7 @@ interface BattleResult {
   prisoners: { type: string; n: number }[];
   companionsKO: string[]; companionHp: Record<string, number>;
   enemyKilled: number; time: number; retreated: boolean;
+  timeline?: { t: number; a: number; b: number }[]; best?: { type: string; name: string; kills: number } | null;
 }
 
 class Unit {
@@ -90,6 +91,9 @@ class Unit {
   ammo = 0;
   bowDmg = 0;
   loadout = 0;
+  tankWant = 0; dodgeVx = 0; dodgeVy = 0; countering = false; bowShake = 0;
+  bearer = false;
+  dodgeT = 0; dodgeCd = 0; counterT = 0; shieldOffT = 0; bowHoldT = 0; gore = 0; shieldHp = 200;
   weaponKey: string;
   hasShield: boolean;
   kills = 0;
@@ -135,7 +139,7 @@ class Unit {
     this.hp = this.maxHp = this.def.hp;
     this.arm = { ...this.def.armor };
     this.weaponKey = this.def.weapon;
-    this.hasShield = this.def.shield;
+    this.hasShield = this.def.shield; this.shieldHp = 140 + this.def.tier * 30;
     this.face = this.wantFace = this.heading = team === 0 ? 0 : Math.PI;
     this.reload = rr(0.2, 1.5);
     this.ammo = this.def.bow ? 30 : 0;
@@ -163,7 +167,7 @@ class Unit {
 
 interface Arrow { x: number; y: number; vx: number; vy: number; team: number; src: Unit; dmg: number; age: number; travel: number; dist: number; done: boolean; kind: "arrow" | "bolt" | "axe" | "fire"; }
 interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: string; kind: "blood" | "spark" | "dust" | "bone" | "flash" | "ring" | "soul" | "fire" | "head" | "limb" | "holy" | "beam" | "rain"; img?: HTMLCanvasElement; rot?: number; }
-interface Corpse { x: number; y: number; img: HTMLCanvasElement; flip: boolean; rot: number; undead: boolean; bones: boolean; t: number; pooled: boolean; horse?: boolean; }
+interface Corpse { x: number; y: number; img: HTMLCanvasElement; flip: boolean; rot: number; undead: boolean; bones: boolean; t: number; pooled: boolean; horse?: boolean; kind?: DmgType; dx?: number; dy?: number; }
 interface Floater { x: number; y: number; text: string; col: string; t: number; }
 interface Order {
   mode: Mode; ax: number; ay: number; formation: Formation; fire: boolean; meleeOnly: boolean; spacing: number;
@@ -362,8 +366,8 @@ class Battle {
     for (const e of this.units) {
       if (e.team === u.team || !e.active) continue;
       const d = dist(u.x, u.y, e.x, e.y);
-      if (d > 30 + e.radius || d < 4) continue;
-      if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > 0.32) continue;
+      if (d > (u.hero ? 36 : 30) + e.radius || d < 4) continue;
+      if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > (u.hero ? 0.48 : 0.32)) continue;
       const k = u.rspeed / u.maxRide;
       const dmg = (28 + 60 * k) * e.arm.pierce * (u.hero ? this.heroDmg : 1) * (this.cfg.arena && !this.cfg.arena.lethal ? 0.55 : 1);
       u.couchCd = 0.7; u.rspeed *= 0.55;
@@ -432,8 +436,8 @@ class Battle {
         const h = new Unit("hero", 0, 0, z.x + 60, z.y, (side.faction || 9), H.look);
         h.hero = true; h.name = H.name;
         h.maxHp = H.maxHp; h.hp = H.hp;
-        h.weaponKey = H.weapon; h.hasShield = H.shield;
-        h.bowDmg = H.bowDmg; h.ammo = H.ammo;
+        h.weaponKey = H.weapon; h.hasShield = H.shield; h.shieldHp = 420;
+        h.bowDmg = H.bowDmg; h.ammo = H.ammo; this.heroAmmoMax = Math.max(H.ammo, 1);
         h.arm = { cut: 1 - H.armor, pierce: 1 - H.armor * 0.8, blunt: 1 - H.armor * 0.5 };
         if (H.mount) { h.mount(H.mount, (side.faction || 9)); h.horseHp = h.horseMax = H.mount.hp; }
         this.hero = h; this.units.push(h);
@@ -453,6 +457,7 @@ class Battle {
       const best = this.squadUnits(sq).sort((a, b) => b.def.tier - a.def.tier)[0];
       if (best) best.officer = true;
     }
+    for (let sq = 1; sq <= 7; sq++) { const L = this.squadUnits(sq, 1); if (L.length >= 4) { const best = L.slice().sort((a, b) => b.def.tier - a.def.tier)[0]; best.bearer = true; } }
     // dowódcy wroga: najsilniejsza jednostka po drugiej stronie dostaje rolę dowódcy
     const enemyBest = this.units.filter((u) => u.team === 1).sort((a, b) => b.def.tier * 1000 + b.maxHp - (a.def.tier * 1000 + a.maxHp))[0];
     if (enemyBest && !arena) { enemyBest.commander = true; this.commanders.push(enemyBest); if (!enemyBest.def.ability) enemyBest.squad = 5; }
@@ -639,7 +644,7 @@ class Battle {
   say(text: string, col?: string, big = false) {
     const last = this.log[this.log.length - 1];
     if (last && last.text === text) { last.n++; last.t = 5; return; }
-    if (!big && settings.fewLog !== false && this.log.length >= 3 && !col) return; // mniej spamu: drobne wpisy nie wypychają ważnych
+    if (!big && settings.fewLog !== false && !col) return;   // tylko ważne // mniej spamu: drobne wpisy nie wypychają ważnych
     this.log.push({ text, t: big ? 5.5 : 3.6, col, n: 1, big });
     if (this.log.length > 3) this.log.shift();
   }
@@ -884,8 +889,15 @@ class Battle {
     if (!h || !h.active) return;
     const wx = this.cam.x + I.mx, wy = this.cam.y + I.my;
     h.wantFace = Math.atan2(wy - (h.y - (h.mounted ? 24 : 12)), wx - h.x);
-    if (I.hit("Tab") && h.state === "idle" && this.heroCfg && this.heroCfg.bowDmg > 0) { h.loadout = 1 - h.loadout; h.drawT = 0; this.say(h.loadout ? "Broń: łuk" : "Broń: biała"); }
-    if (this.settings.gesture) { const gst = I.gesture(170); if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T"); }
+    if (I.hit("Tab") && (h.state === "idle" || h.state === "recover") && this.heroCfg && this.heroCfg.bowDmg > 0) { h.loadout = 1 - h.loadout; h.drawT = 0; h.state = "idle"; this.say(h.loadout ? "Broń: łuk" : "Broń: biała"); }
+    const mode = this.atkMode();
+    if (mode === "screen") { const gst = I.gesture(170); if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T"); }
+    else if (mode === "mouse" && !this.cmdOpen) {
+      // ruch myszy względem kierunku patrzenia: w bok = cięcie z tej strony, od siebie = z góry, do siebie = pchnięcie
+      const gst = I.gesture(170), fx = Math.cos(h.face), fy = Math.sin(h.face);
+      const along = gst.x * fx + gst.y * fy, side = -gst.x * fy + gst.y * fx;
+      if (Math.abs(along) + Math.abs(side) > 6) this.loadDir = Math.abs(side) > Math.abs(along) * 0.8 ? (side > 0 ? "R" : "L") : along > 0 ? "O" : "T";
+    }
 
     let mx = 0, my = 0;
     if (I.held("KeyW")) my -= 1; if (I.held("KeyS")) my += 1;
@@ -895,7 +907,13 @@ class Battle {
     const rite = h.bloodRiteT > 0 ? 1.2 : 1;
     if (h.mounted) {
       const gallop = sprint && h.stamina > 1;
-      if (mx || my) this.ride(h, h.x + (mx / ml) * 60, h.y + (my / ml) * 60, h.maxRide * (gallop ? 1 : 0.6) * rite, dt);
+      if (this.settings.horseMode === "tank") {
+        // W przyspiesza, S hamuje, A/D skręcają; koń trzyma tempo bez trzymania klawisza
+        h.tankWant = clamp((h.tankWant ?? 0) + (I.held("KeyW") ? dt * 0.9 : 0) - (I.held("KeyS") ? dt * 1.4 : 0), 0, 1);
+        const turn = (I.held("KeyD") ? 1 : 0) - (I.held("KeyA") ? 1 : 0);
+        const a = h.heading + turn * 0.9;
+        this.ride(h, h.x + Math.cos(a) * 60, h.y + Math.sin(a) * 60, h.maxRide * h.tankWant * (gallop ? 1 : 0.65) * rite, dt);
+      } else if (mx || my) this.ride(h, h.x + (mx / ml) * 60, h.y + (my / ml) * 60, h.maxRide * (gallop ? 1 : 0.6) * rite, dt);
       else this.ride(h, h.x + Math.cos(h.heading) * 40, h.y + Math.sin(h.heading) * 40, 0, dt);
       if (gallop && h.rspeed > 60) { h.stamina -= 10 * dt; h.staminaWait = 0.6; }
     } else {
@@ -908,10 +926,16 @@ class Battle {
       if (h.state === "recover") sp *= 0.6;
       if (h.usingBow && h.drawT > 0) sp *= 0.45;
       if (h.state === "stagger" || h.state === "kick") sp *= 0.15;
-      const tvx = (mx / ml) * sp, tvy = (my / ml) * sp;
+      let tvx = (mx / ml) * sp, tvy = (my / ml) * sp;
+      if (h.dodgeT > 0) { const k = 1 + h.dodgeT * 9; tvx = h.dodgeVx * k; tvy = h.dodgeVy * k; }
       const acc = h.state === "strike" || h.state === "stagger" ? 2.5 : 6;
       h.vx = lerp(h.vx, tvx, clamp(dt * acc, 0, 1)); h.vy = lerp(h.vy, tvy, clamp(dt * acc, 0, 1));
       h.moving = !!(mx || my);
+    }
+    if (h.dodgeT > 0) h.dodgeT -= dt; if (h.dodgeCd > 0) h.dodgeCd -= dt; if (h.counterT > 0) h.counterT -= dt;
+    // podnoszenie strzał z ziemi
+    if (this.heroCfg && this.heroCfg.bowDmg > 0 && h.ammo < this.heroAmmoMax && this.groundArrows.length) {
+      for (let i = this.groundArrows.length - 1; i >= 0; i--) { const g2 = this.groundArrows[i]; if (Math.abs(g2.x - h.x) < 9 && Math.abs(g2.y - h.y) < 9) { this.groundArrows.splice(i, 1); h.ammo++; this.floater(h.x, h.y - 30, "+1 STRZAŁA", PAL.bone, true); break; } }
     }
     if (h.staminaWait > 0) h.staminaWait -= dt;
     else if (!h.blocking) h.stamina = Math.min(100, h.stamina + 20 * this.heroStamina * dt);
@@ -934,13 +958,26 @@ class Battle {
     if (h.blocking) h.staminaWait = Math.max(h.staminaWait, 0.3);
     if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
       if (I.mPressed[0]) {
-        let d: Dir = this.settings.gesture ? this.loadDir : h.nextSide;
-        if (h.mounted && !this.settings.gesture) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
+        const km = this.atkMode() === "keys";
+        let d: Dir = km ? h.nextSide : this.loadDir;
+        if (h.mounted && (km || d === "T" || d === "O")) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
         this.startWindup(h, d); h.key2 = "mouse";
-      } else if (I.hit("KeyE")) { this.startWindup(h, "O"); h.key2 = "KeyE"; }
-      else if (I.hit("Space")) { this.startWindup(h, "T"); h.key2 = "Space"; }
+      } else if (I.hit("KeyR") && !h.mounted) { this.startWindup(h, "O"); h.key2 = "KeyR"; }
+      else if (I.mPressed[1]) { this.startWindup(h, "T"); h.key2 = "mouse1"; }
     }
-    if (h.state === "windup") { const held = h.key2 === "mouse" ? I.down[0] : I.held(h.key2); if (held) h.hold += dt; else h.released = true; }
+    // odskok: Spacja, krótki zryw w kierunku ruchu (albo do tyłu), chwila nietykalności
+    if (I.hit("Space") && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
+      let dx = mx, dy = my; if (!dx && !dy) { dx = -Math.cos(h.face); dy = -Math.sin(h.face); }
+      const dl = Math.hypot(dx, dy) || 1; h.dodgeVx = dx / dl * 95; h.dodgeVy = dy / dl * 95;
+      h.dodgeT = 0.24; h.dodgeCd = 0.55; h.stamina -= 18; h.staminaWait = 0.6; h.state = "idle"; h.t = 0; h.blocking = false;
+      this.dust(h.x, h.y, 6); this.sfx.trample?.(0.25, 0);
+    }
+    // E: zsiadanie i wsiadanie na luźnego konia
+    if (I.hit("KeyE") && (h.state === "idle" || h.state === "recover")) {
+      if (h.mounted && h.rspeed < 40) this.leaveHorse(h);
+      else if (!h.mounted) { const lh = this.looseHorses.find((x) => dist(x.x, x.y, h.x, h.y) < 20); if (lh) this.takeHorse(h, lh); else this.say("Brak konia w pobliżu", PAL.ash); }
+    }
+    if (h.state === "windup") { const held = h.key2 === "mouse" ? I.down[0] : h.key2 === "mouse1" ? I.down[1] : I.held(h.key2); if (held) h.hold += dt; else h.released = true; }
     if (I.hit("KeyF") && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
       h.state = "kick"; h.t = 0; h.hitDone = false; h.stamina -= 15; h.staminaWait = 0.5; h.blocking = false;
       h.vx += Math.cos(h.face) * 30; h.vy += Math.sin(h.face) * 30;
@@ -951,7 +988,11 @@ class Battle {
     const h = this.hero, I = this.input;
     h.blocking = false;
     if (h.state !== "idle") return;
-    if (I.down[0] && h.ammo > 0) h.drawT = Math.min(1, h.drawT + dt / 0.7);
+    if (I.down[0] && h.ammo > 0) {
+      h.drawT = Math.min(1, h.drawT + dt / 0.7);
+      // trzymanie pełnego naciągu męczy; bez tchu ręka drży
+      if (h.drawT >= 1) { h.stamina -= 14 * dt; h.staminaWait = 0.5; if (h.stamina <= 0) { h.stamina = 0; h.bowShake = Math.min(1, (h.bowShake || 0) + dt); } }
+    } else h.bowShake = 0;
     if (I.mReleased[0] && h.drawT > 0) {
       if (h.drawT > 0.15) {
         const k = h.drawT;
@@ -964,7 +1005,26 @@ class Battle {
       h.drawT = 0;
     }
   }
-  bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1) * (this.cfg.rain ? 1.3 : 1); }
+  bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1) * (this.cfg.rain ? 1.3 : 1) * (1 + (h.bowShake || 0) * 5); }
+  atkMode(): "mouse" | "keys" | "screen" { return this.settings.atkMode || (this.settings.gesture ? "screen" : "mouse"); }
+  heroAmmoMax = 30;
+  castFlash: { col: string; t: number } | null = null;
+  timeline: { t: number; a: number; b: number }[] = []; tlT = 0;
+  groundArrows: { x: number; y: number }[] = [];
+  looseHorses: { x: number; y: number; heading: number; def: Mount; hp: number; max: number; horse: any }[] = [];
+  leaveHorse(u: Unit) {
+    if (!u.mounted) return;
+    this.looseHorses.push({ x: u.x + 10, y: u.y + 2, heading: u.heading, def: u.mountDef, hp: u.horseHp, max: u.horseMax, horse: u.horse });
+    u.mounted = false; u.rspeed = 0; u.vx = 0; u.vy = 0; u.x -= 6;
+    const s = this.vol(u.x); this.sfx.neigh(s.v * 0.6, s.pan);
+    if (u.hero) this.say("Zsiadasz z konia. E przy koniu: wsiądź.", PAL.ash);
+  }
+  takeHorse(u: Unit, lh: { x: number; y: number; heading: number; def: Mount; hp: number; max: number; horse: any }) {
+    this.looseHorses.splice(this.looseHorses.indexOf(lh), 1);
+    u.mounted = true; u.mountDef = lh.def; u.horseHp = lh.hp; u.horseMax = lh.max; u.horse = lh.horse; u.heading = lh.heading; u.rspeed = 0; u.x = lh.x; u.y = lh.y;
+    const s = this.vol(u.x); this.sfx.neigh(s.v, s.pan);
+    if (u.hero) this.say("Dosiadasz konia.", PAL.gold);
+  }
 
   // ---------- Jazda konna ----------
   ride(u: Unit, tx: number, ty: number, want: number, dt: number) {
@@ -1002,6 +1062,7 @@ class Battle {
   // ---------- Walka wręcz ----------
   startWindup(u: Unit, dir: Dir) {
     u.state = "windup"; u.t = 0; u.dir = dir; u.hold = 0; u.released = false; u.hitDone = false;
+    u.countering = u.counterT > 0; u.counterT = 0;
     u.swingVar = dir === "L" || dir === "R" ? rr(-0.45, 0.45) : rr(-0.2, 0.2);
     if (u.hero) { const cost = 5 + this.weight(u) * 5; u.stamina -= cost; u.staminaWait = 0.7; if (u.stamina < 0) { u.stamina = 0; this.say("Brak tchu: ciosy wolniejsze", PAL.ash); } }
     u.guard = null; u.guardT = 0; u.trail = [];
@@ -1029,6 +1090,7 @@ class Battle {
     if (u.legT > 0) u.legT -= dt;
     if (u.recoil > 0) u.recoil = Math.max(0, u.recoil - dt * 4);
     if (u.couchCd > 0) u.couchCd -= dt;
+    if (u.shieldOffT > 0) u.shieldOffT -= dt;
     if (u.burnT > 0) { u.burnT -= dt; u.hp -= 7 * dt; if (chance(dt * 10)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(6, 20), vx: rr(-5, 5), vy: rr(-5, 5), vz: rr(15, 35), life: 0.5, max: 0.5, col: pick([PAL.gold, PAL.redL, PAL.bloodL]), kind: "fire" }); if (u.hp <= 0) { this.kill(u, null); return; } }
     if (u.lifeT > 0) { u.lifeT -= dt; if (u.lifeT <= 0) { u.state = "fled"; this.sparks(u.x, u.y - 10, 10, PAL.boneHi); return; } }
     if (u.guardT > 0) { u.guardT -= dt; if (u.guardT <= 0) u.guard = null; }
@@ -1037,7 +1099,7 @@ class Battle {
     const w = u.w;
     switch (u.state) {
       case "windup": {
-        const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) : this.windupTime(u);
+        const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) : this.windupTime(u);
         if (u.t >= minT && (!u.hero || u.released || u.hold > 1.6)) {
           u.state = "strike"; u.t = 0; u.hitDone = false;
           const s = this.vol(u.x);
@@ -1078,7 +1140,7 @@ class Battle {
     const w = a.w, dir = a.dir;
     let arc = dir === "T" ? 0.5 : dir === "O" ? 0.75 : 1.35;
     let reach = w.reach + 3 + (dir === "T" ? 4 : 0);
-    if (a.mounted) { arc = 1.7; reach += 4; }
+    if (a.mounted) { arc = 1.8; reach += a.hero ? 9 : 5; }
     let best: Unit | null = null, bd = 1e9;
     for (const u of this.units) {
       if (u.team === a.team || !u.active) continue;
@@ -1101,6 +1163,18 @@ class Battle {
   }
 
   parryWindow() { return 0.2; }
+  // Tarcza zbiera ciosy; zniszczona pęka w drzazgi.
+  shieldWear(d: Unit, dmg: number) {
+    d.shieldHp -= dmg;
+    if (d.shieldHp > 0 || !d.hasShield) return false;
+    d.hasShield = false; d.blocking = false;
+    for (let i = 0; i < 16; i++) this.parts.push({ x: d.x + rr(-3, 3), y: d.y, z: 14, vx: rr(-50, 50), vy: rr(-30, 30), vz: rr(30, 80), life: 1.2, max: 1.2, col: pick([PAL.wood, PAL.woodD, PAL.steel]), kind: "bone" });
+    const s = this.vol(d.x); this.sfx.bone(s.v, s.pan, true); this.sfx.thunk(s.v, s.pan);
+    if (d.hero || dist(d.x, d.y, this.hero?.x ?? 0, this.hero?.y ?? 0) < 80) this.floater(d.x, d.y - 34, "TARCZA PĘKA", PAL.dirtL, true);
+    if (d.hero) this.say("Twoja tarcza pękła!", PAL.redL, true);
+    this.stagger(d, 0.6);
+    return true;
+  }
 
   resolveHit(a: Unit, d: Unit) {
     const w = a.w, dir = a.dir;
@@ -1117,7 +1191,8 @@ class Battle {
         this.hitstop = Math.max(this.hitstop, 0.18); this.kickCam(Math.cos(ha), Math.sin(ha), 1.5);
         this.stagger(a, a.def.poise ? 0.65 : 1.0); this.push(a, d.x, d.y, 55);
         this.sparks(hx, hy, 20, PAL.gold); this.impact(hx, hy, PAL.gold, 1.4);
-        this.shout("Parowanie!");
+        this.shout("Parowanie! Kontra!");
+        d.counterT = 0.9;
         d.stamina = Math.min(100, d.stamina + 8);
         if (this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12 * this.furyMul);
         return;
@@ -1134,6 +1209,7 @@ class Battle {
       }
       this.sfx.thunk(1, s.pan);
       this.sparks(hx, hy, 6, PAL.steelL); this.impact(hx, hy, PAL.wood, 0.7);
+      this.shieldWear(d, w.dmg[dir] * (w.axe ? 2 : 1) * 0.6);
       this.push(d, a.x, a.y, 40);
       this.hitstop = Math.max(this.hitstop, 0.06); this.kickCam(Math.cos(ha), Math.sin(ha), 0.9);
       if (d.stamina <= 0) { d.stamina = 0; this.stagger(d, 0.8); this.shout("Garda przełamana!", PAL.redL); }
@@ -1147,22 +1223,24 @@ class Battle {
       d.guardT = Math.max(d.guardT, 0.3);
       return;
     }
-    if (!d.hero && d.hasShield && d.state === "idle" && angFromD < 1.0) {
+    if (d.dodgeT > 0.05) { this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true); this.sfx.swing?.(0.5, 0, 0.5); return; }
+    if (!d.hero && d.hasShield && d.shieldOffT <= 0 && d.state === "idle" && angFromD < 1.0) {
       const wall = d.team === 0 && this.ordersOf(0, d.squad)?.formation === "wall";
       if (chance(d.def.shieldBlock * (wall ? 1.6 : 1))) {
         this.sfx.thunk(s.v, s.pan); this.sparks(hx, hy, 3, PAL.wood);
+        if (this.shieldWear(d, w.dmg[dir] * (w.axe ? 2 : 1))) return;
         if (a.hero) { this.floater(d.x, d.y - 32, "TARCZA", PAL.dirtL, true); this.hitstop = Math.max(this.hitstop, 0.06); }
         return;
       }
     }
     let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg;
     const charged = a.hero && a.hold > 0.5;
-    if (a.hero) dmg *= lerp(0.85, 1.3, clamp(a.hold / 0.7, 0, 1)) * this.heroDmg;
+    if (a.hero) dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 : 1);
     if (a.decay) dmg *= 0.75;
     if (a.cursedT > 0) dmg *= 0.7;
     if (a.bloodRiteT > 0) dmg *= 1.4;
     const speedK = a.mounted ? a.rspeed / a.maxRide : 0;
-    dmg *= 1 + speedK * 0.45;
+    dmg *= 1 + speedK * (a.hero ? 0.75 : 0.5);
     if (this.height(a.x, a.y) - this.height(d.x, d.y) > 0.15) dmg *= 1.3;
     const head = dir === "O" && chance(0.45);
     if (head) dmg *= 1.5;
@@ -1187,10 +1265,10 @@ class Battle {
     this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
     if (heroInvolved) {
       const killed = d.hp <= 0;
-      this.hitstop = Math.max(this.hitstop, (head ? 0.14 : heavy ? 0.12 : 0.085) + (killed ? 0.05 : 0));
+      this.hitstop = Math.max(this.hitstop, (head ? 0.19 : heavy ? 0.16 : 0.11) + (killed ? 0.07 : 0));
       this.kickCam(Math.cos(ha), Math.sin(ha), (d.hero ? 2.2 : heavy ? 1.8 : 1.2) + (killed ? 0.6 : 0));
       if (heavy || head) this.shake(2);
-      if (killed && a.hero && this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.2);
+      if (killed && a.hero && (heavy || head) && this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.22);
     }
   }
 
@@ -1200,7 +1278,11 @@ class Battle {
       if (dist(a.x, a.y, u.x, u.y) > 19 + u.def.radius) continue;
       if (Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) > 0.9) continue;
       this.sfx.kick();
-      this.stagger(u, u.def.poise ? 0.4 : 0.85); this.push(u, a.x, a.y, 110);
+      const shielded = u.hasShield && (u.blocking || u.state === "idle");
+      this.stagger(u, (u.def.poise ? 0.5 : 1.1) * (shielded ? 1.3 : 1)); this.push(u, a.x, a.y, 120);
+      if (shielded) { u.shieldOffT = 2.2; this.floater(u.x, u.y - 32, "TARCZA ODBITA", PAL.gold, true); this.sfx.thunk(1, 0); }
+      // spychanie z drabin i muru
+      if (this.map.wall && !u.mounted && Math.abs(u.x - this.map.wall.x0) < 14) { this.damage(u, 30, a, false, "blunt", true); this.say(`${u.def.name} spada z drabiny!`, PAL.gold); }
       this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(Math.cos(a.face), Math.sin(a.face), 1.4);
       this.dust(u.x, u.y, 8); this.impact(u.x, u.y - 12, PAL.dirtL, 0.8);
       return;
@@ -1223,19 +1305,22 @@ class Battle {
       this.bones(x, y, 6 + (dmg / 5) | 0, src);
       this.impact(x, y, PAL.boneHi, heavy ? 1.2 : 0.9);
     } else {
+      const plate = d.arm[type] < 0.62;   // ciężka zbroja: iskry i brzęk
+      if (plate && type !== "blunt") { this.sfx.clang(s.v * 0.8, s.pan); this.sparks(x, y, 7 + (dmg / 8 | 0), PAL.steelL); }
       this.sfx.hit(s.v, s.pan, type, heavy);
       if (d.hp > 0 && chance(0.6)) this.sfx.pain(s.v, s.pan);
-      this.blood(x, y, 16 + (dmg / 1.6) | 0, src, heavy);
+      this.blood(x, y, (plate ? 10 : 22) + (dmg / 1.3) | 0, src, heavy);
+      d.gore = Math.min(1, d.gore + dmg / 160);
       this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
       if (src) this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
     }
-    if (src) this.push(d, src.x, src.y, 30 + dmg * (heavy ? 1.0 : 0.6));
+    if (src) this.push(d, src.x, src.y, 40 + dmg * (heavy ? 1.35 : 0.8));
     const interrupt = !d.def.poise || head || dmg >= 40 || type === "blunt";
     if (d.hp > 0 && head && dmg >= 15) { this.stagger(d, d.hero ? 0.6 : 1.1); if (src?.hero || d.hero) this.floater(d.x, d.y - 38, "OGŁUSZONY", PAL.gold, true); }
     else if (d.hp > 0 && (interrupt || (d.hero && dmg >= 12))) this.stagger(d, d.hero ? (heavy ? 0.65 : 0.45) : heavy ? 0.7 : 0.45);
     d.recoil = Math.min(1.5, d.recoil + dmg / 25);
     if (d.hero && d.hp > 0 && src) this.push(d, src.x, src.y, 35);
-    if (this.settings.damageNumbers && (src?.hero || d.hero)) this.floater(d.x + rr(-3, 3), d.y - 34, (head ? "GŁOWA " : "") + dmg, d.hero ? PAL.redL : head ? PAL.gold : PAL.white, true);
+    if (this.settings.damageNumbers && (src?.hero || (d.hero && !this.settings.dmgHeroOnly))) this.floater(d.x + rr(-3, 3), d.y - 34, (head ? "GŁOWA " : "") + dmg, d.hero ? PAL.redL : head ? PAL.gold : PAL.white, true);
     else if (head && src?.hero) this.floater(d.x, d.y - 34, "GŁOWA", PAL.gold, true);
     if (d.hero) this.hurtFlash = 0.35;
     if (d.hp <= 0) this.kill(d, src, head, type, heavy);
@@ -1243,6 +1328,7 @@ class Battle {
 
   kill(d: Unit, src: Unit | null, head = false, type: DmgType = "cut", heavy = false) {
     if (!d.active) return;
+    this.lastKillT = this.time;
     const s = this.vol(d.x);
     if (src) src.kills++;
     if (src?.team === 0 && this.heroCfg && d.def.undead) this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
@@ -1264,11 +1350,11 @@ class Battle {
     d.state = "dead";
     if (d.def.undead) this.sfx.death(s.v * 0.8, s.pan, true);
     else { this.sfx.death(s.v * 0.8, s.pan, false); if (chance(0.5)) this.sfx.scream(s.v * 0.8, s.pan); }
-    if (d.mounted) { d.mounted = false; const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); }
+    if (d.mounted) { d.mounted = false; if (d.horseHp > d.horseMax * 0.3 && !d.mountDef?.undead && chance(0.6)) this.looseHorses.push({ x: d.x + 8, y: d.y + 2, heading: d.heading, def: d.mountDef, hp: d.horseHp, max: d.horseMax, horse: d.horse }); else { const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); } }
     const [dirI] = this.dirIndex(d.face);
     const bones = !!d.def.undead && d.look.race === "skel";
     // ćwiartowanie: ciężkie cięcie albo cios w głowę może odrąbać głowę lub kończynę
-    const sever = (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
+    const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
     let img = d.spr.frames[dirI][0];
     if (sever && d.look.race !== "ghoul" && d.look.race !== "wolf" && d.look.race !== "dk") {
       img = d.spr.headless[dirI];
@@ -1276,11 +1362,13 @@ class Battle {
       this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
       if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
       if (src?.hero) { if (this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
-    } else if (type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
+    } else if (this.settings.gore !== false && type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
       this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
     }
-    this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(Math.atan2(d.y - src.y, d.x - src.x)) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false });
+    const fa = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28), fk = heavy ? 1.6 : 1;
+    // śmierć zależna od ciosu: pchnięcie odrzuca do tyłu, obuch zgniata, cięcie obraca
+    this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(fa) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false, kind: type, dx: Math.cos(fa) * (type === "pierce" ? 10 : type === "blunt" ? 3 : 5) * fk, dy: Math.sin(fa) * (type === "pierce" ? 6 : 2) * fk });
     if (bones) this.bones(d.x, d.y - 10, 14, src);
     else if (!d.def.undead) this.blood(d.x, d.y - 10, 20, src, true);
     for (const u of this.units) {
@@ -1395,6 +1483,7 @@ class Battle {
       if (!ar.done && (p > 1.15 || ar.x < 0 || ar.y < 0 || ar.x > this.mw || ar.y > this.mh)) {
         ar.done = true;
         const a = Math.atan2(ar.vy, ar.vx);
+        if (ar.kind === "arrow" && ar.x > 0 && ar.y > 0 && ar.x < this.mw && ar.y < this.mh && chance(0.6)) { this.groundArrows.push({ x: ar.x, y: ar.y + 12 }); if (this.groundArrows.length > 250) this.groundArrows.shift(); }
         if (ar.kind === "axe") { this.dg.fillStyle = PAL.steel; this.dg.fillRect(Math.round(ar.x), Math.round(ar.y + 12), 3, 2); }
         else { pxLine(this.dg, ar.x, ar.y + 12, ar.x - Math.cos(a) * 4, ar.y + 12 - Math.sin(a) * 4, PAL.woodD); this.dg.fillStyle = PAL.white; this.dg.fillRect(Math.round(ar.x - Math.cos(a) * 4), Math.round(ar.y + 12 - Math.sin(a) * 4), 1, 1); }
       }
@@ -1808,7 +1897,7 @@ class Battle {
     this.parts = this.parts.filter((p) => p.life > 0);
     for (const f of this.floaters) { f.t -= dt; f.y -= 14 * dt; }
     this.floaters = this.floaters.filter((f) => f.t > 0);
-    for (const c of this.corpses) if (c.t < 1) { c.t = Math.min(1, c.t + dt / 0.45); if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 4); this.dust(c.x, c.y, 6); } }
+    for (const c of this.corpses) if (c.t < 1) { c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.6 : c.kind === "blunt" ? 0.35 : 0.5)); if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 4); this.dust(c.x, c.y, 6); } }
   }
 
   // ---------- Pętla ----------
@@ -1892,6 +1981,7 @@ class Battle {
       else this.edgeT = 0;
     }
     if (this.map.wall) this.updateSiege(dt);
+    this.tlT -= dt; if (this.tlT <= 0) { this.tlT = 4; this.timeline.push({ t: this.time, a: this.units.filter((u) => u.team === 0 && u.active).length + this.reserves[0].length, b: this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length }); }
     this.collide();
     this.updateArrows(dt);
     this.updateParticles(dt);
@@ -1952,10 +2042,10 @@ class Battle {
   }
 
   // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
-  mopT = 0; lastHitT = 0;
+  mopT = 0; lastHitT = 0; lastKillT = 0;
   checkEnd(dt = 0) {
     // bezpiecznik: 45 s bez żadnego ciosu kończy impas (szturm odparty / pole bitwy dla silniejszego)
-    if (this.phase === "fight" && !this.cfg.arena && ((this.time - this.lastHitT > 45 && this.time > 60) || this.time > 600)) {
+    if (this.phase === "fight" && !this.cfg.arena && (((this.time - this.lastHitT > 45 || this.time - this.lastKillT > 75) && this.time > 60) || this.time > 600)) {
       const pw = (t: number) => this.units.reduce((a, u) => a + (u.team === t && u.active && !u.fleeing ? u.hp : 0), 0) + this.reserves[t].length * 60;
       const atk = 1 - (this.cfg.siegeDefender ?? 1);
       const win0 = this.map.wall && !this.map.wall.broken && !this.engines.some((e) => e.kind === "tower" && e.done) ? atk !== 0 : pw(0) >= pw(1);
@@ -2029,6 +2119,8 @@ class Battle {
       ours: tally(0, false), theirs, allies: tally(0, true), xp, prisoners,
       companionsKO: this.units.filter((u) => u.companion && u.ko).map((u) => u.companion), companionHp: comp,
       enemyKilled: this.units.filter((u) => u.team === 1 && u.state === "dead").length, time: this.time, retreated: this.retreated,
+      timeline: this.timeline.concat([{ t: this.time, a: this.units.filter((u) => u.team === 0 && u.active).length + this.reserves[0].length, b: this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length }]),
+      best: (() => { const c = this.units.filter((u) => u.team === 0 && !u.hero && u.squad <= 8 && u.kills > 0).sort((a, b) => b.kills - a.kills)[0]; return c ? { type: c.key, name: c.companion ? c.name : c.def.name, kills: c.kills } : null; })(),
     };
   }
 
@@ -2043,7 +2135,8 @@ class Battle {
       if (!this.heroUp) { if (I.held("KeyA")) this.cam.x -= sp; if (I.held("KeyD")) this.cam.x += sp; if (I.held("KeyW")) this.cam.y -= sp; if (I.held("KeyS")) this.cam.y += sp; }
     } else {
       const h = this.hero;
-      const tx = h.x - W / 2 + (I.mx - W / 2) * 0.15, ty = h.y - (h.mounted ? 12 : 4) - H / 2 + (I.my - H / 2) * 0.15;
+      const lead = h.usingBow && h.drawT > 0.6 ? 0.42 : 0.25;
+      const tx = h.x - W / 2 + (I.mx - W / 2) * lead, ty = h.y - (h.mounted ? 12 : 4) - H / 2 + (I.my - H / 2) * lead;
       this.cam.x = lerp(this.cam.x, tx, clamp(dt * 4.5, 0, 1));
       this.cam.y = lerp(this.cam.y, ty, clamp(dt * 4.5, 0, 1));
     }

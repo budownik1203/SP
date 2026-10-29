@@ -146,7 +146,7 @@ input.num{width:5em}
 .chron{max-height:60vh;overflow:auto}
 .lords{display:grid;grid-template-columns:repeat(auto-fill,minmax(16em,1fr));gap:.15em .8em;font-size:.9em}
 .sw{display:inline-block;width:.7em;height:.7em;margin-right:.4em;border:1px solid #000;vertical-align:middle}
-.after{max-width:44em}
+.after{max-width:56em}
 
 /* ---- B5: ikony, dialogi, drzewka, armia ---- */
 .ic{image-rendering:pixelated;width:1.15em;height:1.15em;vertical-align:-.2em;display:inline-block}
@@ -258,14 +258,18 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .bk{border:1px solid #6b5234;background:#1c1610;padding:4px 8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bk.you{border-color:#e9c45e;color:#e9c45e}.bk.out{opacity:.4;text-decoration:line-through}.bk.empty{color:#665;text-align:center}
 .advbar{height:.5em;background:#7a2a20;border:1px solid #000;position:relative}.advbar i{position:absolute;left:0;top:0;bottom:0;background:#5d9a46;transition:width .4s}
-#mini{display:block;margin-top:.3em;image-rendering:pixelated;border:1px solid #000;width:7.5em;margin-left:auto}
-#mini.big{position:fixed;left:50%;top:12%;transform:translateX(-50%);width:min(60vw,640px);z-index:4;opacity:.93;box-shadow:0 0 0 2px #6b5234}
+#mini{display:block;margin-top:.3em;border:1px solid rgba(0,0,0,.6);width:7.5em;margin-left:auto;opacity:.78;background:rgba(20,22,14,.35)}
+#mini.big{position:fixed;left:50%;top:10%;transform:translateX(-50%);width:min(60vw,640px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
 .grp .ic{width:1.1em;height:1.1em;vertical-align:-.15em;margin-right:.25em}
 #abil .ab{min-width:6.5em;min-height:3.4em}#abil .ab .ic{width:1.6em;height:1.6em;display:block;margin:0 auto .1em}
 .casl{display:grid;grid-template-columns:repeat(auto-fill,minmax(11em,1fr));gap:.3em}
 .cas{display:flex;gap:.4em;align-items:center;background:#1c1610;border:1px solid #3a2e22;padding:.2em .4em;font-size:.9em}.cas canvas{width:28px;height:auto}
 .cas.promo{border-color:#8a6d2a}
 .astats{display:flex;gap:.6em;margin:.4em 0 .6em}.astats>div{flex:1;background:#1c1610;border:1px solid #3a2e22;text-align:center;padding:.3em}.astats b{display:block;font-size:1.5em;color:var(--gold)}.astats span{color:var(--muted);font-size:.8em}.astats .ic{width:1.5em;height:1.5em}
+.chart{background:#1c1610;border:1px solid #3a2e22;padding:.3em}.chart svg{width:100%;height:70px;display:block}.chart .ca{stroke:#7fbf5a;fill:none;stroke-width:2}.chart .cb{stroke:#d0503c;fill:none;stroke-width:2}.chl{font-size:.8em}
+.cas.best{border-color:#e9c45e;height:100%}.cas.best canvas{width:40px}
+.cas.loot{cursor:pointer}.cas.loot input{margin:0 .2em 0 0}.cas.loot:has(input:not(:checked)){opacity:.45}
+p.rel{color:#e9c45e}
 </style>
 
 <div id="wrap">
@@ -393,6 +397,8 @@ class Input {
         canvas.addEventListener("mousedown", (e) => {
             if (e.button > 2)
                 return;
+            if (e.button === 1)
+                e.preventDefault();
             this.down[e.button] = true;
             this.mPressed[e.button] = true;
         });
@@ -2382,14 +2388,14 @@ class Sfx {
         if (!this.ok("hit", 25))
             return;
         const o = this.out(pan, 0.22);
-        const k = heavy ? 1.35 : 1;
-        this.tone(o, 95 * (heavy ? 0.8 : 1), 38, heavy ? 0.32 : 0.2, "sine", 0.95 * v * k); // uderzenie w dół
-        this.tone(o, 240, 90, 0.07, "triangle", 0.35 * v); // stuk
-        this.noise(o, 0.12, 1600, 350, 0.9, 0.55 * v * k, "lowpass"); // mięso
+        const k = heavy ? 1.5 : 1.15, p = rr(0.82, 1.2); // każdy cios brzmi trochę inaczej
+        this.tone(o, 95 * (heavy ? 0.8 : 1) * p, 38 * p, heavy ? 0.34 : 0.2, "sine", 0.95 * v * k); // uderzenie w dół
+        this.tone(o, 240 * p, 90 * p, 0.07, "triangle", 0.4 * v); // stuk
+        this.noise(o, 0.12 * rr(0.8, 1.3), 1600 * p, 350, 0.9, 0.6 * v * k, "lowpass"); // mięso
         if (type === "cut")
-            this.noise(o, 0.06, 3800, 2200, 2.5, 0.28 * v, "bandpass"); // cięcie
+            this.noise(o, 0.06, 3800 * p, 2200, 2.5, 0.32 * v, "bandpass"); // cięcie
         if (type === "pierce")
-            this.noise(o, 0.05, 2600, 900, 3, 0.25 * v, "bandpass");
+            this.noise(o, 0.05, 2600 * p, 900, 3, 0.3 * v, "bandpass");
         if (type === "blunt" || heavy)
             this.crunch(o, heavy ? 0.22 : 0.14, 0.4 * v, 700);
     }
@@ -3340,6 +3346,19 @@ class Unit {
         this.ammo = 0;
         this.bowDmg = 0;
         this.loadout = 0;
+        this.tankWant = 0;
+        this.dodgeVx = 0;
+        this.dodgeVy = 0;
+        this.countering = false;
+        this.bowShake = 0;
+        this.bearer = false;
+        this.dodgeT = 0;
+        this.dodgeCd = 0;
+        this.counterT = 0;
+        this.shieldOffT = 0;
+        this.bowHoldT = 0;
+        this.gore = 0;
+        this.shieldHp = 200;
         this.kills = 0;
         this.trail = [];
         this.decay = false;
@@ -3391,6 +3410,7 @@ class Unit {
         this.arm = { ...this.def.armor };
         this.weaponKey = this.def.weapon;
         this.hasShield = this.def.shield;
+        this.shieldHp = 140 + this.def.tier * 30;
         this.face = this.wantFace = this.heading = team === 0 ? 0 : Math.PI;
         this.reload = rr(0.2, 1.5);
         this.ammo = this.def.bow ? 30 : 0;
@@ -3495,9 +3515,16 @@ class Battle {
         this.furyMul = 1;
         this.heroSpeed = 1;
         this.light = null;
+        this.heroAmmoMax = 30;
+        this.castFlash = null;
+        this.timeline = [];
+        this.tlT = 0;
+        this.groundArrows = [];
+        this.looseHorses = [];
         // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
         this.mopT = 0;
         this.lastHitT = 0;
+        this.lastKillT = 0;
         this.cfg = cfg;
         this.fogged = !!cfg.fog;
         this.map = makeBattleMap(cfg.terrain, cfg.night);
@@ -3697,9 +3724,9 @@ class Battle {
             if (e.team === u.team || !e.active)
                 continue;
             const d = dist(u.x, u.y, e.x, e.y);
-            if (d > 30 + e.radius || d < 4)
+            if (d > (u.hero ? 36 : 30) + e.radius || d < 4)
                 continue;
-            if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > 0.32)
+            if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > (u.hero ? 0.48 : 0.32))
                 continue;
             const k = u.rspeed / u.maxRide;
             const dmg = (28 + 60 * k) * e.arm.pierce * (u.hero ? this.heroDmg : 1) * (this.cfg.arena && !this.cfg.arena.lethal ? 0.55 : 1);
@@ -3812,8 +3839,10 @@ class Battle {
                 h.hp = H.hp;
                 h.weaponKey = H.weapon;
                 h.hasShield = H.shield;
+                h.shieldHp = 420;
                 h.bowDmg = H.bowDmg;
                 h.ammo = H.ammo;
+                this.heroAmmoMax = Math.max(H.ammo, 1);
                 h.arm = { cut: 1 - H.armor, pierce: 1 - H.armor * 0.8, blunt: 1 - H.armor * 0.5 };
                 if (H.mount) {
                     h.mount(H.mount, (side.faction || 9));
@@ -3850,6 +3879,13 @@ class Battle {
                 if (best)
                     best.officer = true;
             }
+        for (let sq = 1; sq <= 7; sq++) {
+            const L = this.squadUnits(sq, 1);
+            if (L.length >= 4) {
+                const best = L.slice().sort((a, b) => b.def.tier - a.def.tier)[0];
+                best.bearer = true;
+            }
+        }
         // dowódcy wroga: najsilniejsza jednostka po drugiej stronie dostaje rolę dowódcy
         const enemyBest = this.units.filter((u) => u.team === 1).sort((a, b) => b.def.tier * 1000 + b.maxHp - (a.def.tier * 1000 + a.maxHp))[0];
         if (enemyBest && !arena) {
@@ -4139,8 +4175,8 @@ class Battle {
             last.t = 5;
             return;
         }
-        if (!big && settings.fewLog !== false && this.log.length >= 3 && !col)
-            return; // mniej spamu: drobne wpisy nie wypychają ważnych
+        if (!big && settings.fewLog !== false && !col)
+            return; // tylko ważne // mniej spamu: drobne wpisy nie wypychają ważnych
         this.log.push({ text, t: big ? 5.5 : 3.6, col, n: 1, big });
         if (this.log.length > 3)
             this.log.shift();
@@ -4665,15 +4701,24 @@ class Battle {
             return;
         const wx = this.cam.x + I.mx, wy = this.cam.y + I.my;
         h.wantFace = Math.atan2(wy - (h.y - (h.mounted ? 24 : 12)), wx - h.x);
-        if (I.hit("Tab") && h.state === "idle" && this.heroCfg && this.heroCfg.bowDmg > 0) {
+        if (I.hit("Tab") && (h.state === "idle" || h.state === "recover") && this.heroCfg && this.heroCfg.bowDmg > 0) {
             h.loadout = 1 - h.loadout;
             h.drawT = 0;
+            h.state = "idle";
             this.say(h.loadout ? "Broń: łuk" : "Broń: biała");
         }
-        if (this.settings.gesture) {
+        const mode = this.atkMode();
+        if (mode === "screen") {
             const gst = I.gesture(170);
             if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5)
                 this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T");
+        }
+        else if (mode === "mouse" && !this.cmdOpen) {
+            // ruch myszy względem kierunku patrzenia: w bok = cięcie z tej strony, od siebie = z góry, do siebie = pchnięcie
+            const gst = I.gesture(170), fx = Math.cos(h.face), fy = Math.sin(h.face);
+            const along = gst.x * fx + gst.y * fy, side = -gst.x * fy + gst.y * fx;
+            if (Math.abs(along) + Math.abs(side) > 6)
+                this.loadDir = Math.abs(side) > Math.abs(along) * 0.8 ? (side > 0 ? "R" : "L") : along > 0 ? "O" : "T";
         }
         let mx = 0, my = 0;
         if (I.held("KeyW"))
@@ -4689,7 +4734,14 @@ class Battle {
         const rite = h.bloodRiteT > 0 ? 1.2 : 1;
         if (h.mounted) {
             const gallop = sprint && h.stamina > 1;
-            if (mx || my)
+            if (this.settings.horseMode === "tank") {
+                // W przyspiesza, S hamuje, A/D skręcają; koń trzyma tempo bez trzymania klawisza
+                h.tankWant = clamp((h.tankWant ?? 0) + (I.held("KeyW") ? dt * 0.9 : 0) - (I.held("KeyS") ? dt * 1.4 : 0), 0, 1);
+                const turn = (I.held("KeyD") ? 1 : 0) - (I.held("KeyA") ? 1 : 0);
+                const a = h.heading + turn * 0.9;
+                this.ride(h, h.x + Math.cos(a) * 60, h.y + Math.sin(a) * 60, h.maxRide * h.tankWant * (gallop ? 1 : 0.65) * rite, dt);
+            }
+            else if (mx || my)
                 this.ride(h, h.x + (mx / ml) * 60, h.y + (my / ml) * 60, h.maxRide * (gallop ? 1 : 0.6) * rite, dt);
             else
                 this.ride(h, h.x + Math.cos(h.heading) * 40, h.y + Math.sin(h.heading) * 40, 0, dt);
@@ -4718,11 +4770,34 @@ class Battle {
                 sp *= 0.45;
             if (h.state === "stagger" || h.state === "kick")
                 sp *= 0.15;
-            const tvx = (mx / ml) * sp, tvy = (my / ml) * sp;
+            let tvx = (mx / ml) * sp, tvy = (my / ml) * sp;
+            if (h.dodgeT > 0) {
+                const k = 1 + h.dodgeT * 9;
+                tvx = h.dodgeVx * k;
+                tvy = h.dodgeVy * k;
+            }
             const acc = h.state === "strike" || h.state === "stagger" ? 2.5 : 6;
             h.vx = lerp(h.vx, tvx, clamp(dt * acc, 0, 1));
             h.vy = lerp(h.vy, tvy, clamp(dt * acc, 0, 1));
             h.moving = !!(mx || my);
+        }
+        if (h.dodgeT > 0)
+            h.dodgeT -= dt;
+        if (h.dodgeCd > 0)
+            h.dodgeCd -= dt;
+        if (h.counterT > 0)
+            h.counterT -= dt;
+        // podnoszenie strzał z ziemi
+        if (this.heroCfg && this.heroCfg.bowDmg > 0 && h.ammo < this.heroAmmoMax && this.groundArrows.length) {
+            for (let i = this.groundArrows.length - 1; i >= 0; i--) {
+                const g2 = this.groundArrows[i];
+                if (Math.abs(g2.x - h.x) < 9 && Math.abs(g2.y - h.y) < 9) {
+                    this.groundArrows.splice(i, 1);
+                    h.ammo++;
+                    this.floater(h.x, h.y - 30, "+1 STRZAŁA", PAL.bone, true);
+                    break;
+                }
+            }
         }
         if (h.staminaWait > 0)
             h.staminaWait -= dt;
@@ -4763,23 +4838,56 @@ class Battle {
             h.staminaWait = Math.max(h.staminaWait, 0.3);
         if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
             if (I.mPressed[0]) {
-                let d = this.settings.gesture ? this.loadDir : h.nextSide;
-                if (h.mounted && !this.settings.gesture)
+                const km = this.atkMode() === "keys";
+                let d = km ? h.nextSide : this.loadDir;
+                if (h.mounted && (km || d === "T" || d === "O"))
                     d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
                 this.startWindup(h, d);
                 h.key2 = "mouse";
             }
-            else if (I.hit("KeyE")) {
+            else if (I.hit("KeyR") && !h.mounted) {
                 this.startWindup(h, "O");
-                h.key2 = "KeyE";
+                h.key2 = "KeyR";
             }
-            else if (I.hit("Space")) {
+            else if (I.mPressed[1]) {
                 this.startWindup(h, "T");
-                h.key2 = "Space";
+                h.key2 = "mouse1";
+            }
+        }
+        // odskok: Spacja, krótki zryw w kierunku ruchu (albo do tyłu), chwila nietykalności
+        if (I.hit("Space") && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
+            let dx = mx, dy = my;
+            if (!dx && !dy) {
+                dx = -Math.cos(h.face);
+                dy = -Math.sin(h.face);
+            }
+            const dl = Math.hypot(dx, dy) || 1;
+            h.dodgeVx = dx / dl * 95;
+            h.dodgeVy = dy / dl * 95;
+            h.dodgeT = 0.24;
+            h.dodgeCd = 0.55;
+            h.stamina -= 18;
+            h.staminaWait = 0.6;
+            h.state = "idle";
+            h.t = 0;
+            h.blocking = false;
+            this.dust(h.x, h.y, 6);
+            this.sfx.trample?.(0.25, 0);
+        }
+        // E: zsiadanie i wsiadanie na luźnego konia
+        if (I.hit("KeyE") && (h.state === "idle" || h.state === "recover")) {
+            if (h.mounted && h.rspeed < 40)
+                this.leaveHorse(h);
+            else if (!h.mounted) {
+                const lh = this.looseHorses.find((x) => dist(x.x, x.y, h.x, h.y) < 20);
+                if (lh)
+                    this.takeHorse(h, lh);
+                else
+                    this.say("Brak konia w pobliżu", PAL.ash);
             }
         }
         if (h.state === "windup") {
-            const held = h.key2 === "mouse" ? I.down[0] : I.held(h.key2);
+            const held = h.key2 === "mouse" ? I.down[0] : h.key2 === "mouse1" ? I.down[1] : I.held(h.key2);
             if (held)
                 h.hold += dt;
             else
@@ -4801,8 +4909,20 @@ class Battle {
         h.blocking = false;
         if (h.state !== "idle")
             return;
-        if (I.down[0] && h.ammo > 0)
+        if (I.down[0] && h.ammo > 0) {
             h.drawT = Math.min(1, h.drawT + dt / 0.7);
+            // trzymanie pełnego naciągu męczy; bez tchu ręka drży
+            if (h.drawT >= 1) {
+                h.stamina -= 14 * dt;
+                h.staminaWait = 0.5;
+                if (h.stamina <= 0) {
+                    h.stamina = 0;
+                    h.bowShake = Math.min(1, (h.bowShake || 0) + dt);
+                }
+            }
+        }
+        else
+            h.bowShake = 0;
         if (I.mReleased[0] && h.drawT > 0) {
             if (h.drawT > 0.15) {
                 const k = h.drawT;
@@ -4815,7 +4935,38 @@ class Battle {
             h.drawT = 0;
         }
     }
-    bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1) * (this.cfg.rain ? 1.3 : 1); }
+    bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1) * (this.cfg.rain ? 1.3 : 1) * (1 + (h.bowShake || 0) * 5); }
+    atkMode() { return this.settings.atkMode || (this.settings.gesture ? "screen" : "mouse"); }
+    leaveHorse(u) {
+        if (!u.mounted)
+            return;
+        this.looseHorses.push({ x: u.x + 10, y: u.y + 2, heading: u.heading, def: u.mountDef, hp: u.horseHp, max: u.horseMax, horse: u.horse });
+        u.mounted = false;
+        u.rspeed = 0;
+        u.vx = 0;
+        u.vy = 0;
+        u.x -= 6;
+        const s = this.vol(u.x);
+        this.sfx.neigh(s.v * 0.6, s.pan);
+        if (u.hero)
+            this.say("Zsiadasz z konia. E przy koniu: wsiądź.", PAL.ash);
+    }
+    takeHorse(u, lh) {
+        this.looseHorses.splice(this.looseHorses.indexOf(lh), 1);
+        u.mounted = true;
+        u.mountDef = lh.def;
+        u.horseHp = lh.hp;
+        u.horseMax = lh.max;
+        u.horse = lh.horse;
+        u.heading = lh.heading;
+        u.rspeed = 0;
+        u.x = lh.x;
+        u.y = lh.y;
+        const s = this.vol(u.x);
+        this.sfx.neigh(s.v, s.pan);
+        if (u.hero)
+            this.say("Dosiadasz konia.", PAL.gold);
+    }
     // ---------- Jazda konna ----------
     ride(u, tx, ty, want, dt) {
         const m = u.mountDef || HORSE;
@@ -4870,6 +5021,8 @@ class Battle {
         u.hold = 0;
         u.released = false;
         u.hitDone = false;
+        u.countering = u.counterT > 0;
+        u.counterT = 0;
         u.swingVar = dir === "L" || dir === "R" ? rr(-0.45, 0.45) : rr(-0.2, 0.2);
         if (u.hero) {
             const cost = 5 + this.weight(u) * 5;
@@ -4922,6 +5075,8 @@ class Battle {
             u.recoil = Math.max(0, u.recoil - dt * 4);
         if (u.couchCd > 0)
             u.couchCd -= dt;
+        if (u.shieldOffT > 0)
+            u.shieldOffT -= dt;
         if (u.burnT > 0) {
             u.burnT -= dt;
             u.hp -= 7 * dt;
@@ -4956,7 +5111,7 @@ class Battle {
         const w = u.w;
         switch (u.state) {
             case "windup": {
-                const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) : this.windupTime(u);
+                const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) : this.windupTime(u);
                 if (u.t >= minT && (!u.hero || u.released || u.hold > 1.6)) {
                     u.state = "strike";
                     u.t = 0;
@@ -5043,8 +5198,8 @@ class Battle {
         let arc = dir === "T" ? 0.5 : dir === "O" ? 0.75 : 1.35;
         let reach = w.reach + 3 + (dir === "T" ? 4 : 0);
         if (a.mounted) {
-            arc = 1.7;
-            reach += 4;
+            arc = 1.8;
+            reach += a.hero ? 9 : 5;
         }
         let best = null, bd = 1e9;
         for (const u of this.units) {
@@ -5084,6 +5239,25 @@ class Battle {
         }
     }
     parryWindow() { return 0.2; }
+    // Tarcza zbiera ciosy; zniszczona pęka w drzazgi.
+    shieldWear(d, dmg) {
+        d.shieldHp -= dmg;
+        if (d.shieldHp > 0 || !d.hasShield)
+            return false;
+        d.hasShield = false;
+        d.blocking = false;
+        for (let i = 0; i < 16; i++)
+            this.parts.push({ x: d.x + rr(-3, 3), y: d.y, z: 14, vx: rr(-50, 50), vy: rr(-30, 30), vz: rr(30, 80), life: 1.2, max: 1.2, col: pick([PAL.wood, PAL.woodD, PAL.steel]), kind: "bone" });
+        const s = this.vol(d.x);
+        this.sfx.bone(s.v, s.pan, true);
+        this.sfx.thunk(s.v, s.pan);
+        if (d.hero || dist(d.x, d.y, this.hero?.x ?? 0, this.hero?.y ?? 0) < 80)
+            this.floater(d.x, d.y - 34, "TARCZA PĘKA", PAL.dirtL, true);
+        if (d.hero)
+            this.say("Twoja tarcza pękła!", PAL.redL, true);
+        this.stagger(d, 0.6);
+        return true;
+    }
     resolveHit(a, d) {
         const w = a.w, dir = a.dir;
         const angFromD = Math.abs(angDiff(d.face, Math.atan2(a.y - d.y, a.x - d.x)));
@@ -5102,7 +5276,8 @@ class Battle {
                 this.push(a, d.x, d.y, 55);
                 this.sparks(hx, hy, 20, PAL.gold);
                 this.impact(hx, hy, PAL.gold, 1.4);
-                this.shout("Parowanie!");
+                this.shout("Parowanie! Kontra!");
+                d.counterT = 0.9;
                 d.stamina = Math.min(100, d.stamina + 8);
                 if (this.heroCfg)
                     this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12 * this.furyMul);
@@ -5130,6 +5305,7 @@ class Battle {
             this.sfx.thunk(1, s.pan);
             this.sparks(hx, hy, 6, PAL.steelL);
             this.impact(hx, hy, PAL.wood, 0.7);
+            this.shieldWear(d, w.dmg[dir] * (w.axe ? 2 : 1) * 0.6);
             this.push(d, a.x, a.y, 40);
             this.hitstop = Math.max(this.hitstop, 0.06);
             this.kickCam(Math.cos(ha), Math.sin(ha), 0.9);
@@ -5156,11 +5332,18 @@ class Battle {
             d.guardT = Math.max(d.guardT, 0.3);
             return;
         }
-        if (!d.hero && d.hasShield && d.state === "idle" && angFromD < 1.0) {
+        if (d.dodgeT > 0.05) {
+            this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true);
+            this.sfx.swing?.(0.5, 0, 0.5);
+            return;
+        }
+        if (!d.hero && d.hasShield && d.shieldOffT <= 0 && d.state === "idle" && angFromD < 1.0) {
             const wall = d.team === 0 && this.ordersOf(0, d.squad)?.formation === "wall";
             if (chance(d.def.shieldBlock * (wall ? 1.6 : 1))) {
                 this.sfx.thunk(s.v, s.pan);
                 this.sparks(hx, hy, 3, PAL.wood);
+                if (this.shieldWear(d, w.dmg[dir] * (w.axe ? 2 : 1)))
+                    return;
                 if (a.hero) {
                     this.floater(d.x, d.y - 32, "TARCZA", PAL.dirtL, true);
                     this.hitstop = Math.max(this.hitstop, 0.06);
@@ -5171,7 +5354,7 @@ class Battle {
         let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg;
         const charged = a.hero && a.hold > 0.5;
         if (a.hero)
-            dmg *= lerp(0.85, 1.3, clamp(a.hold / 0.7, 0, 1)) * this.heroDmg;
+            dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 : 1);
         if (a.decay)
             dmg *= 0.75;
         if (a.cursedT > 0)
@@ -5179,7 +5362,7 @@ class Battle {
         if (a.bloodRiteT > 0)
             dmg *= 1.4;
         const speedK = a.mounted ? a.rspeed / a.maxRide : 0;
-        dmg *= 1 + speedK * 0.45;
+        dmg *= 1 + speedK * (a.hero ? 0.75 : 0.5);
         if (this.height(a.x, a.y) - this.height(d.x, d.y) > 0.15)
             dmg *= 1.3;
         const head = dir === "O" && chance(0.45);
@@ -5226,12 +5409,12 @@ class Battle {
         this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
         if (heroInvolved) {
             const killed = d.hp <= 0;
-            this.hitstop = Math.max(this.hitstop, (head ? 0.14 : heavy ? 0.12 : 0.085) + (killed ? 0.05 : 0));
+            this.hitstop = Math.max(this.hitstop, (head ? 0.19 : heavy ? 0.16 : 0.11) + (killed ? 0.07 : 0));
             this.kickCam(Math.cos(ha), Math.sin(ha), (d.hero ? 2.2 : heavy ? 1.8 : 1.2) + (killed ? 0.6 : 0));
             if (heavy || head)
                 this.shake(2);
-            if (killed && a.hero && this.settings.killSlow !== false)
-                this.slowT = Math.max(this.slowT, 0.2);
+            if (killed && a.hero && (heavy || head) && this.settings.killSlow !== false)
+                this.slowT = Math.max(this.slowT, 0.22);
         }
     }
     kickHit(a) {
@@ -5243,8 +5426,19 @@ class Battle {
             if (Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) > 0.9)
                 continue;
             this.sfx.kick();
-            this.stagger(u, u.def.poise ? 0.4 : 0.85);
-            this.push(u, a.x, a.y, 110);
+            const shielded = u.hasShield && (u.blocking || u.state === "idle");
+            this.stagger(u, (u.def.poise ? 0.5 : 1.1) * (shielded ? 1.3 : 1));
+            this.push(u, a.x, a.y, 120);
+            if (shielded) {
+                u.shieldOffT = 2.2;
+                this.floater(u.x, u.y - 32, "TARCZA ODBITA", PAL.gold, true);
+                this.sfx.thunk(1, 0);
+            }
+            // spychanie z drabin i muru
+            if (this.map.wall && !u.mounted && Math.abs(u.x - this.map.wall.x0) < 14) {
+                this.damage(u, 30, a, false, "blunt", true);
+                this.say(`${u.def.name} spada z drabiny!`, PAL.gold);
+            }
             this.hitstop = Math.max(this.hitstop, 0.08);
             this.kickCam(Math.cos(a.face), Math.sin(a.face), 1.4);
             this.dust(u.x, u.y, 8);
@@ -5275,16 +5469,22 @@ class Battle {
             this.impact(x, y, PAL.boneHi, heavy ? 1.2 : 0.9);
         }
         else {
+            const plate = d.arm[type] < 0.62; // ciężka zbroja: iskry i brzęk
+            if (plate && type !== "blunt") {
+                this.sfx.clang(s.v * 0.8, s.pan);
+                this.sparks(x, y, 7 + (dmg / 8 | 0), PAL.steelL);
+            }
             this.sfx.hit(s.v, s.pan, type, heavy);
             if (d.hp > 0 && chance(0.6))
                 this.sfx.pain(s.v, s.pan);
-            this.blood(x, y, 16 + (dmg / 1.6) | 0, src, heavy);
+            this.blood(x, y, (plate ? 10 : 22) + (dmg / 1.3) | 0, src, heavy);
+            d.gore = Math.min(1, d.gore + dmg / 160);
             this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
             if (src)
                 this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
         }
         if (src)
-            this.push(d, src.x, src.y, 30 + dmg * (heavy ? 1.0 : 0.6));
+            this.push(d, src.x, src.y, 40 + dmg * (heavy ? 1.35 : 0.8));
         const interrupt = !d.def.poise || head || dmg >= 40 || type === "blunt";
         if (d.hp > 0 && head && dmg >= 15) {
             this.stagger(d, d.hero ? 0.6 : 1.1);
@@ -5296,7 +5496,7 @@ class Battle {
         d.recoil = Math.min(1.5, d.recoil + dmg / 25);
         if (d.hero && d.hp > 0 && src)
             this.push(d, src.x, src.y, 35);
-        if (this.settings.damageNumbers && (src?.hero || d.hero))
+        if (this.settings.damageNumbers && (src?.hero || (d.hero && !this.settings.dmgHeroOnly)))
             this.floater(d.x + rr(-3, 3), d.y - 34, (head ? "GŁOWA " : "") + dmg, d.hero ? PAL.redL : head ? PAL.gold : PAL.white, true);
         else if (head && src?.hero)
             this.floater(d.x, d.y - 34, "GŁOWA", PAL.gold, true);
@@ -5308,6 +5508,7 @@ class Battle {
     kill(d, src, head = false, type = "cut", heavy = false) {
         if (!d.active)
             return;
+        this.lastKillT = this.time;
         const s = this.vol(d.x);
         if (src)
             src.kills++;
@@ -5365,13 +5566,17 @@ class Battle {
         }
         if (d.mounted) {
             d.mounted = false;
-            const [hd] = this.dirIndex(d.heading);
-            this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true });
+            if (d.horseHp > d.horseMax * 0.3 && !d.mountDef?.undead && chance(0.6))
+                this.looseHorses.push({ x: d.x + 8, y: d.y + 2, heading: d.heading, def: d.mountDef, hp: d.horseHp, max: d.horseMax, horse: d.horse });
+            else {
+                const [hd] = this.dirIndex(d.heading);
+                this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true });
+            }
         }
         const [dirI] = this.dirIndex(d.face);
         const bones = !!d.def.undead && d.look.race === "skel";
         // ćwiartowanie: ciężkie cięcie albo cios w głowę może odrąbać głowę lub kończynę
-        const sever = (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
+        const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
         let img = d.spr.frames[dirI][0];
         if (sever && d.look.race !== "ghoul" && d.look.race !== "wolf" && d.look.race !== "dk") {
             img = d.spr.headless[dirI];
@@ -5386,11 +5591,13 @@ class Battle {
                 this.shake(2);
             }
         }
-        else if (type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
+        else if (this.settings.gore !== false && type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
             const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
             this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
         }
-        this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(Math.atan2(d.y - src.y, d.x - src.x)) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false });
+        const fa = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28), fk = heavy ? 1.6 : 1;
+        // śmierć zależna od ciosu: pchnięcie odrzuca do tyłu, obuch zgniata, cięcie obraca
+        this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(fa) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false, kind: type, dx: Math.cos(fa) * (type === "pierce" ? 10 : type === "blunt" ? 3 : 5) * fk, dy: Math.sin(fa) * (type === "pierce" ? 6 : 2) * fk });
         if (bones)
             this.bones(d.x, d.y - 10, 14, src);
         else if (!d.def.undead)
@@ -5602,6 +5809,11 @@ class Battle {
             if (!ar.done && (p > 1.15 || ar.x < 0 || ar.y < 0 || ar.x > this.mw || ar.y > this.mh)) {
                 ar.done = true;
                 const a = Math.atan2(ar.vy, ar.vx);
+                if (ar.kind === "arrow" && ar.x > 0 && ar.y > 0 && ar.x < this.mw && ar.y < this.mh && chance(0.6)) {
+                    this.groundArrows.push({ x: ar.x, y: ar.y + 12 });
+                    if (this.groundArrows.length > 250)
+                        this.groundArrows.shift();
+                }
                 if (ar.kind === "axe") {
                     this.dg.fillStyle = PAL.steel;
                     this.dg.fillRect(Math.round(ar.x), Math.round(ar.y + 12), 3, 2);
@@ -6331,7 +6543,7 @@ class Battle {
         this.floaters = this.floaters.filter((f) => f.t > 0);
         for (const c of this.corpses)
             if (c.t < 1) {
-                c.t = Math.min(1, c.t + dt / 0.45);
+                c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.6 : c.kind === "blunt" ? 0.35 : 0.5));
                 if (c.t >= 1 && !c.pooled) {
                     c.pooled = true;
                     if (!c.undead)
@@ -6487,6 +6699,11 @@ class Battle {
         }
         if (this.map.wall)
             this.updateSiege(dt);
+        this.tlT -= dt;
+        if (this.tlT <= 0) {
+            this.tlT = 4;
+            this.timeline.push({ t: this.time, a: this.units.filter((u) => u.team === 0 && u.active).length + this.reserves[0].length, b: this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length });
+        }
         this.collide();
         this.updateArrows(dt);
         this.updateParticles(dt);
@@ -6571,7 +6788,7 @@ class Battle {
     }
     checkEnd(dt = 0) {
         // bezpiecznik: 45 s bez żadnego ciosu kończy impas (szturm odparty / pole bitwy dla silniejszego)
-        if (this.phase === "fight" && !this.cfg.arena && ((this.time - this.lastHitT > 45 && this.time > 60) || this.time > 600)) {
+        if (this.phase === "fight" && !this.cfg.arena && (((this.time - this.lastHitT > 45 || this.time - this.lastKillT > 75) && this.time > 60) || this.time > 600)) {
             const pw = (t) => this.units.reduce((a, u) => a + (u.team === t && u.active && !u.fleeing ? u.hp : 0), 0) + this.reserves[t].length * 60;
             const atk = 1 - (this.cfg.siegeDefender ?? 1);
             const win0 = this.map.wall && !this.map.wall.broken && !this.engines.some((e) => e.kind === "tower" && e.done) ? atk !== 0 : pw(0) >= pw(1);
@@ -6698,6 +6915,8 @@ class Battle {
             ours: tally(0, false), theirs, allies: tally(0, true), xp, prisoners,
             companionsKO: this.units.filter((u) => u.companion && u.ko).map((u) => u.companion), companionHp: comp,
             enemyKilled: this.units.filter((u) => u.team === 1 && u.state === "dead").length, time: this.time, retreated: this.retreated,
+            timeline: this.timeline.concat([{ t: this.time, a: this.units.filter((u) => u.team === 0 && u.active).length + this.reserves[0].length, b: this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length }]),
+            best: (() => { const c = this.units.filter((u) => u.team === 0 && !u.hero && u.squad <= 8 && u.kills > 0).sort((a, b) => b.kills - a.kills)[0]; return c ? { type: c.key, name: c.companion ? c.name : c.def.name, kills: c.kills } : null; })(),
         };
     }
     updateCamera(dt) {
@@ -6738,7 +6957,8 @@ class Battle {
         }
         else {
             const h = this.hero;
-            const tx = h.x - W / 2 + (I.mx - W / 2) * 0.15, ty = h.y - (h.mounted ? 12 : 4) - H / 2 + (I.my - H / 2) * 0.15;
+            const lead = h.usingBow && h.drawT > 0.6 ? 0.42 : 0.25;
+            const tx = h.x - W / 2 + (I.mx - W / 2) * lead, ty = h.y - (h.mounted ? 12 : 4) - H / 2 + (I.my - H / 2) * lead;
             this.cam.x = lerp(this.cam.x, tx, clamp(dt * 4.5, 0, 1));
             this.cam.y = lerp(this.cam.y, ty, clamp(dt * 4.5, 0, 1));
         }
@@ -6799,6 +7019,14 @@ function castHeroAbility(b, slot) {
     const wx = b.cam.x + b.input.mx, wy = b.cam.y + b.input.my;
     const s = b.vol(h.x);
     b.lastAbility = id;
+    // wyraźniejsza oprawa: błysk ekranu w barwie zasobu, pierścień mocy wokół bohatera
+    const fcol = A.res === "faith" ? PAL.gold : A.res === "mana" ? PAL.purpleL : A.res === "fury" ? PAL.redL : PAL.bloodL;
+    b.castFlash = { col: fcol, t: 0.25 };
+    for (let i = 0; i < 26; i++) {
+        const a2 = (i / 26) * Math.PI * 2;
+        b.parts.push({ x: h.x + Math.cos(a2) * 6, y: h.y + Math.sin(a2) * 4, z: rr(2, 20), vx: Math.cos(a2) * rr(30, 60), vy: Math.sin(a2) * rr(18, 36), vz: rr(10, 40), life: 0.6, max: 0.6, col: fcol, kind: "fire" });
+    }
+    b.parts.push({ x: h.x, y: h.y, z: 2, vx: 11, vy: 0, vz: 0, life: 0.55, max: 0.55, col: fcol, kind: "ring" });
     b.shout(A.name, A.res === "faith" ? PAL.gold : A.res === "mana" ? PAL.purpleL : PAL.redL);
     switch (id) {
         case "smite": {
@@ -7257,6 +7485,25 @@ function renderBattle(b, g) {
     for (const u of b.units)
         if (u.alive && vis(u.x, u.y) && !(u.hidden && u.team === 1))
             list.push({ y: u.y, draw: () => drawUnit(b, g, u, sx, sy) });
+    for (const lh of b.looseHorses)
+        if (vis(lh.x, lh.y))
+            list.push({ y: lh.y, draw: () => {
+                    const [hd, hflip] = b.dirIndex(lh.heading);
+                    const im = lh.horse.frames[hd][0];
+                    const hx = Math.round(lh.x - sx - im.width / 2), hy = Math.round(lh.y - sy - im.height + 2 + (Math.floor(b.real * 1.5 + lh.x) % 2));
+                    if (hflip) {
+                        g.save();
+                        g.translate(hx + im.width, hy);
+                        g.scale(-1, 1);
+                        g.drawImage(im, 0, 0);
+                        g.restore();
+                    }
+                    else
+                        g.drawImage(im, hx, hy);
+                    const h = b.hero;
+                    if (h && h.active && !h.mounted && dist(h.x, h.y, lh.x, lh.y) < 22)
+                        pxSmall(g, "E WSIADAJ", Math.round(lh.x - sx), hy - 4, PAL.gold);
+                } });
     for (const e of b.engines)
         if (e.x > -500 && vis(e.x, e.y, 80))
             list.push({ y: e.y + 6, draw: () => drawEngine(g, e, sx, sy, b.real) });
@@ -7375,6 +7622,37 @@ function renderBattle(b, g) {
     }
     g.globalAlpha = 1;
     drawTells(b, g, sx, sy);
+    // strzałki przy krawędzi: oddziały wroga poza ekranem
+    if (b.heroUp && b.phase === "fight" && !b.cmdOpen) {
+        const seen = new Set();
+        for (const u of b.units) {
+            if (u.team !== 1 || !u.active || u.hidden || seen.has(u.squad))
+                continue;
+            const L = b.units.filter((v) => v.team === 1 && v.active && !v.hidden && v.squad === u.squad);
+            seen.add(u.squad);
+            const cx = L.reduce((s2, v) => s2 + v.x, 0) / L.length - sx, cy = L.reduce((s2, v) => s2 + v.y, 0) / L.length - sy;
+            if (cx > 0 && cx < W && cy > 0 && cy < H)
+                continue;
+            const a = Math.atan2(cy - H / 2, cx - W / 2), m = 10;
+            const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 8, H - m);
+            g.globalAlpha = 0.85;
+            for (let i = 0; i < 5; i++)
+                for (let j = -i; j <= i; j++) {
+                    const px = ex + Math.cos(a) * (4 - i) * 1.2 - Math.sin(a) * j * 0.9, py = ey + Math.sin(a) * (4 - i) * 1.2 + Math.cos(a) * j * 0.9;
+                    g.fillStyle = i === 4 || Math.abs(j) === i ? PAL.ink : PAL.redL;
+                    g.fillRect(Math.round(px), Math.round(py), 1, 1);
+                }
+            g.globalAlpha = 1;
+            pxSmall(g, String(L.length), Math.round(ex - Math.cos(a) * 9), Math.round(ey - Math.sin(a) * 9) + 2, PAL.bone);
+        }
+    }
+    if (b.castFlash && b.castFlash.t > 0) {
+        b.castFlash.t -= 1 / 60;
+        g.globalAlpha = clamp(b.castFlash.t, 0, 0.25);
+        g.fillStyle = b.castFlash.col;
+        g.fillRect(0, 0, W, H);
+        g.globalAlpha = 1;
+    }
     for (const f of b.floaters) {
         g.globalAlpha = clamp(f.t * 2, 0, 1);
         pxText(g, f.text, Math.round(f.x - sx - textW(f.text) / 2), Math.round(f.y - sy), f.col);
@@ -7594,13 +7872,21 @@ function drawCorpse(g, c, sx, sy) {
         return;
     }
     const e = 1 - Math.pow(1 - c.t, 3);
-    const ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12);
+    const k = c.kind;
+    let ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12), sq = 1;
+    if (k === "blunt") {
+        sq = 1 - Math.min(1, c.t * 2) * 0.35;
+        ang = c.rot * (Math.PI / 2) * Math.max(0, c.t * 1.6 - 0.6);
+    } // osuwa się w miejscu
+    else if (k === "cut")
+        ang += c.rot * Math.sin(Math.min(1, c.t * 1.5) * Math.PI) * 0.45; // obrót po cięciu
+    const ox = (c.dx || 0) * e, oy = (c.dy || 0) * e;
     g.save();
-    g.translate(Math.round(c.x - sx), Math.round(c.y - sy - 1));
+    g.translate(Math.round(c.x - sx + ox), Math.round(c.y - sy - 1 + oy));
     g.rotate(ang);
     if (c.flip)
         g.scale(-1, 1);
-    g.drawImage(img, -Math.round(img.width / 2), -img.height + 4);
+    g.drawImage(img, -Math.round(img.width / 2), -Math.round((img.height - 4) * sq), img.width, Math.round(img.height * sq));
     g.restore();
 }
 function weaponAngle(b, u) {
@@ -7731,9 +8017,25 @@ function drawUnit(b, g, u, sx, sy) {
         else
             g.drawImage(im, 0, 0, im.width, srcH, ix, iy, im.width, srcH);
     };
+    if (u.team === 1 && b.settings.outline !== false && !u.hidden && b.hero && dist(u.x, u.y, b.hero.x, b.hero.y) < 160) { // obrys wroga
+        const sil = silhouette(img, "#b8322a");
+        g.globalAlpha = alpha * 0.55;
+        for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1]]) {
+            if (flip) {
+                g.save();
+                g.translate(ix + ox + sil.width, iy + oy);
+                g.scale(-1, 1);
+                g.drawImage(sil, 0, 0, sil.width, srcH, 0, 0, sil.width, srcH);
+                g.restore();
+            }
+            else
+                g.drawImage(sil, 0, 0, sil.width, srcH, ix + ox, iy + oy, sil.width, srcH);
+        }
+        g.globalAlpha = alpha;
+    }
     draw(img);
-    if (!u.def.undead && u.hp < u.maxHp) { // rany na ciele
-        const n = Math.floor((1 - u.hp / u.maxHp) * 8);
+    if (!u.def.undead && (u.hp < u.maxHp || u.gore > 0)) { // rany i krew na ciele
+        const n = Math.floor(Math.max(1 - u.hp / u.maxHp, u.gore) * 14);
         g.fillStyle = PAL.blood;
         for (let i = 0; i < n; i++) {
             const hs = hashInt(u.id * 13 + i);
@@ -7780,15 +8082,20 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillStyle = PAL.gold;
         g.fillRect(tx, ty - 3 - (Math.floor(b.real * 10 + u.id) % 2), 1, 2);
     }
-    if (u.officer && u.team === 0) { // proporzec na plecach
-        const px = ix + (flip ? 15 : 8), py = iy - 4;
+    if (u.officer || u.bearer) { // proporzec na plecach: twoje oddziały z numerem, wróg w barwach
+        const px = ix + (flip ? 15 : 8), py = iy - 8;
         g.fillStyle = PAL.ink;
-        g.fillRect(px - 1, py - 1, 3, 13);
+        g.fillRect(px - 1, py - 1, 3, 17);
         g.fillStyle = PAL.wood;
-        g.fillRect(px, py, 1, 12);
-        g.fillStyle = SQUAD_COLORS[u.squad] || PAL.bone;
-        g.fillRect(px + (flip ? -5 : 1), py, 5, 3);
-        g.fillRect(px + (flip ? -4 : 1), py + 3, 3, 1);
+        g.fillRect(px, py, 1, 16);
+        const fx = px + (flip ? -8 : 1);
+        g.fillStyle = PAL.ink;
+        g.fillRect(fx - 1, py - 1, 10, 8);
+        g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
+        g.fillRect(fx, py, 8, 6);
+        g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
+        if (u.team === 0 && u.squad <= 9)
+            pxText(g, String(u.squad), fx + 3, py, PAL.ink);
     }
     if (u.fleeing) { // biała flaga nad uciekającym
         const px = bx, py = iy - 8;
@@ -7959,33 +8266,52 @@ function drawGear(b, g, u, hand, wa) {
 // Tylko ciosy wymierzone w bohatera i garda przeciwnika, na którego patrzysz.
 function drawTells(b, g, sx, sy) {
     const h = b.hero;
-    if (!h || !h.active || b.cmdOpen || b.settings.tells === false)
+    if (!h || !h.active || b.cmdOpen)
         return;
-    let focus = null, fd = 1e9;
-    for (const u of b.units) {
-        if (!u.active || u.team === 0 || u.hidden)
-            continue;
-        const d = dist(u.x, u.y, h.x, h.y);
-        if (d < 44 && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) < 0.8 && d < fd) {
-            fd = d;
-            focus = u;
+    if (b.settings.tells === true) {
+        let focus = null, fd = 1e9;
+        for (const u of b.units) {
+            if (!u.active || u.team === 0 || u.hidden)
+                continue;
+            const d = dist(u.x, u.y, h.x, h.y);
+            if (d < 44 && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) < 0.8 && d < fd) {
+                fd = d;
+                focus = u;
+            }
+            const top = u.y - sy - u.spr.h - (u.mounted ? 12 : 0) + 2;
+            if (u.state === "windup" && u.target === h && d < 60)
+                dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
         }
-        const top = u.y - sy - u.spr.h - (u.mounted ? 12 : 0) + 2;
-        if (u.state === "windup" && u.target === h && d < 60)
-            dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
+        if (focus && focus.guard && focus.state !== "windup")
+            dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
     }
-    if (focus && focus.guard && focus.state !== "windup")
-        dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
-    if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted && b.settings.dirHint !== false) {
+    if (h.mounted && !h.usingBow && (h.state === "windup" || h.couched)) { // strefa trafienia z konia
+        const side = h.couched ? 0 : (h.state === "windup" ? (h.dir === "L" ? -1 : 1) : 0), r = h.couched ? 40 : h.w.reach + 12;
+        g.fillStyle = h.couched ? PAL.redL : PAL.gold;
+        g.globalAlpha = 0.55;
+        for (let i = -4; i <= 4; i++) {
+            const a = h.face + side * 0.6 + i * (h.couched ? 0.06 : 0.2);
+            g.fillRect(Math.round(h.x - sx + Math.cos(a) * r), Math.round(h.y - sy - 14 + Math.sin(a) * r * 0.7), 1, 1);
+        }
+        g.globalAlpha = 1;
+    }
+    if (h.usingBow || b.settings.dirHint === false)
+        return;
+    const mode = b.atkMode();
+    if (mode === "keys") {
+        if (h.state !== "idle" || h.mounted)
+            return;
         const side = h.nextSide === "L" ? -1 : 1;
         const px = Math.round(h.x - sx + Math.cos(h.face + side * 1.4) * 10), py = Math.round(h.y - sy - 12 + Math.sin(h.face + side * 1.4) * 6);
         g.fillStyle = PAL.ink;
         g.fillRect(px - 1, py - 1, 3, 3);
         g.fillStyle = PAL.goldD;
         g.fillRect(px, py, 1, 1);
+        return;
     }
-    if (b.settings.gesture && !h.usingBow)
-        dirGlyph(g, h.state === "windup" ? h.dir : b.loadDir, Math.round(h.x - sx), Math.round(h.y - sy - 34), h.state === "windup" ? PAL.gold : PAL.goldD, h.state === "windup");
+    const d = h.state === "windup" ? h.dir : b.loadDir;
+    const col = h.countering || h.counterT > 0 ? PAL.redL : h.state === "windup" ? (h.hold > 0.6 ? PAL.white : PAL.gold) : PAL.goldD;
+    dirGlyph(g, d, Math.round(h.x - sx), Math.round(h.y - sy - (h.mounted ? 46 : 34)), col, h.state === "windup");
 }
 function dirGlyph(g, d, x, y, col, attack) {
     const shapes = attack ? {
@@ -8193,6 +8519,18 @@ function drawShieldAt(g, u, p, blocking, face) {
         g.fillStyle = PAL.dirtD;
         g.fillRect(sxp - 3, syp + 2, 2, 2);
     }
+    const wear = 1 - u.shieldHp / (140 + u.def.tier * 30); // pęknięcia tarczy
+    if (wear > 0.35) {
+        g.fillStyle = PAL.ink;
+        g.fillRect(sxp - 2, syp - 3, 1, 2);
+        g.fillRect(sxp - 1, syp - 1, 1, 2);
+        g.fillRect(sxp, syp + 1, 1, 2);
+    }
+    if (wear > 0.7) {
+        g.fillRect(sxp + 2, syp - 4, 1, 3);
+        g.fillRect(sxp + 1, syp - 1, 1, 1);
+        g.fillRect(sxp + 2, syp + 1, 1, 2);
+    }
     void face;
 }
 function drawBowAt(g, u, front, back, pull) {
@@ -8347,6 +8685,23 @@ function drawEngine(g, e, sx, sy, t) {
         g.fillStyle = PAL.dirtL;
         g.fillRect(x - 10, y + 4, Math.ceil(20 * k), 1);
     }
+}
+// Sylwetka sprite'a w jednym kolorze (obrys wrogów). Pamięć podręczna na klatkę.
+const SIL = new WeakMap();
+function silhouette(img, col) {
+    let c = SIL.get(img);
+    if (c)
+        return c;
+    c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const x = c.getContext("2d");
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = "source-in";
+    x.fillStyle = col;
+    x.fillRect(0, 0, c.width, c.height);
+    SIL.set(img, c);
+    return c;
 }
 
 "use strict";
@@ -11922,9 +12277,12 @@ function applyBattleResult(r, auto = false) {
         P.renown += renown;
         P.morale = clamp(P.morale + 8, 0, 100);
         lootGold = Math.round(ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03));
-        if (chance(0.35 + enemyPow * 0.01)) {
+        {
             const pool = Object.values(ITEMS).filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse");
-            lootItems.push(pick(pool).id);
+            const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0));
+            for (let i = 0; i < n; i++)
+                if (chance(0.55))
+                    lootItems.push(pick(pool).id);
         }
         if (ctx.place && ctx.place.kind === "ruins") {
             lootGold += 300;
@@ -11933,8 +12291,6 @@ function applyBattleResult(r, auto = false) {
             lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id);
         }
         P.gold += lootGold;
-        for (const it of lootItems)
-            P.items.push(it);
         // jeńcy
         for (const pr of r.prisoners)
             addTroops(p.prisoners, pr.type, pr.n);
@@ -12276,7 +12632,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, LPM: cięcie, E: z góry, Spacja: pchnięcie, PPM: blok, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, F: kopniak, R: cios z góry / kopia, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
         new: () => showCreator(),
         cont: () => loadSave(SAVE_AUTO),
@@ -13282,27 +13638,73 @@ function showLordTalk(L, back) {
     showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: `${L.title} ${L.name}`, speech: line, info, choices: ch })}</div>`, acts, "dialog-scr");
 }
 // ---------- Po bitwie ----------
+// Wykres liczebności obu stron w czasie bitwy.
+function lossChart(tl) {
+    if (!tl || tl.length < 2)
+        return "";
+    const W2 = 320, H2 = 70, T = tl[tl.length - 1].t || 1, M = Math.max(1, ...tl.map((p) => Math.max(p.a, p.b)));
+    const path = (k) => tl.map((p, i) => `${i ? "L" : "M"}${(p.t / T * W2).toFixed(1)},${(H2 - p[k] / M * (H2 - 6) - 3).toFixed(1)}`).join(" ");
+    return `<div class="chart"><svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none"><path d="${path("b")}" class="cb"/><path d="${path("a")}" class="ca"/></svg><div class="muted chl"><span class="ally">— twoi</span> <span class="foe">— wróg</span> · ${Math.round(T)} s</div></div>`;
+}
+function readyTroops() {
+    const pp = playerParty(WORLD);
+    return pp ? pp.troops.filter((t) => { const d = UNITS[t.type]; return d && d.up && d.up.length && t.xp >= (d.xp || 100 * d.tier) && t.n - t.wounded > 0; }) : [];
+}
+// Awansuj wszystkich: każdy gotowy żołnierz idzie pierwszą ścieżką, dopóki starcza złota.
+function promoteAll() {
+    const w = WORLD, P = w.player, p = playerParty(w);
+    let done = 0, cost = 0;
+    for (const t of readyTroops()) {
+        const d = UNITS[t.type], to = d.up[0], need = d.xp || 100 * d.tier, c = upCost(t.type, to);
+        let k = t.n - t.wounded;
+        while (k-- > 0 && t.xp >= need && P.gold >= c) {
+            P.gold -= c;
+            cost += c;
+            t.xp -= need;
+            removeTroops(p.troops, t.type, 1);
+            addTroops(p.troops, to, 1);
+            done++;
+            if (!p.troops.includes(t))
+                break;
+        }
+    }
+    if (done) {
+        sfx.coin();
+        toast(`Awansowano ${done} żołnierzy za ${cost} denarów.`, PAL.gold);
+    }
+    else
+        toast("Brak złota na awanse.", PAL.redL);
+    return done;
+}
 function showAftermath(r, gold, items, lines, next) {
     const w = WORLD, P = w.player;
     const cas = (list) => list.length ? `<div class="casl">${list.filter((c) => UNITS[c.type]).map((c) => `<div class="cas">${unitThumb(c.type)}<div><b>${UNITS[c.type].name}</b><br><span class="bad">${c.killed} pol.</span> <span class="muted">${c.wounded} rann.</span></div></div>`).join("")}</div>` : "<p class='muted'>Bez strat.</p>";
-    // awanse: oddziały gotowe do ulepszenia po bitwie
-    const pp = playerParty(w);
-    const ready = pp ? pp.troops.filter((t) => { const d = UNITS[t.type]; return d && d.up && d.up.length && t.xp >= (d.xp || 100 * d.tier) && t.n - t.wounded > 0; }) : [];
+    const ready = readyTroops();
     const promo = ready.length ? `<h2>${ic("star")} Gotowi do awansu</h2><div class="casl">${ready.map((t) => `<div class="cas promo">${unitThumb(t.type)}<div><b>${UNITS[t.type].name}</b><br><span class="gold">${Math.min(t.n - t.wounded, Math.floor(t.xp / (UNITS[t.type].xp || 100 * UNITS[t.type].tier)))}× → ${UNITS[t.type].up.map((u) => UNITS[u]?.name).join(" / ")}</span></div></div>`).join("")}</div>` : "";
     const kills = r.theirs.reduce((s, c) => s + c.killed, 0), lost = r.ours.reduce((s, c) => s + c.killed, 0);
     const title = r.win ? (r.heroKO ? "Zwycięstwo, choć padłeś" : "Zwycięstwo") : r.retreated ? "Odwrót" : "Klęska";
+    const best = r.best && UNITS[r.best.type] ? `<div class="cas best">${unitThumb(r.best.type)}<div><span class="muted">Najlepszy żołnierz bitwy</span><br><b>${esc(r.best.name)}</b> · ${r.best.kills} zabitych</div></div>` : "";
+    // okno łupów: zaznacz, co bierzesz; reszta zostaje na polu
+    const loot = items.length ? `<h2>${ic("coin")} Łupy</h2><p>${gold ? `${gold} denarów trafia do sakwy.` : ""}</p><div class="casl">${items.map((id, i) => { const it = ITEMS[id]; return it ? `<label class="cas loot"><input type="checkbox" class="loot" data-i="${i}" checked>${ic(SLOT_IC[it.slot] || "star")}<div>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)} · ${it.price} den.</span></div></label>` : ""; }).join("")}</div>` : gold ? `<h2>${ic("coin")} Łupy</h2><p>${gold} denarów.</p>` : "";
+    const share = gold >= 20 && r.win && !G.ctx?.arena ? `<button class="alt" data-a="share">Podziel łupy z ludźmi (−${Math.round(gold * 0.3)} den., +morale)</button>` : "";
+    const take = () => { document.querySelectorAll("#ui input.loot").forEach((c) => { if (c.checked)
+        P.items.push(items[Number(c.dataset.i)]); }); items = []; };
     showScr(`<div class="card frame after">
     <h1 class="${r.win ? "gold" : "bad"}">${title}</h1>
     <div class="astats"><div>${ic("skull")}<b>${kills}</b><span>wrogów poległo</span></div><div>${ic("sword")}<b>${r.heroKills}</b><span>twoje zabójstwa</span></div><div>${ic("drop")}<b>${lost}</b><span>twoich poległych</span></div><div>${ic("sun")}<b>${Math.round(r.time)} s</b><span>czas bitwy</span></div></div>
+    <div class="cols"><div>${lossChart(r.timeline || [])}</div><div>${best}</div></div>
     <div class="cols"><div><h2>Twoje straty</h2>${cas(r.ours)}${r.allies.length ? `<h2>Sojusznicy</h2>${cas(r.allies)}` : ""}</div>
     <div><h2>Straty wroga</h2>${cas(r.theirs)}</div></div>
-    ${gold || items.length ? `<h2>Łupy</h2><p>${gold ? `${gold} denarów` : ""}${items.length ? `${gold ? " · " : ""}${items.map((i) => ITEMS[i].name).join(", ")}` : ""}</p>` : ""}
-    ${r.prisoners.length ? `<p>Jeńcy: ${r.prisoners.map((p) => `${p.n}× ${UNITS[p.type].name}`).join(", ")}</p>` : ""}
+    ${loot}
+    ${r.prisoners.length ? `<p>${ic("chain")} Jeńcy: ${r.prisoners.map((p) => `${p.n}× ${UNITS[p.type].name}`).join(", ")}</p>` : ""}
     ${promo}
-    ${lines.map((l) => `<p>${l}</p>`).join("")}
-    <div class="btns"><button data-a="next">Dalej</button>${ready.length ? `<button class="alt" data-a="army">Armia (awanse)</button>` : ""}</div></div>`, {
-        army: () => { closeScreen(); G.state = "map"; showMapHud(); showParty(); },
+    ${lines.map((l) => `<p class="${/relac|\+\d|−\d|-\d/.test(l) ? "rel" : ""}">${l}</p>`).join("")}
+    <div class="btns"><button data-a="next">Dalej</button>${ready.length ? `<button class="alt" data-a="promo">Awansuj wszystkich</button><button class="alt" data-a="army">Armia</button>` : ""}${share}</div></div>`, {
+        army: () => { take(); closeScreen(); G.state = "map"; showMapHud(); showParty(); },
+        promo: () => { take(); promoteAll(); showAftermath(r, gold, [], lines, next); },
+        share: () => { take(); const g2 = Math.round(gold * 0.3); P.gold -= g2; P.morale = Math.min(100, P.morale + 10 + Math.round(g2 / 20)); toast(`Ludzie dostają ${g2} denarów. Morale rośnie.`, PAL.gold); showAftermath(r, 0, [], lines.concat([`Podzieliłeś łupy: −${g2} denarów, morale w górę.`]), next); },
         next: () => {
+            take();
             closeScreen();
             G.state = "map";
             showMapHud();
@@ -13578,7 +13980,7 @@ function showSettings(back) {
     if (SETT.tab === "map")
         body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
     if (SETT.tab === "battle")
-        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik strony następnego cięcia") + chk("gesture", "Kierunek ciosu ruchem myszy", "stare sterowanie") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
     if (SETT.tab === "sound")
         body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
     if (SETT.tab === "view")
@@ -13600,7 +14002,7 @@ function showSettings(back) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
         tab: (v) => { SETT.tab = v; showSettings(back); },
-        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
         "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
@@ -13612,14 +14014,14 @@ function showSettings(back) {
         "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e)
             e.textContent = Math.round(Number(v) * 100) + "%"; },
         fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
-        reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
+        reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
         back: () => back(),
     }, "set-scr");
 }
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.8";
+const BUILD = "Build 0.9";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -13631,13 +14033,21 @@ const sfx = new Sfx();
 buildSprites();
 const settings = {
     damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
-    musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true,
+    musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
     questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
+    atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
     const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
-    if (s)
+    if (s) {
         Object.assign(settings, s);
+        if (!s.ver || s.ver < 9) {
+            settings.tells = false;
+            settings.atkMode = s.gesture ? "screen" : "mouse";
+            settings.dmgHeroOnly = true;
+        }
+    }
+    settings.ver = 9;
 }
 catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try {
@@ -13727,11 +14137,18 @@ function drawMini(b) {
         cv.height = Hc;
     }
     const g = cv.getContext("2d"), k = Wc / M.w;
-    g.fillStyle = "#1d2116";
-    g.fillRect(0, 0, Wc, Hc);
+    g.clearRect(0, 0, Wc, Hc);
+    // teren: pomniejszony obraz pola bitwy (las, wzgórza, rzeka) + przeszkody
+    if (M.ground) {
+        g.globalAlpha = big ? 0.95 : 0.7;
+        g.imageSmoothingEnabled = true;
+        g.drawImage(M.ground, 0, 0, M.w, M.h, 0, 0, Wc, Hc);
+        g.globalAlpha = 1;
+    }
     for (const o of M.obstacles || []) {
-        g.fillStyle = o.cover ? "#4a3d2c" : "#2c3b22";
-        g.fillRect(o.x * k - 1, o.y * k - 1, Math.max(2, (o.r || 4) * k * 2), Math.max(2, (o.r || 4) * k * 2));
+        g.fillStyle = o.cover ? "rgba(90,74,52,.8)" : "rgba(20,32,16,.8)";
+        const r2 = Math.max(1.5, (o.r || 4) * k);
+        g.fillRect(o.x * k - r2 / 2, o.y * k - r2, r2, r2);
     }
     if (M.wall) {
         g.fillStyle = "#8a8070";
@@ -13783,7 +14200,8 @@ function battleHud(dt) {
         $("hero-name").textContent = h.name || "Bohater";
         $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
         const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
-        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : settings.gesture ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint : "");
+        const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
+        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
         // zasoby: tylko te, których używają umiejętności
         const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
         $("res").innerHTML = ["faith", "mana", "fury"].filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round(H2[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp(H2[r], 0, 100)}%"></i></div>`).join("")
@@ -13856,6 +14274,24 @@ function renderCmd() {
         + (b.cmdLevel !== "groups" ? `<button data-n="0"><span class="key">0</span>Wstecz</button>` : "")
         + `<div class="foot">${foot}</div>`;
 }
+// mapa taktyczna: klik = oddziały idą w to miejsce, PPM = szarża
+$("mini").addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const b = G.battle;
+    if (!b || !b.cmdOpen)
+        return;
+    const r = e.target.getBoundingClientRect();
+    const wx = (e.clientX - r.left) / r.width * b.map.w, wy = (e.clientY - r.top) / r.height * b.map.h;
+    if (!b.selected.length)
+        b.selected = b.liveSquads();
+    if (e.button === 2)
+        b.orderMode(b.selected, "charge");
+    else
+        b.orderHere(b.selected, wx, wy);
+    b.sfx.ui();
+});
+$("mini").addEventListener("contextmenu", (e) => e.preventDefault());
 $("cmd").addEventListener("mousedown", (e) => {
     e.stopPropagation();
     const bt = e.target.closest("button");

@@ -75,6 +75,7 @@ class Input {
     canvas.addEventListener("wheel", (e) => { e.preventDefault(); this.wheel += Math.sign(e.deltaY); }, { passive: false });
     canvas.addEventListener("mousedown", (e) => {
       if (e.button > 2) return;
+      if (e.button === 1) e.preventDefault();
       this.down[e.button] = true; this.mPressed[e.button] = true;
     });
     addEventListener("mouseup", (e) => {

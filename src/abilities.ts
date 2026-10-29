@@ -31,6 +31,11 @@ function castHeroAbility(b: Battle, slot: number) {
   const wx = b.cam.x + b.input.mx, wy = b.cam.y + b.input.my;
   const s = b.vol(h.x);
   b.lastAbility = id;
+  // wyraźniejsza oprawa: błysk ekranu w barwie zasobu, pierścień mocy wokół bohatera
+  const fcol = A.res === "faith" ? PAL.gold : A.res === "mana" ? PAL.purpleL : A.res === "fury" ? PAL.redL : PAL.bloodL;
+  b.castFlash = { col: fcol, t: 0.25 };
+  for (let i = 0; i < 26; i++) { const a2 = (i / 26) * Math.PI * 2; b.parts.push({ x: h.x + Math.cos(a2) * 6, y: h.y + Math.sin(a2) * 4, z: rr(2, 20), vx: Math.cos(a2) * rr(30, 60), vy: Math.sin(a2) * rr(18, 36), vz: rr(10, 40), life: 0.6, max: 0.6, col: fcol, kind: "fire" }); }
+  b.parts.push({ x: h.x, y: h.y, z: 2, vx: 11, vy: 0, vz: 0, life: 0.55, max: 0.55, col: fcol, kind: "ring" });
   b.shout(A.name, A.res === "faith" ? PAL.gold : A.res === "mana" ? PAL.purpleL : PAL.redL);
   switch (id) {
     case "smite": {

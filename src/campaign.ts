@@ -364,10 +364,9 @@ function applyBattleResult(r: BattleResult, auto = false) {
     P.renown += renown;
     P.morale = clamp(P.morale + 8, 0, 100);
     lootGold = Math.round(ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03));
-    if (chance(0.35 + enemyPow * 0.01)) { const pool = Object.values(ITEMS).filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); lootItems.push(pick(pool).id); }
+    { const pool = Object.values(ITEMS).filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) lootItems.push(pick(pool).id); }
     if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id); }
     P.gold += lootGold;
-    for (const it of lootItems) P.items.push(it);
     // jeńcy
     for (const pr of r.prisoners) addTroops(p.prisoners, pr.type, pr.n);
     // usunięcie rozbitych oddziałów i pojmani lordowie

@@ -136,12 +136,12 @@ class Sfx {
   hit(v = 1, pan = 0, type: DmgType = "cut", heavy = false) {
     if (!this.ok("hit", 25)) return;
     const o = this.out(pan, 0.22);
-    const k = heavy ? 1.35 : 1;
-    this.tone(o, 95 * (heavy ? 0.8 : 1), 38, heavy ? 0.32 : 0.2, "sine", 0.95 * v * k);          // uderzenie w dół
-    this.tone(o, 240, 90, 0.07, "triangle", 0.35 * v);                                          // stuk
-    this.noise(o, 0.12, 1600, 350, 0.9, 0.55 * v * k, "lowpass");                               // mięso
-    if (type === "cut") this.noise(o, 0.06, 3800, 2200, 2.5, 0.28 * v, "bandpass");             // cięcie
-    if (type === "pierce") this.noise(o, 0.05, 2600, 900, 3, 0.25 * v, "bandpass");
+    const k = heavy ? 1.5 : 1.15, p = rr(0.82, 1.2);   // każdy cios brzmi trochę inaczej
+    this.tone(o, 95 * (heavy ? 0.8 : 1) * p, 38 * p, heavy ? 0.34 : 0.2, "sine", 0.95 * v * k);   // uderzenie w dół
+    this.tone(o, 240 * p, 90 * p, 0.07, "triangle", 0.4 * v);                                    // stuk
+    this.noise(o, 0.12 * rr(0.8, 1.3), 1600 * p, 350, 0.9, 0.6 * v * k, "lowpass");              // mięso
+    if (type === "cut") this.noise(o, 0.06, 3800 * p, 2200, 2.5, 0.32 * v, "bandpass");          // cięcie
+    if (type === "pierce") this.noise(o, 0.05, 2600 * p, 900, 3, 0.3 * v, "bandpass");
     if (type === "blunt" || heavy) this.crunch(o, heavy ? 0.22 : 0.14, 0.4 * v, 700);
   }
   bone(v = 1, pan = 0, heavy = false) {

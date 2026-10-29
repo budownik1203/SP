@@ -60,6 +60,12 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
     g.globalAlpha = 1;
   } });
   for (const u of b.units) if (u.alive && vis(u.x, u.y) && !(u.hidden && u.team === 1)) list.push({ y: u.y, draw: () => drawUnit(b, g, u, sx, sy) });
+  for (const lh of b.looseHorses) if (vis(lh.x, lh.y)) list.push({ y: lh.y, draw: () => {
+    const [hd, hflip] = b.dirIndex(lh.heading); const im = lh.horse.frames[hd][0];
+    const hx = Math.round(lh.x - sx - im.width / 2), hy = Math.round(lh.y - sy - im.height + 2 + (Math.floor(b.real * 1.5 + lh.x) % 2));
+    if (hflip) { g.save(); g.translate(hx + im.width, hy); g.scale(-1, 1); g.drawImage(im, 0, 0); g.restore(); } else g.drawImage(im, hx, hy);
+    const h = b.hero; if (h && h.active && !h.mounted && dist(h.x, h.y, lh.x, lh.y) < 22) pxSmall(g, "E WSIADAJ", Math.round(lh.x - sx), hy - 4, PAL.gold);
+  } });
   for (const e of b.engines) if (e.x > -500 && vis(e.x, e.y, 80)) list.push({ y: e.y + 6, draw: () => drawEngine(g, e, sx, sy, b.real) });
   list.sort((a, c) => a.y - c.y);
   for (const d of list) d.draw();
@@ -126,6 +132,24 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
   g.globalAlpha = 1;
 
   drawTells(b, g, sx, sy);
+  // strzałki przy krawędzi: oddziały wroga poza ekranem
+  if (b.heroUp && b.phase === "fight" && !b.cmdOpen) {
+    const seen = new Set<number>();
+    for (const u of b.units) {
+      if (u.team !== 1 || !u.active || u.hidden || seen.has(u.squad)) continue;
+      const L = b.units.filter((v) => v.team === 1 && v.active && !v.hidden && v.squad === u.squad);
+      seen.add(u.squad);
+      const cx = L.reduce((s2, v) => s2 + v.x, 0) / L.length - sx, cy = L.reduce((s2, v) => s2 + v.y, 0) / L.length - sy;
+      if (cx > 0 && cx < W && cy > 0 && cy < H) continue;
+      const a = Math.atan2(cy - H / 2, cx - W / 2), m = 10;
+      const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 8, H - m);
+      g.globalAlpha = 0.85;
+      for (let i = 0; i < 5; i++) for (let j = -i; j <= i; j++) { const px = ex + Math.cos(a) * (4 - i) * 1.2 - Math.sin(a) * j * 0.9, py = ey + Math.sin(a) * (4 - i) * 1.2 + Math.cos(a) * j * 0.9; g.fillStyle = i === 4 || Math.abs(j) === i ? PAL.ink : PAL.redL; g.fillRect(Math.round(px), Math.round(py), 1, 1); }
+      g.globalAlpha = 1;
+      pxSmall(g, String(L.length), Math.round(ex - Math.cos(a) * 9), Math.round(ey - Math.sin(a) * 9) + 2, PAL.bone);
+    }
+  }
+  if (b.castFlash && b.castFlash.t > 0) { b.castFlash.t -= 1 / 60; g.globalAlpha = clamp(b.castFlash.t, 0, 0.25); g.fillStyle = b.castFlash.col; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   for (const f of b.floaters) { g.globalAlpha = clamp(f.t * 2, 0, 1); pxText(g, f.text, Math.round(f.x - sx - textW(f.text) / 2), Math.round(f.y - sy), f.col); }
   g.globalAlpha = 1;
 
@@ -273,12 +297,16 @@ function drawCorpse(g: CanvasRenderingContext2D, c: Corpse, sx: number, sy: numb
     return;
   }
   const e = 1 - Math.pow(1 - c.t, 3);
-  const ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12);
+  const k = c.kind;
+  let ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12), sq = 1;
+  if (k === "blunt") { sq = 1 - Math.min(1, c.t * 2) * 0.35; ang = c.rot * (Math.PI / 2) * Math.max(0, c.t * 1.6 - 0.6); }   // osuwa się w miejscu
+  else if (k === "cut") ang += c.rot * Math.sin(Math.min(1, c.t * 1.5) * Math.PI) * 0.45;                                  // obrót po cięciu
+  const ox = (c.dx || 0) * e, oy = (c.dy || 0) * e;
   g.save();
-  g.translate(Math.round(c.x - sx), Math.round(c.y - sy - 1));
+  g.translate(Math.round(c.x - sx + ox), Math.round(c.y - sy - 1 + oy));
   g.rotate(ang);
   if (c.flip) g.scale(-1, 1);
-  g.drawImage(img, -Math.round(img.width / 2), -img.height + 4);
+  g.drawImage(img, -Math.round(img.width / 2), -Math.round((img.height - 4) * sq), img.width, Math.round(img.height * sq));
   g.restore();
 }
 
@@ -368,9 +396,15 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     if (flip) { g.save(); g.translate(ix + im.width, iy); g.scale(-1, 1); g.drawImage(im, 0, 0, im.width, srcH, 0, 0, im.width, srcH); g.restore(); }
     else g.drawImage(im, 0, 0, im.width, srcH, ix, iy, im.width, srcH);
   };
+  if (u.team === 1 && b.settings.outline !== false && !u.hidden && b.hero && dist(u.x, u.y, b.hero.x, b.hero.y) < 160) {   // obrys wroga
+    const sil = silhouette(img, "#b8322a");
+    g.globalAlpha = alpha * 0.55;
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1]]) { if (flip) { g.save(); g.translate(ix + ox + sil.width, iy + oy); g.scale(-1, 1); g.drawImage(sil, 0, 0, sil.width, srcH, 0, 0, sil.width, srcH); g.restore(); } else g.drawImage(sil, 0, 0, sil.width, srcH, ix + ox, iy + oy, sil.width, srcH); }
+    g.globalAlpha = alpha;
+  }
   draw(img);
-  if (!u.def.undead && u.hp < u.maxHp) {   // rany na ciele
-    const n = Math.floor((1 - u.hp / u.maxHp) * 8);
+  if (!u.def.undead && (u.hp < u.maxHp || u.gore > 0)) {   // rany i krew na ciele
+    const n = Math.floor(Math.max(1 - u.hp / u.maxHp, u.gore) * 14);
     g.fillStyle = PAL.blood;
     for (let i = 0; i < n; i++) { const hs = hashInt(u.id * 13 + i); g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >>> 4) % 8), 1, (hs >>> 8) % 3 === 0 ? 2 : 1); }
   }
@@ -388,11 +422,15 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     g.fillStyle = PAL.redL; g.fillRect(tx - 1, ty - 2, 3, 2);
     g.fillStyle = PAL.gold; g.fillRect(tx, ty - 3 - (Math.floor(b.real * 10 + u.id) % 2), 1, 2);
   }
-  if (u.officer && u.team === 0) {   // proporzec na plecach
-    const px = ix + (flip ? 15 : 8), py = iy - 4;
-    g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 13);
-    g.fillStyle = PAL.wood; g.fillRect(px, py, 1, 12);
-    g.fillStyle = SQUAD_COLORS[u.squad] || PAL.bone; g.fillRect(px + (flip ? -5 : 1), py, 5, 3); g.fillRect(px + (flip ? -4 : 1), py + 3, 3, 1);
+  if (u.officer || u.bearer) {   // proporzec na plecach: twoje oddziały z numerem, wróg w barwach
+    const px = ix + (flip ? 15 : 8), py = iy - 8;
+    g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 17);
+    g.fillStyle = PAL.wood; g.fillRect(px, py, 1, 16);
+    const fx = px + (flip ? -8 : 1);
+    g.fillStyle = PAL.ink; g.fillRect(fx - 1, py - 1, 10, 8);
+    g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
+    g.fillRect(fx, py, 8, 6); g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
+    if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
   }
   if (u.fleeing) {   // biała flaga nad uciekającym
     const px = bx, py = iy - 8;
@@ -510,23 +548,37 @@ function drawGear(b: Battle, g: CanvasRenderingContext2D, u: Unit, hand: V, wa: 
 // Tylko ciosy wymierzone w bohatera i garda przeciwnika, na którego patrzysz.
 function drawTells(b: Battle, g: CanvasRenderingContext2D, sx: number, sy: number) {
   const h = b.hero;
-  if (!h || !h.active || b.cmdOpen || b.settings.tells === false) return;
-  let focus: Unit | null = null, fd = 1e9;
-  for (const u of b.units) {
-    if (!u.active || u.team === 0 || u.hidden) continue;
-    const d = dist(u.x, u.y, h.x, h.y);
-    if (d < 44 && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) < 0.8 && d < fd) { fd = d; focus = u; }
-    const top = u.y - sy - u.spr.h - (u.mounted ? 12 : 0) + 2;
-    if (u.state === "windup" && u.target === h && d < 60) dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
+  if (!h || !h.active || b.cmdOpen) return;
+  if (b.settings.tells === true) {
+    let focus: Unit | null = null, fd = 1e9;
+    for (const u of b.units) {
+      if (!u.active || u.team === 0 || u.hidden) continue;
+      const d = dist(u.x, u.y, h.x, h.y);
+      if (d < 44 && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) < 0.8 && d < fd) { fd = d; focus = u; }
+      const top = u.y - sy - u.spr.h - (u.mounted ? 12 : 0) + 2;
+      if (u.state === "windup" && u.target === h && d < 60) dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
+    }
+    if (focus && focus.guard && focus.state !== "windup") dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
   }
-  if (focus && focus.guard && focus.state !== "windup") dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
-  if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted && b.settings.dirHint !== false) {
+  if (h.mounted && !h.usingBow && (h.state === "windup" || h.couched)) {   // strefa trafienia z konia
+    const side = h.couched ? 0 : (h.state === "windup" ? (h.dir === "L" ? -1 : 1) : 0), r = h.couched ? 40 : h.w.reach + 12;
+    g.fillStyle = h.couched ? PAL.redL : PAL.gold; g.globalAlpha = 0.55;
+    for (let i = -4; i <= 4; i++) { const a = h.face + side * 0.6 + i * (h.couched ? 0.06 : 0.2); g.fillRect(Math.round(h.x - sx + Math.cos(a) * r), Math.round(h.y - sy - 14 + Math.sin(a) * r * 0.7), 1, 1); }
+    g.globalAlpha = 1;
+  }
+  if (h.usingBow || b.settings.dirHint === false) return;
+  const mode = b.atkMode();
+  if (mode === "keys") {
+    if (h.state !== "idle" || h.mounted) return;
     const side = h.nextSide === "L" ? -1 : 1;
     const px = Math.round(h.x - sx + Math.cos(h.face + side * 1.4) * 10), py = Math.round(h.y - sy - 12 + Math.sin(h.face + side * 1.4) * 6);
     g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 3);
     g.fillStyle = PAL.goldD; g.fillRect(px, py, 1, 1);
+    return;
   }
-  if (b.settings.gesture && !h.usingBow) dirGlyph(g, h.state === "windup" ? h.dir : b.loadDir, Math.round(h.x - sx), Math.round(h.y - sy - 34), h.state === "windup" ? PAL.gold : PAL.goldD, h.state === "windup");
+  const d = h.state === "windup" ? h.dir : b.loadDir;
+  const col = h.countering || h.counterT > 0 ? PAL.redL : h.state === "windup" ? (h.hold > 0.6 ? PAL.white : PAL.gold) : PAL.goldD;
+  dirGlyph(g, d, Math.round(h.x - sx), Math.round(h.y - sy - (h.mounted ? 46 : 34)), col, h.state === "windup");
 }
 
 function dirGlyph(g: CanvasRenderingContext2D, d: Dir, x: number, y: number, col: string, attack: boolean) {
@@ -696,6 +748,9 @@ function drawShieldAt(g: CanvasRenderingContext2D, u: Unit, p: V, blocking: bool
   g.fillStyle = trim; g.fillRect(sxp, syp - 3, 1, 6); g.fillRect(sxp - 2, syp - 1, 5, 1);
   g.fillStyle = PAL.steelL; g.fillRect(sxp, syp - 1, 1, 1);
   if (hashInt(u.id) % 3 === 0) { g.fillStyle = PAL.dirtD; g.fillRect(sxp - 3, syp + 2, 2, 2); }
+  const wear = 1 - u.shieldHp / (140 + u.def.tier * 30);   // pęknięcia tarczy
+  if (wear > 0.35) { g.fillStyle = PAL.ink; g.fillRect(sxp - 2, syp - 3, 1, 2); g.fillRect(sxp - 1, syp - 1, 1, 2); g.fillRect(sxp, syp + 1, 1, 2); }
+  if (wear > 0.7) { g.fillRect(sxp + 2, syp - 4, 1, 3); g.fillRect(sxp + 1, syp - 1, 1, 1); g.fillRect(sxp + 2, syp + 1, 1, 2); }
   void face;
 }
 function drawBowAt(g: CanvasRenderingContext2D, u: Unit, front: V, back: V, pull: number) {
@@ -781,4 +836,14 @@ function drawEngine(g: CanvasRenderingContext2D, e: SiegeEngine, sx: number, sy:
     g.fillStyle = PAL.black; g.fillRect(x - 2, y - 40, 5, 6);
   }
   if (e.hp < e.max) { const k = clamp(e.hp / e.max, 0, 1); g.fillStyle = PAL.ink; g.fillRect(x - 11, y + 3, 22, 3); g.fillStyle = PAL.dirtL; g.fillRect(x - 10, y + 4, Math.ceil(20 * k), 1); }
+}
+
+// Sylwetka sprite'a w jednym kolorze (obrys wrogów). Pamięć podręczna na klatkę.
+const SIL = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+function silhouette(img: HTMLCanvasElement, col: string) {
+  let c = SIL.get(img);
+  if (c) return c;
+  c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+  const x = c.getContext("2d"); x.drawImage(img, 0, 0); x.globalCompositeOperation = "source-in"; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height);
+  SIL.set(img, c); return c;
 }

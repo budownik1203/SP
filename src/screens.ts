@@ -56,7 +56,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, LPM: cięcie, E: z góry, Spacja: pchnięcie, PPM: blok, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, F: kopniak, R: cios z góry / kopia, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
     new: () => showCreator(),
     cont: () => loadSave(SAVE_AUTO),
@@ -809,27 +809,57 @@ function showLordTalk(L: Lord, back: () => void) {
 }
 
 // ---------- Po bitwie ----------
+// Wykres liczebności obu stron w czasie bitwy.
+function lossChart(tl: { t: number; a: number; b: number }[]) {
+  if (!tl || tl.length < 2) return "";
+  const W2 = 320, H2 = 70, T = tl[tl.length - 1].t || 1, M = Math.max(1, ...tl.map((p) => Math.max(p.a, p.b)));
+  const path = (k: "a" | "b") => tl.map((p, i) => `${i ? "L" : "M"}${(p.t / T * W2).toFixed(1)},${(H2 - p[k] / M * (H2 - 6) - 3).toFixed(1)}`).join(" ");
+  return `<div class="chart"><svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none"><path d="${path("b")}" class="cb"/><path d="${path("a")}" class="ca"/></svg><div class="muted chl"><span class="ally">— twoi</span> <span class="foe">— wróg</span> · ${Math.round(T)} s</div></div>`;
+}
+function readyTroops() {
+  const pp = playerParty(WORLD);
+  return pp ? pp.troops.filter((t) => { const d = UNITS[t.type]; return d && d.up && d.up.length && t.xp >= (d.xp || 100 * d.tier) && t.n - t.wounded > 0; }) : [];
+}
+// Awansuj wszystkich: każdy gotowy żołnierz idzie pierwszą ścieżką, dopóki starcza złota.
+function promoteAll() {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  let done = 0, cost = 0;
+  for (const t of readyTroops()) {
+    const d = UNITS[t.type], to = d.up[0], need = d.xp || 100 * d.tier, c = upCost(t.type, to);
+    let k = t.n - t.wounded;
+    while (k-- > 0 && t.xp >= need && P.gold >= c) { P.gold -= c; cost += c; t.xp -= need; removeTroops(p.troops, t.type, 1); addTroops(p.troops, to, 1); done++; if (!p.troops.includes(t)) break; }
+  }
+  if (done) { sfx.coin(); toast(`Awansowano ${done} żołnierzy za ${cost} denarów.`, PAL.gold); } else toast("Brak złota na awanse.", PAL.redL);
+  return done;
+}
 function showAftermath(r: BattleResult, gold: number, items: string[], lines: string[], next?: () => void) {
   const w = WORLD, P = w.player;
   const cas = (list: Casualty[]) => list.length ? `<div class="casl">${list.filter((c) => UNITS[c.type]).map((c) => `<div class="cas">${unitThumb(c.type)}<div><b>${UNITS[c.type].name}</b><br><span class="bad">${c.killed} pol.</span> <span class="muted">${c.wounded} rann.</span></div></div>`).join("")}</div>` : "<p class='muted'>Bez strat.</p>";
-  // awanse: oddziały gotowe do ulepszenia po bitwie
-  const pp = playerParty(w);
-  const ready = pp ? pp.troops.filter((t) => { const d = UNITS[t.type]; return d && d.up && d.up.length && t.xp >= (d.xp || 100 * d.tier) && t.n - t.wounded > 0; }) : [];
+  const ready = readyTroops();
   const promo = ready.length ? `<h2>${ic("star")} Gotowi do awansu</h2><div class="casl">${ready.map((t) => `<div class="cas promo">${unitThumb(t.type)}<div><b>${UNITS[t.type].name}</b><br><span class="gold">${Math.min(t.n - t.wounded, Math.floor(t.xp / (UNITS[t.type].xp || 100 * UNITS[t.type].tier)))}× → ${UNITS[t.type].up.map((u) => UNITS[u]?.name).join(" / ")}</span></div></div>`).join("")}</div>` : "";
   const kills = r.theirs.reduce((s, c) => s + c.killed, 0), lost = r.ours.reduce((s, c) => s + c.killed, 0);
   const title = r.win ? (r.heroKO ? "Zwycięstwo, choć padłeś" : "Zwycięstwo") : r.retreated ? "Odwrót" : "Klęska";
+  const best = r.best && UNITS[r.best.type] ? `<div class="cas best">${unitThumb(r.best.type)}<div><span class="muted">Najlepszy żołnierz bitwy</span><br><b>${esc(r.best.name)}</b> · ${r.best.kills} zabitych</div></div>` : "";
+  // okno łupów: zaznacz, co bierzesz; reszta zostaje na polu
+  const loot = items.length ? `<h2>${ic("coin")} Łupy</h2><p>${gold ? `${gold} denarów trafia do sakwy.` : ""}</p><div class="casl">${items.map((id, i) => { const it = ITEMS[id]; return it ? `<label class="cas loot"><input type="checkbox" class="loot" data-i="${i}" checked>${ic(SLOT_IC[it.slot] || "star")}<div>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)} · ${it.price} den.</span></div></label>` : ""; }).join("")}</div>` : gold ? `<h2>${ic("coin")} Łupy</h2><p>${gold} denarów.</p>` : "";
+  const share = gold >= 20 && r.win && !G.ctx?.arena ? `<button class="alt" data-a="share">Podziel łupy z ludźmi (−${Math.round(gold * 0.3)} den., +morale)</button>` : "";
+  const take = () => { document.querySelectorAll<HTMLInputElement>("#ui input.loot").forEach((c) => { if (c.checked) P.items.push(items[Number(c.dataset.i)]); }); items = []; };
   showScr(`<div class="card frame after">
     <h1 class="${r.win ? "gold" : "bad"}">${title}</h1>
     <div class="astats"><div>${ic("skull")}<b>${kills}</b><span>wrogów poległo</span></div><div>${ic("sword")}<b>${r.heroKills}</b><span>twoje zabójstwa</span></div><div>${ic("drop")}<b>${lost}</b><span>twoich poległych</span></div><div>${ic("sun")}<b>${Math.round(r.time)} s</b><span>czas bitwy</span></div></div>
+    <div class="cols"><div>${lossChart(r.timeline || [])}</div><div>${best}</div></div>
     <div class="cols"><div><h2>Twoje straty</h2>${cas(r.ours)}${r.allies.length ? `<h2>Sojusznicy</h2>${cas(r.allies)}` : ""}</div>
     <div><h2>Straty wroga</h2>${cas(r.theirs)}</div></div>
-    ${gold || items.length ? `<h2>Łupy</h2><p>${gold ? `${gold} denarów` : ""}${items.length ? `${gold ? " · " : ""}${items.map((i) => ITEMS[i].name).join(", ")}` : ""}</p>` : ""}
-    ${r.prisoners.length ? `<p>Jeńcy: ${r.prisoners.map((p) => `${p.n}× ${UNITS[p.type].name}`).join(", ")}</p>` : ""}
+    ${loot}
+    ${r.prisoners.length ? `<p>${ic("chain")} Jeńcy: ${r.prisoners.map((p) => `${p.n}× ${UNITS[p.type].name}`).join(", ")}</p>` : ""}
     ${promo}
-    ${lines.map((l) => `<p>${l}</p>`).join("")}
-    <div class="btns"><button data-a="next">Dalej</button>${ready.length ? `<button class="alt" data-a="army">Armia (awanse)</button>` : ""}</div></div>`, {
-    army: () => { closeScreen(); G.state = "map"; showMapHud(); showParty(); },
+    ${lines.map((l) => `<p class="${/relac|\+\d|−\d|-\d/.test(l) ? "rel" : ""}">${l}</p>`).join("")}
+    <div class="btns"><button data-a="next">Dalej</button>${ready.length ? `<button class="alt" data-a="promo">Awansuj wszystkich</button><button class="alt" data-a="army">Armia</button>` : ""}${share}</div></div>`, {
+    army: () => { take(); closeScreen(); G.state = "map"; showMapHud(); showParty(); },
+    promo: () => { take(); promoteAll(); showAftermath(r, gold, [], lines, next); },
+    share: () => { take(); const g2 = Math.round(gold * 0.3); P.gold -= g2; P.morale = Math.min(100, P.morale + 10 + Math.round(g2 / 20)); toast(`Ludzie dostają ${g2} denarów. Morale rośnie.`, PAL.gold); showAftermath(r, 0, [], lines.concat([`Podzieliłeś łupy: −${g2} denarów, morale w górę.`]), next); },
     next: () => {
+      take();
       closeScreen();
       G.state = "map";
       showMapHud(); refreshMapHud();
@@ -1036,7 +1066,7 @@ function showSettings(back: () => void) {
   let body = "";
   if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
   if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
-  if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik strony następnego cięcia") + chk("gesture", "Kierunek ciosu ruchem myszy", "stare sterowanie") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+  if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
   if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
   if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
   const apply = (k: string, val: any) => {
@@ -1052,7 +1082,7 @@ function showSettings(back: () => void) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
     tab: (v) => { SETT.tab = v; showSettings(back); },
-    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
     "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
     "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
     "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
@@ -1060,7 +1090,7 @@ function showSettings(back: () => void) {
     "r:volume": (v) => { apply("volume", Number(v)); const e = document.getElementById("rv-volume"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
-    reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
+    reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
     back: () => back(),
   }, "set-scr");
 }

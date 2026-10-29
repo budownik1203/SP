@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.8";
+const BUILD = "Build 0.9";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -14,12 +14,14 @@ buildSprites();
 
 const settings: Settings = {
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
-  musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true,
+  musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
+  atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
-  if (s) Object.assign(settings, s);
+  if (s) { Object.assign(settings, s); if (!s.ver || s.ver < 9) { settings.tells = false; settings.atkMode = s.gesture ? "screen" : "mouse"; settings.dmgHeroOnly = true; } }
+  (settings as any).ver = 9;
 } catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try { localStorage.setItem("sztandary-settings", JSON.stringify(settings)); } catch (e) { /* ignoruj */ } }
 sfx.volume = settings.volume;
@@ -82,8 +84,10 @@ function drawMini(b: Battle) {
   const M = b.map, Wc = big ? 240 : 96, Hc = Math.round(Wc * M.h / M.w);
   if (cv.width !== Wc || cv.height !== Hc) { cv.width = Wc; cv.height = Hc; }
   const g = cv.getContext("2d"), k = Wc / M.w;
-  g.fillStyle = "#1d2116"; g.fillRect(0, 0, Wc, Hc);
-  for (const o of M.obstacles || []) { g.fillStyle = (o as any).cover ? "#4a3d2c" : "#2c3b22"; g.fillRect(o.x * k - 1, o.y * k - 1, Math.max(2, ((o as any).r || 4) * k * 2), Math.max(2, ((o as any).r || 4) * k * 2)); }
+  g.clearRect(0, 0, Wc, Hc);
+  // teren: pomniejszony obraz pola bitwy (las, wzgórza, rzeka) + przeszkody
+  if (M.ground) { g.globalAlpha = big ? 0.95 : 0.7; g.imageSmoothingEnabled = true; g.drawImage(M.ground, 0, 0, M.w, M.h, 0, 0, Wc, Hc); g.globalAlpha = 1; }
+  for (const o of M.obstacles || []) { g.fillStyle = (o as any).cover ? "rgba(90,74,52,.8)" : "rgba(20,32,16,.8)"; const r2 = Math.max(1.5, ((o as any).r || 4) * k); g.fillRect(o.x * k - r2 / 2, o.y * k - r2, r2, r2); }
   if (M.wall) { g.fillStyle = "#8a8070"; g.fillRect(M.wall.x0 * k, 0, Math.max(2, (M.wall.x1 - M.wall.x0) * k), Hc); }
   for (const u of b.units) {
     if (!u.active || (u.team === 1 && (u.hidden || (b.hero && !b.isVisibleTo(u, b.hero))))) continue;
@@ -118,7 +122,8 @@ function battleHud(dt: number) {
     $("hero-name").textContent = h.name || "Bohater";
     $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
     const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
-    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : settings.gesture ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint : "");
+    const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
+    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
     // zasoby: tylko te, których używają umiejętności
     const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
     $("res").innerHTML = (["faith", "mana", "fury"] as Res[]).filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round((H2 as any)[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp((H2 as any)[r], 0, 100)}%"></i></div>`).join("")
@@ -177,6 +182,17 @@ function renderCmd() {
     + (b.cmdLevel !== "groups" ? `<button data-n="0"><span class="key">0</span>Wstecz</button>` : "")
     + `<div class="foot">${foot}</div>`;
 }
+// mapa taktyczna: klik = oddziały idą w to miejsce, PPM = szarża
+$("mini").addEventListener("mousedown", (e) => {
+  e.stopPropagation(); e.preventDefault();
+  const b = G.battle; if (!b || !b.cmdOpen) return;
+  const r = (e.target as HTMLElement).getBoundingClientRect();
+  const wx = (e.clientX - r.left) / r.width * b.map.w, wy = (e.clientY - r.top) / r.height * b.map.h;
+  if (!b.selected.length) b.selected = b.liveSquads();
+  if (e.button === 2) b.orderMode(b.selected, "charge"); else b.orderHere(b.selected, wx, wy);
+  b.sfx.ui();
+});
+$("mini").addEventListener("contextmenu", (e) => e.preventDefault());
 $("cmd").addEventListener("mousedown", (e) => {
   e.stopPropagation();
   const bt = (e.target as HTMLElement).closest("button") as HTMLButtonElement | null;
