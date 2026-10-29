@@ -2,7 +2,9 @@
 
 // Rozdzielczość gry zmienia się z przybliżeniem (kółko myszy), 16:9.
 let W = 480, H = 270;
-const ZOOMS = [[384, 216], [480, 270], [640, 360]];
+// Rozdzielczość wewnętrzna: szerokości stałe, wysokość z proporcji okna (gra wypełnia cały ekran).
+let ASPECT = 9 / 16;
+const ZOOMS: [number, number][] = [[384, 216], [480, 270], [640, 360], [800, 450], [960, 540]];
 
 // Stała, zgniła paleta (Build B4): oliwki, brązy, szarości, mocny kontrast. 35 kolorów.
 const PAL = {

@@ -552,8 +552,8 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     const d2 = (x - pcx) ** 2 + (y - pcy) ** 2;
     let a = 0;
     if (!w.explored[i]) a = 255;
-    else if (d2 > r * r) a = 95;
-    else a = clamp((Math.sqrt(d2) - r + 2) * 40, 0, 95);
+    else if (d2 > r * r) a = 60;
+    else a = clamp((Math.sqrt(d2) - r + 2) * 30, 0, 60);
     fim.data[k] = 10; fim.data[k + 1] = 9; fim.data[k + 2] = 8; fim.data[k + 3] = a;
   }
   fg.putImageData(fim, 0, 0);

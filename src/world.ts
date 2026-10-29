@@ -704,7 +704,7 @@ function partySpeed(w: World, p: Party): number {
   if (w.blight[i] && p.faction !== 5) sp *= 0.93;
   return Math.max(0.8, sp);
 }
-function sightRadius(w: World, p?: Party) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 + perk(w.player, "sightB") : 0); }
+function sightRadius(w: World, p?: Party) { const base = isNight(w) ? 10 : 18; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 + perk(w.player, "sightB") : 0); }
 
 // Pory roku: 30 dni każda. 0 wiosna, 1 lato, 2 jesień, 3 zima.
 function season(w: World) { return Math.floor((w.day - 1) / 30) % 4; }

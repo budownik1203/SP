@@ -76,6 +76,7 @@ function startNewGame(P: PlayerState, opt: { plot?: boolean; prologue?: boolean;
   WORLD.diff = { dmg: 1, enemy: 1, gold: 1, aggro: 1, plague: 1, xp: 1, ...(opt.diff || {}) };
   if (opt.plot) WORLD.plot = { stage: 0, relics: 0, day: 1 };
   applyCrest(P);
+  WORLD.explored.fill(1);   // jak w Mount & Blade: kraina i osady znane od początku, oddziały widać tylko w zasięgu wzroku
   const p = playerParty(WORLD);
   for (const [t, n] of ORIGINS[P.origin].troops) addTroops(p.troops, t, n);
   // nieumarły bohater zaczyna w martwych ziemiach, ork u orków, krasnolud u krasnoludów

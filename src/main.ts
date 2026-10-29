@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.15";
+const BUILD = "Build 0.15.1";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -58,14 +58,18 @@ document.title = "Sztandary Popiołu · " + BUILD;
 for (const e of Array.from(document.querySelectorAll("[data-ic]"))) (e as HTMLElement).innerHTML = ic((e as HTMLElement).dataset.ic);
 $("build").textContent = BUILD;
 
+let RES_READY = false;
 function fit() {
-  const fs = !!document.fullscreenElement;
-  const s = Math.max(1, Math.min(innerWidth / 480, innerHeight / 270));
-  const scale = s >= 2 && !fs ? Math.floor(s) : s;
+  // gra wypełnia całe okno; proporcje obrazu idą za oknem, a piksele gry skalują się płynnie
+  const iw = innerWidth, ih = innerHeight;
+  ASPECT = clamp(ih / iw, 0.42, 0.8);
   const wrap = $("wrap");
-  wrap.style.width = 480 * scale + "px";
-  wrap.style.height = 270 * scale + "px";
-  wrap.style.setProperty("--s", String(scale));
+  const ww = Math.min(iw, Math.round(ih / ASPECT)), wh = Math.min(ih, Math.round(ww * ASPECT));
+  wrap.style.width = ww + "px";
+  wrap.style.height = wh + "px";
+  wrap.style.setProperty("--s", String(Math.max(1, Math.min(ww / 480, wh / 270))));
+  for (const z of ZOOMS) z[1] = Math.round(z[0] * ASPECT);
+  if (RES_READY) { for (const z of MAPZ) z[1] = Math.round(z[0] * ASPECT); const want = Math.round(W * ASPECT); if (want !== H) setRes(W, want); }
 }
 addEventListener("resize", fit);
 document.addEventListener("fullscreenchange", fit);
@@ -78,8 +82,11 @@ function toggleFullscreen() {
 }
 
 // Mapa świata: płynne przybliżanie kółkiem (wiele stopni, przejście klatka po klatce).
-const MAPZ: [number, number][] = []; for (let wd = 320; wd <= 1120; wd += 32) MAPZ.push([wd, Math.round(wd * 9 / 16)]);
-let mapZ = MAPZ.findIndex((z) => z[0] === 480), mapZT = mapZ;
+const MAPZ: [number, number][] = []; for (let wd = 320; wd <= 1600; wd += 32) MAPZ.push([wd, Math.round(wd * ASPECT)]);
+// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 2,8 w bitwie
+const wantMapW = clamp(Math.round($("wrap").clientWidth / 2.4 / 32) * 32, 480, 1120);
+let mapZ = Math.max(0, MAPZ.findIndex((z) => z[0] >= wantMapW)), mapZT = mapZ;
+zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 2.8) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 2.8) ? i : bi, 1);
 function setRes(nw: number, nh: number) {
   if (nw === W && nh === H) return;
   const cam = G.state === "battle" && G.battle ? G.battle.cam : G.view.cam;
@@ -90,6 +97,8 @@ function setRes(nw: number, nh: number) {
   cam.x = cx - W / 2; cam.y = cy - H / 2;
   if (G.battle) G.battle.makeOverlays();
 }
+RES_READY = true;
+setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
 function setZoom(i: number) {
   i = clamp(i, 0, ZOOMS.length - 1);
   if (i === zoomIdx) return;
@@ -314,7 +323,8 @@ function frameInner(now: number) {
     const b = G.battle;
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
-    if (W !== ZOOMS[zoomIdx][0]) setRes(ZOOMS[zoomIdx][0], ZOOMS[zoomIdx][1]);
+    const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : zoomIdx;   // arena jest mała
+    if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1]) setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);
     if (input.hit(KB("mini"))) miniWant = !miniWant;
     if (screenOpen() && b.phase === "fight") b.paused = true;
@@ -341,7 +351,7 @@ function frameInner(now: number) {
     }
     if (input.wheel && !screenOpen()) mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
     if (mapZ !== mapZT) mapZ += Math.sign(mapZT - mapZ);
-    if (W !== MAPZ[mapZ][0]) setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
+    if (W !== MAPZ[mapZ][0] || H !== MAPZ[mapZ][1]) setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
     if (input.hit(KB("help")) && !screenOpen()) showHelp();
     if (input.hit(KB("overview")) && !screenOpen()) G.view.overview = !G.view.overview;
     if (input.hit(KB("borders")) && !screenOpen()) { settings.borders = settings.borders === false; saveSettings(); toast(settings.borders ? "Granice: widoczne" : "Granice: ukryte"); }

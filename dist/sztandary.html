@@ -429,7 +429,9 @@ span.up{color:#7fbf5a}span.down{color:#d0503c}
 // Rdzeń: paleta, matematyka, losowość, wejście, dźwięk.
 // Rozdzielczość gry zmienia się z przybliżeniem (kółko myszy), 16:9.
 let W = 480, H = 270;
-const ZOOMS = [[384, 216], [480, 270], [640, 360]];
+// Rozdzielczość wewnętrzna: szerokości stałe, wysokość z proporcji okna (gra wypełnia cały ekran).
+let ASPECT = 9 / 16;
+const ZOOMS = [[384, 216], [480, 270], [640, 360], [800, 450], [960, 540]];
 // Stała, zgniła paleta (Build B4): oliwki, brązy, szarości, mocny kontrast. 35 kolorów.
 const PAL = {
     black: "#0a0908", ink: "#15120e", dusk: "#221d18", slate: "#332e28",
@@ -10884,7 +10886,7 @@ function partySpeed(w, p) {
         sp *= 0.93;
     return Math.max(0.8, sp);
 }
-function sightRadius(w, p) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 + perk(w.player, "sightB") : 0); }
+function sightRadius(w, p) { const base = isNight(w) ? 10 : 18; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 + perk(w.player, "sightB") : 0); }
 // Pory roku: 30 dni każda. 0 wiosna, 1 lato, 2 jesień, 3 zima.
 function season(w) { return Math.floor((w.day - 1) / 30) % 4; }
 const SEASON_NAME = ["wiosna", "lato", "jesień", "zima"];
@@ -13719,9 +13721,9 @@ function renderWorld(w, v, g) {
             if (!w.explored[i])
                 a = 255;
             else if (d2 > r * r)
-                a = 95;
+                a = 60;
             else
-                a = clamp((Math.sqrt(d2) - r + 2) * 40, 0, 95);
+                a = clamp((Math.sqrt(d2) - r + 2) * 30, 0, 60);
             fim.data[k] = 10;
             fim.data[k + 1] = 9;
             fim.data[k + 2] = 8;
@@ -14910,6 +14912,7 @@ function startNewGame(P, opt = {}) {
     if (opt.plot)
         WORLD.plot = { stage: 0, relics: 0, day: 1 };
     applyCrest(P);
+    WORLD.explored.fill(1); // jak w Mount & Blade: kraina i osady znane od początku, oddziały widać tylko w zasięgu wzroku
     const p = playerParty(WORLD);
     for (const [t, n] of ORIGINS[P.origin].troops)
         addTroops(p.troops, t, n);
@@ -19033,7 +19036,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.15";
+const BUILD = "Build 0.15.1";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -19112,14 +19115,25 @@ document.title = "Sztandary Popiołu · " + BUILD;
 for (const e of Array.from(document.querySelectorAll("[data-ic]")))
     e.innerHTML = ic(e.dataset.ic);
 $("build").textContent = BUILD;
+let RES_READY = false;
 function fit() {
-    const fs = !!document.fullscreenElement;
-    const s = Math.max(1, Math.min(innerWidth / 480, innerHeight / 270));
-    const scale = s >= 2 && !fs ? Math.floor(s) : s;
+    // gra wypełnia całe okno; proporcje obrazu idą za oknem, a piksele gry skalują się płynnie
+    const iw = innerWidth, ih = innerHeight;
+    ASPECT = clamp(ih / iw, 0.42, 0.8);
     const wrap = $("wrap");
-    wrap.style.width = 480 * scale + "px";
-    wrap.style.height = 270 * scale + "px";
-    wrap.style.setProperty("--s", String(scale));
+    const ww = Math.min(iw, Math.round(ih / ASPECT)), wh = Math.min(ih, Math.round(ww * ASPECT));
+    wrap.style.width = ww + "px";
+    wrap.style.height = wh + "px";
+    wrap.style.setProperty("--s", String(Math.max(1, Math.min(ww / 480, wh / 270))));
+    for (const z of ZOOMS)
+        z[1] = Math.round(z[0] * ASPECT);
+    if (RES_READY) {
+        for (const z of MAPZ)
+            z[1] = Math.round(z[0] * ASPECT);
+        const want = Math.round(W * ASPECT);
+        if (want !== H)
+            setRes(W, want);
+    }
 }
 addEventListener("resize", fit);
 document.addEventListener("fullscreenchange", fit);
@@ -19137,9 +19151,12 @@ function toggleFullscreen() {
 }
 // Mapa świata: płynne przybliżanie kółkiem (wiele stopni, przejście klatka po klatce).
 const MAPZ = [];
-for (let wd = 320; wd <= 1120; wd += 32)
-    MAPZ.push([wd, Math.round(wd * 9 / 16)]);
-let mapZ = MAPZ.findIndex((z) => z[0] === 480), mapZT = mapZ;
+for (let wd = 320; wd <= 1600; wd += 32)
+    MAPZ.push([wd, Math.round(wd * ASPECT)]);
+// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 2,8 w bitwie
+const wantMapW = clamp(Math.round($("wrap").clientWidth / 2.4 / 32) * 32, 480, 1120);
+let mapZ = Math.max(0, MAPZ.findIndex((z) => z[0] >= wantMapW)), mapZT = mapZ;
+zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 2.8) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 2.8) ? i : bi, 1);
 function setRes(nw, nh) {
     if (nw === W && nh === H)
         return;
@@ -19155,6 +19172,8 @@ function setRes(nw, nh) {
     if (G.battle)
         G.battle.makeOverlays();
 }
+RES_READY = true;
+setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
 function setZoom(i) {
     i = clamp(i, 0, ZOOMS.length - 1);
     if (i === zoomIdx)
@@ -19502,8 +19521,9 @@ function frameInner(now) {
             else
                 showPauseMenu();
         }
-        if (W !== ZOOMS[zoomIdx][0])
-            setRes(ZOOMS[zoomIdx][0], ZOOMS[zoomIdx][1]);
+        const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : zoomIdx; // arena jest mała
+        if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1])
+            setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
         if (input.wheel)
             setZoom(zoomIdx + input.wheel);
         if (input.hit(KB("mini")))
@@ -19570,7 +19590,7 @@ function frameInner(now) {
             mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
         if (mapZ !== mapZT)
             mapZ += Math.sign(mapZT - mapZ);
-        if (W !== MAPZ[mapZ][0])
+        if (W !== MAPZ[mapZ][0] || H !== MAPZ[mapZ][1])
             setRes(MAPZ[mapZ][0], MAPZ[mapZ][1]);
         if (input.hit(KB("help")) && !screenOpen())
             showHelp();
