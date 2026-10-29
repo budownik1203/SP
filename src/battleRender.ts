@@ -386,7 +386,8 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
   g.globalAlpha = 1;
   const h = b.hero;
   const near = h ? dist(u.x, u.y, h.x, h.y) < 120 : true;
-  if (!u.hero && u.hp < u.maxHp && (near || u.commander)) {
+  const hpMode = b.settings.hpBars || "near";
+  if (!u.hero && hpMode !== "off" && (u.hp < u.maxHp || hpMode === "all") && (near || u.commander || hpMode === "all")) {
     const w = u.commander ? 18 : 10, k = clamp(u.hp / u.maxHp, 0, 1);
     const hx = bx - Math.round(w / 2), hy = iy + 2;
     g.fillStyle = PAL.ink; g.fillRect(hx - 1, hy - 1, w + 2, 4);
@@ -492,7 +493,7 @@ function drawGear(b: Battle, g: CanvasRenderingContext2D, u: Unit, hand: V, wa: 
 // Tylko ciosy wymierzone w bohatera i garda przeciwnika, na którego patrzysz.
 function drawTells(b: Battle, g: CanvasRenderingContext2D, sx: number, sy: number) {
   const h = b.hero;
-  if (!h || !h.active || b.cmdOpen) return;
+  if (!h || !h.active || b.cmdOpen || b.settings.tells === false) return;
   let focus: Unit | null = null, fd = 1e9;
   for (const u of b.units) {
     if (!u.active || u.team === 0 || u.hidden) continue;
@@ -502,7 +503,7 @@ function drawTells(b: Battle, g: CanvasRenderingContext2D, sx: number, sy: numbe
     if (u.state === "windup" && u.target === h && d < 60) dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
   }
   if (focus && focus.guard && focus.state !== "windup") dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
-  if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted) {
+  if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted && b.settings.dirHint !== false) {
     const side = h.nextSide === "L" ? -1 : 1;
     const px = Math.round(h.x - sx + Math.cos(h.face + side * 1.4) * 10), py = Math.round(h.y - sy - 12 + Math.sin(h.face + side * 1.4) * 6);
     g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 3);
@@ -538,7 +539,7 @@ const FONT: Record<string, string> = {
   J: "001001001101010", K: "101101110101101", L: "100100100100111", Ł: "100110100100111", M: "101111111101101", N: "110101101101101",
   Ń: "110101101101101", O: "010101101101010", Ó: "010101101101010", P: "110101110100100", R: "110101110101101", S: "011100010001110",
   Ś: "011100010001110", T: "111010010010010", U: "101101101101111", W: "101101111111101", Y: "101101010010010", Z: "111001010100111",
-  Ż: "111001010100111", Ź: "111001010100111", " ": "000000000000000", "!": "010010010000010", "+": "000010111010000", "-": "000000111000000",
+  Ż: "111001010100111", V: "101101101101010", X: "101101010101101", Q: "010101101110011", Ź: "111001010100111", " ": "000000000000000", "!": "010010010000010", "+": "000010111010000", "-": "000000111000000",
 };
 function textW(t: string) { return t.length * 4 - 1; }
 function pxText(g: CanvasRenderingContext2D, t: string, x: number, y: number, col: string) {

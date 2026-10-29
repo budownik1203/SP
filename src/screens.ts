@@ -204,16 +204,16 @@ function updateTip() {
     if (!o) { tip.hidden = true; return; }
     const ratio = partyPower(w, playerParty(w)) / Math.max(0.1, partyPower(w, o));
     const st: Record<string, string> = { siege: "oblega", raid: "idzie grabić", besiege: "idzie na oblężenie", patrol: "patroluje", chase: "ściga", flee: "ucieka", rest: "wraca do domu", wander: "krąży" };
-    html = `<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}`;
+    html = `${QM.party.has(o.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}`;
   } else if (hv.kind === "settlement") {
     const s = w.settlements[hv.id];
     const owner = s.owner === -2 ? "ty" : s.owner >= 0 ? `${lordById(w, s.owner).title} ${lordById(w, s.owner).name}` : "korona";
     const kind = s.kind === "town" ? "Miasto" : s.kind === "castle" ? "Zamek" : "Wioska";
-    html = `<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}`;
+    html = `${QM.set.has(s.id) ? `<span style="color:${QUEST_COL}">◆ ${esc(QM.set.get(s.id).text)}</span><br>` : ""}<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}`;
   } else {
     const pl = w.places[hv.id];
     const d: Record<string, string> = { ruins: "Ruiny pełne nieumarłych i skarbów.", lair: "Leże bestii.", shrine: "Miejsce modlitwy. Odnawia wiarę.", camp: "Obóz zbójców. Stąd wychodzą bandy.", cemetery: "Przeklęta ziemia. Umarli nie śpią." };
-    html = `<b>${pl.name}</b><br>${d[pl.kind]}${pl.cleared > 0 && pl.kind !== "shrine" ? `<br><span class="muted">Oczyszczone (${pl.cleared} dni)</span>` : ""}`;
+    html = `${QM.place.has(pl.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${pl.name}</b><br>${d[pl.kind]}${pl.cleared > 0 && pl.kind !== "shrine" ? `<br><span class="muted">Oczyszczone (${pl.cleared} dni)</span>` : ""}`;
   }
   tip.innerHTML = html;
   tip.hidden = false;
@@ -911,7 +911,13 @@ function showChronicle() {
 function showQuests() {
   const w = WORLD, P = w.player;
   const act = P.quests.filter((q) => !q.done);
-  showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => `<p>${q.text}<br><span class="muted">Zleca: ${w.settlements[q.giver]?.name || "?"} · nagroda ${q.reward} · zostało ${q.days} dni</span></p>`).join("") : "<p class='muted'>Brak zadań. Rady miast i sołtysi wiosek mają robotę.</p>"}<div class="btns"><button data-a="close">Zamknij (J)</button></div></div>`, { close: () => closeScreen() }, "quest-scr");
+  const icon: Record<string, string> = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf" };
+  showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => { const pos = questPos(w, q); return `<div class="quest">${ic(icon[q.kind], "big")}<div><b style="color:${QUEST_COL}">${q.text}</b><br><span class="muted">Zleca: ${w.settlements[q.giver]?.name || "?"} · ${ic("coin")} ${q.reward} · zostało ${q.days} dni</span><br>${pos ? `<button class="mini" data-a="show" data-v="${q.id}">Pokaż na mapie (${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól)</button> <button class="mini" data-a="go" data-v="${q.id}">Idź tam</button>` : `<span class="tip">Cel jeszcze nieznany. Szukaj w okolicy lub pytaj w karczmach.</span>`}</div></div>`; }).join("") : "<p class='muted'>Brak zadań. Rady miast i sołtysi wiosek mają robotę.</p>"}
+    <p class="tip">Cele zadań mają na mapie złotą nazwę, znacznik i strzałkę przy krawędzi ekranu z odległością.</p><div class="btns"><button data-a="close">Zamknij (J)</button></div></div>`, {
+    show: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos) return; closeScreen(); G.view.cam.x = pos.x - W / 2; G.view.cam.y = pos.y - H / 2; G.pan.t = G.view.time + 3; },
+    go: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos) return; closeScreen(); const p = playerParty(w); if (q.kind === "bandits") G.target = { kind: "party", id: q.target }; else if (q.kind === "wolves") G.target = { kind: "place", id: q.target }; else G.target = { kind: "settlement", id: q.kind === "grain" ? q.giver : q.target }; goTo(w, p, pos.x, pos.y); },
+    close: () => closeScreen(),
+  }, "quest-scr");
 }
 
 function showPauseMenu() {
@@ -934,21 +940,41 @@ function showPauseMenu() {
   if (G.battle) G.battle.paused = true;
 }
 
+const SETT = { tab: "game" };
 function showSettings(back: () => void) {
-  showScr(`<div class="card frame small"><h1>Ustawienia</h1><div class="menu">
-    <label><input type="checkbox" data-in="dmg" ${settings.damageNumbers ? "checked" : ""}> Liczby obrażeń</label>
-    <label><input type="checkbox" data-in="gesture" ${settings.gesture ? "checked" : ""}> Kierunek ciosu ruchem myszy</label>
-    <label><input type="checkbox" data-in="music" ${settings.music ? "checked" : ""}> Muzyka</label>
-    <label>Głośność <input type="range" min="0" max="100" value="${Math.round(settings.volume * 100)}" data-in="vol"></label>
-    <label>Wielkość bitew (na stronę) <select data-in="size">${[60, 100, 150].map((n) => `<option value="${n}" ${settings.battleSize === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-  </div>
-  <div class="btns"><button class="alt" data-a="fs">${document.fullscreenElement ? "Wyjdź z pełnego ekranu" : "Pełny ekran"}</button><button data-a="back">Gotowe</button></div></div>`, {
-    dmg: (v) => { settings.damageNumbers = !!v; saveSettings(); },
-    gesture: (v) => { settings.gesture = !!v; saveSettings(); },
-    music: (v) => { settings.music = !!v; if (sfx.musicOn !== settings.music) sfx.toggleMusic(); saveSettings(); },
-    vol: (v) => { settings.volume = Number(v) / 100; sfx.setVolume(settings.volume); saveSettings(); },
-    size: (v) => { settings.battleSize = Number(v); saveSettings(); },
+  const S = settings;
+  const chk = (k: keyof Settings, label: string, tip = "") => `<label class="opt"><input type="checkbox" data-in="b:${k}" ${S[k] ? "checked" : ""}><span>${label}${tip ? `<small>${tip}</small>` : ""}</span></label>`;
+  const sel = (k: keyof Settings, label: string, opts: [string | number, string][]) => `<label class="opt"><span>${label}</span><select data-in="s:${k}">${opts.map(([v, n]) => `<option value="${v}" ${String(S[k]) === String(v) ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+  const rng = (k: keyof Settings, label: string, min: number, max: number, step: number) => `<label class="opt"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${S[k]}" data-in="r:${k}"><b id="rv-${k}">${Math.round((S[k] as number) * 100)}%</b></label>`;
+  const tabs: [string, string, string][] = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"]];
+  let body = "";
+  if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
+  if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
+  if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik strony następnego cięcia") + chk("gesture", "Kierunek ciosu ruchem myszy", "stare sterowanie") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+  if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
+  if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
+  const apply = (k: string, val: any) => {
+    (S as any)[k] = val;
+    if (k === "music" && sfx.musicOn !== S.music) sfx.toggleMusic();
+    if (k === "volume") sfx.setVolume(S.volume);
+    if (k === "musicVol") sfx.setMusicVolume(S.musicVol);
+    if (k === "uiScale") applyUiScale();
+    saveSettings();
+  };
+  showScr(`<div class="card frame settings"><h1>Ustawienia</h1>
+    <div class="s-tabs">${tabs.map(([k, n, i]) => `<button class="tab ${SETT.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${ic(i)}${n}</button>`).join("")}</div>
+    <div class="opts">${body}</div>
+    <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
+    tab: (v) => { SETT.tab = v; showSettings(back); },
+    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+    "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
+    "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
+    "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:blood": (v) => { apply("blood", Number(v)); const e = document.getElementById("rv-blood"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:volume": (v) => { apply("volume", Number(v)); const e = document.getElementById("rv-volume"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
+    reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
     back: () => back(),
   }, "set-scr");
 }

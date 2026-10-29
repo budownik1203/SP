@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.6";
+const BUILD = "Build 0.7";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -12,17 +12,24 @@ input.attach(canvas);
 const sfx = new Sfx();
 buildSprites();
 
-const settings: Settings = { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100 };
+const settings: Settings = {
+  damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
+  musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true,
+  questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true,
+};
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
   if (s) Object.assign(settings, s);
 } catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try { localStorage.setItem("sztandary-settings", JSON.stringify(settings)); } catch (e) { /* ignoruj */ } }
 sfx.volume = settings.volume;
+sfx.musicVol = settings.musicVol;
+applyUiScale();
+function applyUiScale() { document.getElementById("wrap").style.setProperty("--uis", String(settings.uiScale)); }
 sfx.musicOn = settings.music;
 sfxUi = () => sfx.ui();
 addLogMsg = (t, c) => { if (G.state === "map") toast(t, c); };
-onChronicle = (t, c) => { if (G.state === "map" && WORLD) { const p = playerParty(WORLD); if (p) toast(t, c || PAL.bone); } };
+onChronicle = (t, c) => { if (G.state === "map" && WORLD && settings.toastsOn) { const p = playerParty(WORLD); if (p) toast(t, c || PAL.bone); } };
 
 let zoomIdx = 1;
 const $ = (id: string) => document.getElementById(id);

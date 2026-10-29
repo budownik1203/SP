@@ -23,6 +23,7 @@ const G = {
   pan: { active: false, sx: 0, sy: 0, cx: 0, cy: 0, t: 0 },
   lastAuto: 0,
   encounterCooldown: 0,
+  seen: new Set<number>(),
 };
 
 function W0() { return WORLD; }
@@ -148,10 +149,19 @@ function mapUpdate(dt: number) {
   const prevDay = w.day;
   moveParty(w, p, hours);
   worldTick(w, hours);
-  if (w.day !== prevDay) { refreshMapHud(); if (w.day - G.lastAuto >= 2) { G.lastAuto = w.day; autosave(); } }
+  if (w.day !== prevDay) { refreshMapHud(); if (settings.autosaveDays > 0 && w.day - G.lastAuto >= settings.autosaveDays) { G.lastAuto = w.day; autosave(); } }
   G.encounterCooldown = Math.max(0, G.encounterCooldown - hours);
   checkArrival();
   if (G.state === "map" && !screenOpen()) checkEncounters();
+  // zatrzymaj marsz, gdy w polu widzenia pojawi się groźny wróg
+  if (settings.pauseOnEvent && p.path.length) {
+    const mine = partyPower(w, p);
+    for (const o of w.parties) {
+      if (o === p || G.seen.has(o.id) || !hostile(w, p, o) || !partyVisible(w, o)) continue;
+      G.seen.add(o.id);
+      if (partyPower(w, o) > mine * 0.7 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) { p.path = []; G.camping = false; toast(`Uwaga: ${o.name} w zasięgu wzroku (${troopCount(o.troops)} ludzi). Marsz wstrzymany.`, PAL.redL); sfx.drum(0.6); break; }
+    }
+  }
 }
 
 function waitDone() { G.waitHours = 0; G.camping = false; const p = playerParty(WORLD); p.state = "idle"; if (pendingAfterWait) { const f = pendingAfterWait; pendingAfterWait = null; f(); } }

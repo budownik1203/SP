@@ -59,6 +59,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.35 var(--px);overflow:hi
 /* mapa */
 #maphud{position:absolute;inset:0;pointer-events:none;font-size:clamp(10px,calc(var(--s)*4px),15px);text-shadow:0 1px 0 #000,1px 0 0 #000}
 #mh-top{position:absolute;left:.5em;right:.5em;top:.4em;display:flex;flex-wrap:wrap;gap:.3em 1.1em;padding:.25em .6em}
+#maphud>*{zoom:var(--uis,1)}
 #mh-btns{position:absolute;right:.5em;bottom:.5em;display:flex;gap:.25em;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
 #mh-speed{position:absolute;left:.5em;bottom:.5em;display:flex;gap:.25em;pointer-events:auto}
 #toasts{position:absolute;left:.6em;top:3.2em;display:grid;gap:.15em;max-width:55%;pointer-events:none;z-index:9}
@@ -86,6 +87,7 @@ button.tab.on{background:var(--gold);color:#0a0908}
 
 /* okna */
 #ui{position:absolute;inset:0;pointer-events:none;z-index:10}
+.win>*{zoom:var(--uis,1)}
 .win{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,9,8,.62);padding:.8em;overflow:auto;pointer-events:auto;font-size:clamp(11px,calc(var(--s)*3.9px),15px)}
 .win.title{background:transparent}
 .card{width:100%;max-width:46em;max-height:100%;overflow:auto}
@@ -242,6 +244,13 @@ button.node.sel .ic{outline:2px solid #ded7c6;outline-offset:2px}
 .ninfo h2{margin:.1em 0 .2em}
 .phead{display:flex;gap:1em;align-items:baseline;flex-wrap:wrap}
 .comp.big{align-items:center}
+.settings{max-width:34em}
+.opts{display:grid;gap:.45em;margin-top:.6em;min-height:12em}
+.opt{display:flex;align-items:center;gap:.7em;cursor:pointer;justify-content:space-between;padding:.25em .4em;background:#16130f;border:1px solid var(--edge2)}
+label.opt:has(input[type=checkbox]){justify-content:flex-start}
+.opt small{display:block;color:var(--muted);font-size:.8em}
+.opt input[type=range]{flex:1;max-width:12em}
+.quest{display:flex;gap:.6em;align-items:flex-start;padding:.4em;margin:.3em 0;background:#16130f;border-left:3px solid #e9c45e}
 </style>
 
 <div id="wrap">

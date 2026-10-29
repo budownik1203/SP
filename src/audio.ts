@@ -18,6 +18,8 @@ class Sfx {
   private crowT = 8;
   rainGain: GainNode | null = null;
   volume = 1;
+  musicVol = 0.6;
+  setMusicVolume(v: number) { this.musicVol = v; if (this.ctx && this.musicOn) this.musicBus.gain.setTargetAtTime(0.5 * v / 0.6, this.ctx.currentTime, 0.2); }
 
   init() {
     if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume(); return; }
@@ -41,7 +43,7 @@ class Sfx {
       this.rev = c.createGain(); this.rev.gain.value = 0.28;
       const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3200;
       this.rev.connect(lp); lp.connect(conv); conv.connect(this.master);
-      this.musicBus = c.createGain(); this.musicBus.gain.value = this.musicOn ? 0.5 : 0; this.musicBus.connect(this.master);
+      this.musicBus = c.createGain(); this.musicBus.gain.value = this.musicOn ? 0.5 * this.musicVol / 0.6 : 0; this.musicBus.connect(this.master);
       const mrev = c.createGain(); mrev.gain.value = 0.35; this.musicBus.connect(mrev); mrev.connect(this.rev);
 
       const nl = c.sampleRate * 2;
@@ -56,7 +58,7 @@ class Sfx {
 
   toggleMusic() {
     this.musicOn = !this.musicOn;
-    if (this.ctx) this.musicBus.gain.setTargetAtTime(this.musicOn ? 0.5 : 0, this.ctx.currentTime, 0.3);
+    if (this.ctx) this.musicBus.gain.setTargetAtTime(this.musicOn ? 0.5 * this.musicVol / 0.6 : 0, this.ctx.currentTime, 0.3);
     return this.musicOn;
   }
 

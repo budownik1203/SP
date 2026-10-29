@@ -11,7 +11,11 @@ let UID = 1;
 const SQUAD_NAMES: Record<number, string> = { 1: "Piechota", 2: "Strzelcy", 3: "Konnica", 4: "Oddział 4", 5: "Oddział 5", 6: "Oddział 6", 7: "Oddział 7", 8: "Oddział 8" };
 const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.gold, 4: PAL.bone, 5: PAL.purpleL, 6: PAL.steelL, 7: PAL.dirtL, 8: PAL.ash };
 
-interface Settings { damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number; }
+interface Settings {
+  damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
+  musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean;
+}
 
 interface HeroCfg {
   name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; bowDmg: number; ammo: number;
@@ -900,8 +904,8 @@ class Battle {
     const a = Math.atan2(u.y - fromY, u.x - fromX), k = u.def.poise ? 0.3 : 1;
     u.vx += Math.cos(a) * power * k; u.vy += Math.sin(a) * power * k;
   }
-  kickCam(dx: number, dy: number, amount: number) { this.shakeVX += dx * amount * 75; this.shakeVY += dy * amount * 75; }
-  shake(n: number) { this.rumble = Math.max(this.rumble, n); }
+  kickCam(dx: number, dy: number, amount: number) { const k = this.settings.shake ?? 1; this.shakeVX += dx * amount * 75 * k; this.shakeVY += dy * amount * 75 * k; }
+  shake(n: number) { this.rumble = Math.max(this.rumble, n * (this.settings.shake ?? 1)); }
 
   meleeHit(a: Unit) {
     const w = a.w, dir = a.dir;
@@ -1008,7 +1012,7 @@ class Battle {
       this.hitstop = Math.max(this.hitstop, (head ? 0.14 : heavy ? 0.12 : 0.085) + (killed ? 0.05 : 0));
       this.kickCam(Math.cos(ha), Math.sin(ha), (d.hero ? 2.2 : heavy ? 1.8 : 1.2) + (killed ? 0.6 : 0));
       if (heavy || head) this.shake(2);
-      if (killed && a.hero) this.slowT = Math.max(this.slowT, 0.2);
+      if (killed && a.hero && this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.2);
     }
   }
 
@@ -1087,7 +1091,7 @@ class Battle {
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
       this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
       if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
-      if (src?.hero) { this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
+      if (src?.hero) { if (this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
     } else if (type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
       this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
@@ -1522,6 +1526,7 @@ class Battle {
 
   // ---------- Efekty ----------
   blood(x: number, y: number, n: number, src: Unit | null, heavy = false) {
+    n = Math.round(n * (this.settings.blood ?? 1));
     const a0 = src ? Math.atan2(y - src.y + 12, x - src.x) : rr(0, 6.28);
     for (let i = 0; i < n; i++) { const a = a0 + rr(-0.8, 0.8), sp = rr(25, heavy ? 150 : 110); this.parts.push({ x, y: y + 14, z: 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 95), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD, PAL.blood]), kind: "blood" }); }
   }

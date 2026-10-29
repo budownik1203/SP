@@ -59,6 +59,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.35 var(--px);overflow:hi
 /* mapa */
 #maphud{position:absolute;inset:0;pointer-events:none;font-size:clamp(10px,calc(var(--s)*4px),15px);text-shadow:0 1px 0 #000,1px 0 0 #000}
 #mh-top{position:absolute;left:.5em;right:.5em;top:.4em;display:flex;flex-wrap:wrap;gap:.3em 1.1em;padding:.25em .6em}
+#maphud>*{zoom:var(--uis,1)}
 #mh-btns{position:absolute;right:.5em;bottom:.5em;display:flex;gap:.25em;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
 #mh-speed{position:absolute;left:.5em;bottom:.5em;display:flex;gap:.25em;pointer-events:auto}
 #toasts{position:absolute;left:.6em;top:3.2em;display:grid;gap:.15em;max-width:55%;pointer-events:none;z-index:9}
@@ -86,6 +87,7 @@ button.tab.on{background:var(--gold);color:#0a0908}
 
 /* okna */
 #ui{position:absolute;inset:0;pointer-events:none;z-index:10}
+.win>*{zoom:var(--uis,1)}
 .win{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,9,8,.62);padding:.8em;overflow:auto;pointer-events:auto;font-size:clamp(11px,calc(var(--s)*3.9px),15px)}
 .win.title{background:transparent}
 .card{width:100%;max-width:46em;max-height:100%;overflow:auto}
@@ -242,6 +244,13 @@ button.node.sel .ic{outline:2px solid #ded7c6;outline-offset:2px}
 .ninfo h2{margin:.1em 0 .2em}
 .phead{display:flex;gap:1em;align-items:baseline;flex-wrap:wrap}
 .comp.big{align-items:center}
+.settings{max-width:34em}
+.opts{display:grid;gap:.45em;margin-top:.6em;min-height:12em}
+.opt{display:flex;align-items:center;gap:.7em;cursor:pointer;justify-content:space-between;padding:.25em .4em;background:#16130f;border:1px solid var(--edge2)}
+label.opt:has(input[type=checkbox]){justify-content:flex-start}
+.opt small{display:block;color:var(--muted);font-size:.8em}
+.opt input[type=range]{flex:1;max-width:12em}
+.quest{display:flex;gap:.6em;align-items:flex-start;padding:.4em;margin:.3em 0;background:#16130f;border-left:3px solid #e9c45e}
 </style>
 
 <div id="wrap">
@@ -2163,7 +2172,10 @@ class Sfx {
         this.crowT = 8;
         this.rainGain = null;
         this.volume = 1;
+        this.musicVol = 0.6;
     }
+    setMusicVolume(v) { this.musicVol = v; if (this.ctx && this.musicOn)
+        this.musicBus.gain.setTargetAtTime(0.5 * v / 0.6, this.ctx.currentTime, 0.2); }
     init() {
         if (this.ctx) {
             if (this.ctx.state === "suspended")
@@ -2202,7 +2214,7 @@ class Sfx {
             lp.connect(conv);
             conv.connect(this.master);
             this.musicBus = c.createGain();
-            this.musicBus.gain.value = this.musicOn ? 0.5 : 0;
+            this.musicBus.gain.value = this.musicOn ? 0.5 * this.musicVol / 0.6 : 0;
             this.musicBus.connect(this.master);
             const mrev = c.createGain();
             mrev.gain.value = 0.35;
@@ -2224,7 +2236,7 @@ class Sfx {
     toggleMusic() {
         this.musicOn = !this.musicOn;
         if (this.ctx)
-            this.musicBus.gain.setTargetAtTime(this.musicOn ? 0.5 : 0, this.ctx.currentTime, 0.3);
+            this.musicBus.gain.setTargetAtTime(this.musicOn ? 0.5 * this.musicVol / 0.6 : 0, this.ctx.currentTime, 0.3);
         return this.musicOn;
     }
     spatial(x, cam) {
@@ -4598,8 +4610,8 @@ class Battle {
         u.vx += Math.cos(a) * power * k;
         u.vy += Math.sin(a) * power * k;
     }
-    kickCam(dx, dy, amount) { this.shakeVX += dx * amount * 75; this.shakeVY += dy * amount * 75; }
-    shake(n) { this.rumble = Math.max(this.rumble, n); }
+    kickCam(dx, dy, amount) { const k = this.settings.shake ?? 1; this.shakeVX += dx * amount * 75 * k; this.shakeVY += dy * amount * 75 * k; }
+    shake(n) { this.rumble = Math.max(this.rumble, n * (this.settings.shake ?? 1)); }
     meleeHit(a) {
         const w = a.w, dir = a.dir;
         let arc = dir === "T" ? 0.5 : dir === "O" ? 0.75 : 1.35;
@@ -4768,7 +4780,7 @@ class Battle {
             this.kickCam(Math.cos(ha), Math.sin(ha), (d.hero ? 2.2 : heavy ? 1.8 : 1.2) + (killed ? 0.6 : 0));
             if (heavy || head)
                 this.shake(2);
-            if (killed && a.hero)
+            if (killed && a.hero && this.settings.killSlow !== false)
                 this.slowT = Math.max(this.slowT, 0.2);
         }
     }
@@ -4906,7 +4918,8 @@ class Battle {
                 for (let i = 0; i < 26; i++)
                     this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
             if (src?.hero) {
-                this.slowT = Math.max(this.slowT, 0.35);
+                if (this.settings.killSlow !== false)
+                    this.slowT = Math.max(this.slowT, 0.35);
                 this.shake(2);
             }
         }
@@ -5647,6 +5660,7 @@ class Battle {
     }
     // ---------- Efekty ----------
     blood(x, y, n, src, heavy = false) {
+        n = Math.round(n * (this.settings.blood ?? 1));
         const a0 = src ? Math.atan2(y - src.y + 12, x - src.x) : rr(0, 6.28);
         for (let i = 0; i < n; i++) {
             const a = a0 + rr(-0.8, 0.8), sp = rr(25, heavy ? 150 : 110);
@@ -7126,7 +7140,8 @@ function drawUnit(b, g, u, sx, sy) {
     g.globalAlpha = 1;
     const h = b.hero;
     const near = h ? dist(u.x, u.y, h.x, h.y) < 120 : true;
-    if (!u.hero && u.hp < u.maxHp && (near || u.commander)) {
+    const hpMode = b.settings.hpBars || "near";
+    if (!u.hero && hpMode !== "off" && (u.hp < u.maxHp || hpMode === "all") && (near || u.commander || hpMode === "all")) {
         const w = u.commander ? 18 : 10, k = clamp(u.hp / u.maxHp, 0, 1);
         const hx = bx - Math.round(w / 2), hy = iy + 2;
         g.fillStyle = PAL.ink;
@@ -7282,7 +7297,7 @@ function drawGear(b, g, u, hand, wa) {
 // Tylko ciosy wymierzone w bohatera i garda przeciwnika, na którego patrzysz.
 function drawTells(b, g, sx, sy) {
     const h = b.hero;
-    if (!h || !h.active || b.cmdOpen)
+    if (!h || !h.active || b.cmdOpen || b.settings.tells === false)
         return;
     let focus = null, fd = 1e9;
     for (const u of b.units) {
@@ -7299,7 +7314,7 @@ function drawTells(b, g, sx, sy) {
     }
     if (focus && focus.guard && focus.state !== "windup")
         dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - focus.spr.h + 2), PAL.steelL, false);
-    if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted) {
+    if (focus && !h.usingBow && h.state === "idle" && !b.settings.gesture && !h.mounted && b.settings.dirHint !== false) {
         const side = h.nextSide === "L" ? -1 : 1;
         const px = Math.round(h.x - sx + Math.cos(h.face + side * 1.4) * 10), py = Math.round(h.y - sy - 12 + Math.sin(h.face + side * 1.4) * 6);
         g.fillStyle = PAL.ink;
@@ -7340,7 +7355,7 @@ const FONT = {
     J: "001001001101010", K: "101101110101101", L: "100100100100111", Ł: "100110100100111", M: "101111111101101", N: "110101101101101",
     Ń: "110101101101101", O: "010101101101010", Ó: "010101101101010", P: "110101110100100", R: "110101110101101", S: "011100010001110",
     Ś: "011100010001110", T: "111010010010010", U: "101101101101111", W: "101101111111101", Y: "101101010010010", Z: "111001010100111",
-    Ż: "111001010100111", Ź: "111001010100111", " ": "000000000000000", "!": "010010010000010", "+": "000010111010000", "-": "000000111000000",
+    Ż: "111001010100111", V: "101101101101010", X: "101101010101101", Q: "010101101110011", Ź: "111001010100111", " ": "000000000000000", "!": "010010010000010", "+": "000010111010000", "-": "000000111000000",
 };
 function textW(t) { return t.length * 4 - 1; }
 function pxText(g, t, x, y, col) {
@@ -9144,6 +9159,7 @@ let WMAP = null;
 let WBORDER = null;
 let WBORDER_VER = -1;
 let WFOG = null;
+let QM = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map();
 const PICON = new Map();
 function rgbOf(c) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
@@ -9510,6 +9526,71 @@ function placeIcon(kind, cleared) {
     PICON.set(key, c);
     return c;
 }
+// ---------- Cele zadań: inny kolor nazwy, znacznik nad celem i strzałka przy krawędzi ekranu ----------
+const QUEST_COL = "#e9c45e";
+function questMarks(w) {
+    const m = { set: new Map(), party: new Map(), place: new Map() };
+    for (const q of w.player.quests)
+        if (!q.done) {
+            if (q.kind === "bandits")
+                m.party.set(q.target, q);
+            else if (q.kind === "letter")
+                m.set.set(q.target, q);
+            else if (q.kind === "wolves")
+                m.place.set(q.target, q);
+            else if (q.kind === "grain")
+                m.set.set(q.giver, q);
+        }
+    return m;
+}
+function questPos(w, q) {
+    if (q.kind === "bandits") {
+        const p = partyById(w, q.target);
+        return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null;
+    }
+    if (q.kind === "wolves") {
+        const pl = w.places[q.target];
+        return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null;
+    }
+    const s = w.settlements[q.kind === "grain" ? q.giver : q.target];
+    return s ? { x: s.cx * WCELL + 4, y: s.cy * WCELL + 4 } : null;
+}
+function questPin(g, x, y, t) {
+    const by = Math.round(y - 4 + Math.sin(t * 4) * 1.5);
+    g.fillStyle = PAL.ink;
+    g.fillRect(x - 2, by - 8, 5, 10);
+    g.fillStyle = QUEST_COL;
+    g.fillRect(x - 1, by - 7, 3, 5);
+    g.fillRect(x - 1, by - 1, 3, 2);
+}
+function questArrows(w, g, sx, sy, t) {
+    for (const q of w.player.quests) {
+        if (q.done)
+            continue;
+        const p = questPos(w, q);
+        if (!p)
+            continue;
+        const x = p.x - sx, y = p.y - sy;
+        if (x > 6 && y > 18 && x < W - 6 && y < H - 14)
+            continue;
+        const cx = W / 2, cy = H / 2, a = Math.atan2(y - cy, x - cx);
+        const k = Math.min((W / 2 - 14) / Math.max(1e-3, Math.abs(Math.cos(a))), (H / 2 - 20) / Math.max(1e-3, Math.abs(Math.sin(a))));
+        const ax = Math.round(cx + Math.cos(a) * k), ay = Math.round(cy + Math.sin(a) * k);
+        const pulse = 1 + Math.sin(t * 5) * 0.5;
+        g.fillStyle = PAL.ink;
+        for (let i = -1; i <= 5; i++)
+            for (let j = -3; j <= 3; j++)
+                if (Math.abs(j) <= (5 - i) * 0.7)
+                    g.fillRect(Math.round(ax + Math.cos(a) * i - Math.sin(a) * j), Math.round(ay + Math.sin(a) * i + Math.cos(a) * j), 1, 1);
+        g.fillStyle = QUEST_COL;
+        for (let i = 0; i <= 4; i++)
+            for (let j = -2; j <= 2; j++)
+                if (Math.abs(j) <= (4 - i) * 0.6)
+                    g.fillRect(Math.round(ax + Math.cos(a) * (i + pulse) - Math.sin(a) * j), Math.round(ay + Math.sin(a) * (i + pulse) + Math.cos(a) * j), 1, 1);
+        const d = Math.round(dist(p.x, p.y, sx + W / 2, sy + H / 2) / WCELL);
+        wText(g, d + "", Math.round(ax - Math.cos(a) * 9 - 4), Math.round(ay - Math.sin(a) * 9 - 2), QUEST_COL);
+    }
+}
 function cellVisible(w, cx, cy) {
     const p = playerParty(w);
     if (!p)
@@ -9561,6 +9642,7 @@ function renderWorld(w, v, g) {
     if (WBORDER_VER !== w.ownerVersion)
         renderBorders(w);
     const PW = WGW * WCELL, PH = WGH * WCELL;
+    QM = questMarks(w);
     const sx = Math.round(clamp(v.cam.x, 0, PW - W)), sy = Math.round(clamp(v.cam.y, 0, PH - H));
     v.cam.x = sx;
     v.cam.y = sy;
@@ -9602,6 +9684,12 @@ function renderWorld(w, v, g) {
                     g.fillRect(Math.round(x - sx - 1), Math.round(y - sy - 12), 2, 2);
                     g.globalAlpha = 1;
                 }
+                const qm = settings.questMarkers && QM.place.has(p.id);
+                if (qm || (v.hover?.kind === "place" && v.hover.id === p.id)) {
+                    wText(g, p.name, Math.round(x - sx - (p.name.length * 4) / 2), Math.round(y - sy + 6), qm ? QUEST_COL : PAL.bone);
+                }
+                if (qm)
+                    questPin(g, Math.round(x - sx), Math.round(y - sy - 12), t);
             } });
     }
     // osady
@@ -9641,9 +9729,12 @@ function renderWorld(w, v, g) {
                 }
                 const label = s.name;
                 const lw = label.length * 4 + 2;
-                g.globalAlpha = 0.85;
-                wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, s.faction === w.player.liege || s.owner === -2 ? PAL.gold : factionCol(s.faction)[2] === PAL.bone ? PAL.boneHi : PAL.boneHi);
+                const qm = settings.questMarkers && QM.set.has(s.id);
+                g.globalAlpha = qm ? 1 : 0.85;
+                wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi);
                 g.globalAlpha = 1;
+                if (qm)
+                    questPin(g, Math.round(x - sx), iy - 2, t);
             } });
     }
     // oddziały
@@ -9759,6 +9850,8 @@ function renderWorld(w, v, g) {
             g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3);
         }
     }
+    if (settings.questMarkers && settings.questArrows)
+        questArrows(w, g, sx, sy, t);
     // chmury cienia
     g.globalAlpha = 0.08;
     g.fillStyle = PAL.ink;
@@ -9811,11 +9904,22 @@ function drawPartyFig(w, g, p, sx, sy, t, hover) {
         g.fillStyle = Math.floor(t * 4) % 2 ? PAL.gold : PAL.redL;
         g.fillRect(x - 6, y - 2, 1, 1);
     }
-    if (hover || p.kind === "player" || p.kind === "lord") {
-        const n = troopCount(p.troops) + (p.kind === "player" ? 1 + w.player.companions.length : 0);
-        const txt = String(n);
-        wText(g, txt, x - Math.round(txt.length * 2), y - 25, p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi);
+    const qm = settings.questMarkers && QM.party.has(p.id);
+    const mode = settings.partyNames || "lords";
+    const n = troopCount(p.troops) + (p.kind === "player" ? 1 + w.player.companions.length : 0);
+    const lcol = qm ? QUEST_COL : p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi;
+    const nearTown = w.settlements.some((s2) => dist(s2.cx * WCELL + 4, s2.cy * WCELL + 4, p.x, p.y) < 22);
+    const named = qm || hover || (mode === "all" && !nearTown) || (mode === "lords" && p.kind === "lord" && !nearTown);
+    if (p.kind !== "player" && named) {
+        const txt = `${p.name} ${n}`;
+        wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 25, lcol);
     }
+    else if (p.kind === "player" || p.kind === "lord") {
+        const txt = String(n);
+        wText(g, txt, x - Math.round(txt.length * 2), y - 25, lcol);
+    }
+    if (qm)
+        questPin(g, x, y - 28, t);
     if (hover) {
         g.fillStyle = PAL.white;
         g.fillRect(x - 7, y + 3, 15, 1);
@@ -10538,6 +10642,7 @@ const G = {
     pan: { active: false, sx: 0, sy: 0, cx: 0, cy: 0, t: 0 },
     lastAuto: 0,
     encounterCooldown: 0,
+    seen: new Set(),
 };
 function W0() { return WORLD; }
 // ---------- Nowa gra ----------
@@ -10756,7 +10861,7 @@ function mapUpdate(dt) {
     worldTick(w, hours);
     if (w.day !== prevDay) {
         refreshMapHud();
-        if (w.day - G.lastAuto >= 2) {
+        if (settings.autosaveDays > 0 && w.day - G.lastAuto >= settings.autosaveDays) {
             G.lastAuto = w.day;
             autosave();
         }
@@ -10765,6 +10870,22 @@ function mapUpdate(dt) {
     checkArrival();
     if (G.state === "map" && !screenOpen())
         checkEncounters();
+    // zatrzymaj marsz, gdy w polu widzenia pojawi się groźny wróg
+    if (settings.pauseOnEvent && p.path.length) {
+        const mine = partyPower(w, p);
+        for (const o of w.parties) {
+            if (o === p || G.seen.has(o.id) || !hostile(w, p, o) || !partyVisible(w, o))
+                continue;
+            G.seen.add(o.id);
+            if (partyPower(w, o) > mine * 0.7 && !(G.target && G.target.kind === "party" && G.target.id === o.id)) {
+                p.path = [];
+                G.camping = false;
+                toast(`Uwaga: ${o.name} w zasięgu wzroku (${troopCount(o.troops)} ludzi). Marsz wstrzymany.`, PAL.redL);
+                sfx.drum(0.6);
+                break;
+            }
+        }
+    }
 }
 function waitDone() { G.waitHours = 0; G.camping = false; const p = playerParty(WORLD); p.state = "idle"; if (pendingAfterWait) {
     const f = pendingAfterWait;
@@ -11517,18 +11638,18 @@ function updateTip() {
         }
         const ratio = partyPower(w, playerParty(w)) / Math.max(0.1, partyPower(w, o));
         const st = { siege: "oblega", raid: "idzie grabić", besiege: "idzie na oblężenie", patrol: "patroluje", chase: "ściga", flee: "ucieka", rest: "wraca do domu", wander: "krąży" };
-        html = `<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}`;
+        html = `${QM.party.has(o.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${esc(o.name)}</b><br><span class="muted">${factionName(o.faction)}</span><br>${partyDesc(o)}<br>${hostile(w, playerParty(w), o) ? `<span class="bad">Wrogi</span> · ${strengthWord(ratio)}` : "Neutralny lub sojusznik"}${st[o.state] ? `<br><span class="muted">${st[o.state]}</span>` : ""}`;
     }
     else if (hv.kind === "settlement") {
         const s = w.settlements[hv.id];
         const owner = s.owner === -2 ? "ty" : s.owner >= 0 ? `${lordById(w, s.owner).title} ${lordById(w, s.owner).name}` : "korona";
         const kind = s.kind === "town" ? "Miasto" : s.kind === "castle" ? "Zamek" : "Wioska";
-        html = `<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}`;
+        html = `${QM.set.has(s.id) ? `<span style="color:${QUEST_COL}">◆ ${esc(QM.set.get(s.id).text)}</span><br>` : ""}<b>${s.name}</b> <span class="muted">${kind}</span><br>${factionName(s.faction)} · właściciel: ${owner}<br>Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""}${s.siegeBy.length ? `<br><span class="bad">Oblężenie (${s.siegeDays} dni)</span>` : ""}${s.raided ? `<br><span class="bad">Spustoszona</span>` : ""}${s.tournament ? `<br><span class="gold">Turniej!</span>` : ""}${playerAtWarWith(w, s.faction) ? `<br><span class="bad">Wrogie</span>` : ""}`;
     }
     else {
         const pl = w.places[hv.id];
         const d = { ruins: "Ruiny pełne nieumarłych i skarbów.", lair: "Leże bestii.", shrine: "Miejsce modlitwy. Odnawia wiarę.", camp: "Obóz zbójców. Stąd wychodzą bandy.", cemetery: "Przeklęta ziemia. Umarli nie śpią." };
-        html = `<b>${pl.name}</b><br>${d[pl.kind]}${pl.cleared > 0 && pl.kind !== "shrine" ? `<br><span class="muted">Oczyszczone (${pl.cleared} dni)</span>` : ""}`;
+        html = `${QM.place.has(pl.id) ? `<span style="color:${QUEST_COL}">◆ Cel zadania</span><br>` : ""}<b>${pl.name}</b><br>${d[pl.kind]}${pl.cleared > 0 && pl.kind !== "shrine" ? `<br><span class="muted">Oczyszczone (${pl.cleared} dni)</span>` : ""}`;
     }
     tip.innerHTML = html;
     tip.hidden = false;
@@ -12480,7 +12601,20 @@ function showChronicle() {
 function showQuests() {
     const w = WORLD, P = w.player;
     const act = P.quests.filter((q) => !q.done);
-    showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => `<p>${q.text}<br><span class="muted">Zleca: ${w.settlements[q.giver]?.name || "?"} · nagroda ${q.reward} · zostało ${q.days} dni</span></p>`).join("") : "<p class='muted'>Brak zadań. Rady miast i sołtysi wiosek mają robotę.</p>"}<div class="btns"><button data-a="close">Zamknij (J)</button></div></div>`, { close: () => closeScreen() }, "quest-scr");
+    const icon = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf" };
+    showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => { const pos = questPos(w, q); return `<div class="quest">${ic(icon[q.kind], "big")}<div><b style="color:${QUEST_COL}">${q.text}</b><br><span class="muted">Zleca: ${w.settlements[q.giver]?.name || "?"} · ${ic("coin")} ${q.reward} · zostało ${q.days} dni</span><br>${pos ? `<button class="mini" data-a="show" data-v="${q.id}">Pokaż na mapie (${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól)</button> <button class="mini" data-a="go" data-v="${q.id}">Idź tam</button>` : `<span class="tip">Cel jeszcze nieznany. Szukaj w okolicy lub pytaj w karczmach.</span>`}</div></div>`; }).join("") : "<p class='muted'>Brak zadań. Rady miast i sołtysi wiosek mają robotę.</p>"}
+    <p class="tip">Cele zadań mają na mapie złotą nazwę, znacznik i strzałkę przy krawędzi ekranu z odległością.</p><div class="btns"><button data-a="close">Zamknij (J)</button></div></div>`, {
+        show: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos)
+            return; closeScreen(); G.view.cam.x = pos.x - W / 2; G.view.cam.y = pos.y - H / 2; G.pan.t = G.view.time + 3; },
+        go: (v) => { const q = P.quests.find((x) => x.id === Number(v)); const pos = q && questPos(w, q); if (!pos)
+            return; closeScreen(); const p = playerParty(w); if (q.kind === "bandits")
+            G.target = { kind: "party", id: q.target };
+        else if (q.kind === "wolves")
+            G.target = { kind: "place", id: q.target };
+        else
+            G.target = { kind: "settlement", id: q.kind === "grain" ? q.giver : q.target }; goTo(w, p, pos.x, pos.y); },
+        close: () => closeScreen(),
+    }, "quest-scr");
 }
 function showPauseMenu() {
     showScr(`<div class="card frame small"><h1>Menu</h1><div class="col-btns">
@@ -12504,29 +12638,61 @@ function showPauseMenu() {
     if (G.battle)
         G.battle.paused = true;
 }
+const SETT = { tab: "game" };
 function showSettings(back) {
-    showScr(`<div class="card frame small"><h1>Ustawienia</h1><div class="menu">
-    <label><input type="checkbox" data-in="dmg" ${settings.damageNumbers ? "checked" : ""}> Liczby obrażeń</label>
-    <label><input type="checkbox" data-in="gesture" ${settings.gesture ? "checked" : ""}> Kierunek ciosu ruchem myszy</label>
-    <label><input type="checkbox" data-in="music" ${settings.music ? "checked" : ""}> Muzyka</label>
-    <label>Głośność <input type="range" min="0" max="100" value="${Math.round(settings.volume * 100)}" data-in="vol"></label>
-    <label>Wielkość bitew (na stronę) <select data-in="size">${[60, 100, 150].map((n) => `<option value="${n}" ${settings.battleSize === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-  </div>
-  <div class="btns"><button class="alt" data-a="fs">${document.fullscreenElement ? "Wyjdź z pełnego ekranu" : "Pełny ekran"}</button><button data-a="back">Gotowe</button></div></div>`, {
-        dmg: (v) => { settings.damageNumbers = !!v; saveSettings(); },
-        gesture: (v) => { settings.gesture = !!v; saveSettings(); },
-        music: (v) => { settings.music = !!v; if (sfx.musicOn !== settings.music)
-            sfx.toggleMusic(); saveSettings(); },
-        vol: (v) => { settings.volume = Number(v) / 100; sfx.setVolume(settings.volume); saveSettings(); },
-        size: (v) => { settings.battleSize = Number(v); saveSettings(); },
+    const S = settings;
+    const chk = (k, label, tip = "") => `<label class="opt"><input type="checkbox" data-in="b:${k}" ${S[k] ? "checked" : ""}><span>${label}${tip ? `<small>${tip}</small>` : ""}</span></label>`;
+    const sel = (k, label, opts) => `<label class="opt"><span>${label}</span><select data-in="s:${k}">${opts.map(([v, n]) => `<option value="${v}" ${String(S[k]) === String(v) ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+    const rng = (k, label, min, max, step) => `<label class="opt"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${S[k]}" data-in="r:${k}"><b id="rv-${k}">${Math.round(S[k] * 100)}%</b></label>`;
+    const tabs = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"]];
+    let body = "";
+    if (SETT.tab === "game")
+        body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
+    if (SETT.tab === "map")
+        body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
+    if (SETT.tab === "battle")
+        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik strony następnego cięcia") + chk("gesture", "Kierunek ciosu ruchem myszy", "stare sterowanie") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+    if (SETT.tab === "sound")
+        body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
+    if (SETT.tab === "view")
+        body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
+    const apply = (k, val) => {
+        S[k] = val;
+        if (k === "music" && sfx.musicOn !== S.music)
+            sfx.toggleMusic();
+        if (k === "volume")
+            sfx.setVolume(S.volume);
+        if (k === "musicVol")
+            sfx.setMusicVolume(S.musicVol);
+        if (k === "uiScale")
+            applyUiScale();
+        saveSettings();
+    };
+    showScr(`<div class="card frame settings"><h1>Ustawienia</h1>
+    <div class="s-tabs">${tabs.map(([k, n, i]) => `<button class="tab ${SETT.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${ic(i)}${n}</button>`).join("")}</div>
+    <div class="opts">${body}</div>
+    <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
+        tab: (v) => { SETT.tab = v; showSettings(back); },
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
+        "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
+        "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
+            e.textContent = Math.round(Number(v) * 100) + "%"; },
+        "r:blood": (v) => { apply("blood", Number(v)); const e = document.getElementById("rv-blood"); if (e)
+            e.textContent = Math.round(Number(v) * 100) + "%"; },
+        "r:volume": (v) => { apply("volume", Number(v)); const e = document.getElementById("rv-volume"); if (e)
+            e.textContent = Math.round(Number(v) * 100) + "%"; },
+        "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e)
+            e.textContent = Math.round(Number(v) * 100) + "%"; },
         fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
+        reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true }); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
         back: () => back(),
     }, "set-scr");
 }
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.6";
+const BUILD = "Build 0.7";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -12536,7 +12702,11 @@ const input = new Input();
 input.attach(canvas);
 const sfx = new Sfx();
 buildSprites();
-const settings = { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100 };
+const settings = {
+    damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
+    musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true,
+    questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true,
+};
 try {
     const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
     if (s)
@@ -12548,11 +12718,14 @@ function saveSettings() { try {
 }
 catch (e) { /* ignoruj */ } }
 sfx.volume = settings.volume;
+sfx.musicVol = settings.musicVol;
+applyUiScale();
+function applyUiScale() { document.getElementById("wrap").style.setProperty("--uis", String(settings.uiScale)); }
 sfx.musicOn = settings.music;
 sfxUi = () => sfx.ui();
 addLogMsg = (t, c) => { if (G.state === "map")
     toast(t, c); };
-onChronicle = (t, c) => { if (G.state === "map" && WORLD) {
+onChronicle = (t, c) => { if (G.state === "map" && WORLD && settings.toastsOn) {
     const p = playerParty(WORLD);
     if (p)
         toast(t, c || PAL.bone);

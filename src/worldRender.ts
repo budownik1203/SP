@@ -4,6 +4,7 @@ let WMAP: HTMLCanvasElement = null as any;
 let WBORDER: HTMLCanvasElement = null as any;
 let WBORDER_VER = -1;
 let WFOG: HTMLCanvasElement = null as any;
+let QM: ReturnType<typeof questMarks> = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map<string, HTMLCanvasElement>();
 const PICON = new Map<string, HTMLCanvasElement>();
 
@@ -197,6 +198,49 @@ function placeIcon(kind: SpecialPlace["kind"], cleared: boolean): HTMLCanvasElem
   return c;
 }
 
+// ---------- Cele zadań: inny kolor nazwy, znacznik nad celem i strzałka przy krawędzi ekranu ----------
+const QUEST_COL = "#e9c45e";
+function questMarks(w: World) {
+  const m = { set: new Map<number, Quest>(), party: new Map<number, Quest>(), place: new Map<number, Quest>() };
+  for (const q of w.player.quests) if (!q.done) {
+    if (q.kind === "bandits") m.party.set(q.target, q);
+    else if (q.kind === "letter") m.set.set(q.target, q);
+    else if (q.kind === "wolves") m.place.set(q.target, q);
+    else if (q.kind === "grain") m.set.set(q.giver, q);
+  }
+  return m;
+}
+function questPos(w: World, q: Quest): V | null {
+  if (q.kind === "bandits") { const p = partyById(w, q.target); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
+  if (q.kind === "wolves") { const pl = w.places[q.target]; return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; }
+  const s = w.settlements[q.kind === "grain" ? q.giver : q.target];
+  return s ? { x: s.cx * WCELL + 4, y: s.cy * WCELL + 4 } : null;
+}
+function questPin(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  const by = Math.round(y - 4 + Math.sin(t * 4) * 1.5);
+  g.fillStyle = PAL.ink; g.fillRect(x - 2, by - 8, 5, 10);
+  g.fillStyle = QUEST_COL; g.fillRect(x - 1, by - 7, 3, 5); g.fillRect(x - 1, by - 1, 3, 2);
+}
+function questArrows(w: World, g: CanvasRenderingContext2D, sx: number, sy: number, t: number) {
+  for (const q of w.player.quests) {
+    if (q.done) continue;
+    const p = questPos(w, q);
+    if (!p) continue;
+    const x = p.x - sx, y = p.y - sy;
+    if (x > 6 && y > 18 && x < W - 6 && y < H - 14) continue;
+    const cx = W / 2, cy = H / 2, a = Math.atan2(y - cy, x - cx);
+    const k = Math.min((W / 2 - 14) / Math.max(1e-3, Math.abs(Math.cos(a))), (H / 2 - 20) / Math.max(1e-3, Math.abs(Math.sin(a))));
+    const ax = Math.round(cx + Math.cos(a) * k), ay = Math.round(cy + Math.sin(a) * k);
+    const pulse = 1 + Math.sin(t * 5) * 0.5;
+    g.fillStyle = PAL.ink;
+    for (let i = -1; i <= 5; i++) for (let j = -3; j <= 3; j++) if (Math.abs(j) <= (5 - i) * 0.7) g.fillRect(Math.round(ax + Math.cos(a) * i - Math.sin(a) * j), Math.round(ay + Math.sin(a) * i + Math.cos(a) * j), 1, 1);
+    g.fillStyle = QUEST_COL;
+    for (let i = 0; i <= 4; i++) for (let j = -2; j <= 2; j++) if (Math.abs(j) <= (4 - i) * 0.6) g.fillRect(Math.round(ax + Math.cos(a) * (i + pulse) - Math.sin(a) * j), Math.round(ay + Math.sin(a) * (i + pulse) + Math.cos(a) * j), 1, 1);
+    const d = Math.round(dist(p.x, p.y, sx + W / 2, sy + H / 2) / WCELL);
+    wText(g, d + "", Math.round(ax - Math.cos(a) * 9 - 4), Math.round(ay - Math.sin(a) * 9 - 2), QUEST_COL);
+  }
+}
+
 interface WorldView { cam: V; hover: { kind: string; id: number } | null; time: number; }
 
 function cellVisible(w: World, cx: number, cy: number) {
@@ -236,6 +280,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   if (!WMAP) renderWorldMap(w);
   if (WBORDER_VER !== w.ownerVersion) renderBorders(w);
   const PW = WGW * WCELL, PH = WGH * WCELL;
+  QM = questMarks(w);
   const sx = Math.round(clamp(v.cam.x, 0, PW - W)), sy = Math.round(clamp(v.cam.y, 0, PH - H));
   v.cam.x = sx; v.cam.y = sy;
   g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
@@ -265,6 +310,9 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       g.drawImage(img, Math.round(x - sx - img.width / 2), Math.round(y - sy - img.height + 3));
       if (p.kind === "camp" && p.cleared <= 0) { g.fillStyle = Math.floor(t * 8) % 2 ? PAL.gold : PAL.redL; g.fillRect(Math.round(x - sx + 4), Math.round(y - sy - 5), 1, 1); }
       if (p.kind === "shrine") { g.globalAlpha = 0.4 + Math.sin(t * 3) * 0.2; g.fillStyle = PAL.gold; g.fillRect(Math.round(x - sx - 1), Math.round(y - sy - 12), 2, 2); g.globalAlpha = 1; }
+      const qm = settings.questMarkers && QM.place.has(p.id);
+      if (qm || (v.hover?.kind === "place" && v.hover.id === p.id)) { wText(g, p.name, Math.round(x - sx - (p.name.length * 4) / 2), Math.round(y - sy + 6), qm ? QUEST_COL : PAL.bone); }
+      if (qm) questPin(g, Math.round(x - sx), Math.round(y - sy - 12), t);
     } });
   }
   // osady
@@ -284,9 +332,11 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       if (s.tournament > 0) { g.fillStyle = PAL.gold; g.fillRect(ix + img.width - 3, iy - 2, 2, 2); }
       const label = s.name;
       const lw = label.length * 4 + 2;
-      g.globalAlpha = 0.85;
-      wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, s.faction === w.player.liege || s.owner === -2 ? PAL.gold : factionCol(s.faction)[2] === PAL.bone ? PAL.boneHi : PAL.boneHi);
+      const qm = settings.questMarkers && QM.set.has(s.id);
+      g.globalAlpha = qm ? 1 : 0.85;
+      wText(g, label, Math.round(x - sx - lw / 2 + 1), iy + img.height + 2, qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi);
       g.globalAlpha = 1;
+      if (qm) questPin(g, Math.round(x - sx), iy - 2, t);
     } });
   }
   // oddziały
@@ -354,6 +404,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     g.fillStyle = "rgba(160,170,170,0.28)";
     for (let i = 0; i < 110; i++) { const s = hashInt(i * 7 + 1); const x = ((s % 997) * 3 - t * 40) % W, y = (((s >>> 10) % 400) + t * 200) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3); }
   }
+  if (settings.questMarkers && settings.questArrows) questArrows(w, g, sx, sy, t);
   // chmury cienia
   g.globalAlpha = 0.08;
   g.fillStyle = PAL.ink;
@@ -380,11 +431,15 @@ function drawPartyFig(w: World, g: CanvasRenderingContext2D, p: Party, sx: numbe
   }
   if (p.kind === "caravan") { g.fillStyle = PAL.wood; g.fillRect(x + 4, y - 5, 6, 4); g.fillStyle = PAL.bone; g.fillRect(x + 4, y - 7, 6, 2); g.fillStyle = PAL.ink; g.fillRect(x + 5, y - 1, 1, 1); g.fillRect(x + 8, y - 1, 1, 1); }
   if (p.state === "siege") { g.fillStyle = Math.floor(t * 4) % 2 ? PAL.gold : PAL.redL; g.fillRect(x - 6, y - 2, 1, 1); }
-  if (hover || p.kind === "player" || p.kind === "lord") {
-    const n = troopCount(p.troops) + (p.kind === "player" ? 1 + w.player.companions.length : 0);
-    const txt = String(n);
-    wText(g, txt, x - Math.round(txt.length * 2), y - 25, p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi);
-  }
+  const qm = settings.questMarkers && QM.party.has(p.id);
+  const mode = settings.partyNames || "lords";
+  const n = troopCount(p.troops) + (p.kind === "player" ? 1 + w.player.companions.length : 0);
+  const lcol = qm ? QUEST_COL : p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi;
+  const nearTown = w.settlements.some((s2) => dist(s2.cx * WCELL + 4, s2.cy * WCELL + 4, p.x, p.y) < 22);
+  const named = qm || hover || (mode === "all" && !nearTown) || (mode === "lords" && p.kind === "lord" && !nearTown);
+  if (p.kind !== "player" && named) { const txt = `${p.name} ${n}`; wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 25, lcol); }
+  else if (p.kind === "player" || p.kind === "lord") { const txt = String(n); wText(g, txt, x - Math.round(txt.length * 2), y - 25, lcol); }
+  if (qm) questPin(g, x, y - 28, t);
   if (hover) { g.fillStyle = PAL.white; g.fillRect(x - 7, y + 3, 15, 1); }
 }
 
