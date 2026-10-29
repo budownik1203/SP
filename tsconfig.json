@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["ES2020", "DOM"],
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
     "strict": false,
     "noImplicitAny": false,
     "outDir": "build",
@@ -9,5 +12,20 @@
     "removeComments": false,
     "skipLibCheck": true
   },
-  "files": ["src/core.ts", "src/sprites.ts", "src/units.ts", "src/audio.ts", "src/battle.ts", "src/main.ts"]
+  "files": [
+    "src/core.ts",
+    "src/sprites.ts",
+    "src/units.ts",
+    "src/audio.ts",
+    "src/battleMap.ts",
+    "src/battle.ts",
+    "src/abilities.ts",
+    "src/battleRender.ts",
+    "src/world.ts",
+    "src/worldRender.ts",
+    "src/ui.ts",
+    "src/campaign.ts",
+    "src/screens.ts",
+    "src/main.ts"
+  ]
 }

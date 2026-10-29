@@ -4,18 +4,19 @@
 let W = 480, H = 270;
 const ZOOMS = [[384, 216], [480, 270], [640, 360]];
 
-// Stała, ponura paleta (32 kolory).
+// Stała, zgniła paleta (Build B4): oliwki, brązy, szarości, mocny kontrast. 35 kolorów.
 const PAL = {
-  black: "#0d0b0e", ink: "#1a1620", dusk: "#2a2433", slate: "#3d3a4b",
-  stone: "#5c5a6a", ash: "#8a8794", bone: "#c9c0a8", boneHi: "#e6dfc9",
-  grassD: "#1c2619", grass: "#28351f", grassL: "#37462a", moss: "#4f5a37",
-  dirtD: "#33291f", dirt: "#4f3d2e", dirtL: "#6e5841",
-  bloodD: "#3f0c0f", blood: "#701719", bloodL: "#a12b26",
-  skin: "#c08d6c", skinD: "#86593f",
-  steelD: "#474c5a", steel: "#767e8e", steelL: "#adb4c1",
-  woodD: "#44301f", wood: "#6a4a2d",
-  red: "#86292a", redL: "#b1443a", gold: "#c39a42", goldD: "#86682b",
-  purple: "#55296a", purpleL: "#a066cc", white: "#f0e9da",
+  black: "#0a0908", ink: "#15120e", dusk: "#221d18", slate: "#332e28",
+  stone: "#4c463e", ash: "#746c62", bone: "#ada28a", boneHi: "#d2c7ad",
+  grassD: "#181b12", grass: "#252818", grassL: "#343722", moss: "#4c4c2e",
+  dirtD: "#281f16", dirt: "#3f3125", dirtL: "#5b4734",
+  bloodD: "#360c0b", blood: "#5e1716", bloodL: "#8a2a20",
+  skin: "#a67759", skinD: "#6c4935",
+  steelD: "#393b3f", steel: "#5f636a", steelL: "#92969c",
+  woodD: "#372818", wood: "#573e26",
+  red: "#6e2525", redL: "#954030", gold: "#a2822f", goldD: "#6a5423",
+  purple: "#462750", purpleL: "#865ea3", white: "#ded7c6",
+  water: "#1f2a2b", waterL: "#334342", rust: "#6b3a20",
 };
 
 type V = { x: number; y: number };
@@ -99,3 +100,11 @@ class Input {
   }
 }
 
+
+// Szum wartości (teren, mgła).
+function hashN(x: number, y: number) { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x: number, y: number, s: number) {
+  const xi = Math.floor(x / s), yi = Math.floor(y / s), fx = x / s - xi, fy = y / s - yi;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  return lerp(lerp(hashN(xi, yi), hashN(xi + 1, yi), sx), lerp(hashN(xi, yi + 1), hashN(xi + 1, yi + 1), sx), sy);
+}

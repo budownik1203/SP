@@ -1,21 +1,49 @@
-// Bitwa: symulacja walki, konnica, AI, oddziały i rozkazy, tryb dowodzenia, teren, efekty i rysowanie.
+// Bitwa (Build B4): konfiguracja z mapy świata, armie z rezerwami i falami, teren, noc, deszcz,
+// oblężenie i arena, AI generałów, oficerowie, umiejętności, ćwiartowanie i wynik bitwy.
 
-const WW = 1600, WH = 1000;              // rozmiar pola bitwy w pikselach
 type State = "idle" | "windup" | "strike" | "recover" | "stagger" | "kick" | "down" | "dead" | "fled";
 type Mode = "hold" | "follow" | "charge" | "flank" | "ambush";
 type CmdLevel = "groups" | "orders" | "formation" | "more" | "target" | "assign";
+type Role = "inf" | "ranged" | "cav" | "special";
 
 let UID = 1;
 
-const SQUAD_NAMES: Record<number, string> = { 1: "Piechota", 2: "Łucznicy", 3: "Konnica", 4: "Oddział 4", 5: "Oddział 5", 6: "Oddział 6", 7: "Oddział 7", 8: "Oddział 8" };
+const SQUAD_NAMES: Record<number, string> = { 1: "Piechota", 2: "Strzelcy", 3: "Konnica", 4: "Oddział 4", 5: "Oddział 5", 6: "Oddział 6", 7: "Oddział 7", 8: "Oddział 8" };
 const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.gold, 4: PAL.bone, 5: PAL.purpleL, 6: PAL.steelL, 7: PAL.dirtL, 8: PAL.ash };
-const ENEMY_SQUADS: Record<number, string> = { 1: "Linia szkieletów", 2: "Skrzydło szkieletów", 3: "Szkielety łucznicy", 4: "Ghule", 5: "Rycerz Śmierci" };
 
-interface Settings { damageNumbers: boolean; gesture: boolean; }
+interface Settings { damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number; }
+
+interface HeroCfg {
+  name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; bowDmg: number; ammo: number;
+  armor: number; mount: Mount | null; abilities: string[]; abLevels: Record<string, number>;
+  faith: number; mana: number; fury: number; corruption: number; bandages: number;
+  leadership: number; medicine: number;
+}
+interface CompanionCfg { id: string; name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; armor: number; squad: number; bow?: number; mount?: Mount | null; }
+interface SideCfg { name: string; faction: number; troops: { type: string; n: number }[]; hero?: HeroCfg; companions?: CompanionCfg[]; allies?: { name: string; faction: number; troops: { type: string; n: number }[] }[]; }
+interface BattleConfig {
+  terrain: Terrain; night: boolean; rain: boolean;
+  player: SideCfg; enemy: SideCfg;
+  siegeDefender?: 0 | 1;           // która strona broni murów
+  arena?: { kind: "duel" | "team" | "beasts"; };
+  maxPerSide?: number;
+  title?: string;
+}
+interface Casualty { type: string; killed: number; wounded: number; }
+interface BattleResult {
+  win: boolean; heroKO: boolean; heroHp: number; heroKills: number;
+  faith: number; mana: number; fury: number; corruption: number; bandages: number; ammo: number;
+  ours: Casualty[]; theirs: Casualty[]; allies: Casualty[];
+  xp: Record<string, number>;          // doświadczenie na typ jednostki gracza
+  prisoners: { type: string; n: number }[];
+  companionsKO: string[]; companionHp: Record<string, number>;
+  enemyKilled: number; time: number; retreated: boolean;
+}
 
 class Unit {
   id = UID++;
   def: UnitDef;
+  key: string;
   team: number;
   squad: number;
   x: number; y: number;
@@ -23,6 +51,8 @@ class Unit {
   face = 0;
   wantFace = 0;
   hp: number;
+  maxHp: number;
+  arm: Record<DmgType, number>;
   state: State = "idle";
   t = 0;
   dir: Dir = "R";
@@ -48,10 +78,12 @@ class Unit {
   flash = 0;
   hero = false;
   officer = false;
+  companion: string | null = null;
   commander = false;
   reload = 0;
   drawT = 0;
   ammo = 0;
+  bowDmg = 0;
   loadout = 0;
   weaponKey: string;
   hasShield: boolean;
@@ -60,93 +92,106 @@ class Unit {
   decay = false;
   bloodT = 0;
   bleedT = 0;
-  variant: number;
+  look: Look;
   spr: SpriteSet;
   nextSide: Dir = "R";
-  key = "";
+  key2 = "";
+  name = "";
   // konnica
-  mounted = false;
-  horseHp = 0;
-  horseMax = 0;
-  heading = 0;
-  rspeed = 0;
+  mounted = false; horseHp = 0; horseMax = 0; heading = 0; rspeed = 0;
+  mountDef: Mount | null = null;
   horse: HorseSet | null = null;
   wheelTo: V | null = null;
   trampleT = 0;
-  // zasadzka i zaznaczenie
+  // zasadzka, zaznaczenie, nawigacja
   hidden = false;
   picked = false;
+  climbing = false;
+  // efekty umiejętności
+  buffT = 0; buffDmg = 1;
+  cursedT = 0; burnT = 0; bloodRiteT = 0; smiteT = 0;
+  abilityT = 0;
+  lifeT = 0;          // jednostki przyzwane znikają po czasie
+  ko = false;         // arena: nokaut zamiast śmierci
+  torch = false;
+  fireT = 0;          // ostatni wystrzał (do łuku jednostek)
 
-  constructor(defKey: string, team: number, squad: number, x: number, y: number) {
-    this.def = UNITS[defKey];
+  constructor(key: string, team: number, squad: number, x: number, y: number, faction: number, look?: Look) {
+    this.key = key;
+    this.def = UNITS[key];
     this.team = team; this.squad = squad;
     this.x = x; this.y = y;
-    this.hp = this.def.hp;
+    this.hp = this.maxHp = this.def.hp;
+    this.arm = { ...this.def.armor };
     this.weaponKey = this.def.weapon;
     this.hasShield = this.def.shield;
     this.face = this.wantFace = this.heading = team === 0 ? 0 : Math.PI;
     this.reload = rr(0.2, 1.5);
     this.ammo = this.def.bow ? 30 : 0;
+    this.bowDmg = this.def.bow ? this.def.bow.dmg : 0;
     this.dir = pick<Dir>(["L", "R", "O", "T"]);
-    this.variant = Math.floor(rnd() * 64);
-    this.spr = getSprites(this.def.body, this.variant);
-    if (this.def.mount) this.mount(this.def.mount);
+    const variant = Math.floor(rnd() * 48);
+    this.look = look || troopLook(this.def, variant, faction);
+    this.spr = spritesFor(this.look, look ? "custom:" + this.id : `${key}:${faction}:${variant}`);
+    if (this.def.mount) this.mount(this.def.mount, faction);
+    this.name = this.def.name;
   }
-  mount(m: Mount) { this.mounted = true; this.horseHp = this.horseMax = m.hp; this.horse = getHorse(this.variant, this.team); }
+  mount(m: Mount, faction: number) {
+    this.mounted = true; this.mountDef = m; this.horseHp = this.horseMax = m.hp;
+    const F = FACTIONS[faction] || FACTIONS[6];
+    this.horse = getHorse(this.id, [F.col, F.shade, F.trim], !!m.undead);
+  }
   get alive() { return this.state !== "dead" && this.state !== "fled"; }
   get active() { return this.alive && this.state !== "down"; }
   get w() { return WEAPONS[this.weaponKey]; }
-  get usingBow() { return this.hero ? HERO_LOADOUTS[this.loadout].bow : !!this.def.bow; }
-  get radius() { return this.mounted ? 8 : this.def.radius; }
-  get maxRide() { return (this.def.mount || HORSE).speed; }
+  get usingBow() { return this.hero ? this.loadout === 1 : !!this.def.bow; }
+  get radius() { return this.mounted ? 9 : this.def.radius; }
+  get maxRide() { return (this.mountDef || HORSE).speed; }
+  get role(): Role { return this.def.ability ? "special" : this.mounted ? "cav" : this.def.bow ? "ranged" : "inf"; }
 }
 
-interface Arrow { x: number; y: number; vx: number; vy: number; team: number; src: Unit; dmg: number; age: number; travel: number; dist: number; done: boolean; }
-interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: string; kind: "blood" | "spark" | "dust" | "bone" | "flash" | "ring" | "soul"; }
+interface Arrow { x: number; y: number; vx: number; vy: number; team: number; src: Unit; dmg: number; age: number; travel: number; dist: number; done: boolean; kind: "arrow" | "bolt" | "axe" | "fire"; }
+interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: string; kind: "blood" | "spark" | "dust" | "bone" | "flash" | "ring" | "soul" | "fire" | "head" | "limb" | "holy" | "beam" | "rain"; img?: HTMLCanvasElement; rot?: number; }
 interface Corpse { x: number; y: number; img: HTMLCanvasElement; flip: boolean; rot: number; undead: boolean; bones: boolean; t: number; pooled: boolean; horse?: boolean; }
-interface Obstacle { x: number; y: number; r: number; img: HTMLCanvasElement; }
 interface Floater { x: number; y: number; text: string; col: string; t: number; }
 interface Order {
   mode: Mode; ax: number; ay: number; formation: Formation; fire: boolean; meleeOnly: boolean; spacing: number;
   cols?: number; face?: number; targetSquad?: number | null; flank?: { x: number; y: number } | null;
 }
 interface Slot { x: number; y: number; face: number; }
-interface Area { x: number; y: number; r: number; }
+interface Reserve { key: string; team: number; faction: number; squadHint?: number; ally?: boolean; }
 
 function newOrder(ax: number, ay: number, formation: Formation = "line"): Order {
   return { mode: "hold", ax, ay, formation, fire: true, meleeOnly: false, spacing: 1, targetSquad: null, flank: null };
 }
-function hashN(x: number, y: number) { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
-function vnoise(x: number, y: number, s: number) {
-  const xi = Math.floor(x / s), yi = Math.floor(y / s), fx = x / s - xi, fy = y / s - yi;
-  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-  return lerp(lerp(hashN(xi, yi), hashN(xi + 1, yi), sx), lerp(hashN(xi, yi + 1), hashN(xi + 1, yi + 1), sx), sy);
-}
 
 class Battle {
+  cfg: BattleConfig;
+  map: BattleMap;
+  mw: number; mh: number;
   units: Unit[] = [];
-  hero: Unit;
-  dk: Unit;
+  hero: Unit | null = null;
+  heroCfg: HeroCfg | null = null;
+  commanders: Unit[] = [];
   arrows: Arrow[] = [];
   parts: Particle[] = [];
   corpses: Corpse[] = [];
-  obstacles: Obstacle[] = [];
   floaters: Floater[] = [];
-  hills: Area[] = [];
-  forests: Area[] = [];
-  ground: HTMLCanvasElement;
   decals: HTMLCanvasElement;
   dg: CanvasRenderingContext2D;
   vignette: HTMLCanvasElement;
   fog: HTMLCanvasElement;
   ash: { x: number; y: number; s: number; p: number; c: string }[] = [];
+  reserves: Reserve[][] = [[], []];
+  spawned: Record<string, number>[] = [{}, {}];
 
   orders: Record<number, Order> = {};
   eorders: Record<number, Order> = {};
+  aorders: Record<number, Order> = {};   // sojusznicy AI (oddziały 11+)
   selected: number[] = [1, 2, 3];
-  enemyCharge = false;
-  dkRetreatT = 0;
+  charge: boolean[] = [false, false];
   waver: Record<number, number> = {};
+  generalT = 0;
 
   cmdOpen = false;
   cmdLevel: CmdLevel = "groups";
@@ -159,12 +204,14 @@ class Battle {
   shakeX = 0; shakeY = 0; shakeVX = 0; shakeVY = 0; rumble = 0;
   hitstop = 0;
   slowT = 0;
+  focusT = 0;
   slowmo = false;
   hurtFlash = 0;
   time = 0;
   real = 0;
   phase: "deploy" | "fight" | "end" = "deploy";
-  result: "win" | "lose" | null = null;
+  result: BattleResult | null = null;
+  retreated = false;
   log: { text: string; t: number; col?: string; n: number; big?: boolean }[] = [];
   banner: { text: string; t: number; col: string } | null = null;
   loadDir: Dir = "R";
@@ -172,95 +219,45 @@ class Battle {
   relayoutT = 0;
   intensity = 0;
   moanT = 3;
+  cds: Record<string, number> = {};
+  lastAbility = "";
+  fx: AbilityFx[] = [];
+  heroDmg = 1;
+  light: HTMLCanvasElement | null = null;
 
-  constructor(public input: Input, public sfx: Sfx, public settings: Settings, heroMounted = false) {
-    this.makeTerrain();
-    this.spawn(heroMounted);
-  }
-
-  // ---------- Teren ----------
-  height(x: number, y: number) {
-    let h = 0;
-    for (const hl of this.hills) {
-      const d = dist(x, y, hl.x, hl.y) / hl.r;
-      if (d < 1) h = Math.max(h, (1 - d * d) * (1 - d * d));
-    }
-    return h;
-  }
-  inForest(x: number, y: number) { return this.forests.some((f) => dist(x, y, f.x, f.y) < f.r); }
-
-  makeTerrain() {
-    this.hills = [{ x: 560, y: 360, r: 120 }, { x: 1060, y: 660, r: 130 }, { x: 820, y: 230, r: 95 }];
-    this.forests = [{ x: 760, y: 820, r: 115 }, { x: 1030, y: 170, r: 120 }];
-    const [g, gc] = mkCanvas(WW, WH);
-    const im = gc.createImageData(WW, WH);
-    const rgb = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-    const grass = [PAL.grassD, PAL.grass, PAL.grassL, PAL.moss].map(rgb);
-    const dirt = [PAL.dirtD, PAL.dirt, PAL.dirtL].map(rgb);
-    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-    const off = rnd() * 1000;
-    const roadAt = (x: number) => 500 + Math.sin((x + off) / 200) * 70 + Math.sin(x / 61) * 8;
-    for (let y = 0; y < WH; y++) for (let x = 0; x < WW; x++) {
-      const n = vnoise(x + off, y, 80) * 0.62 + vnoise(x, y + off, 22) * 0.38;
-      const th = (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
-      const hgt = this.height(x, y);
-      const sl = hgt > 0 ? (this.height(x - 3, y - 3) - this.height(x + 3, y + 3)) * 6 : 0;   // światło z lewej góry
-      const rd = Math.abs(y - roadAt(x)) - 15 - vnoise(x, y, 14) * 9;
-      const forest = this.forests.some((f) => dist(x, y, f.x, f.y) < f.r + vnoise(x, y, 20) * 20);
-      let col: number[];
-      if (rd < 0) {
-        col = dirt[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.9), 0, 2)];
-        const rut = Math.abs(Math.abs(y - roadAt(x)) - 6);
-        if (rut < 1.2 && hashN(x >> 2, 7) > 0.2) col = dirt[0];
-        if (vnoise(x, y, 9) > 0.8 && rd < -4 && th < 0.75) col = dirt[0];
-      } else if (rd < 3) col = th < 0.5 ? dirt[0] : grass[0];
-      else {
-        const lv = n * 2.5 + (th - 0.5) * 0.8 + sl * 1.2 + hgt * 0.5 - (forest ? 0.9 : 0);
-        col = grass[clamp(Math.floor(lv), 0, 2)];
-        if (vnoise(x + 300, y, 40) > 0.78 && th > 0.75) col = grass[3];
-        if (hgt > 0.05 && Math.abs(((hgt * 5) % 1) - 0.5) < 0.04 && th < 0.5) col = grass[0];   // poziomice
-      }
-      const k = (y * WW + x) * 4;
-      im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255;
-    }
-    gc.putImageData(im, 0, 0);
-    for (let i = 0; i < 1500; i++) {
-      const x = rr(0, WW) | 0, y = rr(0, WH) | 0;
-      if (Math.abs(y - roadAt(x)) < 20) continue;
-      gc.drawImage(pick(TUFTS), x, y);
-    }
-    for (let i = 0; i < 380; i++) { gc.fillStyle = chance(0.5) ? PAL.stone : PAL.slate; const x = rr(0, WW) | 0, y = rr(0, WH) | 0; gc.fillRect(x, y, 2, 1); gc.fillStyle = PAL.ash; gc.fillRect(x, y, 1, 1); }
-    for (const f of this.forests) for (let i = 0; i < 500; i++) {
-      const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r;
-      gc.fillStyle = pick([PAL.woodD, PAL.dirtD, PAL.grassD]); gc.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + Math.sin(a) * r) | 0, 1, 1);
-    }
-    this.ground = g;
-    const [d, dg] = mkCanvas(WW, WH);
+  constructor(cfg: BattleConfig, public input: Input, public sfx: Sfx, public settings: Settings) {
+    this.cfg = cfg;
+    this.map = makeBattleMap(cfg.terrain, cfg.night);
+    this.mw = this.map.w; this.mh = this.map.h;
+    const [d, dg] = mkCanvas(this.mw, this.mh);
     this.decals = d; this.dg = dg;
-
-    const tryPlace = (x: number, y: number, r: number, imgs: HTMLCanvasElement[], gap: number) => {
-      if (this.obstacles.some((o) => o.r && dist(o.x, o.y, x, y) < o.r + r + gap)) return false;
-      this.obstacles.push({ x, y, r, img: pick(imgs) }); return true;
-    };
-    for (const f of this.forests) for (let i = 0; i < 60; i++) {
-      const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r;
-      tryPlace(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 6, [TREES[0], TREES[2], TREES[2], TREES[1]], 9);
-    }
-    for (let i = 0; i < 90; i++) {
-      const x = rr(20, WW - 20), y = rr(20, WH - 15);
-      const center = y > 330 && y < 680 && x > 250 && x < 1350;
-      if (center && !chance(0.08)) continue;
-      tryPlace(x, y, chance(0.75) ? 7 : 6, chance(0.75) ? TREES : ROCKS, 18);
-    }
-    for (let i = 0; i < 70; i++) this.obstacles.push({ x: rr(0, WW), y: rr(0, WH), r: 0, img: BUSH });
     this.makeOverlays();
     for (let i = 0; i < 220; i++) this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
+    this.spawnAll();
   }
+
+  // ---------- Pomocnicze ----------
+  cell(x: number, y: number) {
+    const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+    if (cx < 0 || cy < 0 || cx >= this.map.gw || cy >= this.map.gh) return 2;
+    const v = this.map.grid[cy * this.map.gw + cx];
+    if (v === 6) return this.map.wall && this.map.wall.broken ? 0 : 2;
+    return v;
+  }
+  passable(x: number, y: number) { const c = this.cell(x, y); return c !== 2; }
+  slowAt(x: number, y: number) { const c = this.cell(x, y); return c === 1 ? 0.55 : c === 5 ? 0.35 : 1; }
+  height(x: number, y: number) {
+    let h = 0;
+    for (const hl of this.map.hills) { const d = dist(x, y, hl.x, hl.y) / hl.r; if (d < 1) h = Math.max(h, (1 - d * d) * (1 - d * d)); }
+    if (this.map.wall && x >= this.map.wall.x0 && x <= this.map.wall.x1 + 4) h = Math.max(h, 0.6);
+    return h;
+  }
+  inForest(x: number, y: number) { return this.map.forests.some((f) => dist(x, y, f.x, f.y) < f.r); }
 
   makeOverlays() {
     const [v, vg] = mkCanvas(W, H);
-    const grd = vg.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, W * 0.6);
-    grd.addColorStop(0, "rgba(13,11,14,0)"); grd.addColorStop(1, "rgba(13,11,14,0.6)");
+    const grd = vg.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.6);
+    grd.addColorStop(0, "rgba(10,9,8,0)"); grd.addColorStop(1, "rgba(10,9,8,0.7)");
     vg.fillStyle = grd; vg.fillRect(0, 0, W, H);
     this.vignette = v;
     if (!this.fog) {
@@ -269,49 +266,153 @@ class Battle {
       for (let y = 0; y < 90; y++) for (let x = 0; x < 160; x++) {
         const n = vnoise(x * 3, y * 3, 30) * 0.7 + vnoise(x * 3 + 99, y * 3, 12) * 0.3;
         const k = (y * 160 + x) * 4;
-        fim.data[k] = 200; fim.data[k + 1] = 196; fim.data[k + 2] = 210; fim.data[k + 3] = Math.floor(clamp((n - 0.4) * 2, 0, 1) * 255);
+        fim.data[k] = 190; fim.data[k + 1] = 186; fim.data[k + 2] = 176; fim.data[k + 3] = Math.floor(clamp((n - 0.4) * 2, 0, 1) * 255);
       }
       fg.putImageData(fim, 0, 0);
       this.fog = f;
     }
   }
 
-  // ---------- Jednostki ----------
-  spawn(heroMounted: boolean) {
-    const h = new Unit("hero", 0, 0, 430, 500);
-    h.hero = true; h.ammo = 30;
-    if (heroMounted) { h.mount(HORSE); h.horseHp = h.horseMax = 160; }
-    this.hero = h; this.units.push(h);
-    const add = (key: string, team: number, sq: number, n: number, x: number, y: number) => {
-      const out: Unit[] = [];
-      for (let i = 0; i < n; i++) { const u = new Unit(key, team, sq, x + rr(-10, 10), y + rr(-60, 60)); this.units.push(u); out.push(u); }
-      return out;
+  // ---------- Rozstawienie ----------
+  spawnAll() {
+    const cfg = this.cfg, siegeDef = cfg.siegeDefender;
+    const max = cfg.maxPerSide || 100;
+    const arena = !!cfg.arena;
+    // strony: gracz na zachodzie, wróg na wschodzie; w oblężeniu obrońca za murami
+    const zone = (team: number) => {
+      if (arena) return { x: team === 0 ? this.mw / 2 - 120 : this.mw / 2 + 120, y: this.mh / 2 };
+      if (cfg.terrain === "siege") return team === siegeDef ? { x: 1180, y: 500 } : { x: 520, y: 500 };
+      return { x: team === 0 ? 380 : 1220, y: 500 };
     };
-    add("inf", 0, 1, 22, 420, 500)[0].officer = true;
-    add("arch", 0, 2, 14, 360, 500)[0].officer = true;
-    add("cav", 0, 3, 13, 380, 650);
-    this.orders[1] = newOrder(450, 500);
-    this.orders[2] = newOrder(375, 500);
-    this.orders[3] = newOrder(400, 660);
-
-    const dk = new Unit("dk", 1, 5, 1170, 500);
-    dk.commander = true; this.dk = dk; this.units.push(dk);
-    add("skel", 1, 1, 24, 1190, 500);
-    add("skel", 1, 2, 10, 1190, 360);
-    add("skelArch", 1, 3, 10, 1250, 500);
-    const ghouls = add("ghoul", 1, 4, 5, 760, 830);
-    for (const gh of ghouls) gh.hidden = true;
-    this.eorders[1] = newOrder(1190, 500);
-    this.eorders[2] = newOrder(1190, 380);
-    this.eorders[3] = newOrder(1250, 500);
-    this.eorders[4] = { ...newOrder(760, 830, "loose"), mode: "ambush" };
-    this.eorders[5] = newOrder(1160, 500);
+    for (const team of [0, 1]) {
+      const side = team === 0 ? cfg.player : cfg.enemy;
+      const z = zone(team);
+      const list: Reserve[] = [];
+      for (const tr of side.troops) for (let i = 0; i < tr.n; i++) list.push({ key: tr.type, team, faction: side.faction });
+      if (team === 0 && side.allies) for (const a of side.allies) for (const tr of a.troops) for (let i = 0; i < tr.n; i++) list.push({ key: tr.type, team, faction: a.faction, ally: true });
+      // najlepsi i najbardziej różnorodni najpierw, reszta czeka w rezerwie
+      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+      list.sort((a, b) => UNITS[b.key].tier - UNITS[a.key].tier);
+      const firstN = Math.max(0, max - (team === 0 && side.hero ? 1 : 0) - (side.companions ? side.companions.length : 0));
+      const now = list.slice(0, firstN);
+      this.reserves[team] = list.slice(firstN);
+      for (const r of now) this.spawnUnit(r, z.x + rr(-30, 30), z.y + rr(-120, 120));
+      if (team === 0 && side.hero) {
+        const H = side.hero;
+        this.heroCfg = H;
+        const h = new Unit("hero", 0, 0, z.x + 60, z.y, (side.faction || 9), H.look);
+        h.hero = true; h.name = H.name;
+        h.maxHp = H.maxHp; h.hp = H.hp;
+        h.weaponKey = H.weapon; h.hasShield = H.shield;
+        h.bowDmg = H.bowDmg; h.ammo = H.ammo;
+        h.arm = { cut: 1 - H.armor, pierce: 1 - H.armor * 0.8, blunt: 1 - H.armor * 0.5 };
+        if (H.mount) { h.mount(H.mount, (side.faction || 9)); h.horseHp = h.horseMax = H.mount.hp; }
+        this.hero = h; this.units.push(h);
+      }
+      if (side.companions) for (const C of side.companions) {
+        const u = new Unit("companion", 0, C.squad, z.x + rr(-20, 20), z.y + rr(-60, 60), (side.faction || 9), C.look);
+        u.companion = C.id; u.name = C.name; u.officer = true;
+        u.maxHp = C.maxHp; u.hp = C.hp; u.weaponKey = C.weapon; u.hasShield = C.shield;
+        u.arm = { cut: 1 - C.armor, pierce: 1 - C.armor * 0.8, blunt: 1 - C.armor * 0.5 };
+        if (C.bow) { u.bowDmg = C.bow; u.ammo = 30; }
+        if (C.mount) u.mount(C.mount, (side.faction || 9));
+        this.units.push(u);
+      }
+    }
+    // oficerowie: najlepszy żołnierz każdego oddziału gracza, chyba że prowadzi go towarzysz
+    for (const sq of this.liveSquads()) if (!this.units.some((u) => u.team === 0 && u.squad === sq && u.officer)) {
+      const best = this.squadUnits(sq).sort((a, b) => b.def.tier - a.def.tier)[0];
+      if (best) best.officer = true;
+    }
+    // dowódcy wroga: najsilniejsza jednostka po drugiej stronie dostaje rolę dowódcy
+    const enemyBest = this.units.filter((u) => u.team === 1).sort((a, b) => b.def.tier * 1000 + b.maxHp - (a.def.tier * 1000 + a.maxHp))[0];
+    if (enemyBest && !arena) { enemyBest.commander = true; this.commanders.push(enemyBest); }
+    // rozkazy domyślne
+    const z0 = zone(0), z1 = zone(1);
+    const face0 = Math.atan2(z1.y - z0.y, z1.x - z0.x);
+    this.orders[1] = newOrder(z0.x + 30, z0.y); this.orders[2] = newOrder(z0.x - 35, z0.y); this.orders[3] = newOrder(z0.x, z0.y + 170);
+    for (let s = 4; s <= 8; s++) this.orders[s] = newOrder(z0.x, z0.y);
+    for (const k of [11, 12, 13, 14]) this.aorders[k] = newOrder(z0.x - 10, z0.y - 160);
+    this.eorders[1] = newOrder(z1.x - 30, z1.y); this.eorders[2] = newOrder(z1.x - 30, z1.y - 150); this.eorders[3] = newOrder(z1.x + 40, z1.y);
+    this.eorders[4] = newOrder(z1.x, z1.y + 170); this.eorders[5] = newOrder(z1.x + 10, z1.y);
+    this.eorders[6] = { ...newOrder(z1.x, z1.y, "loose"), mode: "hold" };
+    if (cfg.terrain === "siege") {
+      const W2 = this.map.wall, defTeam = siegeDef;
+      const ord = defTeam === 0 ? this.orders : this.eorders;
+      // obrońcy: piechota przy bramie, strzelcy na murach
+      ord[1].ax = W2.x1 + 60; ord[1].ay = W2.gateY; ord[1].face = Math.PI;
+      ord[2].ax = W2.x0 + 14; ord[2].ay = W2.gateY; ord[2].face = Math.PI; ord[2].formation = "column"; ord[2].cols = 1;
+      ord[3].ax = W2.x1 + 120; ord[3].ay = W2.gateY + 100; ord[3].face = Math.PI;
+      if (defTeam === 1) { ord[5].ax = W2.x1 + 90; ord[5].ay = W2.gateY; }
+      if (defTeam === 1) {   // gracz szturmuje: piechota rusza na drabiny i bramę, strzelcy osłaniają
+        this.orders[1].mode = "charge"; this.orders[3].mode = "charge";
+        this.orders[2].ax = W2.x0 - 150; this.orders[2].ay = W2.gateY; this.orders[2].face = 0;
+      }
+    }
+    // zasadzka nieumarłych: ghule w lesie, jeśli jest las
+    if (!arena && this.map.forests.length) {
+      const gh = this.units.filter((u) => u.team === 1 && u.key === "u_ghoul");
+      if (gh.length >= 3 && cfg.terrain !== "siege") {
+        const f = this.map.forests.reduce((a, b) => (Math.abs(b.x - 800) < Math.abs(a.x - 800) ? b : a));
+        for (const u of gh) { u.squad = 6; u.hidden = true; }
+        this.eorders[6] = { ...newOrder(f.x, f.y, "loose"), mode: "ambush" };
+      }
+    }
     this.layoutAll(true);
-    this.cam.x = clamp(h.x - W / 2, 0, WW - W); this.cam.y = clamp(h.y - H / 2, 0, WH - H);
+    if (this.hero) { this.hero.x = z0.x + 60; this.hero.y = z0.y; this.hero.face = this.hero.wantFace = this.hero.heading = face0; }
+    // pochodnie w nocy
+    if (cfg.night) for (const u of this.units) if (!u.def.undead && chance(0.22)) u.torch = true;
+    if (this.hero) { this.cam.x = clamp(this.hero.x - W / 2, 0, this.mw - W); this.cam.y = clamp(this.hero.y - H / 2, 0, this.mh - H); }
+    else { this.cam.x = clamp(z0.x - W / 2, 0, this.mw - W); this.cam.y = clamp(z0.y - H / 2, 0, this.mh - H); this.camFree = true; }
+  }
+
+  squadFor(team: number, def: UnitDef, ally: boolean): number {
+    const role: Role = def.ability ? "special" : def.mount ? "cav" : def.bow ? "ranged" : "inf";
+    if (team === 0) {
+      if (ally) return role === "ranged" ? 12 : role === "cav" ? 13 : 11;
+      return role === "ranged" ? 2 : role === "cav" ? 3 : role === "special" ? 1 : 1;
+    }
+    if (role === "ranged") return 3;
+    if (role === "cav") return 4;
+    if (role === "special") return 5;
+    // część piechoty na skrzydło
+    const inLine = this.units.filter((u) => u.team === 1 && u.squad === 1).length, inWing = this.units.filter((u) => u.team === 1 && u.squad === 2).length;
+    return inWing < inLine * 0.35 ? 2 : 1;
+  }
+
+  spawnUnit(r: Reserve, x: number, y: number): Unit {
+    const def = UNITS[r.key];
+    const sq = this.squadFor(r.team, def, !!r.ally);
+    for (let i = 0; i < 20 && !this.passable(x, y); i++) { x += rr(-20, 20); y += rr(-20, 20); }
+    const fac = r.faction || FACTION_OF_CULTURE[def.culture] || (def.culture === "merc" ? 9 : 6);
+    const u = new Unit(r.key, r.team, sq, clamp(x, 10, this.mw - 10), clamp(y, 14, this.mh - 8), fac);
+    if (this.cfg.night && !def.undead && chance(0.22)) u.torch = true;
+    this.units.push(u);
+    this.spawned[r.team][r.key] = (this.spawned[r.team][r.key] || 0) + 1;
+    return u;
+  }
+
+  // Fale posiłków: gdy na polu robi się luźno, z rezerwy wchodzi kolejna grupa przy krawędzi swojej strony.
+  reinforce() {
+    const max = this.cfg.maxPerSide || 100;
+    for (const team of [0, 1]) {
+      const res = this.reserves[team];
+      if (!res.length) continue;
+      const active = this.units.filter((u) => u.team === team && u.active).length;
+      if (active > max - 12) continue;
+      const n = Math.min(res.length, max - active, 18);
+      const att = this.cfg.terrain === "siege" ? this.cfg.siegeDefender !== team : true;
+      const ex = this.cfg.terrain === "siege" && !att ? this.mw - 40 : team === 0 ? 30 : this.mw - 30;
+      for (let i = 0; i < n; i++) this.spawnUnit(res.shift(), ex + rr(-10, 10), this.mh / 2 + rr(-200, 200));
+      const side = team === 0 ? "Nasze posiłki" : "Posiłki wroga";
+      this.say(`${side} wchodzą na pole (${n}).`, team === 0 ? PAL.gold : PAL.purpleL);
+      if (team === 0) this.sfx.battleCry(0.6);
+      this.relayoutT = 0;
+    }
   }
 
   squadUnits(sq: number, team = 0) { return this.units.filter((u) => u.team === team && u.squad === sq && u.active && !u.fleeing && !u.hero); }
-  liveSquads(): number[] { const s = new Set<number>(); for (const u of this.units) if (u.team === 0 && !u.hero && u.active && !u.fleeing) s.add(u.squad); return [...s].sort(); }
+  liveSquads(): number[] { const s = new Set<number>(); for (const u of this.units) if (u.team === 0 && !u.hero && u.active && !u.fleeing && u.squad <= 8 && u.squad > 0) s.add(u.squad); return [...s].sort(); }
   centroid(team: number, squad?: number): V {
     let x = 0, y = 0, n = 0;
     for (const u of this.units) {
@@ -319,35 +420,28 @@ class Battle {
       if (squad !== undefined && (u.squad !== squad || u.hero)) continue;
       x += u.x; y += u.y; n++;
     }
-    return n ? { x: x / n, y: y / n } : { x: team === 0 ? 400 : 1200, y: 500 };
+    return n ? { x: x / n, y: y / n } : { x: team === 0 ? 400 : this.mw - 400, y: this.mh / 2 };
   }
+  ordersOf(team: number, sq: number): Order | undefined { return team === 0 ? (sq >= 11 ? this.aorders[sq] : this.orders[sq]) : this.eorders[sq]; }
 
-  // Miejsca w szyku. Przód szyku leży na punkcie (ax, ay), kolejne szeregi cofają się.
   slotsFor(n: number, ax: number, ay: number, face: number, f: Formation, colsOverride?: number, spacing = 1, mounted = false): Slot[] {
     const out: Slot[] = [];
     if (!n) return out;
     const fx = Math.cos(face), fy = Math.sin(face);
     const rx = -fy, ry = fx;
-    const mk = mounted ? 1.6 : 1;
+    const mk = mounted ? 1.5 : 1;
     const sp = FORMATION_SPACING[f] * spacing * mk;
-    const put = (lx: number, ly: number) => out.push({ x: clamp(ax + rx * lx - fx * ly, 10, WW - 10), y: clamp(ay + ry * lx - fy * ly, 14, WH - 8), face });
+    const put = (lx: number, ly: number) => out.push({ x: clamp(ax + rx * lx - fx * ly, 10, this.mw - 10), y: clamp(ay + ry * lx - fy * ly, 14, this.mh - 8), face });
     if (f === "circle") {
-      const r = Math.max(10, (n * sp) / (Math.PI * 2));
-      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; out.push({ x: clamp(ax + Math.cos(a) * r, 10, WW - 10), y: clamp(ay + Math.sin(a) * r, 14, WH - 8), face: a }); }
+      const r = Math.max(12, (n * sp) / (Math.PI * 2));
+      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; out.push({ x: clamp(ax + Math.cos(a) * r, 10, this.mw - 10), y: clamp(ay + Math.sin(a) * r, 14, this.mh - 8), face: a }); }
       return out;
     }
-    if (f === "wedge") {
-      for (let i = 0; i < n; i++) { let row = 0, idx = i; while (idx > row) { idx -= row + 1; row++; } put((idx - row / 2) * sp, row * 11 * spacing * mk); }
-      return out;
-    }
-    const defCols = f === "wall" ? 11 : f === "loose" ? 7 : f === "column" ? 2 : 11;
-    const cols = clamp(f === "column" ? defCols : colsOverride || defCols, 1, n);
-    const rowGap = (f === "wall" ? 9 : f === "column" ? 11 : 12) * spacing * (mounted ? 1.7 : 1);
-    for (let i = 0; i < n; i++) {
-      const row = Math.floor(i / cols), col = i % cols;
-      const inRow = Math.min(cols, n - row * cols);
-      put((col - (inRow - 1) / 2) * sp, row * rowGap);
-    }
+    if (f === "wedge") { for (let i = 0; i < n; i++) { let row = 0, idx = i; while (idx > row) { idx -= row + 1; row++; } put((idx - row / 2) * sp, row * 13 * spacing * mk); } return out; }
+    const defCols = f === "wall" ? 12 : f === "loose" ? 8 : f === "column" ? 2 : 12;
+    const cols = clamp(f === "column" ? (colsOverride || defCols) : colsOverride || defCols, 1, n);
+    const rowGap = (f === "wall" ? 11 : f === "column" ? 13 : 14) * spacing * (mounted ? 1.6 : 1);
+    for (let i = 0; i < n; i++) { const row = Math.floor(i / cols), col = i % cols; const inRow = Math.min(cols, n - row * cols); put((col - (inRow - 1) / 2) * sp, row * rowGap); }
     return out;
   }
 
@@ -365,12 +459,11 @@ class Battle {
   }
 
   anchorOf(sq: number, team = 0): { ax: number; ay: number; face: number } {
-    const o = team === 0 ? this.orders[sq] : this.eorders[sq];
+    const o = this.ordersOf(team, sq);
     const ec = this.centroid(1 - team);
-    if (team === 0 && o.mode === "follow" && this.hero.active) {
+    if (team === 0 && o.mode === "follow" && this.hero && this.hero.active) {
       const a = Math.atan2(ec.y - this.hero.y, ec.x - this.hero.x);
-      const back = sq === 2 ? 55 : sq === 3 ? 40 : 22;
-      const side = sq === 3 ? 45 : 0;
+      const back = sq === 2 ? 60 : sq === 3 ? 44 : 26, side = sq === 3 ? 50 : 0;
       return { ax: this.hero.x - Math.cos(a) * back - Math.sin(a) * side, ay: this.hero.y - Math.sin(a) * back + Math.cos(a) * side, face: a };
     }
     if (o.mode === "flank" && o.flank) return { ax: o.flank.x, ay: o.flank.y, face: Math.atan2(ec.y - o.flank.y, ec.x - o.flank.x) };
@@ -380,8 +473,8 @@ class Battle {
 
   layoutAll(snap = false) {
     for (const team of [0, 1]) {
-      const ord = team === 0 ? this.orders : this.eorders;
-      for (const k of Object.keys(ord)) {
+      const groups = team === 0 ? [this.orders, this.aorders] : [this.eorders];
+      for (const ord of groups) for (const k of Object.keys(ord)) {
         const sq = Number(k), o = ord[sq];
         const list = this.squadUnits(sq, team);
         if (!list.length) continue;
@@ -404,8 +497,9 @@ class Battle {
     if (gs.length > 1 && live.every((s) => gs.includes(s))) return "Wszyscy";
     return gs.map((s) => SQUAD_NAMES[s]).join(" i ");
   }
+  get heroUp() { return !!this.hero && this.hero.active; }
 
-  // ---------- Rozkazy ----------
+  // ---------- Rozkazy gracza ----------
   ensureOrder(sq: number) { if (!this.orders[sq]) { const c = this.centroid(0, sq); this.orders[sq] = newOrder(c.x, c.y); } return this.orders[sq]; }
   orderMode(gs: number[], mode: Mode) {
     for (const g of gs) { const o = this.ensureOrder(g); o.mode = mode; o.face = undefined; o.flank = null; }
@@ -416,32 +510,22 @@ class Battle {
     const ec = this.centroid(1), a = Math.atan2(ec.y - wy, ec.x - wx);
     for (const g of gs) {
       const o = this.ensureOrder(g); o.mode = "hold"; o.face = undefined; o.flank = null;
-      const back = gs.length > 1 && g === 2 ? 40 : 0, side = gs.length > 1 && g === 3 ? 90 : 0;
+      const back = gs.length > 1 && g === 2 ? 44 : 0, side = gs.length > 1 && g === 3 ? 100 : 0;
       o.ax = wx - Math.cos(a) * back - Math.sin(a) * side; o.ay = wy - Math.sin(a) * back + Math.cos(a) * side;
     }
     this.say(`${this.groupName(gs)}: stać tutaj!`); this.sfx.shout(0.6);
     this.flashPreview(gs);
   }
   orderHoldPosition(gs: number[]) {
-    for (const g of gs) {
-      const c = this.centroid(0, g), o = this.ensureOrder(g), a = this.anchorOf(g);
-      o.mode = "hold"; o.ax = c.x + Math.cos(a.face) * 6; o.ay = c.y + Math.sin(a.face) * 6; o.face = a.face; o.flank = null;
-    }
+    for (const g of gs) { const c = this.centroid(0, g), o = this.ensureOrder(g), a = this.anchorOf(g); o.mode = "hold"; o.ax = c.x + Math.cos(a.face) * 6; o.ay = c.y + Math.sin(a.face) * 6; o.face = a.face; o.flank = null; }
     this.say(`${this.groupName(gs)}: utrzymać pozycję!`);
   }
   orderRetreat(gs: number[]) {
     const ec = this.centroid(1);
-    for (const g of gs) {
-      const c = this.centroid(0, g), o = this.ensureOrder(g);
-      const a = Math.atan2(c.y - ec.y, c.x - ec.x);
-      o.mode = "hold"; o.ax = clamp(c.x + Math.cos(a) * 60, 20, WW - 20); o.ay = clamp(c.y + Math.sin(a) * 60, 20, WH - 20); o.face = a + Math.PI; o.flank = null;
-    }
+    for (const g of gs) { const c = this.centroid(0, g), o = this.ensureOrder(g); const a = Math.atan2(c.y - ec.y, c.x - ec.x); o.mode = "hold"; o.ax = clamp(c.x + Math.cos(a) * 60, 20, this.mw - 20); o.ay = clamp(c.y + Math.sin(a) * 60, 20, this.mh - 20); o.face = a + Math.PI; o.flank = null; }
     this.say(`${this.groupName(gs)}: cofnąć się!`);
   }
-  orderFormation(gs: number[], f: Formation) {
-    for (const g of gs) { const o = this.ensureOrder(g); o.formation = f; o.cols = undefined; }
-    this.say(`${this.groupName(gs)}: ${FORMATION_NAME[f].toLowerCase()}`);
-  }
+  orderFormation(gs: number[], f: Formation) { for (const g of gs) { const o = this.ensureOrder(g); o.formation = f; o.cols = undefined; } this.say(`${this.groupName(gs)}: ${FORMATION_NAME[f].toLowerCase()}`); }
   orderSpacing(gs: number[]) {
     const cur = this.ensureOrder(gs[0]).spacing;
     const next = cur < 1 ? 1 : cur === 1 ? 1.45 : 0.75;
@@ -449,29 +533,23 @@ class Battle {
     this.say(`${this.groupName(gs)}: ${next < 1 ? "zewrzeć szyk!" : next > 1 ? "rozluźnić szyk!" : "normalne odstępy"}`);
   }
   spacingName(s: number) { return s < 1 ? "ciasno" : s > 1 ? "luźno" : "normalnie"; }
-  orderFire(gs: number[]) {
-    const on = !this.ensureOrder(gs[0]).fire;
-    for (const g of gs) this.ensureOrder(g).fire = on;
-    this.say(on ? `${this.groupName(gs)}: strzelać wedle uznania!` : `${this.groupName(gs)}: wstrzymać ogień!`);
-  }
-  orderMelee(gs: number[]) {
-    const on = !this.ensureOrder(gs[0]).meleeOnly;
-    for (const g of gs) this.ensureOrder(g).meleeOnly = on;
-    this.say(on ? `${this.groupName(gs)}: tylko broń biała!` : `${this.groupName(gs)}: wolna broń`);
+  orderFire(gs: number[]) { const on = !this.ensureOrder(gs[0]).fire; for (const g of gs) this.ensureOrder(g).fire = on; this.say(on ? `${this.groupName(gs)}: strzelać wedle uznania!` : `${this.groupName(gs)}: wstrzymać ogień!`); }
+  orderMelee(gs: number[]) { const on = !this.ensureOrder(gs[0]).meleeOnly; for (const g of gs) this.ensureOrder(g).meleeOnly = on; this.say(on ? `${this.groupName(gs)}: tylko broń biała!` : `${this.groupName(gs)}: wolna broń`); }
+  enemySquadName(sq: number) {
+    const u = this.units.find((x) => x.team === 1 && x.squad === sq && x.active);
+    const names: Record<number, string> = { 1: "Linia wroga", 2: "Skrzydło wroga", 3: "Strzelcy wroga", 4: "Jazda wroga", 5: "Dowódca i specjaliści", 6: "Zasadzka" };
+    return (names[sq] || "Oddział wroga") + (u ? ` (${u.def.name})` : "");
   }
   orderTarget(gs: number[], esq: number | null) {
-    for (const g of gs) {
-      const o = this.ensureOrder(g); o.targetSquad = esq;
-      const ranged = this.squadUnits(g).some((u) => u.def.bow);
-      if (esq !== null && !ranged && o.mode !== "charge") { o.mode = "charge"; o.flank = null; }
-    }
-    this.say(esq === null ? `${this.groupName(gs)}: wolny wybór celu` : `${this.groupName(gs)}: atakować cel: ${ENEMY_SQUADS[esq]}!`, PAL.redL);
+    for (const g of gs) { const o = this.ensureOrder(g); o.targetSquad = esq; const ranged = this.squadUnits(g).some((u) => u.def.bow); if (esq !== null && !ranged && o.mode !== "charge") { o.mode = "charge"; o.flank = null; } }
+    this.say(esq === null ? `${this.groupName(gs)}: wolny wybór celu` : `${this.groupName(gs)}: cel: ${this.enemySquadName(esq)}!`, PAL.redL);
     if (esq !== null) this.sfx.battleCry(0.6);
   }
   orderOccupy(gs: number[], kind: "hill" | "forest") {
+    const areas = kind === "hill" ? this.map.hills : this.map.forests;
+    if (!areas.length) { this.say(kind === "hill" ? "Tu nie ma wzgórza." : "Tu nie ma lasu."); return; }
     for (const g of gs) {
       const c = this.centroid(0, g);
-      const areas = kind === "hill" ? this.hills : this.forests;
       let best = areas[0], bd = 1e9;
       for (const a of areas) { const d = dist(c.x, c.y, a.x, a.y); if (d < bd) { bd = d; best = a; } }
       const o = this.ensureOrder(g); o.mode = "hold"; o.ax = best.x; o.ay = best.y; o.face = undefined; o.flank = null;
@@ -483,18 +561,11 @@ class Battle {
   orderFlank(gs: number[], side: number) {
     const ec = this.centroid(1), pc = this.centroid(0);
     const a = Math.atan2(ec.y - pc.y, ec.x - pc.x);
-    for (const g of gs) {
-      const o = this.ensureOrder(g);
-      o.mode = "flank"; o.face = undefined;
-      o.flank = { x: clamp(ec.x - Math.cos(a) * 30 - Math.sin(a) * side * 150, 20, WW - 20), y: clamp(ec.y - Math.sin(a) * 30 + Math.cos(a) * side * 150, 20, WH - 20) };
-    }
+    for (const g of gs) { const o = this.ensureOrder(g); o.mode = "flank"; o.face = undefined; o.flank = { x: clamp(ec.x - Math.cos(a) * 30 - Math.sin(a) * side * 160, 20, this.mw - 20), y: clamp(ec.y - Math.sin(a) * 30 + Math.cos(a) * side * 160, 20, this.mh - 20) }; }
     this.say(`${this.groupName(gs)}: oskrzydlić ${side < 0 ? "z lewej" : "z prawej"}!`, PAL.gold); this.sfx.shout(0.8);
   }
   orderAmbush(gs: number[]) {
-    for (const g of gs) {
-      const o = this.ensureOrder(g); o.mode = "ambush"; o.flank = null; o.formation = "loose";
-      for (const u of this.squadUnits(g)) u.hidden = true;
-    }
+    for (const g of gs) { const o = this.ensureOrder(g); o.mode = "ambush"; o.flank = null; o.formation = "loose"; for (const u of this.squadUnits(g)) u.hidden = true; }
     this.say(`${this.groupName(gs)}: zasadzka! Kryć się i czekać.`, PAL.moss);
   }
   assignPicked(sq: number) {
@@ -507,18 +578,13 @@ class Battle {
     this.say(`Przeniesiono ${picked.length} do: ${SQUAD_NAMES[sq]}`);
     this.relayoutT = 0;
   }
-
   dragPlan(d: { sx: number; sy: number; ex: number; ey: number }) {
     const ec = this.centroid(1);
     const len = dist(d.sx, d.sy, d.ex, d.ey);
     const mx = (d.sx + d.ex) / 2, my = (d.sy + d.ey) / 2;
     let face: number;
     if (len < 8) face = Math.atan2(ec.y - d.sy, ec.x - d.sx);
-    else {
-      const a = Math.atan2(d.ey - d.sy, d.ex - d.sx);
-      const f1 = a - Math.PI / 2, f2 = a + Math.PI / 2, toE = Math.atan2(ec.y - my, ec.x - mx);
-      face = Math.abs(angDiff(f1, toE)) < Math.abs(angDiff(f2, toE)) ? f1 : f2;
-    }
+    else { const a = Math.atan2(d.ey - d.sy, d.ex - d.sx); const f1 = a - Math.PI / 2, f2 = a + Math.PI / 2, toE = Math.atan2(ec.y - my, ec.x - mx); face = Math.abs(angDiff(f1, toE)) < Math.abs(angDiff(f2, toE)) ? f1 : f2; }
     const plan: { g: number; ax: number; ay: number; face: number; cols?: number; slots: Slot[] }[] = [];
     const ax0 = len < 8 ? d.sx : mx, ay0 = len < 8 ? d.sy : my;
     const multi = this.selected.length > 1;
@@ -526,44 +592,26 @@ class Battle {
       const list = this.squadUnits(g);
       if (!list.length) continue;
       const o = this.ensureOrder(g);
-      const back = multi && g === 2 ? 34 : 0;
-      const side = multi && g === 3 ? (len < 8 ? 90 : len / 2 + 50) : 0;
+      const back = multi && g === 2 ? 38 : 0, side = multi && g === 3 ? (len < 8 ? 100 : len / 2 + 60) : 0;
       const ax = ax0 - Math.cos(face) * back - Math.sin(face) * side, ay = ay0 - Math.sin(face) * back + Math.cos(face) * side;
-      const sp = FORMATION_SPACING[o.formation] * o.spacing * (list[0].mounted ? 1.6 : 1);
+      const sp = FORMATION_SPACING[o.formation] * o.spacing * (list[0].mounted ? 1.5 : 1);
       const cols = len < 8 || (g === 3 && multi) ? o.cols : clamp(Math.round(len / sp) + 1, 1, list.length);
       plan.push({ g, ax, ay, face, cols, slots: this.slotsFor(list.length, ax, ay, face, o.formation, cols, o.spacing, list[0].mounted) });
     }
     return plan;
   }
-
   applyDrag() {
     if (!this.drag) return;
-    for (const p of this.dragPlan(this.drag)) {
-      const o = this.ensureOrder(p.g);
-      o.mode = "hold"; o.ax = p.ax; o.ay = p.ay; o.face = p.face; o.cols = p.cols; o.flank = null;
-      this.preview.push({ slots: p.slots, t: 1.4, col: SQUAD_COLORS[p.g] });
-    }
+    for (const p of this.dragPlan(this.drag)) { const o = this.ensureOrder(p.g); o.mode = "hold"; o.ax = p.ax; o.ay = p.ay; o.face = p.face; o.cols = p.cols; o.flank = null; this.preview.push({ slots: p.slots, t: 1.4, col: SQUAD_COLORS[p.g] }); }
     this.say(`${this.groupName(this.selected)}: na pozycje!`);
     this.sfx.shout(0.5);
-    this.drag = null;
-    this.cmdLevel = "groups";
-    this.relayoutT = 0;
+    this.drag = null; this.cmdLevel = "groups"; this.relayoutT = 0;
   }
-
   flashPreview(gs: number[]) {
-    for (const g of gs) {
-      const list = this.squadUnits(g); if (!list.length) continue;
-      const a = this.anchorOf(g), o = this.orders[g];
-      this.preview.push({ slots: this.slotsFor(list.length, a.ax, a.ay, a.face, o.formation, o.cols, o.spacing, list[0].mounted), t: 1.2, col: SQUAD_COLORS[g] });
-    }
+    for (const g of gs) { const list = this.squadUnits(g); if (!list.length) continue; const a = this.anchorOf(g), o = this.orders[g]; this.preview.push({ slots: this.slotsFor(list.length, a.ax, a.ay, a.face, o.formation, o.cols, o.spacing, list[0].mounted), t: 1.2, col: SQUAD_COLORS[g] }); }
     this.relayoutT = 0;
   }
-
-  enemySquadsVisible(): number[] {
-    const s = new Set<number>();
-    for (const u of this.units) if (u.team === 1 && u.active && !u.hidden) s.add(u.squad);
-    return [...s].sort();
-  }
+  enemySquadsVisible(): number[] { const s = new Set<number>(); for (const u of this.units) if (u.team === 1 && u.active && !u.hidden) s.add(u.squad); return [...s].sort(); }
 
   cmdMenu(): { n: number; label: string; on?: boolean; dim?: boolean }[] {
     const live = this.liveSquads();
@@ -580,105 +628,59 @@ class Battle {
     }
     const o = this.ensureOrder(this.selected[0]);
     if (this.cmdLevel === "orders") return [
-      { n: 1, label: "Stań w miejscu kursora" },
-      { n: 2, label: "Za mną" },
-      { n: 3, label: "Szarża" },
-      { n: 4, label: "Utrzymaj pozycję" },
-      { n: 5, label: "Cofnij się" },
-      { n: 6, label: `Formacja: ${FORMATION_NAME[o.formation].toLowerCase()} ›` },
-      { n: 7, label: `Zwartość: ${this.spacingName(o.spacing)}` },
-      { n: 8, label: "Atakuj oddział ›" },
-      { n: 9, label: "Więcej ›" },
+      { n: 1, label: "Stań w miejscu kursora" }, { n: 2, label: "Za mną" }, { n: 3, label: "Szarża" }, { n: 4, label: "Utrzymaj pozycję" }, { n: 5, label: "Cofnij się" },
+      { n: 6, label: `Formacja: ${FORMATION_NAME[o.formation].toLowerCase()} ›` }, { n: 7, label: `Zwartość: ${this.spacingName(o.spacing)}` }, { n: 8, label: "Atakuj oddział ›" }, { n: 9, label: "Więcej ›" },
     ];
     if (this.cmdLevel === "more") return [
-      { n: 1, label: "Zajmij wzgórze" },
-      { n: 2, label: "Zajmij las" },
-      { n: 3, label: "Oskrzydlenie z lewej" },
-      { n: 4, label: "Oskrzydlenie z prawej" },
-      { n: 5, label: "Zasadzka: ukryj się" },
-      { n: 6, label: o.fire ? "Wstrzymaj ogień" : "Strzelać wedle uznania" },
-      { n: 7, label: o.meleeOnly ? "Wolna broń" : "Tylko broń biała" },
+      { n: 1, label: "Zajmij wzgórze" }, { n: 2, label: "Zajmij las" }, { n: 3, label: "Oskrzydlenie z lewej" }, { n: 4, label: "Oskrzydlenie z prawej" },
+      { n: 5, label: "Zasadzka: ukryj się" }, { n: 6, label: o.fire ? "Wstrzymaj ogień" : "Strzelać wedle uznania" }, { n: 7, label: o.meleeOnly ? "Wolna broń" : "Tylko broń biała" },
     ];
     if (this.cmdLevel === "target") {
-      const items: { n: number; label: string; on?: boolean }[] = this.enemySquadsVisible().map((s) => ({ n: s, label: ENEMY_SQUADS[s], on: o.targetSquad === s }));
+      const items: { n: number; label: string; on?: boolean }[] = this.enemySquadsVisible().map((s) => ({ n: s, label: this.enemySquadName(s), on: o.targetSquad === s }));
       items.push({ n: 9, label: "Wolny wybór celu", on: o.targetSquad == null });
       return items;
     }
     return FORMATIONS.map((f, i) => ({ n: i + 1, label: FORMATION_NAME[f], on: f === o.formation }));
   }
-
   cmdChoose(n: number) {
     const gs = this.selected;
     this.sfx.ui();
     const back = () => { this.cmdLevel = "groups"; this.relayoutT = 0; };
     switch (this.cmdLevel) {
-      case "assign":
-        if (n === 9) { for (const u of this.units) u.picked = false; back(); return; }
-        if (n >= 1 && n <= 8) { this.assignPicked(n); this.cmdLevel = "orders"; }
-        return;
-      case "groups": {
-        const live = this.liveSquads();
-        if (n === 9) this.selected = live.slice();
-        else if (live.includes(n)) this.selected = [n];
-        else return;
-        this.cmdLevel = "orders";
-        return;
-      }
+      case "assign": if (n === 9) { for (const u of this.units) u.picked = false; back(); return; } if (n >= 1 && n <= 8) { this.assignPicked(n); this.cmdLevel = "orders"; } return;
+      case "groups": { const live = this.liveSquads(); if (n === 9) this.selected = live.slice(); else if (live.includes(n)) this.selected = [n]; else return; this.cmdLevel = "orders"; return; }
       case "orders": {
         const wx = this.cam.x + this.input.mx, wy = this.cam.y + this.input.my;
-        if (n === 1) this.orderHere(gs, wx, wy);
-        else if (n === 2) this.orderMode(gs, "follow");
-        else if (n === 3) this.orderMode(gs, "charge");
-        else if (n === 4) this.orderHoldPosition(gs);
-        else if (n === 5) this.orderRetreat(gs);
-        else if (n === 6) { this.cmdLevel = "formation"; return; }
-        else if (n === 7) { this.orderSpacing(gs); this.flashPreview(gs); }
-        else if (n === 8) { this.cmdLevel = "target"; return; }
-        else if (n === 9) { this.cmdLevel = "more"; return; }
-        else return;
+        if (n === 1) this.orderHere(gs, wx, wy); else if (n === 2) this.orderMode(gs, "follow"); else if (n === 3) this.orderMode(gs, "charge");
+        else if (n === 4) this.orderHoldPosition(gs); else if (n === 5) this.orderRetreat(gs); else if (n === 6) { this.cmdLevel = "formation"; return; }
+        else if (n === 7) { this.orderSpacing(gs); this.flashPreview(gs); } else if (n === 8) { this.cmdLevel = "target"; return; } else if (n === 9) { this.cmdLevel = "more"; return; } else return;
         back(); return;
       }
       case "more":
-        if (n === 1) this.orderOccupy(gs, "hill");
-        else if (n === 2) this.orderOccupy(gs, "forest");
-        else if (n === 3) this.orderFlank(gs, -1);
-        else if (n === 4) this.orderFlank(gs, 1);
-        else if (n === 5) this.orderAmbush(gs);
-        else if (n === 6) this.orderFire(gs);
-        else if (n === 7) this.orderMelee(gs);
-        else return;
+        if (n === 1) this.orderOccupy(gs, "hill"); else if (n === 2) this.orderOccupy(gs, "forest"); else if (n === 3) this.orderFlank(gs, -1); else if (n === 4) this.orderFlank(gs, 1);
+        else if (n === 5) this.orderAmbush(gs); else if (n === 6) this.orderFire(gs); else if (n === 7) this.orderMelee(gs); else return;
         back(); return;
-      case "target":
-        if (n === 9) this.orderTarget(gs, null);
-        else if (this.enemySquadsVisible().includes(n)) this.orderTarget(gs, n);
-        else return;
-        back(); return;
-      case "formation":
-        if (n >= 1 && n <= FORMATIONS.length) { this.orderFormation(gs, FORMATIONS[n - 1]); this.flashPreview(gs); back(); }
-        return;
+      case "target": if (n === 9) this.orderTarget(gs, null); else if (this.enemySquadsVisible().includes(n)) this.orderTarget(gs, n); else return; back(); return;
+      case "formation": if (n >= 1 && n <= FORMATIONS.length) { this.orderFormation(gs, FORMATIONS[n - 1]); this.flashPreview(gs); back(); } return;
     }
   }
-
   cmdBack() {
     if (this.cmdLevel === "formation" || this.cmdLevel === "more" || this.cmdLevel === "target") this.cmdLevel = "orders";
     else if (this.cmdLevel === "orders" || this.cmdLevel === "assign") { this.cmdLevel = "groups"; for (const u of this.units) u.picked = false; }
     else this.toggleCmd(false);
   }
-
   toggleCmd(open = !this.cmdOpen) {
-    if (!this.hero.active && open) open = false;
-    this.cmdOpen = open;
-    this.cmdLevel = "groups";
-    this.drag = null; this.box = null;
+    if (!this.heroUp && open) open = false;
+    this.cmdOpen = open; this.cmdLevel = "groups"; this.drag = null; this.box = null;
     for (const u of this.units) u.picked = false;
-    if (open) { this.hero.blocking = false; if (this.hero.state === "windup") this.hero.state = "idle"; this.hero.drawT = 0; }
+    if (open && this.hero) { this.hero.blocking = false; if (this.hero.state === "windup") this.hero.state = "idle"; this.hero.drawT = 0; }
     this.sfx.ui();
   }
-
   handleOrders() {
     const I = this.input;
+    if (this.cfg.arena) return;
     if (I.hit("KeyQ")) this.toggleCmd();
-    if (!this.hero.active) return;
+    if (!this.heroUp) return;
     if (this.cmdOpen) {
       for (let n = 1; n <= 9; n++) if (I.hit("Digit" + n) || I.hit("Numpad" + n)) this.cmdChoose(n);
       if (I.hit("Backspace") || I.hit("Digit0")) this.cmdBack();
@@ -686,27 +688,19 @@ class Battle {
       if (I.mPressed[2]) this.drag = { sx: wx, sy: wy, ex: wx, ey: wy };
       if (this.drag && I.down[2]) { this.drag.ex = wx; this.drag.ey = wy; }
       if (this.drag && I.mReleased[2]) this.applyDrag();
-      if (this.cmdLevel === "target" && I.mPressed[0]) {
-        const e = this.units.find((u) => u.team === 1 && u.active && !u.hidden && dist(u.x, u.y - 8, wx, wy) < 12);
-        if (e) { this.orderTarget(this.selected, e.squad); this.cmdLevel = "groups"; return; }
-      }
-      // lewy przycisk: kliknięcie żołnierza wybiera oddział; przeciągnięcie ramki zaznacza żołnierzy do przeniesienia
+      if (this.cmdLevel === "target" && I.mPressed[0]) { const e = this.units.find((u) => u.team === 1 && u.active && !u.hidden && dist(u.x, u.y - 12, wx, wy) < 14); if (e) { this.orderTarget(this.selected, e.squad); this.cmdLevel = "groups"; return; } }
       if (I.mPressed[0]) this.box = { sx: wx, sy: wy, ex: wx, ey: wy };
       if (this.box && I.down[0]) { this.box.ex = wx; this.box.ey = wy; }
       if (this.box && I.mReleased[0]) {
         const b = this.box; this.box = null;
         if (dist(b.sx, b.sy, b.ex, b.ey) < 5) {
-          let best: Unit | null = null, bd = 12;
-          for (const u of this.units) if (u.team === 0 && !u.hero && u.active) { const d = dist(u.x, u.y - 8, wx, wy); if (d < bd) { bd = d; best = u; } }
-          if (best) {
-            if (I.held("ShiftLeft") || I.held("ShiftRight")) { best.picked = !best.picked; this.cmdLevel = "assign"; }
-            else { this.selected = [best.squad]; this.cmdLevel = "orders"; }
-            this.sfx.ui();
-          }
+          let best: Unit | null = null, bd = 14;
+          for (const u of this.units) if (u.team === 0 && !u.hero && u.active && u.squad <= 8) { const d = dist(u.x, u.y - 12, wx, wy); if (d < bd) { bd = d; best = u; } }
+          if (best) { if (I.held("ShiftLeft") || I.held("ShiftRight")) { best.picked = !best.picked; this.cmdLevel = "assign"; } else { this.selected = [best.squad]; this.cmdLevel = "orders"; } this.sfx.ui(); }
         } else {
           const x0 = Math.min(b.sx, b.ex), x1 = Math.max(b.sx, b.ex), y0 = Math.min(b.sy, b.ey), y1 = Math.max(b.sy, b.ey);
           let n = 0;
-          for (const u of this.units) if (u.team === 0 && !u.hero && u.active && u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1) { u.picked = true; n++; }
+          for (const u of this.units) if (u.team === 0 && !u.hero && u.active && u.squad <= 8 && u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1) { u.picked = true; n++; }
           if (n) { this.cmdLevel = "assign"; this.sfx.ui(); }
         }
       }
@@ -715,61 +709,38 @@ class Battle {
     if (I.hit("KeyZ")) this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my);
     if (I.hit("KeyX")) this.orderMode(this.selected, "follow");
     if (I.hit("KeyC")) this.orderMode(this.selected, "charge");
-    if (I.hit("KeyV")) {
-      const cur = this.ensureOrder(this.selected[0]).formation;
-      this.orderFormation(this.selected, FORMATIONS[(FORMATIONS.indexOf(cur) + 1) % FORMATIONS.length]);
-      this.flashPreview(this.selected);
-    }
+    if (I.hit("KeyV")) { const cur = this.ensureOrder(this.selected[0]).formation; this.orderFormation(this.selected, FORMATIONS[(FORMATIONS.indexOf(cur) + 1) % FORMATIONS.length]); this.flashPreview(this.selected); }
     if (I.hit("KeyB")) this.orderFire(this.selected);
   }
 
-  // ---------- Obrót z ograniczoną prędkością: ciężar ciała ----------
+  // ---------- Obrót z ograniczoną prędkością ----------
   turnRate(u: Unit) {
-    switch (u.state) {
-      case "windup": return 3.2;
-      case "strike": return 1.1;
-      case "recover": return 2.4;
-      case "stagger": return 0.6;
-      case "kick": return 1.5;
-      default: return u.mounted ? 6 : 7.5;
-    }
+    switch (u.state) { case "windup": return 3.2; case "strike": return 1.1; case "recover": return 2.4; case "stagger": return 0.6; case "kick": return 1.5; default: return u.mounted ? 6 : 7.5; }
   }
-  turn(u: Unit, dt: number) {
-    const d = angDiff(u.face, u.wantFace), r = this.turnRate(u) * dt;
-    u.face += clamp(d, -r, r);
-  }
+  turn(u: Unit, dt: number) { const d = angDiff(u.face, u.wantFace), r = this.turnRate(u) * dt; u.face += clamp(d, -r, r); }
 
   // ---------- Bohater ----------
   updateHero(dt: number) {
     const h = this.hero, I = this.input;
-    if (!h.active) return;
+    if (!h || !h.active) return;
     const wx = this.cam.x + I.mx, wy = this.cam.y + I.my;
-    h.wantFace = Math.atan2(wy - (h.y - (h.mounted ? 18 : 8)), wx - h.x);
-
-    if (I.hit("Tab") && h.state === "idle") {
-      h.loadout = (h.loadout + 1) % HERO_LOADOUTS.length;
-      const L = HERO_LOADOUTS[h.loadout];
-      h.weaponKey = L.weapon; h.hasShield = L.shield; h.drawT = 0;
-      this.say(`Broń: ${L.name}`);
-    }
-    if (this.settings.gesture) {
-      const gst = I.gesture(170);
-      if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T");
-    }
+    h.wantFace = Math.atan2(wy - (h.y - (h.mounted ? 24 : 12)), wx - h.x);
+    if (I.hit("Tab") && h.state === "idle" && this.heroCfg && this.heroCfg.bowDmg > 0) { h.loadout = 1 - h.loadout; h.drawT = 0; this.say(h.loadout ? "Broń: łuk" : "Broń: biała"); }
+    if (this.settings.gesture) { const gst = I.gesture(170); if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T"); }
 
     let mx = 0, my = 0;
     if (I.held("KeyW")) my -= 1; if (I.held("KeyS")) my += 1;
     if (I.held("KeyA")) mx -= 1; if (I.held("KeyD")) mx += 1;
     const ml = Math.hypot(mx, my) || 1;
     const sprint = I.held("ShiftLeft") || I.held("ShiftRight");
-
+    const rite = h.bloodRiteT > 0 ? 1.2 : 1;
     if (h.mounted) {
       const gallop = sprint && h.stamina > 1;
-      if (mx || my) this.ride(h, h.x + (mx / ml) * 60, h.y + (my / ml) * 60, h.maxRide * (gallop ? 1 : 0.6), dt);
+      if (mx || my) this.ride(h, h.x + (mx / ml) * 60, h.y + (my / ml) * 60, h.maxRide * (gallop ? 1 : 0.6) * rite, dt);
       else this.ride(h, h.x + Math.cos(h.heading) * 40, h.y + Math.sin(h.heading) * 40, 0, dt);
       if (gallop && h.rspeed > 60) { h.stamina -= 10 * dt; h.staminaWait = 0.6; }
     } else {
-      let sp = h.def.speed;
+      let sp = h.def.speed * rite * this.slowAt(h.x, h.y);
       const canSprint = sprint && h.stamina > 1 && (mx || my) && !h.blocking && h.state === "idle";
       if (canSprint) { sp *= 1.45; h.stamina -= 18 * dt; h.staminaWait = 0.6; }
       if (h.blocking) sp *= 0.5;
@@ -783,12 +754,15 @@ class Battle {
       h.vx = lerp(h.vx, tvx, clamp(dt * acc, 0, 1)); h.vy = lerp(h.vy, tvy, clamp(dt * acc, 0, 1));
       h.moving = !!(mx || my);
     }
-
     if (h.staminaWait > 0) h.staminaWait -= dt;
     else if (!h.blocking) h.stamina = Math.min(100, h.stamina + 20 * dt);
     h.stamina = Math.max(0, h.stamina);
+    if (this.heroCfg) this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
 
     if (this.cmdOpen) { h.blocking = false; return; }
+    // umiejętności: 1–3, opatrunek: 4
+    for (let i = 0; i < 3; i++) if (I.hit("Digit" + (i + 1))) castHeroAbility(this, i);
+    if (I.hit("Digit4")) useBandage(this);
     if (h.usingBow) { this.heroBow(dt, wx, wy); return; }
 
     if (I.mPressed[2]) {
@@ -797,21 +771,15 @@ class Battle {
     }
     h.blocking = I.down[2] && (h.state === "idle" || h.state === "recover") && h.hasShield;
     if (h.blocking) h.staminaWait = Math.max(h.staminaWait, 0.3);
-
-    // ciosy: LPM cięcie (na przemian), E z góry, Spacja pchnięcie; opcjonalnie gest myszą
     if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
       if (I.mPressed[0]) {
         let d: Dir = this.settings.gesture ? this.loadDir : h.nextSide;
         if (h.mounted && !this.settings.gesture) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
-        this.startWindup(h, d); h.key = "mouse";
-      } else if (I.hit("KeyE")) { this.startWindup(h, "O"); h.key = "KeyE"; }
-      else if (I.hit("Space")) { this.startWindup(h, "T"); h.key = "Space"; }
+        this.startWindup(h, d); h.key2 = "mouse";
+      } else if (I.hit("KeyE")) { this.startWindup(h, "O"); h.key2 = "KeyE"; }
+      else if (I.hit("Space")) { this.startWindup(h, "T"); h.key2 = "Space"; }
     }
-    if (h.state === "windup") {
-      const held = h.key === "mouse" ? I.down[0] : I.held(h.key);
-      if (held) h.hold += dt; else h.released = true;
-    }
-
+    if (h.state === "windup") { const held = h.key2 === "mouse" ? I.down[0] : I.held(h.key2); if (held) h.hold += dt; else h.released = true; }
     if (I.hit("KeyF") && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
       h.state = "kick"; h.t = 0; h.hitDone = false; h.stamina -= 15; h.staminaWait = 0.5; h.blocking = false;
       h.vx += Math.cos(h.face) * 30; h.vy += Math.sin(h.face) * 30;
@@ -827,32 +795,32 @@ class Battle {
       if (h.drawT > 0.15) {
         const k = h.drawT;
         const a = h.face + rr(-1, 1) * this.bowSpread();
-        const d = clamp(dist(h.x, h.y - 9, wx, wy), 40, 360);
-        this.fire(h, a, lerp(300, 440, k), lerp(20, 50, k), d);
+        const d = clamp(dist(h.x, h.y - 12, wx, wy), 40, 380);
+        this.fire(h, a, lerp(300, 440, k), lerp(h.bowDmg * 0.45, h.bowDmg, k), d, "arrow");
         h.ammo--;
         this.kickCam(-Math.cos(a), -Math.sin(a), 1.3);
       }
       h.drawT = 0;
     }
   }
-  bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1); }
+  bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * (h.moving || h.rspeed > 20 ? 1.8 : 1) * (this.cfg.rain ? 1.3 : 1); }
 
   // ---------- Jazda konna ----------
   ride(u: Unit, tx: number, ty: number, want: number, dt: number) {
-    const m = u.def.mount || HORSE;
+    const m = u.mountDef || HORSE;
     const desired = Math.atan2(ty - u.y, tx - u.x);
     const diff = angDiff(u.heading, desired);
     const maxTurn = m.turn * (1 - 0.45 * clamp(u.rspeed / m.speed, 0, 1));
     if (u.rspeed > 3 || Math.abs(diff) > 0.05) u.heading += clamp(diff, -maxTurn * dt, maxTurn * dt);
     if (Math.abs(diff) > 1.6 && u.rspeed > 40) want *= 0.5;
     if (u.decay) want *= 0.8;
+    want *= this.slowAt(u.x, u.y);
     const acc = want > u.rspeed ? m.accel : m.accel * 1.6;
     u.rspeed += clamp(want - u.rspeed, -acc * dt, acc * dt);
     u.vx = Math.cos(u.heading) * u.rspeed; u.vy = Math.sin(u.heading) * u.rspeed;
     u.moving = u.rspeed > 6;
     if (!u.hero && (u.state === "idle" || !u.target)) u.wantFace = u.heading;
   }
-
   dismount(u: Unit) {
     if (!u.mounted) return;
     u.mounted = false;
@@ -860,14 +828,15 @@ class Battle {
     this.sfx.neigh(s.v, s.pan); this.sfx.trample(s.v * 0.7, s.pan);
     const [hd] = this.dirIndex(u.heading);
     this.corpses.push({ x: u.x, y: u.y + 2, img: u.horse.frames[hd][0], flip: Math.cos(u.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true });
-    this.pool(u.x, u.y + 3, 6);
+    this.pool(u.x, u.y + 3, 7);
     u.rspeed = 0; u.vx *= 0.3; u.vy *= 0.3;
     u.hp -= 10;
     this.stagger(u, 1.2);
     this.dust(u.x, u.y, 12);
     if (u.hero) { this.say("Twój koń padł!", PAL.redL, true); this.shake(2); }
-    if (u.hp <= 0 && u.state !== "dead") this.kill(u, null);
+    if (u.hp <= 0 && u.active) this.kill(u, null);
   }
+  dirIndex(a: number): [number, boolean] { const c = Math.cos(a), s = Math.sin(a); if (Math.abs(c) > Math.abs(s) * 0.9) return [2, c < 0]; return [s > 0 ? 0 : 1, false]; }
 
   // ---------- Walka wręcz ----------
   startWindup(u: Unit, dir: Dir) {
@@ -875,16 +844,14 @@ class Battle {
     u.guard = null; u.guardT = 0; u.trail = [];
     for (const e of this.units) {
       if (e.team === u.team || !e.active || e.hero) continue;
-      const d = dist(e.x, e.y, u.x, u.y);
-      if (d > 48) continue;
+      if (dist(e.x, e.y, u.x, u.y) > 52) continue;
       const facing = Math.abs(angDiff(e.face, Math.atan2(u.y - e.y, u.x - e.x))) < 1.3;
       if (facing && (e.state === "idle" || e.state === "recover") && chance(e.def.guard * (u.hero ? 1 : 0.8) * (e.decay ? 0.5 : 1)))
         e.pendingGuard = { dir, at: this.time + e.def.react * rr(0.85, 1.25) };
     }
   }
-
-  windupTime(u: Unit) { return u.w.windup * (u.hero ? 1 : rr(1, 1.2)) * (u.dir === "O" ? 1.15 : 1) * (u.target?.mounted && !u.mounted ? 0.7 : 1); }
-  weight(u: Unit) { return u.w.len >= 14 ? 1.5 : u.w.head ? 1.25 : 1; }
+  windupTime(u: Unit) { return u.w.windup * (u.hero ? 1 : rr(1, 1.2)) * (u.dir === "O" ? 1.15 : 1) * (u.target?.mounted && !u.mounted ? 0.7 : 1) * (u.cursedT > 0 ? 1.3 : 1); }
+  weight(u: Unit) { return u.w.len >= 13 ? 1.5 : u.w.head ? 1.25 : 1; }
 
   updateCombat(u: Unit, dt: number) {
     u.t += dt;
@@ -892,11 +859,14 @@ class Battle {
     if (u.flash > 0) u.flash -= dt;
     if (u.bloodT > 0) u.bloodT -= dt;
     if (u.trampleT > 0) u.trampleT -= dt;
+    if (u.buffT > 0) { u.buffT -= dt; if (u.buffT <= 0) u.buffDmg = 1; }
+    if (u.cursedT > 0) u.cursedT -= dt;
+    if (u.bloodRiteT > 0) u.bloodRiteT -= dt;
+    if (u.smiteT > 0) u.smiteT -= dt;
+    if (u.burnT > 0) { u.burnT -= dt; u.hp -= 7 * dt; if (chance(dt * 10)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(6, 20), vx: rr(-5, 5), vy: rr(-5, 5), vz: rr(15, 35), life: 0.5, max: 0.5, col: pick([PAL.gold, PAL.redL, PAL.bloodL]), kind: "fire" }); if (u.hp <= 0) { this.kill(u, null); return; } }
+    if (u.lifeT > 0) { u.lifeT -= dt; if (u.lifeT <= 0) { u.state = "fled"; this.sparks(u.x, u.y - 10, 10, PAL.boneHi); return; } }
     if (u.guardT > 0) { u.guardT -= dt; if (u.guardT <= 0) u.guard = null; }
-    if (u.pendingGuard && this.time >= u.pendingGuard.at) {
-      if (u.state === "idle" || u.state === "recover") { u.guard = u.pendingGuard.dir; u.guardT = 0.8; }
-      u.pendingGuard = null;
-    }
+    if (u.pendingGuard && this.time >= u.pendingGuard.at) { if (u.state === "idle" || u.state === "recover") { u.guard = u.pendingGuard.dir; u.guardT = 0.8; } u.pendingGuard = null; }
     this.turn(u, dt);
     const w = u.w;
     switch (u.state) {
@@ -906,10 +876,7 @@ class Battle {
           u.state = "strike"; u.t = 0; u.hitDone = false;
           const s = this.vol(u.x);
           this.sfx.swing(s.v * (u.hero ? 1 : 0.4), s.pan, this.weight(u) * (u.hero && u.hold > 0.5 ? 1.25 : 1));
-          if (!u.mounted) {
-            const lunge = (u.hero ? 45 : 28) * (u.dir === "T" ? 1.4 : u.dir === "O" ? 0.7 : 1);
-            u.vx += Math.cos(u.face) * lunge; u.vy += Math.sin(u.face) * lunge;
-          }
+          if (!u.mounted) { const lunge = (u.hero ? 45 : 28) * (u.dir === "T" ? 1.4 : u.dir === "O" ? 0.7 : 1); u.vx += Math.cos(u.face) * lunge; u.vy += Math.sin(u.face) * lunge; }
           if (u.hero && !u.mounted) u.nextSide = u.dir === "R" ? "L" : u.dir === "L" ? "R" : u.nextSide;
         }
         break;
@@ -918,39 +885,28 @@ class Battle {
         if (!u.hitDone && u.t >= w.strike * 0.5) { u.hitDone = true; this.meleeHit(u); }
         if (u.t >= w.strike) { u.state = "recover"; u.t = 0; }
         break;
-      case "recover":
-        if (u.t >= w.recover) { u.state = "idle"; u.t = 0; u.cooldown = u.hero ? 0.06 : rr(0.35, 1.1); }
-        break;
-      case "stagger":
-        if (u.t >= u.hold) { u.state = "idle"; u.t = 0; u.hold = 0; }
-        break;
-      case "kick":
-        if (!u.hitDone && u.t >= 0.12) { u.hitDone = true; this.kickHit(u); }
-        if (u.t >= 0.32) { u.state = "idle"; u.t = 0; }
-        break;
+      case "recover": if (u.t >= w.recover) { u.state = "idle"; u.t = 0; u.cooldown = u.hero ? 0.06 : rr(0.35, 1.1); } break;
+      case "stagger": if (u.t >= u.hold) { u.state = "idle"; u.t = 0; u.hold = 0; } break;
+      case "kick": if (!u.hitDone && u.t >= 0.12) { u.hitDone = true; this.kickHit(u); } if (u.t >= 0.32) { u.state = "idle"; u.t = 0; } break;
     }
   }
 
   stagger(u: Unit, time: number) {
     if (!u.active) return;
-    u.state = "stagger"; u.t = 0; u.hold = time; u.guard = null; u.guardT = 0; u.pendingGuard = null;
-    u.blocking = false; u.drawT = 0;
+    u.state = "stagger"; u.t = 0; u.hold = time; u.guard = null; u.guardT = 0; u.pendingGuard = null; u.blocking = false; u.drawT = 0;
   }
-
   push(u: Unit, fromX: number, fromY: number, power: number) {
     if (u.mounted) { u.rspeed *= 0.85; return; }
-    const a = Math.atan2(u.y - fromY, u.x - fromX);
-    const k = u.def.poise ? 0.3 : 1;
+    const a = Math.atan2(u.y - fromY, u.x - fromX), k = u.def.poise ? 0.3 : 1;
     u.vx += Math.cos(a) * power * k; u.vy += Math.sin(a) * power * k;
   }
-
   kickCam(dx: number, dy: number, amount: number) { this.shakeVX += dx * amount * 75; this.shakeVY += dy * amount * 75; }
   shake(n: number) { this.rumble = Math.max(this.rumble, n); }
 
   meleeHit(a: Unit) {
     const w = a.w, dir = a.dir;
     let arc = dir === "T" ? 0.5 : dir === "O" ? 0.75 : 1.35;
-    let reach = w.reach + (dir === "T" ? 4 : 0);
+    let reach = w.reach + 3 + (dir === "T" ? 4 : 0);
     if (a.mounted) { arc = 1.7; reach += 4; }
     let best: Unit | null = null, bd = 1e9;
     for (const u of this.units) {
@@ -960,33 +916,42 @@ class Battle {
       if (Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) > arc) continue;
       if (d < bd) { bd = d; best = u; }
     }
-    if (best) this.resolveHit(a, best);
+    if (best) { this.resolveHit(a, best); return; }
+    // brama w oblężeniu
+    const W2 = this.map.wall;
+    if (W2 && !W2.broken && a.team !== this.cfg.siegeDefender && dist(a.x, a.y, W2.x0 - 4, W2.gateY) < reach + 16) {
+      const dmg = w.dmg[dir] * (w.type[dir] === "blunt" ? 1.4 : w.axe ? 1.3 : 0.8);
+      W2.gateHp -= dmg;
+      const s = this.vol(a.x);
+      this.sfx.thunk(s.v, s.pan);
+      this.sparks(W2.x0, W2.gateY + rr(-10, 10) - 8, 4, PAL.wood);
+      if (W2.gateHp <= 0) { W2.broken = true; this.sfx.trample(1, 0); this.shake(4); this.dust(W2.x0, W2.gateY, 30); this.say("Brama pękła!", this.cfg.siegeDefender === 0 ? PAL.redL : PAL.gold, true); this.shout("Brama pękła!"); this.relayoutT = 0; }
+    }
   }
 
-  parryWindow(d: Unit) { return 0.2; }
+  parryWindow() { return 0.2; }
 
   resolveHit(a: Unit, d: Unit) {
     const w = a.w, dir = a.dir;
     const angFromD = Math.abs(angDiff(d.face, Math.atan2(a.y - d.y, a.x - d.x)));
     const s = this.vol(d.x);
     const heroInvolved = a.hero || d.hero;
-    const hx = a.x + (d.x - a.x) * 0.6, hy = a.y + (d.y - a.y) * 0.6 - (d.mounted ? 18 : 10);
+    const hx = a.x + (d.x - a.x) * 0.6, hy = a.y + (d.y - a.y) * 0.6 - (d.mounted ? 24 : 14);
     const ha = Math.atan2(d.y - a.y, d.x - a.x);
     if (a.hidden) this.reveal(a);
 
     if (d.hero && d.blocking && angFromD < 1.2) {
-      if (this.time - d.blockStart <= this.parryWindow(d)) {
+      if (this.time - d.blockStart <= this.parryWindow()) {
         this.sfx.parry();
         this.hitstop = Math.max(this.hitstop, 0.18); this.kickCam(Math.cos(ha), Math.sin(ha), 1.5);
-        this.stagger(a, a.def.poise ? 0.65 : 1.0);
-        this.push(a, d.x, d.y, 55);
+        this.stagger(a, a.def.poise ? 0.65 : 1.0); this.push(a, d.x, d.y, 55);
         this.sparks(hx, hy, 20, PAL.gold); this.impact(hx, hy, PAL.gold, 1.4);
         this.shout("Parowanie!");
         d.stamina = Math.min(100, d.stamina + 8);
+        if (this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12);
         return;
       }
-      const cost = 9 + w.dmg[dir] * 0.35;
-      d.stamina -= cost; d.staminaWait = 0.6;
+      d.stamina -= 9 + w.dmg[dir] * 0.35; d.staminaWait = 0.6;
       this.sfx.thunk(1, s.pan);
       this.sparks(hx, hy, 6, PAL.steelL); this.impact(hx, hy, PAL.wood, 0.7);
       this.push(d, a.x, a.y, 40);
@@ -997,33 +962,36 @@ class Battle {
     if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover")) {
       this.sfx.clang(s.v, s.pan);
       this.sparks(hx, hy, 9, PAL.steelL); this.impact(hx, hy, PAL.white, 0.8);
-      if (a.hero) { this.stagger(a, 0.4); this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(-Math.cos(ha), -Math.sin(ha), 0.9); this.floater(d.x, d.y - 24, "BLOK", PAL.steelL, true); this.push(a, d.x, d.y, 35); }
+      if (a.hero) { this.stagger(a, 0.4); this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(-Math.cos(ha), -Math.sin(ha), 0.9); this.floater(d.x, d.y - 32, "BLOK", PAL.steelL, true); this.push(a, d.x, d.y, 35); }
       else a.cooldown = 0.3;
       d.guardT = Math.max(d.guardT, 0.3);
       return;
     }
     if (!d.hero && d.hasShield && d.state === "idle" && angFromD < 1.0) {
-      const wall = d.team === 0 && this.orders[d.squad]?.formation === "wall";
+      const wall = d.team === 0 && this.ordersOf(0, d.squad)?.formation === "wall";
       if (chance(d.def.shieldBlock * (wall ? 1.6 : 1))) {
-        this.sfx.thunk(s.v, s.pan);
-        this.sparks(hx, hy, 3, PAL.wood);
-        if (a.hero) { this.floater(d.x, d.y - 24, "TARCZA", PAL.dirtL, true); this.hitstop = Math.max(this.hitstop, 0.06); }
+        this.sfx.thunk(s.v, s.pan); this.sparks(hx, hy, 3, PAL.wood);
+        if (a.hero) { this.floater(d.x, d.y - 32, "TARCZA", PAL.dirtL, true); this.hitstop = Math.max(this.hitstop, 0.06); }
         return;
       }
     }
-    let dmg = w.dmg[dir] * d.def.armor[w.type[dir]] * rr(0.9, 1.1);
+    let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg;
     const charged = a.hero && a.hold > 0.5;
-    if (a.hero) dmg *= lerp(0.85, 1.3, clamp(a.hold / 0.7, 0, 1));
+    if (a.hero) dmg *= lerp(0.85, 1.3, clamp(a.hold / 0.7, 0, 1)) * this.heroDmg;
     if (a.decay) dmg *= 0.75;
+    if (a.cursedT > 0) dmg *= 0.7;
+    if (a.bloodRiteT > 0) dmg *= 1.4;
     const speedK = a.mounted ? a.rspeed / a.maxRide : 0;
     dmg *= 1 + speedK * 0.45;
     if (this.height(a.x, a.y) - this.height(d.x, d.y) > 0.15) dmg *= 1.2;
     const head = dir === "O" && chance(0.45);
     if (head) dmg *= 1.5;
     if (d.state === "windup" && dir === "T") dmg *= 1.15;
-    const heavy = dir === "O" || charged || w.type[dir] === "blunt" || w.len >= 14 || speedK > 0.7;
+    const heavy = dir === "O" || charged || w.type[dir] === "blunt" || w.len >= 13 || speedK > 0.7;
     if (!d.def.undead) a.bloodT = 8;
-    if (d.mounted && chance(0.5)) {   // trafiony koń zamiast jeźdźca
+    // smite poziom 1: święty ogień w ostrzu
+    if (a.smiteT > 0) { a.smiteT = 0; const holy = 25 * (d.def.undead ? 2.2 : 1); dmg += holy; this.holyBurst(hx, hy + 10, 16); this.sfx.smite(); }
+    if (d.mounted && chance(0.5)) {
       d.horseHp -= dmg * 1.2;
       this.blood(hx, hy + 8, 10, a, heavy);
       this.sfx.hit(s.v, s.pan, w.type[dir], heavy);
@@ -1031,6 +999,9 @@ class Battle {
       if (d.horseHp <= 0) this.dismount(d);
       return;
     }
+    if (a.bloodRiteT > 0) a.hp = Math.min(a.maxHp, a.hp + dmg * 0.25);
+    if (a.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6);
+    if (d.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8);
     this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
     if (heroInvolved) {
       const killed = d.hp <= 0;
@@ -1044,25 +1015,23 @@ class Battle {
   kickHit(a: Unit) {
     for (const u of this.units) {
       if (u.team === a.team || !u.active || u.mounted) continue;
-      if (dist(a.x, a.y, u.x, u.y) > 17 + u.def.radius) continue;
+      if (dist(a.x, a.y, u.x, u.y) > 19 + u.def.radius) continue;
       if (Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) > 0.9) continue;
       this.sfx.kick();
-      this.stagger(u, u.def.poise ? 0.4 : 0.85);
-      this.push(u, a.x, a.y, 110);
-      this.hitstop = Math.max(this.hitstop, 0.08);
-      this.kickCam(Math.cos(a.face), Math.sin(a.face), 1.4);
-      this.dust(u.x, u.y, 8);
-      this.impact(u.x, u.y - 9, PAL.dirtL, 0.8);
+      this.stagger(u, u.def.poise ? 0.4 : 0.85); this.push(u, a.x, a.y, 110);
+      this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(Math.cos(a.face), Math.sin(a.face), 1.4);
+      this.dust(u.x, u.y, 8); this.impact(u.x, u.y - 12, PAL.dirtL, 0.8);
       return;
     }
   }
 
   damage(d: Unit, dmg: number, src: Unit | null, head: boolean, type: DmgType = "cut", heavy = false, hx?: number, hy?: number) {
+    if (!d.active) return;
     dmg = Math.round(dmg);
     d.hp -= dmg; d.flash = 0.08;
     if (d.hidden) this.reveal(d);
     const s = this.vol(d.x);
-    const x = hx ?? d.x, y = hy ?? d.y - 9;
+    const x = hx ?? d.x, y = hy ?? d.y - 14;
     if (d.def.undead) {
       this.sfx.bone(s.v, s.pan, heavy);
       if (type === "blunt") this.sfx.hit(s.v * 0.5, s.pan, "blunt", true);
@@ -1071,74 +1040,86 @@ class Battle {
     } else {
       this.sfx.hit(s.v, s.pan, type, heavy);
       if (d.hp > 0 && chance(0.6)) this.sfx.pain(s.v, s.pan);
-      this.blood(x, y, 14 + (dmg / 1.8) | 0, src, heavy);
+      this.blood(x, y, 16 + (dmg / 1.6) | 0, src, heavy);
       this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
-      if (src) this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 8 + dmg / 4);
+      if (src) this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
     }
     if (src) this.push(d, src.x, src.y, 30 + dmg * (heavy ? 1.0 : 0.6));
     const interrupt = !d.def.poise || head || dmg >= 40 || type === "blunt";
     if (d.hp > 0 && interrupt) this.stagger(d, d.hero ? 0.3 : heavy ? 0.7 : 0.45);
-    if (this.settings.damageNumbers && (src?.hero || d.hero)) this.floater(d.x + rr(-3, 3), d.y - 26, (head ? "GŁOWA " : "") + dmg, d.hero ? PAL.redL : head ? PAL.gold : PAL.white, true);
-    else if (head && src?.hero) this.floater(d.x, d.y - 26, "GŁOWA", PAL.gold, true);
+    if (this.settings.damageNumbers && (src?.hero || d.hero)) this.floater(d.x + rr(-3, 3), d.y - 34, (head ? "GŁOWA " : "") + dmg, d.hero ? PAL.redL : head ? PAL.gold : PAL.white, true);
+    else if (head && src?.hero) this.floater(d.x, d.y - 34, "GŁOWA", PAL.gold, true);
     if (d.hero) this.hurtFlash = 0.35;
-    if (d.hp <= 0) this.kill(d, src);
+    if (d.hp <= 0) this.kill(d, src, head, type, heavy);
   }
 
-  kill(d: Unit, src: Unit | null) {
+  kill(d: Unit, src: Unit | null, head = false, type: DmgType = "cut", heavy = false) {
     if (!d.active) return;
     const s = this.vol(d.x);
     if (src) src.kills++;
-    if (d.hero) {
+    if (src?.team === 0 && this.heroCfg && d.def.undead) this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
+    if (d.hero || this.cfg.arena) {
+      // bohater (i każdy na arenie) zostaje ogłuszony, nie ginie
       if (d.mounted) { d.mounted = false; const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x, y: d.y + 2, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); }
-      d.state = "down"; d.hp = 0; d.blocking = false; d.vx = d.vy = 0;
-      this.camFree = true; this.cmdOpen = false;
-      this.say("Padłeś ogłuszony. Oddziały bez oficera ruszają do szarży.", PAL.redL, true);
-      this.shout("Padłeś!", PAL.redL);
-      this.slowT = 1;
-      for (const u of this.units) if (u.team === 0 && !u.hero) u.morale -= 20;
-      this.heroDown();
+      d.state = "down"; d.hp = 0; d.blocking = false; d.vx = d.vy = 0; d.ko = true;
+      if (d.hero) {
+        this.camFree = true; this.cmdOpen = false;
+        this.say("Padłeś ogłuszony. Oddziały bez oficera ruszają do szarży.", PAL.redL, true);
+        this.shout("Padłeś!", PAL.redL);
+        this.slowT = 1;
+        for (const u of this.units) if (u.team === 0 && !u.hero) u.morale -= 20;
+        this.heroDown();
+      } else { this.sfx.death(s.v * 0.6, s.pan, false); this.say(`${d.name} pada na piasek.`); }
       return;
     }
+    if (d.companion) { d.state = "down"; d.hp = 0; d.ko = true; this.say(`${d.name} pada ranny!`, PAL.redL, true); this.sfx.scream(s.v, s.pan); for (const u of this.units) if (u.team === 0 && u.squad === d.squad && u.active) u.morale -= 12; if (!this.heroUp && this.orders[d.squad]) this.orders[d.squad].mode = "charge"; return; }
     d.state = "dead";
     if (d.def.undead) this.sfx.death(s.v * 0.8, s.pan, true);
     else { this.sfx.death(s.v * 0.8, s.pan, false); if (chance(0.5)) this.sfx.scream(s.v * 0.8, s.pan); }
-    if (d.mounted) {
-      d.mounted = false;
-      const [hd] = this.dirIndex(d.heading);
-      this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true });
-    }
+    if (d.mounted) { d.mounted = false; const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x + 4, y: d.y + 3, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); }
     const [dirI] = this.dirIndex(d.face);
-    const bones = !!d.def.undead && !d.commander && d.def.body !== "ghoul";
-    this.corpses.push({ x: d.x, y: d.y, img: d.spr.frames[dirI][0], flip: Math.cos(d.face) < 0, rot: src && Math.cos(Math.atan2(d.y - src.y, d.x - src.x)) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false });
-    if (bones) this.bones(d.x, d.y - 8, 14, src);
-    else if (!d.def.undead) this.blood(d.x, d.y - 8, 18, src, true);
+    const bones = !!d.def.undead && d.look.race === "skel";
+    // ćwiartowanie: ciężkie cięcie albo cios w głowę może odrąbać głowę lub kończynę
+    const sever = (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
+    let img = d.spr.frames[dirI][0];
+    if (sever && d.look.race !== "ghoul" && d.look.race !== "wolf" && d.look.race !== "dk") {
+      img = d.spr.headless[dirI];
+      const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
+      this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
+      if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
+      if (src?.hero) { this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
+    } else if (type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
+      const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
+      this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
+    }
+    this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(Math.atan2(d.y - src.y, d.x - src.x)) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false });
+    if (bones) this.bones(d.x, d.y - 10, 14, src);
+    else if (!d.def.undead) this.blood(d.x, d.y - 10, 20, src, true);
     for (const u of this.units) {
       if (!u.active || u.def.undead) continue;
-      const near = dist(u.x, u.y, d.x, d.y) < 90;
+      const near = dist(u.x, u.y, d.x, d.y) < 100;
       if (u.team === d.team && near) u.morale -= 7;
       if (u.team !== d.team && near) u.morale = Math.min(100, u.morale + 3);
     }
-    if (d.officer) {
+    if (d.officer && d.team === 0) {
       for (const u of this.units) if (u.team === 0 && u.squad === d.squad && u.active) u.morale -= 15;
-      this.say(`Oficer oddziału ${SQUAD_NAMES[d.squad]} poległ!`, PAL.redL, true);
-      if (!this.hero.active && this.orders[d.squad]) this.orders[d.squad].mode = "charge";
+      this.say(`Oficer oddziału ${SQUAD_NAMES[d.squad] || ""} poległ!`, PAL.redL, true);
+      if (!this.heroUp && this.orders[d.squad]) this.orders[d.squad].mode = "charge";
     }
-    if (d.commander) this.collapse();
+    if (d.commander) this.commanderDown(d);
     if (src?.hero) this.say(`Zabiłeś: ${d.def.name}`);
   }
 
   heroDown() {
     for (const sq of this.liveSquads()) {
       const off = this.units.find((u) => u.team === 0 && u.squad === sq && u.officer && u.active);
-      if (off) this.say(`${SQUAD_NAMES[sq]}: oficer przejmuje dowodzenie.`, PAL.gold);
+      if (off) this.say(`${SQUAD_NAMES[sq]}: ${off.companion ? off.name : "oficer"} przejmuje dowodzenie.`, PAL.gold);
       else { this.ensureOrder(sq).mode = "charge"; this.orders[sq].flank = null; }
     }
     this.sfx.battleCry(1);
   }
-
-  // Oficerowie dowodzą, gdy bohater leży.
   officerAI() {
-    if (this.hero.active) return;
+    if (this.heroUp) return;
     for (const sq of this.liveSquads()) {
       const off = this.units.find((u) => u.team === 0 && u.squad === sq && u.officer && u.active);
       const o = this.ensureOrder(sq);
@@ -1147,102 +1128,108 @@ class Battle {
       let near = 1e9;
       for (const e of this.units) if (e.team === 1 && e.active && !e.hidden) near = Math.min(near, dist(c.x, c.y, e.x, e.y));
       const list = this.squadUnits(sq);
+      if (this.cfg.terrain === "siege" && this.cfg.siegeDefender === 1) { o.mode = "charge"; continue; }
+      if (this.time > 90 && near > 200) { o.mode = "charge"; continue; }
       if (list.some((u) => u.def.bow)) {
         const ammo = list.reduce((s, u) => s + u.ammo, 0);
         if (ammo === 0) { o.mode = "charge"; o.meleeOnly = true; }
         else if (near < 55 && o.mode !== "charge") this.orderRetreat([sq]);
         else if (o.mode !== "hold") { o.mode = "hold"; o.ax = c.x; o.ay = c.y; o.face = undefined; }
       } else {
-        if (near < 110) o.mode = "charge";
-        else if (o.mode === "charge" && near > 200) { o.mode = "hold"; o.ax = c.x; o.ay = c.y; o.face = undefined; }
+        if (near < 120) o.mode = "charge";
+        else if (o.mode === "charge" && near > 220) { o.mode = "hold"; o.ax = c.x; o.ay = c.y; o.face = undefined; }
       }
     }
   }
 
-  collapse() {
-    this.sfx.wail();
-    this.shout("Rycerz Śmierci padł!", PAL.purpleL);
-    this.say("Klątwa słabnie: nieumarli są wolniejsi i słabsi.", PAL.purpleL, true);
-    this.slowT = 1.2;
-    this.shake(4);
-    for (let i = 0; i < 50; i++) this.parts.push({ x: this.dk.x + rr(-6, 6), y: this.dk.y, z: rr(4, 20), vx: rr(-20, 20), vy: rr(-20, 20), vz: rr(20, 70), life: 1.4, max: 1.4, col: pick([PAL.purpleL, PAL.purple]), kind: "soul" });
-    for (const u of this.units) if (u.team === 1 && u.active) {
-      u.decay = true;
-      if (u.def.body === "skel" && chance(0.15)) this.kill(u, null);
+  // Śmierć dowódcy: nieumarli słabną bez klątwy, żywi tracą morale.
+  commanderDown(d: Unit) {
+    if (d.def.undead || d.key === "u_necro") {
+      this.sfx.wail();
+      this.shout(`${d.def.name} padł!`, PAL.purpleL);
+      this.say("Klątwa słabnie: nieumarli są wolniejsi i słabsi.", PAL.purpleL, true);
+      this.slowT = 1.2; this.shake(4);
+      for (let i = 0; i < 50; i++) this.parts.push({ x: d.x + rr(-6, 6), y: d.y, z: rr(4, 24), vx: rr(-20, 20), vy: rr(-20, 20), vz: rr(20, 70), life: 1.4, max: 1.4, col: pick([PAL.purpleL, PAL.purple]), kind: "soul" });
+      for (const u of this.units) if (u.team === d.team && u.active && u.def.undead) { u.decay = true; if (u.look.race === "skel" && chance(0.15)) this.kill(u, null); }
+    } else {
+      this.shout(`Dowódca wroga padł!`, PAL.gold);
+      this.say("Wróg traci ducha!", PAL.gold, true);
+      for (const u of this.units) if (u.team === d.team && u.active) u.morale -= 30;
     }
-    for (const u of this.units) if (u.team === 0 && u.active) u.morale = Math.min(100, u.morale + 25);
+    for (const u of this.units) if (u.team !== d.team && u.active) u.morale = Math.min(100, u.morale + 25);
   }
 
   reveal(u: Unit) {
     const sq = u.squad, team = u.team;
     let any = false;
     for (const o of this.units) if (o.team === team && o.squad === sq && o.hidden) { o.hidden = false; any = true; }
-    const ord = team === 0 ? this.orders[sq] : this.eorders[sq];
+    const ord = this.ordersOf(team, sq);
     if (ord && ord.mode === "ambush") ord.mode = "charge";
     if (!any) return;
-    if (team === 1) { this.say("Zasadzka! Ghule wypadają z lasu!", PAL.purpleL, true); this.sfx.moan(1, 0); this.sfx.battleCry(0.5); this.shake(2); }
+    if (team === 1) { this.say("Zasadzka! Wróg wypada z ukrycia!", PAL.purpleL, true); this.sfx.moan(1, 0); this.sfx.battleCry(0.5); this.shake(2); }
     else { this.say(`${SQUAD_NAMES[sq]}: z zasadzki, naprzód!`, PAL.gold); this.sfx.battleCry(0.8); for (const o of this.units) if (o.team === 0 && o.squad === sq) o.morale = Math.min(100, o.morale + 15); }
   }
 
-  // ---------- Łuki ----------
-  fire(u: Unit, a: number, speed: number, dmg: number, d: number) {
-    const oy = u.mounted ? 18 : 9;
+  // ---------- Pociski ----------
+  fire(u: Unit, a: number, speed: number, dmg: number, d: number, kind: Arrow["kind"]) {
+    const oy = u.mounted ? 24 : 14;
     if (!u.hero && this.height(u.x, u.y) > 0.3) dmg *= 1.1;
-    this.arrows.push({ x: u.x + Math.cos(a) * 6, y: u.y - oy + Math.sin(a) * 6, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, team: u.team, src: u, dmg, age: 0, travel: 0, dist: d, done: false });
+    this.arrows.push({ x: u.x + Math.cos(a) * 6, y: u.y - oy + Math.sin(a) * 6, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, team: u.team, src: u, dmg, age: 0, travel: 0, dist: d, done: false, kind });
     if (u.hidden) this.reveal(u);
     const s = this.vol(u.x);
-    this.sfx.bow(s.v * (u.hero ? 1 : 0.35), s.pan);
+    if (kind === "fire") this.sfx.fireball(s.v, s.pan); else this.sfx.bow(s.v * (u.hero ? 1 : 0.35), s.pan);
   }
-
   updateArrows(dt: number) {
     for (const ar of this.arrows) {
       if (ar.done) continue;
       const step = Math.hypot(ar.vx, ar.vy) * dt;
       ar.x += ar.vx * dt; ar.y += ar.vy * dt; ar.age += dt; ar.travel += step;
       const p = ar.travel / ar.dist;
+      if (ar.kind === "fire") {
+        if (chance(dt * 40)) this.parts.push({ x: ar.x, y: ar.y + 10, z: 10, vx: rr(-10, 10), vy: rr(-10, 10), vz: rr(5, 20), life: 0.4, max: 0.4, col: pick([PAL.gold, PAL.redL]), kind: "fire" });
+        let hitU = false;
+        for (const u of this.units) if (u.active && u.team !== ar.team && dist(u.x, u.y - 12, ar.x, ar.y) < u.radius + 4) { hitU = true; break; }
+        if (hitU || p >= 1 || !this.passable(ar.x, ar.y + 10)) { ar.done = true; explodeFire(this, ar.x, ar.y + 10, ar.dmg, ar.src); }
+        continue;
+      }
       const low = ar.travel < 14 || p > 0.78;
       if (low && ar.age > 0.03) {
         for (const u of this.units) {
           if (!u.active || u === ar.src) continue;
-          if (u.team === ar.team && ar.travel >= 14 && p < 0.92) continue;   // swoich strzała mija wysoko, chyba że spada tuż przy nich
-          if (dist(u.x, u.y - (u.mounted ? 12 : 8), ar.x, ar.y) > u.radius + (u.team === ar.team ? 1 : 3)) continue;
+          if (u.team === ar.team && ar.travel >= 14 && p < 0.92) continue;
+          if (dist(u.x, u.y - (u.mounted ? 16 : 12), ar.x, ar.y) > u.radius + (u.team === ar.team ? 1 : 3)) continue;
           this.arrowHit(ar, u);
           if (ar.done) break;
         }
       }
-      if (!ar.done && (p > 1.15 || ar.x < 0 || ar.y < 0 || ar.x > WW || ar.y > WH)) {
+      if (!ar.done && (p > 1.15 || ar.x < 0 || ar.y < 0 || ar.x > this.mw || ar.y > this.mh)) {
         ar.done = true;
         const a = Math.atan2(ar.vy, ar.vx);
-        pxLine(this.dg, ar.x, ar.y + 9, ar.x - Math.cos(a) * 4, ar.y + 9 - Math.sin(a) * 4, PAL.woodD);
-        this.dg.fillStyle = PAL.white; this.dg.fillRect(Math.round(ar.x - Math.cos(a) * 4), Math.round(ar.y + 9 - Math.sin(a) * 4), 1, 1);
+        if (ar.kind === "axe") { this.dg.fillStyle = PAL.steel; this.dg.fillRect(Math.round(ar.x), Math.round(ar.y + 12), 3, 2); }
+        else { pxLine(this.dg, ar.x, ar.y + 12, ar.x - Math.cos(a) * 4, ar.y + 12 - Math.sin(a) * 4, PAL.woodD); this.dg.fillStyle = PAL.white; this.dg.fillRect(Math.round(ar.x - Math.cos(a) * 4), Math.round(ar.y + 12 - Math.sin(a) * 4), 1, 1); }
       }
     }
     this.arrows = this.arrows.filter((a) => !a.done);
   }
-
   arrowHit(ar: Arrow, u: Unit) {
     const back = Math.atan2(-ar.vy, -ar.vx);
     const facing = Math.abs(angDiff(u.face, back));
     const s = this.vol(u.x);
-    if (u.team === 0 && !u.hero && this.orders[u.squad]?.spacing > 1 && chance(0.25)) return;   // przeleciała między szeregami
+    if (u.team === 0 && !u.hero && (this.ordersOf(0, u.squad)?.spacing || 1) > 1 && chance(0.25)) return;
     ar.done = true;
-    if (this.inForest(u.x, u.y) && chance(0.4)) { this.sfx.thunk(s.v * 0.3, s.pan); return; }   // drzewo przyjęło strzałę
-    if (u.hero && u.blocking && facing < 1.25) { this.sfx.thunk(1, s.pan); this.sparks(u.x, u.y - 9, 3, PAL.wood); return; }
+    if (this.inForest(u.x, u.y) && chance(0.4)) { this.sfx.thunk(s.v * 0.3, s.pan); return; }
+    if (u.hero && u.blocking && facing < 1.25) { this.sfx.thunk(1, s.pan); this.sparks(u.x, u.y - 12, 3, PAL.wood); return; }
     if (!u.hero && u.hasShield && u.state === "idle" && facing < 1.1) {
-      const wall = u.team === 0 && this.orders[u.squad]?.formation === "wall";
+      const wall = u.team === 0 && this.ordersOf(0, u.squad)?.formation === "wall";
       if (chance(wall ? 0.88 : 0.5)) { this.sfx.thunk(s.v * 0.6, s.pan); return; }
     }
     const head = chance(0.12);
-    const dmg = ar.dmg * u.def.armor.pierce * rr(0.85, 1.15) * (head ? 1.5 : 1);
+    const type: DmgType = ar.kind === "axe" ? "cut" : "pierce";
+    const dmg = ar.dmg * u.arm[type] * rr(0.85, 1.15) * (head ? 1.5 : 1);
     if (ar.src.team === u.team && ar.src.hero) this.say("Trafiłeś swojego!", PAL.redL);
     this.sfx.arrowHit(s.v, s.pan);
-    if (u.mounted && chance(0.5)) {
-      u.horseHp -= dmg * 1.3;
-      this.blood(u.x, u.y - 6, 6, null);
-      if (u.horseHp <= 0) this.dismount(u);
-      return;
-    }
-    this.damage(u, dmg, null, head, "pierce", false);
+    if (u.mounted && chance(0.5)) { u.horseHp -= dmg * 1.3; this.blood(u.x, u.y - 8, 6, null); if (u.horseHp <= 0) this.dismount(u); return; }
+    this.damage(u, dmg, null, head, type, false);
     this.push(u, u.x - ar.vx, u.y - ar.vy, 20);
     if (ar.src.hero) this.hitstop = Math.max(this.hitstop, 0.05);
   }
@@ -1250,34 +1237,49 @@ class Battle {
   // ---------- AI ----------
   isVisibleTo(e: Unit, viewer: Unit) {
     if (!e.hidden) return true;
-    return dist(e.x, e.y, viewer.x, viewer.y) < (this.inForest(e.x, e.y) ? 40 : 80);
+    const night = this.cfg.night ? 0.6 : 1;
+    return dist(e.x, e.y, viewer.x, viewer.y) < (this.inForest(e.x, e.y) ? 40 : 80) * night;
+  }
+
+  // Omijanie przeszkód liniowych: rzeka i mury mają przeprawy, przez które trzeba przejść.
+  waypoint(u: Unit, tx: number, ty: number): V {
+    const B = this.map.barrier;
+    if (!B) return { x: tx, y: ty };
+    const side = (x: number) => (x < B.x0 ? -1 : x > B.x1 ? 1 : 0);
+    const su = side(u.x), st = side(tx);
+    if (su === st || su === 0) return { x: tx, y: ty };
+    const usable = B.crossings.filter((c) => !c.gate || (this.map.wall && this.map.wall.broken) || (this.map.wall && u.team !== this.cfg.siegeDefender && !this.map.wall.broken && this.ordersOf(u.team, u.squad)?.mode === "charge"));
+    if (!usable.length) return { x: tx, y: ty };
+    let best = usable[0], bd = 1e9;
+    for (const c of usable) { const d = Math.abs(c.y - u.y) + Math.abs(c.y - ty) * 0.5; if (d < bd) { bd = d; best = c; } }
+    if (Math.abs(u.y - best.y) < best.h * 0.6) return { x: su < 0 ? B.x1 + 20 : B.x0 - 20, y: best.y };
+    return { x: su < 0 ? B.x0 - 14 : B.x1 + 14, y: best.y };
   }
 
   updateAI(u: Unit, dt: number) {
     if (u.decay) {
       u.hp -= 1.3 * dt;
-      if (chance(dt * 3)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(4, 14), vx: rr(-6, 6), vy: rr(-6, 6), vz: rr(8, 20), life: 0.8, max: 0.8, col: PAL.purpleL, kind: "soul" });
+      if (chance(dt * 3)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(4, 20), vx: rr(-6, 6), vy: rr(-6, 6), vz: rr(8, 20), life: 0.8, max: 0.8, col: PAL.purpleL, kind: "soul" });
       if (u.hp <= 0) { this.kill(u, null); return; }
     }
     if (u.state === "stagger" || u.state === "kick") { u.moving = false; if (u.mounted) this.ride(u, u.x + Math.cos(u.heading) * 30, u.y + Math.sin(u.heading) * 30, 0, dt); return; }
+    if (u.def.ability && !u.hero) unitAbilityAI(this, u, dt);
 
-    if (!u.def.undead && !u.fleeing && u.morale < 18) {
-      u.fleeing = true;
-      this.say(`${u.def.name} ucieka z pola bitwy!`, PAL.ash);
-    }
+    if (!u.def.undead && !u.fleeing && u.morale < 18 && !this.cfg.arena && u.lifeT <= 0) { u.fleeing = true; this.say(`${u.def.name} ucieka z pola bitwy!`, PAL.ash); }
     if (u.fleeing) {
       const ec = this.centroid(1 - u.team);
       const a = Math.atan2(u.y - ec.y, u.x - ec.x);
-      if (u.mounted) this.ride(u, u.x + Math.cos(a) * 100, u.y + Math.sin(a) * 100, u.maxRide, dt);
-      else this.steer(u, u.x + Math.cos(a) * 100, u.y + Math.sin(a) * 100, u.def.speed * 1.15, dt);
+      const wp = this.waypoint(u, u.x + Math.cos(a) * 200, u.y + Math.sin(a) * 200);
+      if (u.mounted) this.ride(u, wp.x, wp.y, u.maxRide, dt);
+      else this.steer(u, wp.x, wp.y, u.def.speed * 1.15, dt);
       u.wantFace = a;
-      if (u.x < 4 || u.y < 4 || u.x > WW - 4 || u.y > WH - 4) u.state = "fled";
+      if (u.x < 4 || u.y < 4 || u.x > this.mw - 4 || u.y > this.mh - 4) u.state = "fled";
       u.morale += dt * 2;
       if (u.morale > 45 && chance(dt * 0.3)) { u.fleeing = false; this.say(`${u.def.name} wraca do walki.`, PAL.ash); }
       return;
     }
 
-    const o = u.team === 0 ? this.orders[u.squad] : this.eorders[u.squad];
+    const o = this.ordersOf(u.team, u.squad);
     const mode: Mode = o ? o.mode : "charge";
     if (mode === "ambush") {
       this.steer(u, u.slotX, u.slotY, u.def.speed * 0.5, dt, 3);
@@ -1286,20 +1288,21 @@ class Battle {
     }
     if (mode === "flank" && o.flank) {
       const c = this.centroid(u.team, u.squad);
-      if (dist(c.x, c.y, o.flank.x, o.flank.y) < 45) { o.mode = "charge"; o.flank = null; if (u.team === 0) this.say(`${SQUAD_NAMES[u.squad]}: uderzamy w skrzydło!`, PAL.gold); }
+      if (dist(c.x, c.y, o.flank.x, o.flank.y) < 45) { o.mode = "charge"; o.flank = null; if (u.team === 0 && u.squad <= 8) this.say(`${SQUAD_NAMES[u.squad]}: uderzamy w skrzydło!`, PAL.gold); }
     }
     const fire = o ? o.fire && !o.meleeOnly : true;
-    const engage = mode === "charge" ? 9999 : mode === "hold" ? (u.mounted ? 60 : 34) : mode === "flank" ? 28 : 60;
+    const engage = mode === "charge" ? 9999 : mode === "hold" ? (u.mounted ? 60 : 36) : mode === "flank" ? 28 : 60;
 
     u.retarget -= dt;
     if (u.retarget <= 0 || !u.target || !u.target.active || !this.isVisibleTo(u.target, u)) { u.retarget = rr(0.35, 0.7); u.target = this.chooseTarget(u, o); }
     const t = u.target;
     const td = t ? dist(u.x, u.y, t.x, t.y) : 1e9;
 
-    if (u.def.bow && t && !u.mounted) {
+    if (u.bowDmg > 0 && t && !u.mounted && !u.hero) {
       const near = this.nearestEnemy(u);
-      const closeThreat = near && dist(u.x, u.y, near.x, near.y) < 26;
-      const range = u.def.bow.range * (this.height(u.x, u.y) > 0.3 ? 1.2 : 1);
+      const closeThreat = near && dist(u.x, u.y, near.x, near.y) < 28;
+      const bow = u.def.bow || { dmg: u.bowDmg, range: 230, reload: 2.2, spread: 0.06 };
+      const range = bow.range * (this.height(u.x, u.y) > 0.3 ? 1.2 : 1) * (this.cfg.night ? 0.75 : 1);
       if (!closeThreat && fire && u.ammo > 0 && td < range && mode !== "charge") {
         if (u.state === "idle") {
           this.steer(u, u.slotX, u.slotY, u.def.speed * 0.6, dt, 6);
@@ -1312,9 +1315,9 @@ class Battle {
           if (u.reload <= 0 && Math.abs(angDiff(u.face, u.wantFace)) < 0.3) {
             const lead = td / 300;
             const tx = t.x + t.vx * lead, ty = t.y + t.vy * lead;
-            const a = Math.atan2(ty - (u.y - 9), tx - u.x) + rr(-1, 1) * u.def.bow.spread * (1 + td / 260) * (u.decay ? 1.6 : 1);
-            this.fire(u, a, 300, u.def.bow.dmg, dist(u.x, u.y, tx, ty));
-            u.ammo--; u.reload = u.def.bow.reload * rr(0.85, 1.25);
+            const a = Math.atan2(ty - (u.y - 12), tx - u.x) + rr(-1, 1) * bow.spread * (1 + td / 260) * (u.decay ? 1.6 : 1) * (this.cfg.rain ? 1.4 : 1);
+            this.fire(u, a, bow.bolt ? 360 : bow.axe ? 220 : 300, bow.dmg, dist(u.x, u.y, tx, ty), bow.bolt ? "bolt" : bow.axe ? "axe" : "arrow");
+            u.ammo--; u.reload = bow.reload * rr(0.85, 1.25);
           }
         }
         return;
@@ -1325,23 +1328,29 @@ class Battle {
     const tgt = u.target;
     const tdist = tgt ? dist(u.x, u.y, tgt.x, tgt.y) : 1e9;
     const slotDist = tgt ? dist(u.slotX, u.slotY, tgt.x, tgt.y) : 1e9;
-    // w szyku walcz z miejsca i nie wybiegaj daleko: mniej kłębienia
-    const leash = mode === "hold" ? 22 : mode === "follow" ? 40 : 9999;
+    const leash = mode === "hold" ? 24 : mode === "follow" ? 44 : 9999;
     const engaged = !!tgt && (mode === "charge" || (slotDist < engage + 18 && tdist < engage + leash));
+    // oblężenie: atakujący bez celu w zasięgu szturmują bramę
+    const W2 = this.map.wall;
+    if (W2 && !W2.broken && u.team !== this.cfg.siegeDefender && mode === "charge" && !u.def.bow && u.x < W2.x0 && (!tgt || tdist > 60) && (u.id % 3 === 0)) {
+      const gx = W2.x0 - 10, gy = W2.gateY + ((u.id % 5) - 2) * 7;
+      if (dist(u.x, u.y, gx, gy) > 12) this.steer(u, gx, gy, u.def.speed, dt); else { u.moving = false; u.wantFace = 0; if (u.state === "idle" && u.cooldown <= 0) this.startWindup(u, pick<Dir>(["L", "R", "O"])); }
+      return;
+    }
 
     if (u.mounted) { this.mountedAI(u, tgt, engaged, dt); return; }
 
     if (engaged && tgt) {
-      const want = u.w.reach - 3 + tgt.radius;
+      const want = u.w.reach - 1 + tgt.radius;
       const a = Math.atan2(tgt.y - u.y, tgt.x - u.x);
       if (u.state === "idle" || u.state === "recover" || u.state === "windup") u.wantFace = a;
-      const spd = u.def.speed * (u.decay ? 0.8 : 1);
+      const spd = u.def.speed * (u.decay ? 0.8 : 1) * (u.cursedT > 0 ? 0.7 : 1) * (u.bloodRiteT > 0 ? 1.2 : 1);
       if (tdist > want) {
-        // jeśli ktoś z twoich już stoi między wami, obejdź go bokiem
+        const wp = this.waypoint(u, tgt.x, tgt.y);
         let side = 0;
-        for (const f of this.units) if (f !== u && f.team === u.team && f.active && f.target === tgt && dist(f.x, f.y, u.x, u.y) < 10) side += angDiff(a, Math.atan2(f.y - u.y, f.x - u.x)) > 0 ? -1 : 1;
-        const sa = a + clamp(side, -1, 1) * 0.9;
-        this.steer(u, u.x + Math.cos(sa) * 30, u.y + Math.sin(sa) * 30, spd * (u.state === "windup" ? 0.5 : 1), dt);
+        for (const f of this.units) if (f !== u && f.team === u.team && f.active && f.target === tgt && dist(f.x, f.y, u.x, u.y) < 12) side += angDiff(a, Math.atan2(f.y - u.y, f.x - u.x)) > 0 ? -1 : 1;
+        const da = Math.atan2(wp.y - u.y, wp.x - u.x) + clamp(side, -1, 1) * 0.9;
+        this.steer(u, u.x + Math.cos(da) * 30, u.y + Math.sin(da) * 30, spd * (u.state === "windup" ? 0.5 : 1), dt);
       } else {
         this.steer(u, u.x - Math.cos(a) * 3, u.y - Math.sin(a) * 3, spd * 0.25, dt);
         u.moving = false;
@@ -1352,27 +1361,24 @@ class Battle {
       }
       if (tgt.hero && u.state === "idle") {
         u.idleGuardT -= dt;
-        if (u.idleGuardT <= 0) {
-          u.idleGuardT = rr(1, 2.4);
-          if (chance(0.45)) { u.guard = pick<Dir>(["L", "R", "O", "T"]); u.guardT = rr(0.8, 1.6); }
-        }
+        if (u.idleGuardT <= 0) { u.idleGuardT = rr(1, 2.4); if (chance(0.45)) { u.guard = pick<Dir>(["L", "R", "O", "T"]); u.guardT = rr(0.8, 1.6); } }
       }
     } else {
       const d = dist(u.x, u.y, u.slotX, u.slotY);
-      const formSpeed = u.team === 0 && this.orders[u.squad]?.formation === "wall" ? 0.65 : 1;
+      const formSpeed = u.team === 0 && this.ordersOf(0, u.squad)?.formation === "wall" ? 0.65 : 1;
       const spd = u.def.speed * formSpeed * (d > 40 ? 1.15 : 1) * (u.decay ? 0.8 : 1);
-      if (d > 2) this.steer(u, u.slotX, u.slotY, spd, dt, 3);
+      const wp = this.waypoint(u, u.slotX, u.slotY);
+      if (d > 2) this.steer(u, wp.x, wp.y, spd, dt, wp.x === u.slotX ? 3 : 0);
       else { u.vx *= 0.8; u.vy *= 0.8; u.moving = false; }
-      u.wantFace = d < 8 ? u.slotFace : Math.atan2(u.slotY - u.y, u.slotX - u.x);
+      u.wantFace = d < 8 ? u.slotFace : Math.atan2(wp.y - u.y, wp.x - u.x);
     }
   }
 
-  // Jeździec: najazd, cięcie z boku w przelocie, nawrót i ponowna szarża.
   mountedAI(u: Unit, tgt: Unit | null, engaged: boolean, dt: number) {
     const max = u.maxRide;
     if (u.wheelTo) {
       this.ride(u, u.wheelTo.x, u.wheelTo.y, max * 0.85, dt);
-      if (dist(u.x, u.y, u.wheelTo.x, u.wheelTo.y) < 25 || u.x < 30 || u.x > WW - 30 || u.y < 30 || u.y > WH - 30) u.wheelTo = null;
+      if (dist(u.x, u.y, u.wheelTo.x, u.wheelTo.y) < 25 || u.x < 30 || u.x > this.mw - 30 || u.y < 30 || u.y > this.mh - 30) u.wheelTo = null;
       return;
     }
     if (engaged && tgt) {
@@ -1380,36 +1386,27 @@ class Battle {
       const a = Math.atan2(tgt.y - u.y, tgt.x - u.x);
       const ahead = Math.cos(angDiff(u.heading, a));
       const side = angDiff(u.heading, a) < 0 ? -1 : 1;
-      const px = tgt.x - Math.sin(a) * side * 8 + Math.cos(a) * 20, py = tgt.y + Math.cos(a) * side * 8 + Math.sin(a) * 20;
+      const wp = this.waypoint(u, tgt.x, tgt.y);
+      const px = wp.x === tgt.x ? tgt.x - Math.sin(a) * side * 9 + Math.cos(a) * 22 : wp.x, py = wp.x === tgt.x ? tgt.y + Math.cos(a) * side * 9 + Math.sin(a) * 22 : wp.y;
       this.ride(u, px, py, max, dt);
       if (u.state === "idle" || u.state === "windup") u.wantFace = a;
-      if (u.state === "idle" && u.cooldown <= 0 && d < u.w.reach + 26) this.startWindup(u, angDiff(u.heading, a) < 0 ? "L" : "R");
-      if (d < 26 && ahead < 0 && u.rspeed > 40) {
-        u.wheelTo = { x: clamp(u.x + Math.cos(u.heading) * 110, 40, WW - 40), y: clamp(u.y + Math.sin(u.heading) * 110, 40, WH - 40) };
-        u.target = null; u.retarget = 0;
-      }
+      if (u.state === "idle" && u.cooldown <= 0 && d < u.w.reach + 28) this.startWindup(u, angDiff(u.heading, a) < 0 ? "L" : "R");
+      if (d < 28 && ahead < 0 && u.rspeed > 40) { u.wheelTo = { x: clamp(u.x + Math.cos(u.heading) * 120, 40, this.mw - 40), y: clamp(u.y + Math.sin(u.heading) * 120, 40, this.mh - 40) }; u.target = null; u.retarget = 0; }
       return;
     }
     const d = dist(u.x, u.y, u.slotX, u.slotY);
-    if (d > 6) this.ride(u, u.slotX, u.slotY, Math.min(max * 0.7, d * 1.5), dt);
-    else {
-      this.ride(u, u.x + Math.cos(u.heading) * 30, u.y + Math.sin(u.heading) * 30, 0, dt);
-      if (u.rspeed < 5) u.heading += clamp(angDiff(u.heading, u.slotFace), -dt * 1.5, dt * 1.5);
-    }
+    const wp = this.waypoint(u, u.slotX, u.slotY);
+    if (d > 6) this.ride(u, wp.x, wp.y, Math.min(max * 0.7, d * 1.5), dt);
+    else { this.ride(u, u.x + Math.cos(u.heading) * 30, u.y + Math.sin(u.heading) * 30, 0, dt); if (u.rspeed < 5) u.heading += clamp(angDiff(u.heading, u.slotFace), -dt * 1.5, dt * 1.5); }
   }
 
   nearestEnemy(u: Unit): Unit | null {
     let b: Unit | null = null, bd = 1e9;
-    for (const e of this.units) {
-      if (e.team === u.team || !e.active || !this.isVisibleTo(e, u)) continue;
-      const d = dist(u.x, u.y, e.x, e.y);
-      if (d < bd) { bd = d; b = e; }
-    }
+    for (const e of this.units) { if (e.team === u.team || !e.active || !this.isVisibleTo(e, u)) continue; const d = dist(u.x, u.y, e.x, e.y); if (d < bd) { bd = d; b = e; } }
     return b;
   }
-
   chooseTarget(u: Unit, o?: Order): Unit | null {
-    if (u.commander && this.hero.active && dist(u.x, u.y, this.hero.x, this.hero.y) < 140) return this.hero;
+    if (u.commander && this.heroUp && dist(u.x, u.y, this.hero.x, this.hero.y) < 150) return this.hero;
     const counts = new Map<Unit, number>();
     for (const f of this.units) if (f.team === u.team && f.active && f.target && f !== u) counts.set(f.target, (counts.get(f.target) || 0) + 1);
     let b: Unit | null = null, bs = 1e9;
@@ -1420,12 +1417,11 @@ class Battle {
       const c = counts.get(e) || 0;
       if (!u.def.bow && c >= 2) s += 160 * (c - 1);
       s += c * 12;
-      if (!u.def.bow && Math.abs(angDiff(u.slotFace, Math.atan2(e.y - u.y, e.x - u.x))) > 1.2) s += 30;   // walka w linii: przeciwnik przed sobą
+      if (!u.def.bow && Math.abs(angDiff(u.slotFace, Math.atan2(e.y - u.y, e.x - u.x))) > 1.2) s += 30;
       if (pref != null && e.squad === pref) s -= 400;
-      if (u.def.bow) {
-        // nie strzelaj w zwarcie, w którym walczą nasi
-        for (const f of this.units) if (f.team === u.team && f.active && dist(f.x, f.y, e.x, e.y) < 30) { s += 600; break; }
-      }
+      if (u.def.bow) for (const f of this.units) if (f.team === u.team && f.active && dist(f.x, f.y, e.x, e.y) < 30) { s += 600; break; }
+      // za murami: trudno dosięgnąć
+      if (this.map.barrier && Math.sign(u.x - this.map.barrier.x0) !== Math.sign(e.x - this.map.barrier.x0) && !u.def.bow) s += 120;
       if (s < bs) { bs = s; b = e; }
     }
     return b;
@@ -1434,20 +1430,29 @@ class Battle {
   steer(u: Unit, tx: number, ty: number, speed: number, dt: number, arrive = 0) {
     let dx = tx - u.x, dy = ty - u.y;
     const d = Math.hypot(dx, dy) || 1;
-    let sp = speed;
+    let sp = speed * this.slowAt(u.x, u.y);
     if (arrive && d < arrive * 4) sp *= d / (arrive * 4);
     dx /= d; dy /= d;
     let sx = 0, sy = 0;
     for (const o of this.units) {
       if (o === u || !o.active) continue;
-      const r = o.mounted ? 18 : 12;
-      const ox = u.x - o.x, oy = u.y - o.y, od = Math.hypot(ox, oy);
+      const ox = u.x - o.x, oy = u.y - o.y;
+      if (Math.abs(ox) > 22 || Math.abs(oy) > 22) continue;
+      const r = o.mounted ? 20 : 14, od = Math.hypot(ox, oy);
       if (od < r && od > 0.01) { const k = ((r - od) / r) * (o.team === u.team ? 1.2 : 0.6); sx += (ox / od) * k; sy += (oy / od) * k; }
     }
-    for (const ob of this.obstacles) {
+    for (const ob of this.map.obstacles) {
       if (!ob.r) continue;
-      const ox = u.x - ob.x, oy = u.y - ob.y, od = Math.hypot(ox, oy);
+      const ox = u.x - ob.x, oy = u.y - ob.y;
+      if (Math.abs(ox) > 30 || Math.abs(oy) > 30) continue;
+      const od = Math.hypot(ox, oy);
       if (od < ob.r + 14 && od > 0.01) { const k = (ob.r + 14 - od) / 14; sx += (ox / od) * k * 1.5; sy += (oy / od) * k * 1.5; }
+    }
+    // unikaj wody i murów: badaj komórkę przed sobą
+    const ahead = 10;
+    if (!this.passable(u.x + dx * ahead, u.y + dy * ahead)) {
+      const l = this.passable(u.x - dy * ahead, u.y + dx * ahead), r = this.passable(u.x + dy * ahead, u.y - dx * ahead);
+      if (l) { sx += -dy * 1.5; sy += dx * 1.5; } else if (r) { sx += dy * 1.5; sy += -dx * 1.5; }
     }
     const vx = (dx + sx) * sp, vy = (dy + sy) * sp;
     u.vx = lerp(u.vx, vx, clamp(dt * 6, 0, 1));
@@ -1455,75 +1460,86 @@ class Battle {
     u.moving = sp > 5;
   }
 
-  // Generał nieumarłych: linia naciera, skrzydło oskrzydla, łucznicy wspierają, Rycerz poluje na bohatera.
-  enemyGeneral() {
-    const pc = this.centroid(0);
-    const line = this.eorders[1], wing = this.eorders[2], arc = this.eorders[3], dko = this.eorders[5];
-    const lc = this.centroid(1, 1);
+  // Generał AI: używany dla wroga i dla sojuszników. Linia naciera, skrzydło oskrzydla, strzelcy wspierają, jazda uderza w bok.
+  general(team: number, ord: Record<number, Order>, lineSq: number, wingSq: number, rangedSq: number, cavSq: number, specialSq: number) {
+    const foe = 1 - team;
+    const pc = this.centroid(foe);
+    const line = ord[lineSq], wing = ord[wingSq], arc = ord[rangedSq], cav = ord[cavSq], spec = ord[specialSq];
+    const lc = this.centroid(team, lineSq);
+    const siege = this.cfg.terrain === "siege";
+    const defending = siege && this.cfg.siegeDefender === team;
+    if (defending) {
+      // obrońcy trzymają mury i bramę, ruszają tylko na wrogów w środku
+      let inside = 0;
+      for (const u of this.units) if (u.team === foe && u.active && u.x > this.map.wall.x0) inside++;
+      if (inside > 0 || this.map.wall.broken) { if (line) line.mode = "charge"; if (cav) cav.mode = "charge"; if (spec) spec.mode = "charge"; }
+      return;
+    }
+    // przewaga albo przeciągająca się bitwa: wszyscy do szarży; strzelcy bez strzał też
+    const mineN = this.units.filter((u) => u.team === team && u.active).length, foeN = this.units.filter((u) => u.team === foe && u.active).length;
+    if (!siege && (this.time > 110 || (this.time > 25 && mineN > foeN * 2.5))) { for (const k of Object.keys(ord)) { const o = ord[Number(k)]; if (o.mode !== "ambush") { o.mode = "charge"; o.flank = null; } } this.charge[team] = true; return; }
+    if (arc && this.squadUnits(rangedSq, team).length && this.squadUnits(rangedSq, team).every((u) => u.ammo <= 0)) arc.mode = "charge";
     let nearest = 1e9;
-    for (const u of this.units) if (u.team === 1 && u.active && u.squad === 1)
-      for (const p of this.units) if (p.team === 0 && p.active && !p.hidden) nearest = Math.min(nearest, dist(u.x, u.y, p.x, p.y));
-    if (!this.enemyCharge) {
+    for (const u of this.units) if (u.team === team && u.active && u.squad === lineSq)
+      for (const p of this.units) if (p.team === foe && p.active && !p.hidden) { const d = dist(u.x, u.y, p.x, p.y); if (d < nearest) nearest = d; }
+    if (!this.charge[team] && line) {
       const a = Math.atan2(pc.y - line.ay, pc.x - line.ax);
-      line.ax += Math.cos(a) * 9; line.ay += Math.sin(a) * 9;
-      if (nearest < 110 || this.time > 70) {
-        this.enemyCharge = true; line.mode = "charge";
-        this.say("Nieumarli ruszają do szarży!", PAL.purpleL, true);
-        this.sfx.wail();
+      if (!siege) { line.ax += Math.cos(a) * 9; line.ay += Math.sin(a) * 9; }
+      if (nearest < 120 || this.time > (siege ? 25 : 70) || siege) {
+        this.charge[team] = true; line.mode = "charge";
+        if (team === 1) { this.say(siege ? "Wróg szturmuje mury!" : "Wróg rusza do szarży!", PAL.purpleL, true); this.sfx.wail(); }
       }
     }
-    if (wing.mode === "hold" && !wing.flank) {
-      if (this.time > 14) {
+    if (wing && wing.mode === "hold" && !wing.flank) {
+      if (this.time > 14 && !siege) {
         const a = Math.atan2(pc.y - lc.y, pc.x - lc.x);
-        let up = 0; for (const p of this.units) if (p.team === 0 && p.active) up += p.y < pc.y ? 1 : -1;
+        let up = 0; for (const p of this.units) if (p.team === foe && p.active) up += p.y < pc.y ? 1 : -1;
         const side = up > 0 ? 1 : -1;
         wing.mode = "flank";
-        wing.flank = { x: clamp(pc.x + Math.cos(a) * 40 - Math.sin(a) * side * 150, 30, WW - 30), y: clamp(pc.y + Math.sin(a) * 40 + Math.cos(a) * side * 150, 30, WH - 30) };
-        this.say("Część szkieletów obchodzi nasze skrzydło!", PAL.purpleL);
-      } else { wing.ax = line.ax; wing.ay = line.ay - 120; }
+        wing.flank = { x: clamp(pc.x + Math.cos(a) * 40 - Math.sin(a) * side * 160, 30, this.mw - 30), y: clamp(pc.y + Math.sin(a) * 40 + Math.cos(a) * side * 160, 30, this.mh - 30) };
+        if (team === 1) this.say("Część wroga obchodzi nasze skrzydło!", PAL.purpleL);
+      } else if (line) { wing.ax = line.ax; wing.ay = line.ay - 140; if (siege) wing.mode = "charge"; }
     }
-    const back = Math.atan2(lc.y - pc.y, lc.x - pc.x);
-    let cavNear = false;
-    for (const p of this.units) if (p.team === 0 && p.active && p.mounted && dist(p.x, p.y, arc.ax, arc.ay) < 90) cavNear = true;
-    arc.ax = clamp(lc.x + Math.cos(back) * (cavNear ? 120 : 60), 30, WW - 30);
-    arc.ay = clamp(lc.y + Math.sin(back) * (cavNear ? 120 : 60), 30, WH - 30);
-    if (this.dk.active) {
-      if (this.dk.hp < this.dk.def.hp * 0.3 && this.dkRetreatT === 0) { this.dkRetreatT = 10; this.say("Ranny Rycerz Śmierci cofa się za linię!", PAL.purpleL); }
-      if (this.dkRetreatT > 0.001) { dko.mode = "hold"; dko.ax = arc.ax; dko.ay = arc.ay; dko.face = undefined; }
-      else if (this.enemyCharge || dist(this.dk.x, this.dk.y, this.hero.x, this.hero.y) < 130) dko.mode = "charge";
-      else { dko.mode = "hold"; dko.ax = lc.x + Math.cos(back) * 16; dko.ay = lc.y + Math.sin(back) * 16; }
+    if (arc) {
+      const back = Math.atan2(lc.y - pc.y, lc.x - pc.x);
+      let cavNear = false;
+      for (const p of this.units) if (p.team === foe && p.active && p.mounted && dist(p.x, p.y, arc.ax, arc.ay) < 90) cavNear = true;
+      arc.ax = clamp(lc.x + Math.cos(back) * (cavNear ? 120 : 60), 30, this.mw - 30); arc.ay = clamp(lc.y + Math.sin(back) * (cavNear ? 120 : 60), 30, this.mh - 30);
+      if (siege) { arc.ax = clamp(this.map.wall.x0 - 170, 30, this.mw); arc.ay = this.map.wall.gateY; }
     }
-    if (this.eorders[4].mode === "ambush" && this.time > 85) { const g = this.units.find((u) => u.team === 1 && u.squad === 4 && u.active); if (g) this.reveal(g); }
+    if (cav && cav.mode === "hold") {
+      if (this.charge[team] && this.time > 8) { cav.mode = "flank"; const a = Math.atan2(pc.y - lc.y, pc.x - lc.x); cav.flank = { x: clamp(pc.x - Math.sin(a) * 170, 30, this.mw - 30), y: clamp(pc.y + Math.cos(a) * 170, 30, this.mh - 30) }; }
+      else if (line) { cav.ax = line.ax - Math.cos(Math.atan2(pc.y - line.ay, pc.x - line.ax)) * 40; cav.ay = line.ay + 170; }
+    }
+    if (spec && line) {
+      const cmd = this.commanders.find((c) => c.team === team && c.active);
+      if (cmd && cmd.hp < cmd.maxHp * 0.3 && arc) { spec.mode = "hold"; spec.ax = arc.ax; spec.ay = arc.ay; }
+      else if (this.charge[team] && cmd && this.heroUp && dist(cmd.x, cmd.y, this.hero.x, this.hero.y) < 160) spec.mode = "charge";
+      else { spec.mode = "hold"; const back = Math.atan2(lc.y - pc.y, lc.x - pc.x); spec.ax = lc.x + Math.cos(back) * 30; spec.ay = lc.y + Math.sin(back) * 30; }
+    }
+    if (ord[6] && ord[6].mode === "ambush" && this.time > 85) { const g = this.units.find((u) => u.team === team && u.squad === 6 && u.active); if (g) this.reveal(g); }
   }
 
   // ---------- Efekty ----------
   blood(x: number, y: number, n: number, src: Unit | null, heavy = false) {
-    const a0 = src ? Math.atan2(y - src.y + 9, x - src.x) : rr(0, 6.28);
-    for (let i = 0; i < n; i++) {
-      const a = a0 + rr(-0.8, 0.8), sp = rr(25, heavy ? 150 : 110);
-      this.parts.push({ x, y: y + 10, z: 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 95), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD, PAL.blood]), kind: "blood" });
-    }
+    const a0 = src ? Math.atan2(y - src.y + 12, x - src.x) : rr(0, 6.28);
+    for (let i = 0; i < n; i++) { const a = a0 + rr(-0.8, 0.8), sp = rr(25, heavy ? 150 : 110); this.parts.push({ x, y: y + 14, z: 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 95), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD, PAL.blood]), kind: "blood" }); }
   }
   bones(x: number, y: number, n: number, src: Unit | null) {
-    const a0 = src ? Math.atan2(y - src.y + 9, x - src.x) : rr(0, 6.28);
-    for (let i = 0; i < n; i++) {
-      const a = a0 + rr(-1, 1), sp = rr(20, 80);
-      this.parts.push({ x, y: y + 10, z: 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 70), life: 2, max: 2, col: pick([PAL.bone, PAL.boneHi, PAL.ash]), kind: "bone" });
-    }
+    const a0 = src ? Math.atan2(y - src.y + 12, x - src.x) : rr(0, 6.28);
+    for (let i = 0; i < n; i++) { const a = a0 + rr(-1, 1), sp = rr(20, 80); this.parts.push({ x, y: y + 14, z: 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 70), life: 2, max: 2, col: pick([PAL.bone, PAL.boneHi, PAL.ash]), kind: "bone" }); }
   }
   sparks(x: number, y: number, n: number, col: string) {
-    for (let i = 0; i < n; i++) {
-      const a = rr(0, 6.28), sp = rr(40, 140);
-      this.parts.push({ x, y: y + 10, z: 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rr(10, 70), life: rr(0.12, 0.3), max: 0.3, col, kind: "spark" });
-    }
+    for (let i = 0; i < n; i++) { const a = rr(0, 6.28), sp = rr(40, 140); this.parts.push({ x, y: y + 14, z: 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rr(10, 70), life: rr(0.12, 0.3), max: 0.3, col, kind: "spark" }); }
+  }
+  holyBurst(x: number, y: number, n: number) {
+    for (let i = 0; i < n; i++) { const a = rr(0, 6.28), sp = rr(20, 90); this.parts.push({ x, y, z: 12, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rr(20, 80), life: rr(0.3, 0.7), max: 0.7, col: pick([PAL.gold, PAL.boneHi, PAL.white]), kind: "holy" }); }
   }
   impact(x: number, y: number, col: string, size: number) {
-    this.parts.push({ x, y: y + 10, z: 10, vx: 0, vy: 0, vz: 0, life: 0.07, max: 0.07, col: PAL.white, kind: "flash" });
-    this.parts.push({ x, y: y + 10, z: 10, vx: size, vy: 0, vz: 0, life: 0.16, max: 0.16, col, kind: "ring" });
+    this.parts.push({ x, y: y + 14, z: 14, vx: 0, vy: 0, vz: 0, life: 0.07, max: 0.07, col: PAL.white, kind: "flash" });
+    this.parts.push({ x, y: y + 14, z: 14, vx: size, vy: 0, vz: 0, life: 0.16, max: 0.16, col, kind: "ring" });
   }
-  dust(x: number, y: number, n: number) {
-    for (let i = 0; i < n; i++) this.parts.push({ x: x + rr(-4, 4), y, z: 1, vx: rr(-25, 25), vy: rr(-10, 10), vz: rr(5, 20), life: 0.6, max: 0.6, col: PAL.dirtL, kind: "dust" });
-  }
+  dust(x: number, y: number, n: number) { for (let i = 0; i < n; i++) this.parts.push({ x: x + rr(-4, 4), y, z: 1, vx: rr(-25, 25), vy: rr(-10, 10), vz: rr(5, 20), life: 0.6, max: 0.6, col: PAL.dirtL, kind: "dust" }); }
   streak(x: number, y: number, a: number, len: number) {
     for (let i = 0; i < len; i++) {
       const px = x + Math.cos(a) * (i + 3) + rr(-1, 1), py = y + Math.sin(a) * (i + 3) * 0.7 + rr(-0.5, 0.5);
@@ -1534,19 +1550,27 @@ class Battle {
   }
   pool(x: number, y: number, r: number) {
     const g = this.dg;
-    for (let yy = -r; yy <= r; yy++) for (let xx = -r * 1.5; xx <= r * 1.5; xx++) {
-      if ((xx * xx) / 2.25 + yy * yy <= r * r * rr(0.6, 1)) { g.fillStyle = chance(0.8) ? PAL.bloodD : PAL.blood; g.fillRect(Math.round(x + xx), Math.round(y + yy + 1), 1, 1); }
-    }
+    for (let yy = -r; yy <= r; yy++) for (let xx = -r * 1.5; xx <= r * 1.5; xx++) if ((xx * xx) / 2.25 + yy * yy <= r * r * rr(0.6, 1)) { g.fillStyle = chance(0.8) ? PAL.bloodD : PAL.blood; g.fillRect(Math.round(x + xx), Math.round(y + yy + 1), 1, 1); }
   }
   floater(x: number, y: number, text: string, col: string, force = false) { if (force || this.settings.damageNumbers) this.floaters.push({ x, y, text, col, t: 0.9 }); }
 
   updateParticles(dt: number) {
     for (const p of this.parts) {
       p.life -= dt;
-      if (p.kind === "flash" || p.kind === "ring") continue;
+      if (p.kind === "flash" || p.kind === "ring" || p.kind === "beam") continue;
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-      p.vz -= (p.kind === "soul" ? -20 : 240) * dt;
-      if (p.kind === "dust" || p.kind === "soul") { p.vx *= 0.92; p.vy *= 0.92; }
+      p.vz -= (p.kind === "soul" || p.kind === "fire" || p.kind === "holy" ? -20 : 240) * dt;
+      if (p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy") { p.vx *= 0.92; p.vy *= 0.92; }
+      if (p.kind === "head" || p.kind === "limb") {
+        p.rot += dt * 12 * Math.sign(p.vx || 1);
+        if (p.z <= 0) { p.z = 0; p.vz = Math.abs(p.vz) > 40 ? -p.vz * 0.35 : 0; p.vx *= 0.5; p.vy *= 0.5; if (Math.abs(p.vz) < 1) { p.vx = p.vy = 0; } this.dg.fillStyle = PAL.blood; this.dg.fillRect(Math.round(p.x), Math.round(p.y), 2, 1); }
+        if (p.life < 0.1 && p.z <= 0) { // zostaje na ziemi jako ślad
+          if (p.kind === "head" && p.img) this.dg.drawImage(p.img, Math.round(p.x - 5), Math.round(p.y - 6));
+          else { this.dg.fillStyle = p.col; this.dg.fillRect(Math.round(p.x - 2), Math.round(p.y - 1), 5, 2); this.dg.fillStyle = PAL.bloodL; this.dg.fillRect(Math.round(p.x + 2), Math.round(p.y - 1), 1, 2); }
+          p.life = 0;
+        }
+        continue;
+      }
       if (p.z <= 0 && (p.kind === "blood" || p.kind === "bone")) {
         this.dg.fillStyle = p.col;
         this.dg.fillRect(Math.round(p.x), Math.round(p.y), p.kind === "blood" && chance(0.5) ? 2 : 1, 1);
@@ -1556,10 +1580,7 @@ class Battle {
     this.parts = this.parts.filter((p) => p.life > 0);
     for (const f of this.floaters) { f.t -= dt; f.y -= 14 * dt; }
     this.floaters = this.floaters.filter((f) => f.t > 0);
-    for (const c of this.corpses) if (c.t < 1) {
-      c.t = Math.min(1, c.t + dt / 0.45);
-      if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 3); this.dust(c.x, c.y, 6); }
-    }
+    for (const c of this.corpses) if (c.t < 1) { c.t = Math.min(1, c.t + dt / 0.45); if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 4); this.dust(c.x, c.y, 6); } }
   }
 
   // ---------- Pętla ----------
@@ -1571,70 +1592,79 @@ class Battle {
     if (this.hurtFlash > 0) this.hurtFlash -= realDt;
     for (const p of this.preview) p.t -= realDt;
     this.preview = this.preview.filter((p) => p.t > 0);
-
-    // sprężyna kamery: wolniejsze, cięższe drganie
     const k = 300, damp = Math.pow(0.004, realDt);
     this.shakeVX -= this.shakeX * k * realDt; this.shakeVY -= this.shakeY * k * realDt;
     this.shakeVX *= damp; this.shakeVY *= damp;
     this.shakeX += this.shakeVX * realDt; this.shakeY += this.shakeVY * realDt;
     this.rumble = Math.max(0, this.rumble - realDt * 14);
-
     this.updateCamera(realDt);
     let fighting = 0;
     for (const u of this.units) if (u.active && (u.state === "windup" || u.state === "strike")) fighting++;
     this.intensity = this.phase === "fight" ? clamp(fighting / 14, 0, 1) : 0;
-    this.sfx.tick(realDt, this.intensity);
+    this.sfx.tick(realDt, this.intensity, this.cfg.rain);
     if (this.phase !== "fight" || this.paused) return;
 
-    // zamrożenie klatki: świat stoi, ale naciśnięcia klawiszy nie mogą przepaść
     if (this.hitstop > 0) { this.hitstop -= realDt; this.handleOrders(); this.updateHero(0); return; }
     if (this.slowT > 0) this.slowT -= realDt;
+    if (this.focusT > 0) this.focusT -= realDt;
     this.slowmo = this.cmdOpen;
-    const scale = this.slowmo ? 0.3 : this.slowT > 0 ? 0.35 : 1;
+    const scale = this.slowmo ? 0.3 : this.focusT > 0 ? 0.4 : this.slowT > 0 ? 0.35 : 1;
     const dt = Math.min(realDt, 0.05) * scale;
     this.time += dt;
-    if (this.dkRetreatT > 0.001) this.dkRetreatT = Math.max(0.0005, this.dkRetreatT - dt);
+    for (const k2 of Object.keys(this.cds)) this.cds[k2] = Math.max(0, this.cds[k2] - dt);
 
     this.handleOrders();
-    this.updateHero(dt);
+    // skupienie: bohater porusza się w normalnym tempie
+    this.updateHero(this.focusT > 0 ? dt / 0.4 : dt);
 
     this.relayoutT -= dt;
-    if (this.relayoutT <= 0) { this.relayoutT = 0.4; this.enemyGeneral(); this.officerAI(); this.layoutAll(); this.moraleCheck(); }
-
+    if (this.relayoutT <= 0) {
+      this.relayoutT = 0.4;
+      this.general(1, this.eorders, 1, 2, 3, 4, 5);
+      this.general(0, this.aorders, 11, 0, 12, 13, 0);
+      this.officerAI();
+      this.layoutAll();
+      this.moraleCheck();
+      this.reinforce();
+    }
     for (const u of this.units) {
       if (!u.active) continue;
-      this.updateCombat(u, dt);
-      if (!u.hero) this.updateAI(u, dt);
+      this.updateCombat(u, u.hero && this.focusT > 0 ? dt / 0.4 : dt);
+      if (!u.hero && u.active) this.updateAI(u, dt);
     }
     const h = this.hero;
     for (const u of this.units) {
       if (!u.active) continue;
-      u.x += u.vx * dt; u.y += u.vy * dt;
+      const udt = u.hero && this.focusT > 0 ? dt / 0.4 : dt;
+      // ruch z poszanowaniem wody i murów (ślizg wzdłuż przeszkody)
+      const nx = u.x + u.vx * udt, ny = u.y + u.vy * udt;
+      if (this.passable(nx, ny)) { u.x = nx; u.y = ny; }
+      else if (this.passable(nx, u.y)) { u.x = nx; u.vy *= 0.5; }
+      else if (this.passable(u.x, ny)) { u.y = ny; u.vx *= 0.5; }
+      else { u.vx *= -0.2; u.vy *= -0.2; if (u.mounted) u.rspeed *= 0.5; }
       if (!u.mounted) {
-        if (!u.hero && !u.moving) { u.vx *= Math.pow(0.03, dt); u.vy *= Math.pow(0.03, dt); }
-        if (u.state === "stagger") { u.vx *= Math.pow(0.03, dt); u.vy *= Math.pow(0.03, dt); }
+        if (!u.hero && !u.moving) { u.vx *= Math.pow(0.03, udt); u.vy *= Math.pow(0.03, udt); }
+        if (u.state === "stagger") { u.vx *= Math.pow(0.03, udt); u.vy *= Math.pow(0.03, udt); }
       }
       const speed = Math.hypot(u.vx, u.vy);
       const prev = Math.floor(u.anim);
-      if (speed > 8) u.anim += dt * speed * (u.mounted ? 0.09 : 0.11);
-      if (Math.floor(u.anim) !== prev && dist(u.x, u.y, h.x, h.y) < 140) {
+      if (speed > 8) u.anim += udt * speed * (u.mounted ? 0.09 : 0.11);
+      if (h && Math.floor(u.anim) !== prev && dist(u.x, u.y, h.x, h.y) < 140) {
         const s = this.vol(u.x);
         if (u.mounted) this.sfx.hoof(s.v * (u.hero ? 1 : 0.5), s.pan);
         else if (u.hero) this.sfx.step(0.8, 1);
       }
-      if (!u.def.undead && u.hp < u.def.hp * 0.55) {   // krwawienie rannych
-        u.bleedT -= dt;
-        if (u.bleedT <= 0) { u.bleedT = rr(0.25, 0.6); this.dg.fillStyle = chance(0.6) ? PAL.blood : PAL.bloodD; this.dg.fillRect(Math.round(u.x + rr(-2, 2)), Math.round(u.y + rr(-1, 1)), 1, 1); }
-      }
-      if (!u.fleeing) { u.x = clamp(u.x, 6, WW - 6); u.y = clamp(u.y, 14, WH - 6); }
+      if (!u.def.undead && u.hp < u.maxHp * 0.55) { u.bleedT -= udt; if (u.bleedT <= 0) { u.bleedT = rr(0.25, 0.6); this.dg.fillStyle = chance(0.6) ? PAL.blood : PAL.bloodD; this.dg.fillRect(Math.round(u.x + rr(-2, 2)), Math.round(u.y + rr(-1, 1)), 1, 1); } }
+      if (!u.fleeing) { u.x = clamp(u.x, 6, this.mw - 6); u.y = clamp(u.y, 14, this.mh - 6); }
     }
     this.collide();
     this.updateArrows(dt);
     this.updateParticles(dt);
+    updateAbilityFx(this, dt);
     this.moanT -= dt;
-    if (this.moanT <= 0) {
+    if (this.moanT <= 0 && h) {
       this.moanT = rr(2.5, 6);
-      const z = this.units.filter((u) => u.team === 1 && u.active && !u.hidden && dist(u.x, u.y, h.x, h.y) < 200);
+      const z = this.units.filter((u) => u.team === 1 && u.active && !u.hidden && u.def.undead && dist(u.x, u.y, h.x, h.y) < 200);
       if (z.length) { const u = pick(z); const s = this.vol(u.x); this.sfx.moan(s.v * 0.8, s.pan); }
     }
     this.checkEnd();
@@ -1642,491 +1672,122 @@ class Battle {
 
   moraleCheck() {
     for (const sq of this.liveSquads()) {
-      const list = this.squadUnits(sq);
-      const m = list.reduce((s, u) => s + clamp(u.morale, 0, 100), 0) / list.length;
+      const m = this.squadMorale(sq);
       const lvl = m < 25 ? 2 : m < 45 ? 1 : 0;
       if ((this.waver[sq] || 0) < lvl) this.say(lvl === 2 ? `${SQUAD_NAMES[sq]} łamie się!` : `${SQUAD_NAMES[sq]} się chwieje!`, PAL.redL, lvl === 2);
       this.waver[sq] = lvl;
     }
   }
-  squadMorale(sq: number) {
-    const list = this.squadUnits(sq);
-    return list.length ? list.reduce((s, u) => s + clamp(u.morale, 0, 100), 0) / list.length : 0;
-  }
+  squadMorale(sq: number) { const list = this.squadUnits(sq); return list.length ? list.reduce((s, u) => s + clamp(u.morale, 0, 100), 0) / list.length : 0; }
 
   collide() {
     const act = this.units.filter((u) => u.active);
     for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
       const a = act[i], b = act[j];
       const dx = b.x - a.x, dy = b.y - a.y;
-      if (Math.abs(dx) > 18 || Math.abs(dy) > 18) continue;
+      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) continue;
       const d = Math.hypot(dx, dy), m = a.radius + b.radius - 1;
       if (d < m && d > 0.001) {
-        // tratowanie: rozpędzony koń przewraca piechura wroga
         for (const [r, f] of [[a, b], [b, a]] as [Unit, Unit][]) {
           if (r.mounted && !f.mounted && r.team !== f.team && r.rspeed > 55 && f.trampleT <= 0 && !f.def.poise && f.active) {
             f.trampleT = 0.8;
-            const k = r.rspeed / r.maxRide;
-            const s = this.vol(f.x);
+            const k2 = r.rspeed / r.maxRide, s = this.vol(f.x);
             this.sfx.trample(s.v, s.pan);
-            this.stagger(f, 1.0);
-            this.push(f, r.x, r.y, 80);
-            this.damage(f, 5 + 8 * k, r, false, "blunt", true);
+            this.stagger(f, 1.0); this.push(f, r.x, r.y, 80);
+            this.damage(f, 5 + 8 * k2, r, false, "blunt", true);
             r.rspeed *= 0.45; r.horseHp -= 6;
             if (r.hero || f.hero) { this.hitstop = Math.max(this.hitstop, 0.09); this.kickCam(Math.cos(r.heading), Math.sin(r.heading), 1.6); }
           }
         }
         const push = (m - d) / 2, nx = dx / d, ny = dy / d;
         const wa = a.def.poise || a.mounted ? 0.25 : 1, wb = b.def.poise || b.mounted ? 0.25 : 1;
-        a.x -= nx * push * wa; a.y -= ny * push * wa; b.x += nx * push * wb; b.y += ny * push * wb;
+        const ax2 = a.x - nx * push * wa, ay2 = a.y - ny * push * wa, bx2 = b.x + nx * push * wb, by2 = b.y + ny * push * wb;
+        if (this.passable(ax2, ay2)) { a.x = ax2; a.y = ay2; }
+        if (this.passable(bx2, by2)) { b.x = bx2; b.y = by2; }
       }
     }
-    for (const u of act) for (const o of this.obstacles) {
+    for (const u of act) for (const o of this.map.obstacles) {
       if (!o.r) continue;
       const dx = u.x - o.x, dy = u.y - o.y;
-      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) continue;
+      if (Math.abs(dx) > 22 || Math.abs(dy) > 22) continue;
       const d = Math.hypot(dx, dy), m = o.r + u.radius;
       if (d < m && d > 0.001) { u.x = o.x + (dx / d) * m; u.y = o.y + (dy / d) * m; if (u.mounted) u.rspeed *= 0.9; }
     }
   }
 
   checkEnd() {
-    const foes = this.units.filter((u) => u.team === 1 && u.active).length;
-    const ours = this.units.filter((u) => u.team === 0 && u.active).length;
-    if (foes === 0) { this.phase = "end"; this.result = "win"; this.shout("Zwycięstwo!"); this.sfx.battleCry(1); this.cmdOpen = false; }
-    else if (ours === 0) { this.phase = "end"; this.result = "lose"; this.shout("Klęska", PAL.redL); this.cmdOpen = false; }
+    const foes = this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length;
+    const ours = this.units.filter((u) => u.team === 0 && u.active && u.lifeT <= 0).length + this.reserves[0].length;
+    if (foes === 0) this.finish(true);
+    else if (ours === 0) this.finish(false);
+  }
+
+  // Odwrót z bitwy: gracz wycofuje się, część żołnierzy w zasięgu wroga może przepaść.
+  retreat() {
+    if (this.phase !== "fight") return;
+    this.retreated = true;
+    for (const u of this.units) if (u.team === 0 && u.active && !u.hero) {
+      let near = false;
+      for (const e of this.units) if (e.team === 1 && e.active && dist(u.x, u.y, e.x, e.y) < 50) { near = true; break; }
+      if (near && chance(0.35)) { u.state = "dead"; }
+    }
+    this.finish(false);
+  }
+
+  finish(win: boolean) {
+    if (this.phase === "end") return;
+    this.phase = "end"; this.cmdOpen = false;
+    if (win) { this.shout(this.cfg.arena ? "Wygrana!" : "Zwycięstwo!"); this.sfx.battleCry(1); } else this.shout(this.retreated ? "Odwrót" : "Klęska", PAL.redL);
+    const H = this.heroCfg;
+    const med = H ? H.medicine : 0;
+    const tally = (team: number, ally: boolean): Casualty[] => {
+      const m = new Map<string, Casualty>();
+      for (const u of this.units) {
+        if (u.team !== team || u.hero || u.companion || u.lifeT > 0) continue;
+        const isAlly = u.squad >= 11;
+        if (team === 0 && isAlly !== ally) continue;
+        if (!m.has(u.key)) m.set(u.key, { type: u.key, killed: 0, wounded: 0 });
+        const c = m.get(u.key);
+        if (u.state === "dead") {
+          // ranni zamiast poległych: zależy od medycyny i strony
+          const woundCh = team === 0 ? 0.5 + med * 0.03 : 0.3;
+          if (chance(woundCh) && !u.def.undead) c.wounded++; else c.killed++;
+        } else if (u.state === "fled" && team === 1 && !win) { /* uciekli i wrócą */ }
+        else if (u.state === "fled" && team === 0 && !win && chance(0.3)) c.killed++;
+      }
+      return [...m.values()].filter((c) => c.killed || c.wounded);
+    };
+    const xp: Record<string, number> = {};
+    for (const u of this.units) if (u.team === 0 && !u.hero && !u.companion && u.squad <= 8 && u.state !== "dead") xp[u.key] = (xp[u.key] || 0) + 8 + u.kills * 12 * (win ? 1 : 0.5);
+    const theirs = tally(1, false);
+    const prisoners: { type: string; n: number }[] = [];
+    if (win && !this.cfg.arena) for (const c of theirs) { const def = UNITS[c.type]; if (def.undead || def.culture === "monster") continue; const n = Math.round(c.wounded * 0.8); if (n > 0) prisoners.push({ type: c.type, n }); }
+    const comp: Record<string, number> = {};
+    for (const u of this.units) if (u.companion) comp[u.companion] = Math.max(1, Math.round(u.hp));
+    this.result = {
+      win, heroKO: !!this.hero && !this.hero.active, heroHp: this.hero ? Math.max(1, Math.round(this.hero.hp)) : 0, heroKills: this.hero ? this.hero.kills : 0,
+      faith: H ? H.faith : 0, mana: H ? H.mana : 0, fury: 0, corruption: H ? H.corruption : 0, bandages: H ? H.bandages : 0, ammo: this.hero ? this.hero.ammo : 0,
+      ours: tally(0, false), theirs, allies: tally(0, true), xp, prisoners,
+      companionsKO: this.units.filter((u) => u.companion && u.ko).map((u) => u.companion), companionHp: comp,
+      enemyKilled: this.units.filter((u) => u.team === 1 && u.state === "dead").length, time: this.time, retreated: this.retreated,
+    };
   }
 
   updateCamera(dt: number) {
     const I = this.input;
-    if (!this.hero.active) this.camFree = true;
-    const sp = 280 * dt;
+    if (!this.heroUp) this.camFree = true;
+    const sp = 300 * dt;
     if (this.camFree || this.cmdOpen) {
       if (I.held("ArrowLeft")) this.cam.x -= sp; if (I.held("ArrowRight")) this.cam.x += sp;
       if (I.held("ArrowUp")) this.cam.y -= sp; if (I.held("ArrowDown")) this.cam.y += sp;
-      if (this.cmdOpen && this.hero.active) {
-        const m = 8;
-        if (I.mx < m) this.cam.x -= sp; if (I.mx > W - m) this.cam.x += sp;
-        if (I.my < m) this.cam.y -= sp; if (I.my > H - m) this.cam.y += sp;
-      }
-      if (!this.hero.active) {
-        if (I.held("KeyA")) this.cam.x -= sp; if (I.held("KeyD")) this.cam.x += sp;
-        if (I.held("KeyW")) this.cam.y -= sp; if (I.held("KeyS")) this.cam.y += sp;
-      }
+      if (this.cmdOpen && this.heroUp) { const m = 8; if (I.mx < m) this.cam.x -= sp; if (I.mx > W - m) this.cam.x += sp; if (I.my < m) this.cam.y -= sp; if (I.my > H - m) this.cam.y += sp; }
+      if (!this.heroUp) { if (I.held("KeyA")) this.cam.x -= sp; if (I.held("KeyD")) this.cam.x += sp; if (I.held("KeyW")) this.cam.y -= sp; if (I.held("KeyS")) this.cam.y += sp; }
     } else {
       const h = this.hero;
-      const tx = h.x - W / 2 + (I.mx - W / 2) * 0.15, ty = h.y - (h.mounted ? 8 : 0) - H / 2 + (I.my - H / 2) * 0.15;
+      const tx = h.x - W / 2 + (I.mx - W / 2) * 0.15, ty = h.y - (h.mounted ? 12 : 4) - H / 2 + (I.my - H / 2) * 0.15;
       this.cam.x = lerp(this.cam.x, tx, clamp(dt * 4.5, 0, 1));
       this.cam.y = lerp(this.cam.y, ty, clamp(dt * 4.5, 0, 1));
     }
-    this.cam.x = clamp(this.cam.x, 0, WW - W); this.cam.y = clamp(this.cam.y, 0, WH - H);
-  }
-
-  // ---------- Rysowanie ----------
-  render(g: CanvasRenderingContext2D) {
-    const sx = Math.round(this.cam.x + this.shakeX + rr(-1, 1) * this.rumble * 0.5), sy = Math.round(this.cam.y + this.shakeY + rr(-1, 1) * this.rumble * 0.5);
-    g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
-    const gx = clamp(sx, 0, WW - W), gy = clamp(sy, 0, WH - H);
-    g.drawImage(this.ground, gx, gy, W, H, gx - sx, gy - sy, W, H);
-    g.drawImage(this.decals, gx, gy, W, H, gx - sx, gy - sy, W, H);
-    const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
-
-    for (const c of this.corpses) if (vis(c.x, c.y)) this.drawCorpse(g, c, sx, sy);
-
-    if (this.phase !== "end") for (const k of Object.keys(this.orders)) {
-      const sq = Number(k), o = this.orders[sq];
-      if (o.mode !== "hold" || !this.squadUnits(sq).length) continue;
-      const fx = Math.round(o.ax - sx), fy = Math.round(o.ay - sy);
-      g.globalAlpha = this.selected.includes(sq) || this.cmdOpen ? 0.9 : 0.3;
-      g.fillStyle = PAL.ink; g.fillRect(fx - 1, fy - 12, 3, 13);
-      g.fillStyle = PAL.wood; g.fillRect(fx, fy - 11, 1, 11);
-      g.fillStyle = SQUAD_COLORS[sq]; g.fillRect(fx + 1, fy - 11, 6, 4);
-      g.fillStyle = PAL.ink; g.fillRect(fx + 3, fy - 10, 1, 2);
-      g.globalAlpha = 1;
-    }
-    const drawSlots = (slots: Slot[], col: string, alpha: number) => {
-      g.globalAlpha = alpha;
-      for (const s of slots) {
-        const x = Math.round(s.x - sx), y = Math.round(s.y - sy);
-        g.fillStyle = PAL.ink; g.fillRect(x - 2, y - 1, 5, 3);
-        g.fillStyle = col; g.fillRect(x - 1, y, 3, 1);
-        g.fillRect(Math.round(x + Math.cos(s.face) * 3), Math.round(y + Math.sin(s.face) * 3), 1, 1);
-      }
-      g.globalAlpha = 1;
-    };
-    for (const p of this.preview) drawSlots(p.slots, p.col, clamp(p.t, 0, 1));
-    if (this.drag) {
-      pxLine(g, this.drag.sx - sx, this.drag.sy - sy, this.drag.ex - sx, this.drag.ey - sy, PAL.gold);
-      for (const p of this.dragPlan(this.drag)) drawSlots(p.slots, SQUAD_COLORS[p.g], 0.95);
-    }
-
-    type D = { y: number; draw: () => void };
-    const list: D[] = [];
-    for (const o of this.obstacles) if (vis(o.x, o.y, 50)) list.push({ y: o.y - (o.r ? 0 : 20), draw: () => g.drawImage(o.img, Math.round(o.x - sx - o.img.width / 2), Math.round(o.y - sy - o.img.height + 3)) });
-    for (const u of this.units) if (u.alive && vis(u.x, u.y) && !(u.hidden && u.team === 1)) list.push({ y: u.y, draw: () => this.drawUnit(g, u, sx, sy) });
-    list.sort((a, b) => a.y - b.y);
-    for (const d of list) d.draw();
-
-    for (const ar of this.arrows) {
-      if (!vis(ar.x, ar.y)) continue;
-      const p = clamp(ar.travel / ar.dist, 0, 1);
-      const lift = Math.sin(p * Math.PI) * Math.min(26, ar.dist * 0.12);
-      const a = Math.atan2(ar.vy - Math.cos(p * Math.PI) * 40, ar.vx);
-      const x = ar.x - sx, y = ar.y - sy - lift;
-      g.fillStyle = "rgba(13,11,14,0.35)"; g.fillRect(Math.round(ar.x - sx), Math.round(ar.y - sy + 9), 2, 1);
-      pxLine(g, x, y, x - Math.cos(a) * 6, y - Math.sin(a) * 6, PAL.wood);
-      g.fillStyle = PAL.steelL; g.fillRect(Math.round(x), Math.round(y), 1, 1);
-      g.fillStyle = PAL.white; g.fillRect(Math.round(x - Math.cos(a) * 6), Math.round(y - Math.sin(a) * 6), 1, 1);
-    }
-    for (const p of this.parts) {
-      if (!vis(p.x, p.y)) continue;
-      const px = Math.round(p.x - sx), py = Math.round(p.y - sy - p.z);
-      if (p.kind === "flash") { g.fillStyle = PAL.white; g.fillRect(px - 3, py, 7, 1); g.fillRect(px, py - 3, 1, 7); g.fillRect(px - 1, py - 1, 3, 3); continue; }
-      if (p.kind === "ring") {
-        const k = 1 - p.life / p.max, r = Math.round((2 + k * 6) * p.vx);
-        g.globalAlpha = 1 - k; g.fillStyle = p.col;
-        for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; g.fillRect(Math.round(px + Math.cos(a) * r), Math.round(py + Math.sin(a) * r * 0.7), 1, 1); }
-        g.globalAlpha = 1; continue;
-      }
-      g.globalAlpha = p.kind === "dust" || p.kind === "soul" ? clamp((p.life / p.max) * 1.5, 0, 1) : 1;
-      g.fillStyle = p.col;
-      g.fillRect(px, py, 1, p.kind === "blood" && p.vz < 0 ? 2 : 1);
-    }
-    g.globalAlpha = 1;
-
-    this.drawTells(g, sx, sy);
-    for (const f of this.floaters) { g.globalAlpha = clamp(f.t * 2, 0, 1); pxText(g, f.text, Math.round(f.x - sx - textW(f.text) / 2), Math.round(f.y - sy), f.col); }
-    g.globalAlpha = 1;
-
-    // mgła (dwie warstwy) i popiół
-    g.save();
-    g.imageSmoothingEnabled = true;
-    for (const [alpha, spd, par, scl] of [[0.13, 5, 0.6, 1.5], [0.08, 11, 0.9, 2.2]]) {
-      g.globalAlpha = alpha;
-      const fw = W * scl, fh = H * scl;
-      const fo = (((this.real * spd + sx * par) % fw) + fw) % fw, foy = (((sy * par) % fh) + fh) % fh;
-      for (const ox of [0, fw]) for (const oy of [0, fh]) g.drawImage(this.fog, ox - fo, oy - foy, fw, fh);
-    }
-    g.restore();
-    for (const a of this.ash) {
-      const ax = (((a.x - sx * a.p * 0.5 + this.real * a.s * 0.8) % W) + W) % W;
-      const ay = (((a.y - sy * a.p * 0.5 + this.real * a.s) % H) + H) % H;
-      g.globalAlpha = 0.35 + a.p * 0.45; g.fillStyle = a.c;
-      g.fillRect(Math.round(ax + Math.sin(this.real + a.x) * 2), Math.round(ay), 1, a.p > 0.85 ? 2 : 1);
-    }
-    g.globalAlpha = 1;
-
-    g.globalCompositeOperation = "multiply";
-    g.fillStyle = this.cmdOpen ? "#a59bb4" : "#d6cdd8";
-    g.fillRect(0, 0, W, H);
-    g.globalCompositeOperation = "source-over";
-    g.drawImage(this.vignette, 0, 0);
-    if (this.hurtFlash > 0) { g.fillStyle = `rgba(112,23,25,${this.hurtFlash})`; g.fillRect(0, 0, W, H); }
-    if (this.dk.active && !this.dk.decay && vis(this.dk.x, this.dk.y)) {
-      g.globalCompositeOperation = "lighter";
-      const gr = g.createRadialGradient(this.dk.x - sx, this.dk.y - sy - 10, 2, this.dk.x - sx, this.dk.y - sy - 10, 30);
-      gr.addColorStop(0, "rgba(160,102,204,0.28)"); gr.addColorStop(1, "rgba(160,102,204,0)");
-      g.fillStyle = gr; g.fillRect(this.dk.x - sx - 32, this.dk.y - sy - 42, 64, 64);
-      g.globalCompositeOperation = "source-over";
-    }
-    if (this.cmdOpen) for (const u of this.units) {
-      if (u.team !== 0 || u.hero || !u.active) continue;
-      if (!this.selected.includes(u.squad) && !u.picked) continue;
-      const x = Math.round(u.x - sx), y = Math.round(u.y - sy);
-      g.fillStyle = u.picked ? PAL.white : SQUAD_COLORS[u.squad];
-      g.fillRect(x - 3, y + 1, 7, 1); g.fillRect(x - 4, y, 1, 1); g.fillRect(x + 4, y, 1, 1);
-    }
-    if (this.box) {
-      const x0 = Math.round(Math.min(this.box.sx, this.box.ex) - sx), y0 = Math.round(Math.min(this.box.sy, this.box.ey) - sy);
-      const bw = Math.round(Math.abs(this.box.ex - this.box.sx)), bh = Math.round(Math.abs(this.box.ey - this.box.sy));
-      g.fillStyle = "rgba(240,233,218,0.12)"; g.fillRect(x0, y0, bw, bh);
-      g.fillStyle = PAL.white; g.fillRect(x0, y0, bw, 1); g.fillRect(x0, y0 + bh, bw, 1); g.fillRect(x0, y0, 1, bh); g.fillRect(x0 + bw, y0, 1, bh);
-    }
-    if (this.phase === "fight") this.drawCrosshair(g);
-  }
-
-  drawCrosshair(g: CanvasRenderingContext2D) {
-    const mx = Math.round(this.input.mx), my = Math.round(this.input.my), h = this.hero;
-    if (h.active && h.usingBow && !this.cmdOpen) {
-      const d = dist(h.x - this.cam.x, h.y - 9 - this.cam.y, mx, my);
-      const r = Math.max(2, Math.round(this.bowSpread() * d));
-      g.fillStyle = h.drawT >= 0.98 ? PAL.gold : PAL.white;
-      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; g.fillRect(Math.round(mx + Math.cos(a) * r), Math.round(my + Math.sin(a) * r), 1, 1); }
-      g.fillRect(mx, my, 1, 1);
-      return;
-    }
-    const col = this.cmdOpen ? PAL.gold : PAL.white;
-    const c = (x: number, y: number, dx: number, dy: number) => {
-      g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 3, 3); g.fillRect(x + dx - 1, y - 1, 3, 3); g.fillRect(x - 1, y + dy - 1, 3, 3);
-      g.fillStyle = col; g.fillRect(x, y, 1, 1); g.fillRect(x + dx, y, 1, 1); g.fillRect(x, y + dy, 1, 1);
-    };
-    c(mx - 4, my - 4, 1, 1); c(mx + 4, my - 4, -1, 1); c(mx - 4, my + 4, 1, -1); c(mx + 4, my + 4, -1, -1);
-    g.fillStyle = col; g.fillRect(mx, my, 1, 1);
-  }
-
-  drawCorpse(g: CanvasRenderingContext2D, c: Corpse, sx: number, sy: number) {
-    if (c.bones && c.t >= 1) { g.drawImage(BONES, Math.round(c.x - sx - 7), Math.round(c.y - sy - 5)); return; }
-    const img = c.img;
-    if (c.horse) {
-      g.save(); g.translate(Math.round(c.x - sx), Math.round(c.y - sy));
-      if (c.flip) g.scale(-1, 1);
-      g.drawImage(img, -Math.round(img.width / 2), -Math.round(img.height / 2), img.width, Math.round(img.height * 0.6));
-      g.restore();
-      return;
-    }
-    const e = 1 - Math.pow(1 - c.t, 3);
-    const ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12);
-    g.save();
-    g.translate(Math.round(c.x - sx), Math.round(c.y - sy - 1));
-    g.rotate(ang);
-    if (c.flip) g.scale(-1, 1);
-    g.drawImage(img, -Math.round(img.width / 2), -img.height + 2);
-    g.restore();
-  }
-
-  weaponAngle(u: Unit): { a: number; ext: number } {
-    const f = u.face, w = u.w;
-    const side = (d: Dir) => (d === "L" ? -1 : 1);
-    const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
-    const easeIn = (p: number) => p * p;
-    switch (u.state) {
-      case "windup": {
-        const full = u.hero ? w.windup * 0.8 : w.windup;
-        const e = easeOut(clamp(u.t / full, 0, 1));
-        if (u.dir === "O") return { a: f + angDiff(f, -Math.PI / 2 - 0.3 * Math.sign(Math.cos(f))) * e, ext: -2 * e };
-        if (u.dir === "T") return { a: f, ext: -7 * e };
-        return { a: f + 0.9 + angDiff(f + 0.9, f + side(u.dir) * 2.3) * e, ext: -1 * e };
-      }
-      case "strike": {
-        const p = easeIn(clamp(u.t / w.strike, 0, 1));
-        if (u.dir === "O") { const from = -Math.PI / 2 - 0.3 * Math.sign(Math.cos(f)); return { a: from + angDiff(from, f + 0.25) * p, ext: 3 * p }; }
-        if (u.dir === "T") return { a: f, ext: lerp(-7, 9, p) };
-        return { a: f + side(u.dir) * lerp(2.3, -1.7, p), ext: 1 };
-      }
-      case "recover": {
-        const p = clamp(u.t / w.recover, 0, 1);
-        if (u.dir === "T") return { a: f, ext: lerp(9, 0, p) };
-        const end = u.dir === "O" ? f + 0.25 : f + side(u.dir) * -1.7;
-        return { a: end + angDiff(end, f + 0.9) * easeOut(p), ext: 0 };
-      }
-      case "kick": return { a: f + 1.3, ext: 0 };
-      case "stagger": return { a: f + 1.8, ext: -1 };
-      default: return { a: f + 0.9 + Math.sin(this.real * 1.5 + u.id) * 0.05, ext: 0 };
-    }
-  }
-
-  dirIndex(a: number): [number, boolean] {
-    const c = Math.cos(a), s = Math.sin(a);
-    if (Math.abs(c) > Math.abs(s) * 0.9) return [2, c < 0];
-    return [s > 0 ? 0 : 1, false];
-  }
-
-  drawUnit(g: CanvasRenderingContext2D, u: Unit, sx: number, sy: number) {
-    if (u.state === "down") {
-      this.drawCorpse(g, { x: u.x, y: u.y, img: u.spr.frames[0][0], flip: false, rot: 1, undead: false, bones: false, t: 1, pooled: true }, sx, sy);
-      return;
-    }
-    const alpha = u.hidden ? 0.45 : 1;
-    g.globalAlpha = alpha;
-    const [dirI, flip] = this.dirIndex(u.face);
-    const moving = Math.hypot(u.vx, u.vy) > 8;
-    const frame = moving && !u.mounted ? 1 + (Math.floor(u.anim) % 2) : 0;
-    const img = u.spr.frames[dirI][frame];
-    let lean = 0;
-    if (u.state === "windup") lean = -2;
-    else if (u.state === "strike") lean = 2;
-    else if (u.state === "recover") lean = u.t < 0.12 ? 1 : 0;
-    const c = Math.cos(u.face), s = Math.sin(u.face);
-    const bob = moving && !u.mounted && Math.floor(u.anim) % 2 === 1 ? -1 : 0;
-    const bx = Math.round(u.x - sx), by = Math.round(u.y - sy);
-    const x = Math.round(u.x - sx + c * lean), y = Math.round(u.y - sy + s * lean * 0.6);
-
-    g.fillStyle = "rgba(13,11,14,0.45)";
-    const sw = u.mounted ? 11 : u.spr.w > 16 ? 6 : 4;
-    g.fillRect(bx - sw, by - 1, sw * 2 + 1, 2); g.fillRect(bx - sw + 1, by - 2, sw * 2 - 1, 1);
-    if (u.hero) { g.fillStyle = PAL.gold; g.fillRect(bx - 2, by + 1, 5, 1); }
-
-    let riderY = 0;
-    if (u.mounted && u.horse) {
-      const [hd, hflip] = this.dirIndex(u.heading);
-      const hf = u.rspeed > 10 ? Math.floor(u.anim) % 4 : 0;
-      const himg = u.horse.frames[hd][hf];
-      const hx = bx - Math.floor(himg.width / 2), hy = by - himg.height + 2 + (u.rspeed > 60 && hf % 2 ? -1 : 0);
-      if (hflip) { g.save(); g.translate(hx + himg.width, hy); g.scale(-1, 1); g.drawImage(himg, 0, 0); g.restore(); } else g.drawImage(himg, hx, hy);
-      if (u.horseHp < u.horseMax * 0.6) { g.fillStyle = PAL.blood; g.fillRect(bx + (hflip ? 3 : -4), by - 9, 1, 2); g.fillRect(bx + (hflip ? -2 : 2), by - 11, 1, 1); }
-      riderY = hd === 2 ? -9 : -7;
-    }
-
-    const hand = { x: x + c * 3, y: y - 10 + s * 2 + bob + riderY };
-    const wa = this.weaponAngle(u);
-    const drawGear = () => this.drawGear(g, u, hand, wa);
-    if (dirI === 1) drawGear();
-    const off = u.state === "stagger" ? Math.round(Math.sin(u.t * 50) * 1) : 0;
-    const ix = x - Math.floor(img.width / 2) + off, iy = y - img.height + 1 + bob + riderY;
-    const srcH = u.mounted ? 16 : img.height;    // jeździec: tylko górna część postaci
-    const draw = (im: HTMLCanvasElement) => {
-      if (flip) { g.save(); g.translate(ix + im.width, iy); g.scale(-1, 1); g.drawImage(im, 0, 0, im.width, srcH, 0, 0, im.width, srcH); g.restore(); }
-      else g.drawImage(im, 0, 0, im.width, srcH, ix, iy, im.width, srcH);
-    };
-    draw(img);
-    if (!u.def.undead && u.hp < u.def.hp) {   // rany na ciele
-      const n = Math.floor((1 - u.hp / u.def.hp) * 7);
-      g.fillStyle = PAL.blood;
-      for (let i = 0; i < n; i++) { const hs = hashInt(u.id * 13 + i); g.fillRect(ix + 4 + (hs % 8), iy + 9 + ((hs >> 4) % 6), 1, (hs >> 8) % 3 === 0 ? 2 : 1); }
-    }
-    if (u.flash > 0) { g.globalAlpha = alpha * clamp(u.flash / 0.08, 0, 1) * 0.8; draw(u.spr.white[dirI][frame]); g.globalAlpha = alpha; }
-    if (u.decay) { g.globalAlpha = 0.25 + Math.sin(this.real * 6 + u.id) * 0.08; g.fillStyle = PAL.purple; g.fillRect(ix + 4, iy + 2, img.width - 8, Math.min(srcH, img.height) - 4); g.globalAlpha = alpha; }
-    if (dirI !== 1) drawGear();
-
-    if (u.officer) {   // proporzec na plecach
-      const px = ix + (flip ? 11 : 4), py = iy - 6;
-      g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 12);
-      g.fillStyle = PAL.wood; g.fillRect(px, py, 1, 11);
-      g.fillStyle = SQUAD_COLORS[u.squad]; g.fillRect(px + (flip ? -5 : 1), py, 5, 3); g.fillRect(px + (flip ? -4 : 1), py + 3, 3, 1);
-    }
-    if (u.fleeing) {   // biała flaga nad uciekającym
-      const px = bx, py = by - img.height - 8 + riderY;
-      g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 7, 6);
-      g.fillStyle = PAL.white; g.fillRect(px, py, 5, 3);
-      g.fillStyle = PAL.wood; g.fillRect(px - 1, py, 1, 6);
-    }
-    g.globalAlpha = 1;
-
-    if (!u.hero && u.hp < u.def.hp && dist(u.x, u.y, this.hero.x, this.hero.y) < 110) {
-      const w = u.commander ? 18 : 10, k = clamp(u.hp / u.def.hp, 0, 1);
-      const hx = bx - Math.round(w / 2), hy = by - img.height - 3 + riderY;
-      g.fillStyle = PAL.ink; g.fillRect(hx - 1, hy - 1, w + 2, 4);
-      g.fillStyle = u.team === 0 ? PAL.redL : u.commander ? PAL.purpleL : PAL.bone;
-      g.fillRect(hx, hy, Math.ceil(w * k), 2);
-    }
-  }
-
-  drawGear(g: CanvasRenderingContext2D, u: Unit, hand: V, wa: { a: number; ext: number }) {
-    const w = u.w;
-    const meleeOnly = u.team === 0 && this.orders[u.squad]?.meleeOnly;
-    if (u.usingBow && (u.hero || (u.def.bow && u.state === "idle" && u.ammo > 0 && !meleeOnly))) {
-      const a = u.face;
-      const bx = hand.x + Math.cos(a) * 3, by = hand.y + Math.sin(a) * 3;
-      const px = -Math.sin(a), py = Math.cos(a);
-      const pull = u.hero ? u.drawT * 4 : clamp(1 - u.reload / 1.2, 0, 1) * 3;
-      for (let i = -5; i <= 5; i++) {
-        const bend = (1 - (i * i) / 25) * 2.5;
-        g.fillStyle = Math.abs(i) > 3 ? PAL.woodD : PAL.wood;
-        g.fillRect(Math.round(bx + px * i + Math.cos(a) * bend), Math.round(by + py * i + Math.sin(a) * bend), 1, 1);
-      }
-      pxLine(g, bx + px * 5, by + py * 5, bx - Math.cos(a) * pull, by - Math.sin(a) * pull, PAL.bone);
-      pxLine(g, bx - px * 5, by - py * 5, bx - Math.cos(a) * pull, by - Math.sin(a) * pull, PAL.bone);
-      if (pull > 1) { pxLine(g, bx - Math.cos(a) * pull, by - Math.sin(a) * pull, bx + Math.cos(a) * 6, by + Math.sin(a) * 6, PAL.wood); g.fillStyle = PAL.steelL; g.fillRect(Math.round(bx + Math.cos(a) * 6), Math.round(by + Math.sin(a) * 6), 1, 1); }
-      return;
-    }
-    if (u.hasShield) {
-      const blockingNow = u.hero ? u.blocking : u.state === "idle" && u.guardT > 0;
-      const a = blockingNow ? u.face : u.face - 1.5;
-      const r = blockingNow ? 5 : 4;
-      const sxp = Math.round(hand.x - Math.cos(u.face) * 3 + Math.cos(a) * r), syp = Math.round(hand.y + 1 + Math.sin(a) * r);
-      g.fillStyle = PAL.ink; g.fillRect(sxp - 3, syp - 4, 7, 8); g.fillRect(sxp - 2, syp + 4, 5, 1);
-      g.fillStyle = u.team === 0 ? PAL.red : PAL.dusk; g.fillRect(sxp - 2, syp - 3, 5, 6); g.fillRect(sxp - 1, syp + 3, 3, 1);
-      g.fillStyle = PAL.steel; g.fillRect(sxp - 2, syp - 3, 5, 1);
-      g.fillStyle = u.hero ? PAL.gold : SQUAD_COLORS[u.squad] || PAL.redL; g.fillRect(sxp, syp - 2, 1, 4); g.fillRect(sxp - 1, syp - 1, 3, 1);
-      g.fillStyle = PAL.steelL; g.fillRect(sxp, syp - 1, 1, 1);
-    }
-    if (w.claws) {
-      if (u.state === "strike" || u.state === "windup") {
-        const ex = Math.cos(wa.a), ey = Math.sin(wa.a);
-        for (let i = 0; i < 3; i++) pxLine(g, hand.x + ex * 2 - ey * (i - 1), hand.y + ey * 2 + ex * (i - 1), hand.x + ex * 5 - ey * (i - 1), hand.y + ey * 5 + ex * (i - 1), PAL.boneHi);
-      }
-      return;
-    }
-    const ex = Math.cos(wa.a), ey = Math.sin(wa.a);
-    const bx = hand.x + Math.cos(u.face) * wa.ext, by = hand.y + Math.sin(u.face) * wa.ext;
-    const tipx = bx + ex * w.len, tipy = by + ey * w.len;
-    if (u.state === "strike" && u.dir !== "T") {
-      u.trail.push(wa.a);
-      if (u.trail.length > 6) u.trail.shift();
-      g.globalAlpha = 0.45;
-      g.fillStyle = u.hero ? PAL.white : PAL.boneHi;
-      for (let i = 1; i < u.trail.length; i++) {
-        const a0 = u.trail[i - 1], a1 = u.trail[i];
-        for (let k = 0; k <= 4; k++) {
-          const aa = a0 + angDiff(a0, a1) * (k / 4);
-          for (let r = w.len * 0.45; r <= w.len + 1; r += 1) g.fillRect(Math.round(bx + Math.cos(aa) * r), Math.round(by + Math.sin(aa) * r), 1, 1);
-        }
-      }
-      g.globalAlpha = 1;
-    }
-    pxLine(g, bx + ex * 2, by + ey * 2, tipx, tipy, w.blade);
-    if (w.len >= 9) pxLine(g, bx + ex * 3 + 0.5, by + ey * 3 + 0.5, bx + ex * (w.len - 2) + 0.5, by + ey * (w.len - 2) + 0.5, w.blade === PAL.steelL ? PAL.steel : PAL.steelD);
-    if (u.bloodT > 0) { g.fillStyle = PAL.blood; for (let i = 0; i < 4; i++) g.fillRect(Math.round(bx + ex * (w.len - i * 2 - 1)), Math.round(by + ey * (w.len - i * 2 - 1)), 1, 1); }
-    if (w.head) {
-      g.fillStyle = PAL.ink; g.fillRect(Math.round(tipx) - 2, Math.round(tipy) - 2, 5, 5);
-      g.fillStyle = w.head; g.fillRect(Math.round(tipx) - 1, Math.round(tipy) - 1, 3, 3);
-      g.fillStyle = PAL.steelL; g.fillRect(Math.round(tipx) - 1, Math.round(tipy) - 1, 1, 1);
-    }
-    g.fillStyle = w.hilt;
-    g.fillRect(Math.round(bx + ex * 2 - ey), Math.round(by + ey * 2 + ex), 1, 1);
-    g.fillRect(Math.round(bx + ex * 2 + ey), Math.round(by + ey * 2 - ex), 1, 1);
-    g.fillStyle = PAL.woodD; g.fillRect(Math.round(bx), Math.round(by), 1, 1);
-  }
-
-  // Mniej informacji: tylko ciosy wymierzone w bohatera i garda przeciwnika, na którego patrzysz.
-  drawTells(g: CanvasRenderingContext2D, sx: number, sy: number) {
-    const h = this.hero;
-    if (!h.active || this.cmdOpen) return;
-    let focus: Unit | null = null, fd = 1e9;
-    for (const u of this.units) {
-      if (!u.active || u.team === 0 || u.hidden) continue;
-      const d = dist(u.x, u.y, h.x, h.y);
-      if (d < 42 && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) < 0.8 && d < fd) { fd = d; focus = u; }
-      const top = u.y - sy - (u.commander ? 31 : u.mounted ? 32 : 26);
-      if (u.state === "windup" && u.target === h && d < 60) dirGlyph(g, u.dir, Math.round(u.x - sx), Math.round(top), PAL.bloodL, true);
-    }
-    if (focus && focus.guard && focus.state !== "windup") dirGlyph(g, focus.guard, Math.round(focus.x - sx), Math.round(focus.y - sy - (focus.commander ? 31 : 26)), PAL.steelL, false);
-    if (focus && !h.usingBow && h.state === "idle" && !this.settings.gesture && !h.mounted) {   // strona następnego cięcia
-      const side = h.nextSide === "L" ? -1 : 1;
-      const px = Math.round(h.x - sx + Math.cos(h.face + side * 1.4) * 9), py = Math.round(h.y - sy - 10 + Math.sin(h.face + side * 1.4) * 6);
-      g.fillStyle = PAL.ink; g.fillRect(px - 1, py - 1, 3, 3);
-      g.fillStyle = PAL.goldD; g.fillRect(px, py, 1, 1);
-    }
-    if (this.settings.gesture && !h.usingBow) dirGlyph(g, h.state === "windup" ? h.dir : this.loadDir, Math.round(h.x - sx), Math.round(h.y - sy - 26), h.state === "windup" ? PAL.gold : PAL.goldD, h.state === "windup");
-  }
-}
-
-function dirGlyph(g: CanvasRenderingContext2D, d: Dir, x: number, y: number, col: string, attack: boolean) {
-  const shapes: Record<Dir, number[][]> = attack ? {
-    L: [[-3, 0], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [1, -1], [1, 1], [0, -2], [0, 2]],
-    R: [[3, 0], [2, 0], [1, 0], [0, 0], [-1, 0], [-2, 0], [-1, -1], [-1, 1], [0, -2], [0, 2]],
-    O: [[0, -3], [0, -2], [0, -1], [0, 0], [0, 1], [-1, 0], [1, 0], [-2, -1], [2, -1]],
-    T: [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [0, -3], [0, 3], [-3, 0], [3, 0]],
-  } : {
-    L: [[-5, -3], [-5, -2], [-5, -1], [-5, 0], [-5, 1], [-5, 2]],
-    R: [[5, -3], [5, -2], [5, -1], [5, 0], [5, 1], [5, 2]],
-    O: [[-3, -3], [-2, -3], [-1, -3], [0, -3], [1, -3], [2, -3], [3, -3]],
-    T: [[-1, 0], [0, 0], [1, 0], [0, -1], [0, 1]],
-  };
-  g.fillStyle = PAL.ink;
-  for (const [px, py] of shapes[d]) { g.fillRect(x + px - 1, y + py, 3, 1); g.fillRect(x + px, y + py - 1, 1, 3); }
-  g.fillStyle = col;
-  for (const [px, py] of shapes[d]) g.fillRect(x + px, y + py, 1, 1);
-}
-
-const FONT: Record<string, string> = {
-  "0": "111101101101111", "1": "010110010010111", "2": "111001111100111", "3": "111001111001111", "4": "101101111001001",
-  "5": "111100111001111", "6": "111100111101111", "7": "111001010010010", "8": "111101111101111", "9": "111101111001111",
-  A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111",
-  G: "011100101101011", Ł: "100110100100111", L: "100100100100111", O: "010101101101010", W: "101101111111101",
-  K: "101101110101101", T: "111010010010010", R: "110101110101101", Z: "111001010100111", P: "110101110100100",
-  " ": "000000000000000", "!": "010010010000010",
-};
-function textW(t: string) { return t.length * 4 - 1; }
-function pxText(g: CanvasRenderingContext2D, t: string, x: number, y: number, col: string) {
-  for (let pass = 0; pass < 2; pass++) {
-    g.fillStyle = pass === 0 ? PAL.ink : col;
-    for (let i = 0; i < t.length; i++) {
-      const f = FONT[t[i]] || FONT[" "];
-      for (let k = 0; k < 15; k++) if (f[k] === "1") {
-        const px = x + i * 4 + (k % 3), py = y + Math.floor(k / 3);
-        if (pass === 0) g.fillRect(px - 1, py - 1, 3, 3); else g.fillRect(px, py, 1, 1);
-      }
-    }
+    this.cam.x = clamp(this.cam.x, 0, Math.max(0, this.mw - W)); this.cam.y = clamp(this.cam.y, 0, Math.max(0, this.mh - H));
   }
 }

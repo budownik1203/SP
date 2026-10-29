@@ -16,6 +16,8 @@ class Sfx {
   private phrase: number[] = [];
   private noteStep = 0;
   private crowT = 8;
+  rainGain: GainNode | null = null;
+  volume = 1;
 
   init() {
     if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume(); return; }
@@ -24,7 +26,7 @@ class Sfx {
       this.ctx = c;
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 4;
-      this.master = c.createGain(); this.master.gain.value = 0.8;
+      this.master = c.createGain(); this.master.gain.value = 0.8 * this.volume;
       this.master.connect(comp); comp.connect(c.destination);
       this.fx = c.createGain(); this.fx.gain.value = 0.85; this.fx.connect(this.master);
       // pogłos: odpowiedź impulsowa z zanikającego szumu
@@ -325,7 +327,57 @@ class Sfx {
     this.dinGain = c.createGain(); this.dinGain.gain.value = 0;
     din.connect(df); df.connect(this.dinGain); this.dinGain.connect(this.master);
     din.start();
+    // deszcz: szum wysokich częstotliwości
+    const rn = c.createBufferSource(); rn.buffer = this.noiseBuf; rn.loop = true;
+    const rf = c.createBiquadFilter(); rf.type = "highpass"; rf.frequency.value = 2200;
+    this.rainGain = c.createGain(); this.rainGain.gain.value = 0;
+    rn.connect(rf); rf.connect(this.rainGain); this.rainGain.connect(this.master); rn.start();
   }
+
+  // ---- Umiejętności ----
+  smite() {
+    if (!this.ok("smite", 80)) return;
+    const o = this.out(0, 0.7);
+    this.tone(o, 880, 1320, 0.6, "triangle", 0.25, 0, 0.01);
+    this.tone(o, 660, 990, 0.7, "sine", 0.2, 0.02, 0.01);
+    this.noise(o, 0.5, 4000, 1200, 0.8, 0.3);
+    this.tone(o, 90, 40, 0.5, "sine", 0.8);
+  }
+  fireball(v = 1, pan = 0) {
+    if (!this.ok("fireball", 60)) return;
+    const o = this.out(pan, 0.4);
+    this.noise(o, 0.45, 300, 1600, 1, 0.5 * v);
+  }
+  explode(v = 1, pan = 0) {
+    if (!this.ok("explode", 60)) return;
+    const o = this.out(pan, 0.6);
+    this.tone(o, 110, 30, 0.7, "sine", 1 * v);
+    this.crunch(o, 0.5, 0.6 * v, 700);
+    this.noise(o, 0.9, 1800, 200, 0.7, 0.5 * v, "lowpass");
+  }
+  heal() {
+    if (!this.ok("heal", 100)) return;
+    const o = this.out(0, 0.8);
+    [293.66, 369.99, 440, 587.33].forEach((f, i) => this.tone(o, f, f, 1.2, "sine", 0.12, i * 0.08, 0.05));
+  }
+  curse(v = 1, pan = 0) {
+    if (!this.ok("curse", 100)) return;
+    const o = this.out(pan, 0.8);
+    this.tone(o, 160, 90, 1.1, "sawtooth", 0.12 * v, 0, 0.05);
+    this.tone(o, 170, 95, 1.1, "sawtooth", 0.1 * v, 0, 0.05);
+    this.noise(o, 1, 600, 200, 3, 0.2 * v);
+  }
+  howl(v = 1, pan = 0) {
+    if (!this.ok("howl", 200)) return;
+    const o = this.out(pan, 0.8), c = this.ctx, t = c.currentTime;
+    const osc = c.createOscillator(); osc.type = "triangle";
+    osc.frequency.setValueAtTime(380, t); osc.frequency.linearRampToValueAtTime(620, t + 0.4); osc.frequency.linearRampToValueAtTime(420, t + 1.4);
+    const g = c.createGain(); this.env(g, 0.18 * v, 1.5, 0, 0.2);
+    osc.connect(g); g.connect(o); osc.start(t); osc.stop(t + 1.6);
+  }
+  coin() { if (!this.ok("coin", 60)) return; const o = this.out(0, 0.2); this.tone(o, 1800, 1700, 0.12, "square", 0.04); this.tone(o, 2400, 2300, 0.15, "square", 0.03, 0.06); }
+  page() { if (!this.ok("page", 60)) return; const o = this.out(0, 0.1); this.noise(o, 0.12, 3000, 1500, 1, 0.08); }
+  drum(v = 1) { if (!this.ok("drum", 120)) return; const o = this.out(0, 0.5); this.tone(o, 70, 40, 0.4, "sine", 0.7 * v); this.noise(o, 0.1, 300, 100, 1, 0.2 * v); }
   private crow() {
     const o = this.out(rr(-0.8, 0.8), 0.6);
     const n = 2 + Math.floor(rnd() * 2);
@@ -393,9 +445,11 @@ class Sfx {
     return out;
   }
 
-  tick(dt: number, intensity: number) {
+  setVolume(v: number) { this.volume = v; if (this.ctx) this.master.gain.setTargetAtTime(0.8 * v, this.ctx.currentTime, 0.1); }
+  tick(dt: number, intensity: number, rain = false) {
     if (!this.ctx) return;
     const c = this.ctx;
+    if (this.rainGain) this.rainGain.gain.setTargetAtTime(rain ? 0.07 : 0, c.currentTime, 0.8);
     this.intensity = lerp(this.intensity, intensity, clamp(dt * 1.5, 0, 1));
     if (this.dinGain) this.dinGain.gain.setTargetAtTime(this.intensity * 0.09, c.currentTime, 0.4);
     this.crowT -= dt;
