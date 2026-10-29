@@ -207,17 +207,26 @@ const QUEST_COL = "#e9c45e";
 function questMarks(w: World) {
   const m = { set: new Map<number, Quest>(), party: new Map<number, Quest>(), place: new Map<number, Quest>() };
   for (const q of w.player.quests) if (!q.done) {
-    if (q.kind === "bandits") m.party.set(q.target, q);
-    else if (q.kind === "letter") m.set.set(q.target, q);
-    else if (q.kind === "wolves") m.place.set(q.target, q);
-    else if (q.kind === "grain") m.set.set(q.giver, q);
+    if (q.hide) continue;
+    const r = questRef(w, q); if (!r) continue;
+    if (r.kind === "party") m.party.set(r.id, q); else if (r.kind === "place") m.place.set(r.id, q); else m.set.set(r.id, q);
   }
   return m;
 }
+// Gdzie leży cel zadania: oddział, miejsce albo osada.
+function questRef(w: World, q: Quest): { kind: "party" | "place" | "settlement"; id: number } | null {
+  if (q.kind === "bandits" || q.kind === "defend") return { kind: "party", id: q.target };
+  if (q.kind === "persuade") { const L = lordById(w, q.target); return L && L.party >= 0 ? { kind: "party", id: L.party } : null; }
+  if (q.kind === "wolves") return { kind: "place", id: q.target };
+  if (q.kind === "grain" || q.kind === "cattle" || q.kind === "militia") return { kind: "settlement", id: q.giver };
+  return { kind: "settlement", id: q.target };
+}
 function questPos(w: World, q: Quest): V | null {
+  const r = questRef(w, q);
+  if (r && r.kind === "party") { const p = partyById(w, r.id); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
   if (q.kind === "bandits") { const p = partyById(w, q.target); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
   if (q.kind === "wolves") { const pl = w.places[q.target]; return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; }
-  const s = w.settlements[q.kind === "grain" ? q.giver : q.target];
+  const s = w.settlements[r && r.kind === "settlement" ? r.id : q.target];
   return s ? { x: s.cx * WCELL + 4, y: s.cy * WCELL + 4 } : null;
 }
 function questPin(g: CanvasRenderingContext2D, x: number, y: number, t: number) {

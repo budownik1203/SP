@@ -388,6 +388,9 @@ class Sfx {
       osc.connect(lp); lp.connect(g); g.connect(o); osc.start(t); osc.stop(t + 1.7);
     }
   }
+  hammer() { if (!this.ok("hammer", 200)) return; const o = this.out(0, 0.3); for (let i = 0; i < 3; i++) { this.tone(o, 1400, 1300, 0.08, "square", 0.05, i * 0.28); this.noise(o, 0.05, 5000, 3000, 2, 0.2, "highpass", i * 0.28); } }
+  drink() { if (!this.ok("drink", 300)) return; const o = this.out(0, 0.3); this.noise(o, 0.6, 500, 300, 0.7, 0.12, "lowpass"); this.tone(o, 900, 1200, 0.05, "sine", 0.05, 0.2); }
+  bell() { if (!this.ok("bell", 2000)) return; const o = this.out(0, 0.8); for (const [r, g2] of [[1, 0.2], [2.76, 0.1], [5.4, 0.05]]) this.tone(o, 330 * r, 330 * r * 0.998, 1.6, "sine", g2); }
   // Krótkie mruknięcie w dialogu, inne dla ras.
   grunt(kind = "human") {
     if (!this.ok("grunt", 300)) return;

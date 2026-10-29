@@ -48,7 +48,7 @@ interface Lord {
   respawn: number; ruler: boolean; personality: "honorowy" | "chciwy" | "okrutny" | "ostrożny";
 }
 interface SpecialPlace { id: number; kind: "ruins" | "lair" | "shrine" | "camp" | "cemetery"; cx: number; cy: number; name: string; cleared: number; seen: boolean; }
-interface Quest { id: number; kind: "bandits" | "letter" | "grain" | "wolves"; giver: number; target: number; amount: number; reward: number; days: number; text: string; done: boolean; }
+interface Quest { id: number; kind: "bandits" | "letter" | "grain" | "wolves" | "defend" | "cattle" | "militia" | "capture" | "persuade"; giver: number; target: number; amount: number; reward: number; days: number; text: string; done: boolean; giverLord?: number; item?: string; hide?: boolean; failed?: boolean; }
 interface ChronEntry { day: number; text: string; col?: string; }
 
 const GOODS: Record<string, { name: string; base: number; food?: boolean }> = {
@@ -428,6 +428,13 @@ function lordLook(f: number, ruler: boolean, seed: number): Look {
   return L;
 }
 
+function spawnBandits(w: World, x: number, y: number, n: number): Party | null {
+  const c = cellOf(x, y); if (w.terr[c] === T_SEA || w.terr[c] === T_MOUNT) return null;
+  const p = newParty(w, "bandit", pick(["Podpalacze", "Wilcze Kły", "Banda Szczerbatego", "Nocni Goście"]), 6, x, y);
+  addTroops(p.troops, "b_bandit", Math.ceil(n * 0.6)); addTroops(p.troops, "b_archer", Math.floor(n * 0.35)); addTroops(p.troops, "b_chief", 1);
+  p.gold = n * 10;
+  return p;
+}
 function newParty(w: World, kind: PartyKind, name: string, faction: number, x: number, y: number): Party {
   const p: Party = { id: w.nextId++, kind, name, faction, x, y, path: [], troops: [], prisoners: [], gold: 0, food: 20, state: "idle", wait: 0, anim: rnd() * 10 };
   w.parties.push(p);
@@ -546,14 +553,28 @@ function leaveLiege(w: World, betray: boolean) {
 // ---------- Ekonomia ----------
 function price(w: World, s: Settlement, good: string) {
   const target = 40 * (s.kind === "village" ? 0.7 : 1);
-  const k = clamp(Math.pow(target / Math.max(2, s.stock[good]), 0.55), 0.45, 3.2);
+  const k = clamp(Math.pow(target / Math.max(2, s.stock[good]), 0.75), 0.35, 4);   // większe różnice: handel się opłaca
   return Math.max(1, Math.round(GOODS[good].base * k * (s.raided > 0 ? 1.3 : 1)));
 }
 function buyPrice(w: World, s: Settlement, good: string) { return Math.round(price(w, s, good) * (1.12 - w.player.skills.trade * 0.01)); }
 function sellPrice(w: World, s: Settlement, good: string) { return Math.max(1, Math.round(price(w, s, good) * (0.88 + w.player.skills.trade * 0.01))); }
 function itemPrice(it: Item, buy: boolean, trade: number) { return Math.round(it.price * (buy ? 1.1 - trade * 0.01 : 0.45 + trade * 0.015)); }
+// Lenno: dochód dzienny zależny od dobrobytu, budowli, podatku i rządcy.
+const BUILDINGS: Record<string, { name: string; cost: number; days: number; desc: string; kinds: SKind[] }> = {
+  mlyn: { name: "Młyn", cost: 700, days: 6, desc: "+10% dochodu, dobrobyt powoli rośnie", kinds: ["village", "town", "castle"] },
+  targ: { name: "Targowisko", cost: 1200, days: 8, desc: "+20% dochodu", kinds: ["village", "town"] },
+  mury: { name: "Mury i baszty", cost: 1600, days: 10, desc: "większa załoga, dłuższe zapasy w oblężeniu", kinds: ["town", "castle"] },
+  koszary: { name: "Koszary", cost: 1000, days: 7, desc: "więcej ochotników, lepiej wyszkoleni", kinds: ["village", "town", "castle"] },
+  swiatynia: { name: "Świątynia", cost: 900, days: 7, desc: "mieszkańcy z dnia na dzień przychylniejsi", kinds: ["village", "town"] },
+};
+function fiefIncome(w: World, s: Settlement) {
+  const S = s as any, b = S.build || {};
+  const base = (s.kind === "town" ? 60 : s.kind === "castle" ? 30 : 15) * (0.5 + s.prosperity / 100) * (s.raided ? 0.2 : 1);
+  const mul = 1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0);
+  return Math.round(base * mul);
+}
 function smithItems(s: Settlement): string[] {
-  const all = Object.values(ITEMS).filter((it) => !it.culture || it.culture === s.culture);
+  const all = baseItems().filter((it) => !it.culture || it.culture === s.culture);
   const maxTier = s.kind === "town" ? (s.prosperity > 55 ? 3 : 2) : 1;
   const r = rnd; void r;
   return all.filter((it) => it.tier <= maxTier && hashInt(s.seed + it.id.length * 31 + it.price) % 100 < 72 - it.tier * 8).map((it) => it.id);
@@ -635,9 +656,9 @@ function dailyTick(w: World) {
       s.stock[k] = clamp(s.stock[k] + p * 2 - (s.kind === "town" ? 1.6 : 0.9) * (GOODS[k].food ? 1.2 : 0.7), 1, 160);
     }
     s.prosperity = clamp(s.prosperity + (s.siegeBy.length || s.raided ? -0.6 : 0.08), 5, 100);
-    if (w.day - s.recruitDay >= 5) { s.recruitDay = w.day; s.recruits = Math.min(s.kind === "village" ? 14 : 20, s.recruits + Math.round(2 + s.prosperity / 25)); }
+    if (w.day - s.recruitDay >= 5) { s.recruitDay = w.day; const kz = (s as any).build?.koszary ? 1.5 : 1; s.recruits = Math.min(Math.round((s.kind === "village" ? 14 : 20) * kz), s.recruits + Math.round((2 + s.prosperity / 25 + Math.max(0, s.relation) / 15) * kz)); }   // relacja: więcej ochotników
     // załoga rośnie powoli
-    if (s.kind !== "village" && !s.siegeBy.length && troopCount(s.garrison) < (s.kind === "town" ? 42 : 30) && chance(0.3)) fillGarrison(w, s, 2);
+    if (s.kind !== "village" && !s.siegeBy.length && troopCount(s.garrison) < (s.kind === "town" ? 42 : 30) + ((s as any).build?.mury ? 15 : 0) && chance(0.3)) fillGarrison(w, s, 2);
     if (s.tournament > 0) s.tournament--;
     if (s.kind === "town" && s.tournament === 0 && chance(0.015)) { s.tournament = 6; chron(w, `W ${s.name} ogłoszono turniej. Nagroda: 600 denarów.`, PAL.gold); }
     // oblężenie AI
@@ -739,7 +760,7 @@ function captureSettlement(w: World, s: Settlement, faction: number, ownerLord: 
   w.ownerVersion++;
   chron(w, `${s.name} pada! ${factionName(faction)} odbiera to miejsce frakcji ${factionName(old)}.`, PAL.gold);
 }
-function siegeStores(s: Settlement) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)); }
+function siegeStores(s: Settlement) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)) + ((s as any).build?.mury ? 5 : 0); }
 function applyLosses(list: Troop[], frac: number) {
   for (const t of list.slice()) { const n = Math.min(t.n, Math.round(t.n * frac * rr(0.8, 1.2))); removeTroops(list, t.type, n); }
 }
@@ -918,6 +939,17 @@ function playerDaily(w: World) {
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }
   else P.morale += kinds >= 2 ? 1.5 : 0.3;
   // rany
+  companionsDaily(w);
+  // jeńcy po kilku dniach w niewoli: część gotowa przejść na twoją stronę
+  const pa2 = p as any;
+  if (p.prisoners.length) { pa2.prisDays = (pa2.prisDays || 0) + 1; if (pa2.prisDays >= 3) pa2.willing = Math.min(troopCount(p.prisoners), (pa2.willing || 0) + Math.ceil(troopCount(p.prisoners) * 0.2)); } else { pa2.prisDays = 0; pa2.willing = 0; }
+  // karawany wracają z zyskiem albo przepadają
+  const cars = ((P as any).caravans || []) as { from: number; to: number; gold: number; back: number }[];
+  for (const c of cars.slice()) if (c.back <= w.day) {
+    (P as any).caravans = ((P as any).caravans as any[]).filter((x) => x !== c);
+    if (chance(0.12)) addLogMsg(`Karawana do ${w.settlements[c.to].name} przepadła. Zbóje ją ograbili.`, PAL.redL);
+    else { const g = Math.round(c.gold * (1.15 + P.skills.trade * 0.03 + rr(0, 0.25))); P.gold += g; addLogMsg(`Karawana wraca z ${w.settlements[c.to].name}: ${g} denarów (zysk ${g - c.gold}).`, PAL.gold); }
+  }
   const cm = p.state === "camp" ? ((P as any).campMode || "rest") : "";
   const heal = 0.1 + P.skills.medicine * 0.03 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0);
   // obóz: trening podnosi doświadczenie (kosztem jedzenia), wartownicy chronią przed zaskoczeniem
@@ -943,7 +975,15 @@ function playerDaily(w: World) {
     if (P.contractDays <= 0) { addLogMsg(`Kontrakt najemniczy z ${factionName(P.liege)} wygasł.`, PAL.bone); P.liege = 0; P.status = "wolny"; }
   }
   // dochód z lenn
-  for (const s of w.settlements) if (s.owner === -2) { const inc = Math.round((s.kind === "town" ? 60 : s.kind === "castle" ? 30 : 15) * (0.5 + s.prosperity / 100) * (s.raided ? 0.2 : 1)); P.gold += inc; }
+  for (const s of w.settlements) if (s.owner === -2) {
+    P.gold += fiefIncome(w, s);
+    const S = s as any;
+    // podatki i budowy w lennie
+    if (S.tax === 2) { s.relation -= 0.3; s.prosperity -= 0.05; } else if (S.tax === 0) s.relation += 0.15;
+    if (S.build?.mlyn) s.prosperity = Math.min(100, s.prosperity + 0.08);
+    if (S.build?.swiatynia) s.relation += 0.1;
+    if (S.buildQ) { S.buildQ.days--; if (S.buildQ.days <= 0) { (S.build ||= {})[S.buildQ.k] = 1; chron(w, `W ${s.name} ukończono: ${BUILDINGS[S.buildQ.k].name}.`, PAL.gold); S.buildQ = null; } }
+  }
   // przesadna armia obniża morale
   if (n > partyLimit(w)) P.morale -= 3;
   P.morale = clamp(P.morale, 0, 100);
@@ -951,7 +991,12 @@ function playerDaily(w: World) {
   // jeńcy mogą się dołączyć
   for (const t of p.prisoners.slice()) if (chance(0.03 + P.skills.leadership * 0.005) && !UNITS[t.type].undead) { removeTroops(p.prisoners, t.type, 1); addTroops(p.troops, t.type, 1); addLogMsg(`Jeniec (${UNITS[t.type].name}) przechodzi na twoją stronę.`, PAL.bone); }
   // zadania
-  for (const q of P.quests) if (!q.done) { q.days--; if (q.days <= 0) { q.done = true; addLogMsg(`Zadanie przepadło: ${q.text}`, PAL.ash); if (w.settlements[q.giver]) w.settlements[q.giver].relation -= 5; } }
+  for (const q of P.quests) if (!q.done) {
+    // zdobycie zamku: wystarczy, że zamek przejdzie w ręce twojej strony
+    if (q.kind === "capture") { const t = w.settlements[q.target]; if (t && (t.faction === PLAYER_FACTION || (P.liege > 0 && t.faction === P.liege))) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); continue; } }
+    q.days--;
+    if (q.days <= 0) { q.done = true; q.failed = true; addLogMsg(`Zadanie przepadło: ${q.text}`, PAL.ash); if (w.settlements[q.giver]) w.settlements[q.giver].relation -= 5; if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) L.relation -= 6; } }
+  }
   P.quests = P.quests.filter((q) => !q.done || q.days > -3);
 }
 function desert(w: World, frac: number) {
@@ -972,8 +1017,53 @@ const COMPANIONS: { id: string; name: string; race: Race; role: string; weapon: 
   { id: "dvalin", name: "Dvalin Ognisty Kufel", race: "dwarf", role: "obrońca", weapon: "warhammer", shield: true, armor: 0.28, bow: 0, horse: false, hp: 170, cost: 600, wage: 14, bio: "Krasnolud wygnany z Khazgrim za zbyt głośne śpiewanie w kopalni.", helm: "dwarf", body: "plate" },
   { id: "grashna", name: "Grashna", race: "orc", role: "zwiadowczyni", weapon: "axe", shield: false, armor: 0.14, bow: 0, horse: true, hp: 140, cost: 380, wage: 10, bio: "Orczyca, która porzuciła hordę. Jeździ jak burza, milczy jak grób.", helm: "none", body: "leather" },
   { id: "brakk", name: "Brakk Żelazna Miarka", race: "dwarf", role: "inżynier", weapon: "warhammer", shield: false, armor: 0.22, bow: 0, horse: false, hp: 140, cost: 550, wage: 13, bio: "Krasnoludzki saper. Postawi wieżę oblężniczą z byle czego i policzy, ile głazów trzeba na mur.", helm: "dwarf", body: "mail" },
+  { id: "mira", name: "Mira Złotousta", race: "human", role: "kupcowa", weapon: "dagger", shield: false, armor: 0.1, bow: 34, horse: true, hp: 100, cost: 350, wage: 9, bio: "Handlarka z Kassii. Zna ceny w każdym mieście i każdego celnika po imieniu.", helm: "hood", body: "gambeson" },
+  { id: "wojmir", name: "Wojmir Kostucha", race: "human", role: "medyk", weapon: "mace", shield: true, armor: 0.14, bow: 0, horse: false, hp: 115, cost: 420, wage: 10, bio: "Cyrulik spod Valmory. Wyciąga groty i zęby, nie pyta o pochodzenie ran.", helm: "cap", body: "robe" },
+  { id: "urgh", name: "Urgh Łamignat", race: "orc", role: "rębajło", weapon: "greataxe", shield: false, armor: 0.2, bow: 0, horse: false, hp: 180, cost: 500, wage: 13, bio: "Wygnany z hordy za to, że pobił wodza na uczcie. Nie żałuje.", helm: "none", body: "leather" },
+  { id: "elsbeth", name: "Elsbeth z Wieży", race: "human", role: "czarodziejka", weapon: "staff", shield: false, armor: 0.08, bow: 0, horse: false, hp: 95, cost: 700, wage: 16, bio: "Uczennica varusjańskich magów. Mówi, że ogień słucha jej lepiej niż ludzie.", helm: "hood", body: "robe" },
+  { id: "hrodgar", name: "Hrodgar Tarczownik", race: "dwarf", role: "obrońca", weapon: "axe", shield: true, armor: 0.3, bow: 0, horse: false, hp: 175, cost: 650, wage: 15, bio: "Weteran oblężenia Khazgrim. Stoi tam, gdzie mu każą, dopóki nie każą odejść.", helm: "dwarf", body: "plate" },
+  { id: "lisek", name: "Lisek", race: "human", role: "zwiadowca", weapon: "dagger", shield: false, armor: 0.1, bow: 42, horse: true, hp: 100, cost: 320, wage: 8, bio: "Kłusownik i złodziej koni. Widzi ślady tam, gdzie inni widzą błoto.", helm: "hood", body: "leather" },
+  { id: "agata", name: "Agata Czarna", race: "human", role: "rycerz", weapon: "sword", shield: true, armor: 0.26, bow: 0, horse: true, hp: 155, cost: 850, wage: 18, bio: "Ostatnia z rodu spalonego przez Morvath. Jej przysięga jest prosta: zemsta.", helm: "great", body: "plate" },
   { id: "teodor", name: "Teodor Zdrajca", race: "human", role: "rycerz", weapon: "sword", shield: true, armor: 0.25, bow: 0, horse: true, hp: 150, cost: 800, wage: 18, bio: "Pozbawiony herbu rycerz Korony. Twierdzi, że był niewinny.", helm: "great", body: "plate" },
 ];
+// Charaktery kompanów: kogo lubią, kogo nie znoszą, czego nie zniosą u ciebie.
+const COMP_TRAITS: Record<string, { likes: string[]; hates: string[]; quit?: (P: PlayerState) => string | null }> = {
+  kasia: { likes: ["lisek"], hates: ["teodor"] },
+  bogdan: { likes: ["urgh"], hates: ["ilse", "mira"] },
+  ilse: { likes: ["agata", "wojmir"], hates: ["bogdan", "elsbeth"], quit: (P) => ((P as any).corruption || 0) > 60 ? "Nie będę służyć komuś, kogo toczy mrok." : P.honor < -10 ? "Twoje czyny hańbią imię bogów." : null },
+  dvalin: { likes: ["hrodgar", "brakk"], hates: ["urgh", "grashna"] },
+  grashna: { likes: ["urgh"], hates: ["dvalin"] },
+  brakk: { likes: ["dvalin", "hrodgar"], hates: ["elsbeth"] },
+  mira: { likes: ["lisek"], hates: ["bogdan"], quit: (P) => P.gold < 0 ? "Bez złota nie ma interesu." : null },
+  wojmir: { likes: ["ilse"], hates: ["urgh"] },
+  urgh: { likes: ["grashna", "bogdan"], hates: ["dvalin", "wojmir"] },
+  elsbeth: { likes: [], hates: ["ilse", "brakk"] },
+  hrodgar: { likes: ["dvalin", "brakk"], hates: [] },
+  lisek: { likes: ["kasia", "mira"], hates: ["agata"] },
+  agata: { likes: ["ilse"], hates: ["lisek"], quit: (P) => P.liege === 5 ? "Służysz Morvath. Nasze drogi się rozchodzą." : null },
+  teodor: { likes: [], hates: ["kasia"], quit: (P) => P.honor < -15 ? "Jestem rycerzem, nie zbójem. Odchodzę." : null },
+};
+function companionMax(P: PlayerState) { return 3 + Math.floor(P.attr.cha / 3); }
+// Codziennie: kłótnie, odejścia, powroty z misji.
+function companionsDaily(w: World) {
+  const P = w.player, p = playerParty(w);
+  const here = P.companions.filter((c) => !((c as any).away > w.day));
+  for (const c of P.companions) { const cc = c as any; if (cc.away && cc.away <= w.day) { cc.away = 0; const msg = cc.mission === "scout" ? scoutReport(w) : cc.mission === "trade" ? (() => { const g = Math.round(rr(120, 320) * (c.role === "kupcowa" ? 1.6 : 1)); P.gold += g; return `przynosi ${g} denarów z handlu`; })() : (() => { const n = 2 + Math.round(rr(0, 4)); addTroops(p.troops, RECRUITS[nearestSettlement(w, p.x, p.y).culture]?.village[0] || "a_recruit", n); return `prowadzi ${n} ochotników`; })(); addLogMsg(`${c.name} wraca z misji: ${msg}.`, PAL.gold); cc.mission = ""; } }
+  for (const a of here) for (const b of here) {
+    if (a === b || !COMP_TRAITS[a.id]?.hates.includes(b.id) || !chance(0.06)) continue;
+    P.morale -= 3; const ca = a as any; ca.grudge = (ca.grudge || 0) + 1;
+    addLogMsg(`${a.name} kłóci się z ${b.name}. Ludzie patrzą na to krzywo.`, PAL.redL);
+    if (ca.grudge >= 4) { P.companions = P.companions.filter((x) => x !== a); addLogMsg(`${a.name} ma dość towarzystwa ${b.name} i odchodzi.`, PAL.redL); chron(w, `${a.name} opuszcza ${P.name}.`); return; }
+  }
+  for (const a of here) { if (here.some((b) => COMP_TRAITS[a.id]?.likes.includes(b.id)) && chance(0.04)) P.morale = Math.min(100, P.morale + 2); }
+  for (const c of here) { const why = COMP_TRAITS[c.id]?.quit?.(P); if (why && chance(0.25)) { P.companions = P.companions.filter((x) => x !== c); addLogMsg(`${c.name}: „${why}” Odchodzi.`, PAL.redL); chron(w, `${c.name} opuszcza ${P.name}.`); return; } }
+}
+function scoutReport(w: World) {
+  const p = playerParty(w); const r = 26, cx = Math.floor(p.x / WCELL) + Math.round(rr(-30, 30)), cy = Math.floor(p.y / WCELL) + Math.round(rr(-20, 20));
+  for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (x >= 0 && y >= 0 && x < WGW && y < WGH && (x - cx) ** 2 + (y - cy) ** 2 < r * r) w.explored[cidx(x, y)] = 1;
+  const enemies = w.parties.filter((o) => o.kind === "lord" && atWar(w, o.faction, w.player.liege || PLAYER_FACTION) && dist(o.x / WCELL, o.y / WCELL, cx, cy) < r).length;
+  return `odkrywa okolice ${nearestSettlement(w, cx * WCELL, cy * WCELL).name}${enemies ? ` i widzi ${enemies} wrogie armie` : ""}`;
+}
 function makeCompanion(id: string): CompanionState {
   const c = COMPANIONS.find((x) => x.id === id);
   const v = hashInt(id.length * 99 + id.charCodeAt(0));

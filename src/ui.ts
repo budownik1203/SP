@@ -25,6 +25,14 @@ class Win {
       const f = this.acts[b.dataset.a];
       if (f) { sfxUi(); f(b.dataset.v || ""); }
     });
+    // przeciąganie (np. towary na targu): data-drag="akcja:wartość" upuszczone na data-drop="akcja"
+    this.el.addEventListener("dragstart", (e) => { const d = (e.target as HTMLElement).closest("[data-drag]") as HTMLElement | null; if (d && e.dataTransfer) e.dataTransfer.setData("text/plain", d.dataset.drag); });
+    this.el.addEventListener("dragover", (e) => { if ((e.target as HTMLElement).closest("[data-drop]")) e.preventDefault(); });
+    this.el.addEventListener("drop", (e) => {
+      const z = (e.target as HTMLElement).closest("[data-drop]") as HTMLElement | null; if (!z || !e.dataTransfer) return;
+      e.preventDefault(); const [a, v] = e.dataTransfer.getData("text/plain").split(":");
+      if (a === z.dataset.drop && this.acts[a]) { sfxUi(); this.acts[a](`${v}:${e.ctrlKey || e.shiftKey ? 5 : 1}`); }
+    });
     this.el.addEventListener("input", (e) => {
       const t = e.target as HTMLInputElement;
       if (t.dataset.in && this.acts[t.dataset.in]) this.acts[t.dataset.in](t.type === "checkbox" ? (t.checked ? "1" : "") : t.value);
@@ -149,7 +157,9 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
       for (let k = 0; k < 7; k++) house(4 + k * 28 + rr(-3, 3), 30 + rr(-6, 4), 18 + rr(0, 6), 14 + rr(0, 6));
       for (let k = 0; k < 4; k++) house(rr(0, 180), rr(48, 52), 20, 12);
       gallows(150, 70); crow(152, 46); crow(60, 20); crow(66, 22);
-      for (let k = 0; k < 9; k++) figure(Math.round(rr(10, 190)), Math.round(rr(68, 82)), pick(people), chance(0.4), chance(0.2));
+      if (extra === 2) { for (let k = 0; k < 5; k++) { g.fillStyle = PAL.ink; g.fillRect(Math.round(rr(6, 190)), Math.round(rr(28, 50)), rr(3, 7), rr(2, 4)); } crow(120, 40); crow(30, 52); }   // bieda: dziury w dachach, wrony
+      if (extra === 3) { for (let k = 0; k < 4; k++) { const x = 20 + k * 45; g.fillStyle = PAL.ink; g.fillRect(x - 1, 58, 22, 9); g.fillStyle = pick([PAL.red, PAL.gold, PAL.moss, PAL.purple]); g.fillRect(x, 58, 20, 3); g.fillStyle = PAL.wood; g.fillRect(x, 61, 20, 5); g.fillStyle = PAL.gold; g.fillRect(x + 4, 60, 2, 1); } g.fillStyle = PAL.red; for (let x = 8; x < Wd; x += 24) { g.fillRect(x, 20, 3, 6); } }   // bogactwo: kramy i chorągwie
+      for (let k = 0; k < (extra === 2 ? 4 : extra === 3 ? 13 : 9); k++) figure(Math.round(rr(10, 190)), Math.round(rr(68, 82)), pick(people), chance(0.4), chance(0.2));
       pike(22, 80); pike(178, 82);
       break;
     }

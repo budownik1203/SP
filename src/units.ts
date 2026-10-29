@@ -335,6 +335,33 @@ I({ id: "b_long", name: "Łuk długi", slot: "bow", price: 300, tier: 3, bowDmg:
 I({ id: "h_nag", name: "Szkapa", slot: "horse", price: 150, tier: 1, mount: { hp: 90, speed: 100, accel: 55, turn: 2.6 } });
 I({ id: "h_courser", name: "Rumak", slot: "horse", price: 600, tier: 2, mount: { hp: 130, speed: 118, accel: 66, turn: 2.8 } });
 I({ id: "h_destrier", name: "Koń bojowy", slot: "horse", price: 1400, tier: 3, mount: { hp: 180, speed: 108, accel: 58, turn: 2.4 } });
+// Przedmioty unikatowe (zamówienia u mistrza kowala, ruiny, długie zadania)
+WEAPONS.ashblade = { ...WEAPONS.longsword, name: "Ostrze Popiołu", dmg: cut4(46, 60, 42), blade: PAL.ash, hilt: PAL.redL };
+WEAPONS.dawnmace = { ...WEAPONS.mace, name: "Buława Świtu", dmg: cut4(38, 52, 22), head: PAL.gold };
+I({ id: "u_ashblade", name: "Ostrze Popiołu", slot: "weapon", price: 4200, tier: 5, weapon: "ashblade" });
+I({ id: "u_dawnmace", name: "Buława Świtu", slot: "weapon", price: 3600, tier: 5, weapon: "dawnmace" });
+I({ id: "u_blackplate", name: "Zbroja Czarnego Rycerza", slot: "body", price: 5200, tier: 5, armor: 0.36, body: "plate" });
+I({ id: "u_legate", name: "Hełm kassiańskiego legata", slot: "head", price: 2600, tier: 5, armor: 0.15, helm: "great" });
+I({ id: "u_crowbow", name: "Łuk Wrony", slot: "bow", price: 3000, tier: 5, bowDmg: 66 });
+function baseItems() { return Object.values(ITEMS).filter((it) => !it.id.includes("~") && it.tier < 5); }
+const UNIQUES = ["u_ashblade", "u_dawnmace", "u_blackplate", "u_legate", "u_crowbow"];
+// Jakość: zardzewiały / zwykły / dobry / mistrzowski. Id z sufiksem „~q”, tworzone w locie.
+const QUAL: ({ n: string; k: number; p: number } | null)[] = [{ n: "Zardzewiały", k: 0.82, p: 0.45 }, null, { n: "Dobry", k: 1.12, p: 1.7 }, { n: "Mistrzowski", k: 1.26, p: 3 }];
+function qualOf(id: string) { const m = id.split("~")[1]; return m ? Number(m) : 1; }
+function baseOf(id: string) { return id.split("~")[0]; }
+function qid(base: string, q: number) { return q === 1 ? base : `${base}~${q}`; }
+function ensureItem(id: string): Item | null {
+  if (!id) return null;
+  if (ITEMS[id]) return ITEMS[id];
+  const b = ITEMS[baseOf(id)], Q = QUAL[qualOf(id)];
+  if (!b || !Q) return b || null;
+  const it: Item = { ...b, id, name: `${Q.n} ${b.name.charAt(0).toLowerCase()}${b.name.slice(1)}`, price: Math.round(b.price * Q.p) };
+  if (b.armor) it.armor = +(b.armor * Q.k).toFixed(3);
+  if (b.bowDmg) it.bowDmg = Math.round(b.bowDmg * Q.k);
+  if (b.mount) it.mount = { ...b.mount, hp: Math.round(b.mount.hp * Q.k), speed: Math.round(b.mount.speed * (0.92 + Q.k * 0.08)) };
+  ITEMS[id] = it;
+  return it;
+}
 const SLOT_NAME: Record<ESlot, string> = { head: "Hełm", body: "Zbroja", hands: "Rękawice", feet: "Buty", weapon: "Broń", shield: "Tarcza", bow: "Łuk", horse: "Koń" };
 
 // ---------- Umiejętności aktywne ----------

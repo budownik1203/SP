@@ -281,6 +281,21 @@ p.rel{color:#e9c45e}
 .minitog{all:unset;pointer-events:auto;cursor:pointer;font-size:.75em;color:var(--muted);display:block;text-align:right;margin-top:.1em}.minitog:hover{color:var(--gold)}
 #mini.big+.minitog{position:fixed;right:1.4%;top:calc(16% - 1.4em);z-index:5;color:var(--gold)}
 .acard.cool{opacity:.5}
+.scene{position:relative}
+.hot{position:absolute;transform:translate(-50%,-50%);all:unset;position:absolute;cursor:pointer;display:flex;align-items:center;gap:.2em;padding:.1em .35em;background:rgba(15,12,9,.72);border:1px solid #6b5234;color:var(--text);font-size:.8em;transform:translate(-50%,-50%);opacity:.8}
+.hot:hover{opacity:1;border-color:var(--gold);color:var(--gold);background:rgba(30,24,16,.9)}
+.scene.rain::after,.scene.snow::after,.scene.fogs::after{content:"";position:absolute;inset:0;pointer-events:none}
+.scene.rain::after{background:repeating-linear-gradient(105deg,transparent 0 9px,rgba(170,180,190,.22) 9px 10px);animation:rainf .5s linear infinite}
+.scene.snow::after{background-image:radial-gradient(rgba(240,245,250,.8) 1px,transparent 1.5px);background-size:14px 14px;animation:snowf 6s linear infinite}
+.scene.fogs::after{background:linear-gradient(transparent 30%,rgba(200,204,200,.28) 60%,rgba(200,204,200,.12))}
+@keyframes rainf{to{background-position:-20px 40px}}@keyframes snowf{to{background-position:20px 140px}}
+.ppl{display:flex;flex-wrap:wrap;gap:.3em;margin:.3em 0}
+span.up{color:#7fbf5a}span.down{color:#d0503c}
+.market{display:grid;grid-template-columns:1fr 1fr;gap:.6em}.mcol{background:#1a140e;border:1px solid #3a2e22;padding:.3em;min-height:8em}.mcol h2{margin-top:0}
+.mrow{display:grid;grid-template-columns:1.2em 1fr 2.4em 2.6em auto auto auto;gap:.3em;align-items:center;padding:.1em .2em;cursor:grab;border-bottom:1px solid #2a2119}.mrow:hover{background:#2a2119}
+.dice{font-size:1.4em}
+#mh-quest{position:absolute;right:.5em;top:2.6em;max-width:16em;padding:.3em .5em;font-size:.85em;pointer-events:auto;cursor:pointer}
+.qtop{display:flex;gap:1em;font-size:.85em}
 </style>
 
 <div id="wrap">
@@ -315,6 +330,7 @@ p.rel{color:#e9c45e}
   <div id="maphud" hidden>
     <div class="frame" id="mh-top"></div>
     <div id="mh-speed"></div>
+    <div class="frame" id="mh-quest" hidden></div>
     <div id="mh-btns">
       <button class="mbtn" data-win="char"><span class="mi" data-ic="star"></span>Postać <kbd>C</kbd></button>
       <button class="mbtn" data-win="inv"><span class="mi" data-ic="shield"></span>Ekwipunek <kbd>I</kbd></button>

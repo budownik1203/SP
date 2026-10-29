@@ -215,8 +215,8 @@ function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   };
 }
 function companionCfgs(P: PlayerState): CompanionCfg[] {
-  const AB: Record<string, string> = { "kapłanka": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai" };
-  return P.companions.filter((c) => c.hp > c.maxHp * 0.25).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
+  const AB: Record<string, string> = { "kapłanka": "priest", "medyk": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai", "zwiadowca": "whirlai", "czarodziejka": "mage", "inżynier": "rally", "kupcowa": "whirlai" };
+  return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !((c as any).away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
 }
 function healthyTroops(list: Troop[]) { return list.map((t) => ({ type: t.type, n: t.n - t.wounded })).filter((t) => t.n > 0); }
 function battleTerrainAt(w: World, x: number, y: number): Terrain {
@@ -283,7 +283,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   G.battle = new Battle(cfg, input, sfx, settings);
   const b = G.battle;
   const two = P.equip.weapon && WEAPONS[ITEMS[P.equip.weapon].weapon]?.twoHanded;
-  b.heroDmg = 1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.06 + (two ? perk(P, "twoHand") : 0);
+  b.heroDmg = (1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.06 + (two ? perk(P, "twoHand") : 0)) * (P.equip.weapon ? (QUAL[qualOf(P.equip.weapon)]?.k ?? 1) : 1);
   b.heroStamina = 1 + (P.attr.end - 4) * 0.04 + perk(P, "stamina");
   b.heroBlockCost = 1 + perk(P, "blockCost");
   b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
@@ -383,8 +383,8 @@ function applyBattleResult(r: BattleResult, auto = false) {
     P.renown += renown;
     P.morale = clamp(P.morale + 8, 0, 100);
     lootGold = Math.round(ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03));
-    { const pool = Object.values(ITEMS).filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) lootItems.push(pick(pool).id); }
-    if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id); }
+    { const pool = baseItems().filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) { const id = qid(pick(pool).id, chance(0.6) ? 0 : chance(0.9) ? 1 : 2); ensureItem(id); lootItems.push(id); } }   // łupy z pola: zwykle zardzewiałe
+    if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); if (chance(0.15)) { const u = pick(UNIQUES.filter((x) => !WORLD.player.items.includes(x))); if (u) { lootItems.push(u); lines.push(`W krypcie leży coś niezwykłego: ${ITEMS[u].name}!`); } } else lootItems.push(pick(baseItems().filter((it) => it.tier >= 2 && it.tier <= 4 && it.slot !== "horse")).id); }
     P.gold += lootGold;
     // jeńcy
     for (const pr of r.prisoners) addTroops(p.prisoners, pr.type, pr.n);
@@ -397,7 +397,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
       } else if (e.kind === "bandit" || e.kind === "undead" || e.kind === "monster") chron(w, `${P.name} rozbija: ${e.name} w pobliżu ${nearestSettlement(w, e.x, e.y).name}.`);
       removeParty(w, e);
       // zadania na bandytów
-      for (const q of P.quests) if (!q.done && q.kind === "bandits" && q.target === e.id) completeQuest(q, lines);
+      for (const q of P.quests) if (!q.done && (q.kind === "bandits" || q.kind === "defend") && q.target === e.id) completeQuest(q, lines);
     }
     for (const a of ctx.allies) { const L = lordById(w, a.lord); if (L) { L.relation += 4; lines.push(`${L.title} ${L.name} docenia twoją pomoc (+4).`); } }
     if (ctx.place) {
