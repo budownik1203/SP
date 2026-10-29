@@ -46,6 +46,7 @@ let sfxUi: () => void = () => {};
 let SCREEN: Win | null = null;
 function showScr(html: string, acts: Acts, cls = "") {
   const root = document.getElementById("ui");
+  const tipEl = document.getElementById("tip"); if (tipEl) tipEl.hidden = true;   // dymek z mapy nie wisi nad oknem
   if (!SCREEN || SCREEN.el.className !== "win " + cls) { if (SCREEN) SCREEN.el.remove(); SCREEN = new Win(root, cls); }
   SCREEN.set(html, acts);
   return SCREEN;

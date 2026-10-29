@@ -14,7 +14,7 @@ const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.
 interface Settings {
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
-  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
 }
 
 interface HeroCfg {
@@ -30,9 +30,10 @@ interface BattleConfig {
   engines?: { ram?: boolean; tower?: boolean; trebuchet?: boolean };
   player: SideCfg; enemy: SideCfg;
   siegeDefender?: 0 | 1;           // która strona broni murów
-  arena?: { kind: "duel" | "team" | "beasts"; lethal?: boolean };
+  arena?: { kind: "duel" | "team" | "beasts"; lethal?: boolean; joust?: boolean; archery?: boolean };
   maxPerSide?: number;
   title?: string;
+  allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -92,7 +93,8 @@ class Unit {
   bowDmg = 0;
   loadout = 0;
   tankWant = 0; dodgeVx = 0; dodgeVy = 0; countering = false; bowShake = 0;
-  bearer = false;
+  carry = -1; carryT = 0;
+  bearer = false; fatigue = 0; surrendered = false; kiteT = 0; crumbleT = 0;
   dodgeT = 0; dodgeCd = 0; counterT = 0; shieldOffT = 0; bowHoldT = 0; gore = 0; shieldHp = 200;
   weaponKey: string;
   hasShield: boolean;
@@ -170,7 +172,7 @@ interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz
 interface Corpse { x: number; y: number; img: HTMLCanvasElement; flip: boolean; rot: number; undead: boolean; bones: boolean; t: number; pooled: boolean; horse?: boolean; kind?: DmgType; dx?: number; dy?: number; }
 interface Floater { x: number; y: number; text: string; col: string; t: number; }
 interface Order {
-  mode: Mode; ax: number; ay: number; formation: Formation; fire: boolean; meleeOnly: boolean; spacing: number;
+  mode: Mode; ax: number; ay: number; formation: Formation; fire: boolean; meleeOnly: boolean; spacing: number; volley?: boolean;
   cols?: number; face?: number; targetSquad?: number | null; flank?: { x: number; y: number } | null;
 }
 interface Slot { x: number; y: number; face: number; }
@@ -258,6 +260,10 @@ class Battle {
       const atk = cfg.siegeDefender === 0 ? 1 : 0; void atk;
       if (cfg.engines?.ram) this.engines.push({ kind: "ram", x: 420, y: W2.gateY, hp: 700, max: 700, t: 0, done: false, tx: W2.x0 - 16 });
       if (cfg.engines?.tower) this.engines.push({ kind: "tower", x: 380, y: 500 + (chance(0.5) ? -230 : 230), hp: 900, max: 900, t: 0, done: false, tx: W2.x0 - 14 });
+      // drabiny trzeba donieść i przystawić w bitwie
+      (W2 as any).placed = W2.ladders.map(() => false);
+      this.map.barrier.crossings = this.map.barrier.crossings.filter((c) => c.gate);
+      for (const ly of W2.ladders) for (let y = ly - 8; y <= ly + 8; y += CELL) { const cx = Math.floor(W2.x0 / CELL), cy = Math.floor(y / CELL); if (this.map.grid[cy * this.map.gw + cx] === 5) this.map.grid[cy * this.map.gw + cx] = 2; }
     }
     this.mw = this.map.w; this.mh = this.map.h;
     const [d, dg] = mkCanvas(this.mw, this.mh);
@@ -265,6 +271,14 @@ class Battle {
     this.makeOverlays();
     for (let i = 0; i < 220; i++) this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
     this.spawnAll();
+    if (cfg.arena?.archery) {   // łucznictwo: słomiane tarcze w różnych odległościach
+      this.units = this.units.filter((u) => u.team === 0);
+      const h = this.hero; h.x = this.mw / 2 - 150; h.y = this.mh / 2; h.loadout = 1; h.ammo = 12; this.heroAmmoMax = 12; if (!h.bowDmg) h.bowDmg = 40;
+      for (let i = 0; i < 8; i++) { const U2 = new Unit("x_dummy", 1, 1, this.mw / 2 - 40 + (i % 4) * 55 + rr(-10, 10), this.mh / 2 - 90 + Math.floor(i / 4) * 150 + rr(-20, 20), 7); U2.face = Math.PI; this.units.push(U2); }
+      this.archery = { score: 0, opp: Math.round(rr(3, 7)), n: 8 };
+    }
+    if (cfg.arena?.joust) { this.joust = { p: [0, 0], pass: -1, resetT: 0 } as any; this.joustReset(); }
+    if (cfg.sally) for (const u of this.units) if (u.team === 1) { u.morale *= 0.6; if (chance(0.4)) { u.state = "stagger"; u.t = 0; u.hold = rr(3, 7); } }   // obóz zaskoczony we śnie
   }
 
   // ---------- Pomocnicze ----------
@@ -278,8 +292,38 @@ class Battle {
   passable(x: number, y: number) { const c = this.cell(x, y); return c !== 2; }
   slowAt(x: number, y: number) { const c = this.cell(x, y); return c === 1 ? 0.55 : c === 5 ? 0.35 : 1; }
   // Oblężenie: taran i wieża pchane przez atakujących, trebusz, kamienie i wrzący olej z murów.
+  placeLadder(i: number) {
+    const W2 = this.map.wall, pl = (W2 as any).placed as boolean[];
+    if (pl[i]) return;
+    pl[i] = true;
+    const ly = W2.ladders[i];
+    for (let y = ly - 8; y <= ly + 8; y += CELL) { const cx = Math.floor(W2.x0 / CELL), cy = Math.floor(y / CELL); this.map.grid[cy * this.map.gw + cx] = 5; }
+    this.map.barrier.crossings.push({ y: ly, h: 6 });
+    this.say("Drabina przystawiona do muru!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL);
+    const s = this.vol(W2.x0); this.sfx.thunk(s.v, s.pan); this.dust(W2.x0 - 6, ly, 8); this.relayoutT = 0;
+  }
   updateSiege(dt: number) {
     const W2 = this.map.wall, defT = this.cfg.siegeDefender ?? 1, atkT = 1 - defT;
+    // balista na murach
+    this.ballistaT -= dt;
+    if (this.ballistaT <= 0) {
+      this.ballistaT = rr(5, 8);
+      const gunner = this.units.find((u) => u.team === defT && u.active && this.onWall(u));
+      const tg = gunner ? this.units.filter((u) => u.team === atkT && u.active && u.x < W2.x0 - 40 && u.x > W2.x0 - 420).sort((a, b) => (b.mounted ? 1 : 0) - (a.mounted ? 1 : 0))[0] : null;
+      if (gunner && tg) { const a = Math.atan2(tg.y - (gunner.y - 12), tg.x - gunner.x); this.fire(gunner, a, 420, 75, dist(gunner.x, gunner.y, tg.x, tg.y), "bolt"); const s = this.vol(gunner.x); this.sfx.thunk(s.v, s.pan); }
+    }
+    // płonące strzały w machiny
+    for (const e of this.engines) {
+      if (e.done || e.x < W2.x0 - 220) continue;
+      if (!(e as any).burnT && chance(dt * 0.12) && this.units.some((u) => u.team === defT && u.active && u.def.bow && this.onWall(u))) { (e as any).burnT = 6; this.say(e.kind === "ram" ? "Płonące strzały w taran!" : "Płonące strzały w wieżę!", defT === 0 ? PAL.gold : PAL.redL); }
+      if ((e as any).burnT > 0) { (e as any).burnT -= dt; e.hp -= 35 * dt; if (chance(dt * 20)) this.parts.push({ x: e.x + rr(-10, 10), y: e.y, z: rr(4, 30), vx: rr(-5, 5), vy: rr(-5, 5), vz: rr(15, 40), life: 0.6, max: 0.6, col: pick([PAL.gold, PAL.redL]), kind: "fire" }); }
+    }
+    // dziedziniec: ostatni obrońcy ruszają, gdy brama padnie
+    if (!this.keepOut && (W2.broken || this.units.filter((u) => u.team === atkT && u.active && u.x > W2.x1).length > 6)) {
+      this.keepOut = true;
+      const ord = defT === 0 ? this.orders : this.eorders;
+      if (ord[7]) { ord[7].mode = "charge"; this.shout("Walka na dziedzińcu!", defT === 0 ? PAL.gold : PAL.redL); this.say("Ostatni obrońcy wypadają z twierdzy na dziedziniec!", PAL.redL, true); this.sfx.horn?.(0.8); }
+    }
     for (const e of this.engines) {
       if (e.done) continue;
       e.t += dt;
@@ -346,6 +390,18 @@ class Battle {
         const s = this.vol(bo.x); this.sfx.explode(s.v * 0.8, s.pan); this.shake(3); this.dust(bo.x, bo.y, 24);
         for (let i = 0; i < 14; i++) this.parts.push({ x: bo.x, y: bo.y, z: 4, vx: rr(-60, 60), vy: rr(-40, 40), vz: rr(20, 80), life: 1.2, max: 1.2, col: pick([PAL.stone, PAL.ash, PAL.slate]), kind: "bone" });
         for (const u of this.units) if (u.active && dist(u.x, u.y, bo.x, bo.y) < 26) { this.damage(u, 45, null, false, "blunt", true); if (u.active) { this.stagger(u, 1.2); this.push(u, bo.x, bo.y, 120); } }
+        if (Math.abs(bo.x - W2.x0) < 22 && Math.abs(bo.y - W2.gateY) >= 22) {   // trafienie w mur: trzy głazy w jedno miejsce robią wyrwę
+          const key = Math.round(bo.y / 40), hits = ((W2 as any).hits ||= {}) as Record<number, number>;
+          hits[key] = (hits[key] || 0) + 1;
+          const br = ((W2 as any).breaches ||= []) as number[];
+          if (hits[key] >= 3 && !br.includes(key * 40)) {
+            br.push(key * 40);
+            for (let y = key * 40 - 10; y <= key * 40 + 10; y += CELL) for (let x = W2.x0; x <= W2.x1; x += CELL) { const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); if (cy >= 0 && cy < this.map.gh) this.map.grid[cy * this.map.gw + cx] = 1; }
+            this.map.barrier.crossings.push({ y: key * 40, h: 10 });
+            this.say("Wyrwa w murze!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL, true); this.shout("Wyrwa!"); this.shake(5); this.relayoutT = 0;
+            for (const u of this.units) if (u.active && this.onWall(u) && Math.abs(u.y - key * 40) < 14) { this.damage(u, 60, null, false, "blunt", true); }
+          }
+        }
         if (!W2.broken && Math.abs(bo.y - W2.gateY) < 22 && Math.abs(bo.x - W2.x0) < 20) { W2.gateHp -= 160; if (W2.gateHp <= 0) { W2.broken = true; this.say("Głaz z trebusza kruszy bramę!", PAL.gold, true); this.relayoutT = 0; } }
       }
     }
@@ -369,6 +425,17 @@ class Battle {
       if (d > (u.hero ? 36 : 30) + e.radius || d < 4) continue;
       if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > (u.hero ? 0.48 : 0.32)) continue;
       const k = u.rspeed / u.maxRide;
+      if (this.joust) {   // kopie: punkt za czyste trafienie, zrzucenie z konia kończy pojedynek
+        u.couchCd = 1; u.rspeed *= 0.6;
+        const side = u.team; this.joust.p[side] += 1;
+        const sv = this.vol(e.x); this.sfx.hit(sv.v, sv.pan, "blunt", true); this.sfx.clang(sv.v, sv.pan);
+        this.sparks(e.x, e.y - 22, 14, PAL.wood); this.shake(3); this.hitstop = Math.max(this.hitstop, 0.16);
+        this.shout(`${u.hero ? "Trafienie!" : "Trafiony!"} ${this.joust.p[0]} : ${this.joust.p[1]}`, u.hero ? PAL.gold : PAL.redL);
+        if (u.hero) this.crowd(e.x, e.y, 5);
+        if (chance(0.18 + k * 0.15) && e.mounted) { this.dismount(e); this.joust.p[side] += 2; this.say(`${e.hero ? "Spadasz" : e.def.name + " spada"} z konia!`, PAL.gold, true); }
+        (this.joust as any).resetT = 1.6;
+        break;
+      }
       const dmg = (28 + 60 * k) * e.arm.pierce * (u.hero ? this.heroDmg : 1) * (this.cfg.arena && !this.cfg.arena.lethal ? 0.55 : 1);
       u.couchCd = 0.7; u.rspeed *= 0.55;
       const s = this.vol(e.x);
@@ -483,6 +550,9 @@ class Battle {
       // część piechoty obrońców idzie na mury
       const defInf = this.units.filter((u) => u.team === defTeam && u.squad === 1 && !u.hero && !u.companion);
       for (const u of defInf.slice(0, Math.floor(defInf.length * 0.45))) u.squad = wallK;
+      // straż twierdzy: czeka na dziedzińcu, rusza po upadku bramy (druga faza)
+      const rest = defInf.slice(Math.floor(defInf.length * 0.45));
+      if (rest.length >= 6) { for (const u of rest.slice(0, Math.floor(rest.length * 0.4))) u.squad = 7; ord[7] = { ...newOrder(W2.x1 + 230, W2.gateY, "wall"), face: Math.PI, mode: "hold" }; }
       if (defTeam === 1) { ord[5].ax = W2.x1 + 90; ord[5].ay = W2.gateY; }
       if (defTeam === 1) {   // gracz szturmuje: piechota rusza na drabiny i bramę, strzelcy osłaniają
         this.orders[1].mode = "charge"; this.orders[3].mode = "charge";
@@ -798,6 +868,7 @@ class Battle {
     if (this.cmdLevel === "more") return [
       { n: 1, label: "Zajmij wzgórze" }, { n: 2, label: "Zajmij las" }, { n: 3, label: "Oskrzydlenie z lewej" }, { n: 4, label: "Oskrzydlenie z prawej" },
       { n: 5, label: "Zasadzka: ukryj się" }, { n: 6, label: o.fire ? "Wstrzymaj ogień" : "Strzelać wedle uznania" }, { n: 7, label: o.meleeOnly ? "Wolna broń" : "Tylko broń biała" },
+      { n: 8, label: o.volley ? "SALWA! Strzelajcie razem" : "Salwa na rozkaz (celujcie i czekajcie)", on: !!o.volley },
     ];
     if (this.cmdLevel === "target") {
       const items: { n: number; label: string; on?: boolean }[] = this.enemySquadsVisible().map((s) => ({ n: s, label: this.enemySquadName(s), on: o.targetSquad === s }));
@@ -809,6 +880,8 @@ class Battle {
   cmdChoose(n: number) {
     const gs = this.selected;
     this.sfx.ui();
+    if (this.cmdLevel !== "groups" && this.cmdLevel !== "assign" && this.cmdLevel !== "target" && this.heroUp) this.sfx.shout(0.35);
+    if (this.cmdLevel === "groups" && n === 8 && this.allySquads().length && this.cfg.allyObey === false) { this.say("Sojusznicy nie słuchają twoich rozkazów: za słaba relacja z ich panem.", PAL.redL, true); return; }
     const back = () => { this.cmdLevel = "groups"; this.relayoutT = 0; };
     switch (this.cmdLevel) {
       case "assign": if (n === 9) { for (const u of this.units) u.picked = false; back(); return; } if (n >= 1 && n <= 8) { this.assignPicked(n); this.cmdLevel = "orders"; } return;
@@ -822,11 +895,36 @@ class Battle {
       }
       case "more":
         if (n === 1) this.orderOccupy(gs, "hill"); else if (n === 2) this.orderOccupy(gs, "forest"); else if (n === 3) this.orderFlank(gs, -1); else if (n === 4) this.orderFlank(gs, 1);
-        else if (n === 5) this.orderAmbush(gs); else if (n === 6) this.orderFire(gs); else if (n === 7) this.orderMelee(gs); else return;
+        else if (n === 5) this.orderAmbush(gs); else if (n === 6) this.orderFire(gs); else if (n === 7) this.orderMelee(gs); else if (n === 8) this.orderVolley(gs); else return;
         back(); return;
       case "target": if (n === 9) this.orderTarget(gs, null); else if (this.enemySquadsVisible().includes(n)) this.orderTarget(gs, n); else return; back(); return;
       case "formation": if (n >= 1 && n <= FORMATIONS.length) { this.orderFormation(gs, FORMATIONS[n - 1]); this.flashPreview(gs); back(); } return;
     }
+  }
+  // kopie: po każdym przejeździe jeźdźcy wracają na końce szranków
+  joustReset() {
+    this.joust.pass++;
+    for (const u of this.units) if (u.active && u.mounted) { const left = u.team === 0; u.x = this.mw / 2 + (left ? -210 : 210); u.y = this.mh / 2 + (left ? -18 : 18); u.heading = left ? 0 : Math.PI; u.face = u.heading; u.rspeed = 0; u.state = "idle"; }
+    this.say(`Przejazd ${this.joust.pass + 1}`, PAL.bone);
+  }
+  // publiczność: kwiaty i monety za dobre akcje
+  crowd(x: number, y: number, n: number) {
+    if (!this.cfg.arena) return;
+    for (let i = 0; i < n * 3; i++) this.parts.push({ x: x + rr(-30, 30), y: y + rr(-20, 20), z: rr(40, 80), vx: rr(-10, 10), vy: rr(-10, 10), vz: rr(-20, 10), life: 1.4, max: 1.4, col: pick([PAL.redL, PAL.gold, PAL.boneHi, PAL.purpleL]), kind: "blood" });
+    if (this.crowdGold < 40) this.crowdGold += Math.min(n, 40 - this.crowdGold);
+    this.sfx.battleCry?.(0.25); this.sfx.coin?.();
+  }
+  startFight() {
+    if (this.phase !== "deploy") return;
+    this.phase = "fight"; this.cmdOpen = false; this.cmdLevel = "groups";
+    this.sfx.horn?.(0.8); this.sfx.battleCry(1); this.shout("Do boju!");
+  }
+  orderVolley(gs: number[]) {
+    const o0 = this.ensureOrder(gs[0]);
+    if (o0.volley) {
+      for (const g of gs) { const o = this.ensureOrder(g); o.volley = false; o.fire = true; for (const u of this.squadUnits(g)) if (u.def.bow || u.bowDmg) u.reload = rr(0, 0.12); }
+      this.shout("Salwa!"); this.sfx.horn?.(0.4); this.say("Salwa!", PAL.gold, true);
+    } else { for (const g of gs) { const o = this.ensureOrder(g); o.volley = true; o.fire = true; } this.say("Strzelcy celują i czekają na rozkaz salwy (F5).", PAL.gold); }
   }
   cmdBack() {
     if (this.cmdLevel === "formation" || this.cmdLevel === "more" || this.cmdLevel === "target") this.cmdLevel = "orders";
@@ -869,6 +967,22 @@ class Battle {
         }
       }
       return;
+    }
+    // szybkie rozkazy jak w M&B: F1 stań tu, F2 za mną, F3 szarża, F4 następna formacja, F5 salwa
+    if (I.hit("F1")) { this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my); this.sfx.shout(0.35); }
+    if (I.hit("F2")) { this.orderMode(this.selected, "follow"); this.sfx.shout(0.35); }
+    if (I.hit("F3")) { this.orderMode(this.selected, "charge"); this.sfx.shout(0.4); this.say("Szarża!", PAL.gold); }
+    if (I.hit("F4")) { const cur = this.ensureOrder(this.selected[0]).formation; const f = FORMATIONS[(FORMATIONS.indexOf(cur) + 1) % FORMATIONS.length]; this.orderFormation(this.selected, f); this.flashPreview(this.selected); this.say(`Formacja: ${FORMATION_NAME[f]}`); }
+    if (I.hit("F5")) { const archers = this.liveSquads().filter((g) => this.squadUnits(g).some((u) => u.def.bow)); if (archers.length) this.orderVolley(archers); }
+    // okrzyk bojowy bohatera: G
+    if (I.hit("KeyG") && this.heroUp && this.cryCd <= 0 && this.hero.stamina >= 25) {
+      const h = this.hero; this.cryCd = 25; h.stamina -= 25; this.sfx.battleCry(1); this.shout("Za mną!"); this.shake(2);
+      for (const u of this.units) if (u.active && dist(u.x, u.y, h.x, h.y) < 170) { if (u.team === 0) u.morale = Math.min(100, u.morale + 16); else if (!u.def.undead) u.morale -= 8; }
+      this.parts.push({ x: h.x, y: h.y, z: 4, vx: 14, vy: 0, vz: 0, life: 0.7, max: 0.7, col: PAL.gold, kind: "ring" });
+    }
+    // trebusz: T strzela w miejsce kursora
+    if (I.hit("KeyT") && this.cfg.engines?.trebuchet && this.map.wall && this.trebAimCd <= 0 && (this.cfg.siegeDefender ?? 1) === 1) {
+      this.trebAimCd = 11; this.boulders.push({ x: this.cam.x + I.mx, y: this.cam.y + I.my, t: 1.6 }); this.say("Trebusz: głaz poleciał!", PAL.gold); const sv = this.vol(200); this.sfx.swing(sv.v, sv.pan, 2);
     }
     if (I.hit("KeyZ")) this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my);
     if (I.hit("KeyX")) this.orderMode(this.selected, "follow");
@@ -1010,6 +1124,10 @@ class Battle {
   heroAmmoMax = 30;
   castFlash: { col: string; t: number } | null = null;
   timeline: { t: number; a: number; b: number }[] = []; tlT = 0;
+  orcCry: Record<number, boolean> = {};
+  archery: { score: number; opp: number; n: number } | null = null; crowdGold = 0;
+  keepOut = false;
+  cryCd = 0; trebAimCd = 0; ballistaT = 6; joust: { p: [number, number]; pass: number } | null = null;
   groundArrows: { x: number; y: number }[] = [];
   looseHorses: { x: number; y: number; heading: number; def: Mount; hp: number; max: number; horse: any }[] = [];
   leaveHorse(u: Unit) {
@@ -1063,6 +1181,7 @@ class Battle {
   startWindup(u: Unit, dir: Dir) {
     u.state = "windup"; u.t = 0; u.dir = dir; u.hold = 0; u.released = false; u.hitDone = false;
     u.countering = u.counterT > 0; u.counterT = 0;
+    if (!u.hero) u.fatigue = Math.min(1, u.fatigue + 0.01);
     u.swingVar = dir === "L" || dir === "R" ? rr(-0.45, 0.45) : rr(-0.2, 0.2);
     if (u.hero) { const cost = 5 + this.weight(u) * 5; u.stamina -= cost; u.staminaWait = 0.7; if (u.stamina < 0) { u.stamina = 0; this.say("Brak tchu: ciosy wolniejsze", PAL.ash); } }
     u.guard = null; u.guardT = 0; u.trail = [];
@@ -1072,6 +1191,7 @@ class Battle {
       const facing = Math.abs(angDiff(e.face, Math.atan2(u.y - e.y, u.x - e.x))) < 1.3;
       if (facing && (e.state === "idle" || e.state === "recover") && chance(e.def.guard * (u.hero ? 1 : 0.8) * (e.decay ? 0.5 : 1)))
         e.pendingGuard = { dir, at: this.time + e.def.react * rr(0.85, 1.25) };
+      else if (facing && e.def.tier >= 4 && !e.mounted && e.state === "idle" && chance(0.12 * (e.def.tier - 3))) { const a = Math.atan2(e.y - u.y, e.x - u.x); e.vx += Math.cos(a) * 70; e.vy += Math.sin(a) * 70; }   // weteran odskakuje
     }
   }
   windupTime(u: Unit) { return u.w.windup * (u.hero ? 1 : rr(1, 1.2)) * (u.dir === "O" ? 1.15 : 1) * (u.target?.mounted && !u.mounted ? 0.7 : 1) * (u.cursedT > 0 ? 1.3 : 1); }
@@ -1091,6 +1211,9 @@ class Battle {
     if (u.recoil > 0) u.recoil = Math.max(0, u.recoil - dt * 4);
     if (u.couchCd > 0) u.couchCd -= dt;
     if (u.shieldOffT > 0) u.shieldOffT -= dt;
+    if (!u.hero) u.fatigue = clamp(u.fatigue + dt * (u.moving || u.state === "strike" ? 0.0035 : -0.004), 0, 1);   // zmęczenie w długiej bitwie
+    if (u.kiteT > 0) u.kiteT -= dt;
+    if (u.crumbleT > 0) { u.crumbleT -= dt; if (u.crumbleT <= 0) { this.bones(u.x, u.y - 10, 18, null); this.kill(u, null); return; } }
     if (u.burnT > 0) { u.burnT -= dt; u.hp -= 7 * dt; if (chance(dt * 10)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(6, 20), vx: rr(-5, 5), vy: rr(-5, 5), vz: rr(15, 35), life: 0.5, max: 0.5, col: pick([PAL.gold, PAL.redL, PAL.bloodL]), kind: "fire" }); if (u.hp <= 0) { this.kill(u, null); return; } }
     if (u.lifeT > 0) { u.lifeT -= dt; if (u.lifeT <= 0) { u.state = "fled"; this.sparks(u.x, u.y - 10, 10, PAL.boneHi); return; } }
     if (u.guardT > 0) { u.guardT -= dt; if (u.guardT <= 0) u.guard = null; }
@@ -1237,6 +1360,8 @@ class Battle {
     const charged = a.hero && a.hold > 0.5;
     if (a.hero) dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 : 1);
     if (a.decay) dmg *= 0.75;
+    dmg *= 1 - 0.2 * a.fatigue;
+    if (this.onWall(a)) dmg *= 1.15;   // z góry muru łatwiej
     if (a.cursedT > 0) dmg *= 0.7;
     if (a.bloodRiteT > 0) dmg *= 1.4;
     const speedK = a.mounted ? a.rspeed / a.maxRide : 0;
@@ -1332,6 +1457,7 @@ class Battle {
     const s = this.vol(d.x);
     if (src) src.kills++;
     if (src?.team === 0 && this.heroCfg && d.def.undead) this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
+    if (this.archery && d.key === "x_dummy") { this.archery.score++; this.floater(d.x, d.y - 26, "TRAFIONY!", PAL.gold, true); this.crowd(d.x, d.y, 3); }
     if (d.hero || (this.cfg.arena && !this.cfg.arena.lethal)) {
       // bohater (i każdy na arenie) zostaje ogłuszony, nie ginie
       if (d.mounted) { d.mounted = false; const [hd] = this.dirIndex(d.heading); this.corpses.push({ x: d.x, y: d.y + 2, img: d.horse.frames[hd][0], flip: Math.cos(d.heading) < 0, rot: 0, undead: false, bones: false, t: 1, pooled: false, horse: true }); }
@@ -1383,7 +1509,7 @@ class Battle {
       if (!this.heroUp && this.orders[d.squad]) this.orders[d.squad].mode = "charge";
     }
     if (d.commander) this.commanderDown(d);
-    if (src?.hero) this.say(`Zabiłeś: ${d.def.name}`);
+    if (src?.hero) { this.say(`Zabiłeś: ${d.def.name}`); for (const u of this.units) if (u.team === 0 && u.active && !u.hero && dist(u.x, u.y, src.x, src.y) < 130) u.morale = Math.min(100, u.morale + (heavy ? 8 : 5)); }
   }
 
   heroDown() {
@@ -1426,7 +1552,8 @@ class Battle {
       this.say("Klątwa słabnie: nieumarli są wolniejsi i słabsi.", PAL.purpleL, true);
       this.slowT = 1.2; this.shake(4);
       for (let i = 0; i < 50; i++) this.parts.push({ x: d.x + rr(-6, 6), y: d.y, z: rr(4, 24), vx: rr(-20, 20), vy: rr(-20, 20), vz: rr(20, 70), life: 1.4, max: 1.4, col: pick([PAL.purpleL, PAL.purple]), kind: "soul" });
-      for (const u of this.units) if (u.team === d.team && u.active && u.def.undead) { u.decay = true; if (u.look.race === "skel" && chance(0.15)) this.kill(u, null); }
+      this.say("Nieumarli rozsypują się w proch!", PAL.purpleL, true);
+      for (const u of this.units) if (u.team === d.team && u.active && u.def.undead && u.key !== "u_dk" && u.key !== "u_necro") { u.decay = true; u.crumbleT = rr(1.5, 16); }
     } else {
       this.shout(`Dowódca wroga padł!`, PAL.gold);
       this.say("Wróg traci ducha!", PAL.gold, true);
@@ -1539,6 +1666,7 @@ class Battle {
   }
 
   updateAI(u: Unit, dt: number) {
+    if (u.def.speed === 0) { u.vx = 0; u.vy = 0; u.moving = false; return; }
     if (u.decay) {
       u.hp -= 1.3 * dt;
       if (chance(dt * 3)) this.parts.push({ x: u.x + rr(-4, 4), y: u.y, z: rr(4, 20), vx: rr(-6, 6), vy: rr(-6, 6), vz: rr(8, 20), life: 0.8, max: 0.8, col: PAL.purpleL, kind: "soul" });
@@ -1548,7 +1676,12 @@ class Battle {
     if ((u.def.ability || u.compAb) && !u.hero) unitAbilityAI(this, u, dt);
 
     const walled = this.map.wall && u.team === (this.cfg.siegeDefender ?? 1) && !this.map.wall.broken; // obrońcy za murami nie mają dokąd uciekać
-    if (!u.def.undead && !u.fleeing && u.morale < (walled ? 4 : 18) && !this.cfg.arena && u.lifeT <= 0) { u.fleeing = true; this.say(`${u.def.name} ucieka z pola bitwy!`, PAL.ash); }
+    if (!u.def.undead && !u.fleeing && u.morale < (walled ? 4 : 18) && !this.cfg.arena && u.lifeT <= 0) {
+      // przy przewadze wroga część się poddaje (więcej jeńców), reszta ucieka
+      const foesNear = this.units.some((e) => e.team !== u.team && e.active && dist(e.x, e.y, u.x, u.y) < 40);
+      if (u.team === 1 && foesNear && u.def.culture !== "monster" && chance(0.4)) { u.surrendered = true; u.state = "fled"; this.say(`${u.def.name} rzuca broń i się poddaje!`, PAL.gold); this.floater(u.x, u.y - 30, "PODDAJE SIĘ", PAL.boneHi, true); return; }
+      u.fleeing = true; this.say(`${u.def.name} ucieka z pola bitwy!`, PAL.ash);
+    }
     if (u.fleeing) {
       const ec = this.centroid(1 - u.team);
       const a = Math.atan2(u.y - ec.y, u.x - ec.x);
@@ -1563,7 +1696,8 @@ class Battle {
     }
 
     const o = this.ordersOf(u.team, u.squad);
-    const mode: Mode = o ? o.mode : "charge";
+    let mode: Mode = o ? o.mode : "charge";
+    if (u.key === "o_berserk" && this.time > 3) mode = "charge";   // berserkerzy wybiegają przed szereg
     if (mode === "ambush") {
       this.steer(u, u.slotX, u.slotY, u.def.speed * 0.5, dt, 3);
       for (const e of this.units) if (e.team !== u.team && e.active && dist(e.x, e.y, u.x, u.y) < (u.team === 1 ? 85 : 60)) { this.reveal(u); break; }
@@ -1584,9 +1718,13 @@ class Battle {
     if (u.bowDmg > 0 && t && !u.mounted && !u.hero) {
       const near = this.nearestEnemy(u);
       const closeThreat = near && dist(u.x, u.y, near.x, near.y) < 28;
+      // strzelec cofa się przed piechotą, zamiast od razu sięgać po nóż
+      if (closeThreat && u.ammo > 0 && !near.def.bow && !near.mounted && u.def.tier >= 2 && u.kiteT <= 0 && chance(dt * 2)) u.kiteT = 1.1;
+      if (u.kiteT > 0 && near) { const a = Math.atan2(u.y - near.y, u.x - near.x); this.steer(u, u.x + Math.cos(a) * 40, u.y + Math.sin(a) * 40, u.def.speed * 1.05, dt); u.wantFace = a + Math.PI; return; }
       const bow = u.def.bow || { dmg: u.bowDmg, range: 230, reload: 2.2, spread: 0.06 };
       const range = bow.range * (this.height(u.x, u.y) > 0.3 ? 1.3 : 1) * (this.cfg.night ? 0.75 : 1) * (this.fogged ? 0.6 : 1) * (this.cfg.rain ? 0.85 : 1);
       if (!closeThreat && fire && u.ammo > 0 && td < range && mode !== "charge") {
+        if (o?.volley) { u.wantFace = Math.atan2(t.y - u.y, t.x - u.x); u.moving = false; u.reload = Math.max(u.reload, 0.05); return; }   // czekają na salwę
         if (u.state === "idle") {
           this.steer(u, u.slotX, u.slotY, u.def.speed * 0.6, dt, 6);
           u.moving = false;
@@ -1615,6 +1753,18 @@ class Battle {
     const engaged = !!tgt && (mode === "charge" || (slotDist < engage + 18 && tdist < engage + leash));
     // oblężenie: część atakujących pcha taran i wieżę
     const W2 = this.map.wall;
+    // drabiny: co szósty atakujący niesie drabinę pod mur
+    const placed = W2 ? (W2 as any).placed as boolean[] : null;
+    if (W2 && placed && u.team !== this.cfg.siegeDefender && !u.def.bow && !u.mounted && u.id % 6 === 1 && placed.some((p) => !p)) {
+      let li = u.id % placed.length; if (placed[li]) li = placed.indexOf(false);
+      const px = W2.x0 - 10, py = W2.ladders[li];
+      u.carry = li;
+      if (dist(u.x, u.y, px, py) > 6) { this.steer(u, px, py, u.def.speed * 0.8, dt); return; }
+      u.carryT = (u.carryT || 0) + dt; u.moving = false;
+      if (u.carryT > 2) { u.carryT = 0; u.carry = -1; this.placeLadder(li); }
+      return;
+    }
+    u.carry = -1;
     if (W2 && u.team !== this.cfg.siegeDefender && !u.def.bow && !u.mounted && u.id % 4 === 0 && (!tgt || tdist > 40)) {
       const open = this.engines.filter((en) => !en.done && en.x < en.tx);
       const e = open.length ? open[(u.id >> 2) % open.length] : null;
@@ -1709,6 +1859,8 @@ class Battle {
       if (!u.def.bow && Math.abs(angDiff(u.slotFace, Math.atan2(e.y - u.y, e.x - u.x))) > 1.2) s += 30;
       if (pref != null && e.squad === pref) s -= 400;
       if (u.mounted && e.def.bow && !e.mounted) s -= 120;
+      if (u.mounted && (this.inForest(e.x, e.y) || this.cell(e.x, e.y) === 1)) s += 200;   // jazda omija las i bagno
+      if (u.def.bow) { if (e.hasShield && Math.abs(angDiff(e.face, Math.atan2(u.y - e.y, u.x - e.x))) < 1.0) s += 70; if (e.target && e.target !== u && e.state !== "idle") s -= 40; if (!e.hasShield) s -= 20; }
       if (e.commander && !u.def.bow) s += 40;
       if (u.def.bow) for (const f of this.units) if (f.team === u.team && f.active && dist(f.x, f.y, e.x, e.y) < 30) { s += 600; break; }
       // za murami: trudno dosięgnąć
@@ -1721,7 +1873,7 @@ class Battle {
   steer(u: Unit, tx: number, ty: number, speed: number, dt: number, arrive = 0) {
     let dx = tx - u.x, dy = ty - u.y;
     const d = Math.hypot(dx, dy) || 1;
-    let sp = speed * this.slowAt(u.x, u.y) * (this.cfg.rain ? 0.92 : 1) * (u.legT > 0 ? 0.55 : 1) * this.slope(u, tx, ty);
+    let sp = speed * this.slowAt(u.x, u.y) * (this.cfg.rain ? 0.92 : 1) * (u.legT > 0 ? 0.55 : 1) * this.slope(u, tx, ty) * (1 - 0.25 * u.fatigue);
     if (arrive && d < arrive * 4) sp *= d / (arrive * 4);
     dx /= d; dy /= d;
     let sx = 0, sy = 0;
@@ -1760,6 +1912,15 @@ class Battle {
     const siege = this.cfg.terrain === "siege";
     const defending = siege && this.cfg.siegeDefender === team;
     if (this.cfg.arena) { for (const k of Object.keys(ord)) { ord[Number(k)].mode = "charge"; ord[Number(k)].flank = null; } return; }
+    // orkowie: szarża z rykiem, mało formacji
+    if (!siege && !this.orcCry[team] && this.time > 4) {
+      const L = this.units.filter((u) => u.team === team && u.active);
+      if (L.length && L.filter((u) => u.def.culture === "orc").length > L.length * 0.6) {
+        this.orcCry[team] = true; this.charge[team] = true;
+        for (const k of Object.keys(ord)) { const o = ord[Number(k)]; if (o.mode !== "ambush") { o.mode = "charge"; o.flank = null; o.formation = "loose"; } }
+        this.sfx.battleCry(1); this.say(team === 1 ? "Orkowie ryczą i rzucają się do szarży!" : "Twoi orkowie ryczą i ruszają!", PAL.redL, true); this.shake(2);
+      }
+    }
     if (defending) {
       // obrońcy trzymają mury i bramę, ruszają tylko na wrogów w środku
       let inside = 0;
@@ -1919,10 +2080,21 @@ class Battle {
     for (const u of this.units) if (u.active && (u.state === "windup" || u.state === "strike")) fighting++;
     this.intensity = this.phase === "fight" ? clamp(fighting / 14, 0, 1) : 0;
     this.sfx.tick(realDt, this.intensity, this.cfg.rain);
+    if (this.phase === "deploy" && !this.paused) {
+      // rozstawienie: czas stoi, gracz ustawia oddziały (PPM przeciągnij), Enter / Spacja rozpoczyna
+      this.cmdOpen = true; this.slowmo = true;
+      this.handleOrders();
+      for (const o of Object.values(this.orders)) o.ax = Math.min(o.ax, this.cfg.terrain === "siege" ? this.map.wall.x0 - 60 : this.mw * 0.46);
+      this.relayoutT -= realDt; if (this.relayoutT <= 0) { this.relayoutT = 0.25; this.layoutAll(true); }
+      if (this.input.hit("Enter") || this.input.hit("Space")) this.startFight();
+      return;
+    }
     if (this.phase !== "fight" || this.paused) return;
 
     if (this.hitstop > 0) { this.hitstop -= realDt; this.handleOrders(); this.updateHero(0); return; }
     if (this.slowT > 0) this.slowT -= realDt;
+    if (this.cryCd > 0) this.cryCd -= realDt;
+    if (this.joust && (this.joust as any).resetT > 0) { (this.joust as any).resetT -= realDt; if ((this.joust as any).resetT <= 0) this.joustReset(); } if (this.trebAimCd > 0) this.trebAimCd -= realDt;
     if (this.focusT > 0) this.focusT -= realDt;
     this.slowmo = this.cmdOpen;
     const scale = this.slowmo ? 0.3 : this.focusT > 0 ? 0.4 : this.slowT > 0 ? 0.35 : 1;
@@ -2044,6 +2216,12 @@ class Battle {
   // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
   mopT = 0; lastHitT = 0; lastKillT = 0;
   checkEnd(dt = 0) {
+    if (this.archery) {
+      const left = this.units.filter((u) => u.key === "x_dummy" && u.active).length;
+      if (left === 0 || ((this.hero.ammo <= 0) && !this.arrows.length) || this.time > 50) { this.say(`Twoje trafienia: ${this.archery.score} · przeciwnik: ${this.archery.opp}`, PAL.gold, true); this.finish(this.archery.score > this.archery.opp || (this.archery.score === this.archery.opp && chance(0.5))); }
+      return;
+    }
+    if (this.joust && (this.joust.p[0] + this.joust.p[1] >= 3 || this.time > 90)) { this.say(`Kopie: ${this.joust.p[0]} : ${this.joust.p[1]}`, PAL.gold, true); this.finish(this.joust.p[0] > this.joust.p[1]); return; }
     // bezpiecznik: 45 s bez żadnego ciosu kończy impas (szturm odparty / pole bitwy dla silniejszego)
     if (this.phase === "fight" && !this.cfg.arena && (((this.time - this.lastHitT > 45 || this.time - this.lastKillT > 75) && this.time > 60) || this.time > 600)) {
       const pw = (t: number) => this.units.reduce((a, u) => a + (u.team === t && u.active && !u.fleeing ? u.hp : 0), 0) + this.reserves[t].length * 60;
@@ -2101,7 +2279,8 @@ class Battle {
           // ranni zamiast poległych: zależy od medycyny i strony
           const woundCh = team === 0 ? 0.5 + med * 0.03 : 0.3;
           if (chance(woundCh) && !u.def.undead) c.wounded++; else c.killed++;
-        } else if (u.state === "fled" && team === 1 && !win) { /* uciekli i wrócą */ }
+        } else if (u.surrendered && win) c.wounded++;   // poddani trafiają do niewoli
+        else if (u.state === "fled" && team === 1 && !win) { /* uciekli i wrócą */ }
         else if (u.state === "fled" && team === 0 && !win && chance(0.3)) c.killed++;
       }
       return [...m.values()].filter((c) => c.killed || c.wounded);

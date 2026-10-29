@@ -257,12 +257,15 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
     ...cfgExtra,
   };
   if (ctx.kind === "arena") {
-    const A = ctx.arena, mode = A.mode || (A.team ? "team3" : "duel");
-    cfg.arena = { kind: mode.startsWith("team") ? "team" : "duel", lethal: mode === "death" };
-    cfg.maxPerSide = mode === "waves" ? 3 : 20;
+    const A = ctx.arena as any, mode = A.mode || (A.team ? "team3" : "duel");
+    cfg.arena = { kind: mode.startsWith("team") ? "team" : mode === "beasts" ? "beasts" : "duel", lethal: mode === "death", joust: mode === "joust", archery: mode === "archery" };
+    cfg.maxPerSide = mode === "waves" ? 2 : 20;
     if (mode === "team3") cfg.player.troops = [{ type: pick(["m_sword", "a_maa", "v_legion"]), n: 2 }];
     if (mode === "team5") cfg.player.troops = [{ type: pick(["m_sword", "a_maa"]), n: 2 }, { type: pick(["v_legion", "o_warrior", "d_shield"]), n: 2 }];
+    const kit = ARENA_KITS[A.kit || 0];
+    if (kit && kit.weapon) cfg.player.hero = { ...cfg.player.hero, weapon: kit.weapon, shield: !!kit.shield, bowDmg: kit.bow || 0, ammo: kit.bow ? 20 : 0 };
     if (mode === "joust") cfg.player.hero = { ...cfg.player.hero, weapon: "lance", shield: true, mount: cfg.player.hero.mount || { hp: 130, speed: 118, accel: 66, turn: 2.8 } };
+    if (mode === "archery") cfg.player.hero = { ...cfg.player.hero, bowDmg: Math.max(cfg.player.hero.bowDmg || 0, 40), ammo: 12 };
     if (mode === "death") cfg.night = true;
   }
   G.ctx = ctx;
@@ -281,7 +284,12 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   G.state = "battle";
   hideMapHud();
   showBattleHud();
-  b.phase = "fight";
+  // rozstawienie przed bitwą (pole i szturm), chyba że zasadzka albo arena
+  const ambushed = ctx.kind === "field" && ctx.enemies.some((e) => (e as any).ambush);
+  b.phase = settings.deploy !== false && (ctx.kind === "field" || (ctx.kind === "siege" && !ctx.defend)) && !ambushed && !(ctx as any).sally ? "deploy" : "fight";
+  if (b.phase === "deploy") { b.cmdOpen = true; b.say("Rozstawienie: ustaw oddziały (wybierz numer, PPM przeciągnij linię). Enter lub Spacja: do boju!", PAL.gold, true); }
+  // sojusznicy słuchają tylko przy dobrej relacji z ich panem (albo gdy jesteś władcą lub marszałkiem)
+  b.cfg.allyObey = P.status === "król" || ctx.allies.every((a) => a.lord == null || a.lord < 0 || (w.lords[a.lord]?.relation ?? 0) >= 10);
   const intro = ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
   b.say(intro, PAL.bone, true);
   b.shout(ctx.title, PAL.gold);
@@ -342,6 +350,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   P.kills += r.heroKills;
   const lines: string[] = [];
   let lootGold = 0;
+  let sackNext: (() => void) | null = null;
   const lootItems: string[] = [];
   if (ctx.kind === "arena") { arenaFinished(r); return; }
   // straty własne i sojuszników
@@ -387,7 +396,8 @@ function applyBattleResult(r: BattleResult, auto = false) {
       if (ctx.place.kind === "camp" || ctx.place.kind === "cemetery") { lootGold += 150; P.gold += 150; P.renown += 10; }
     }
     if (ctx.kind === "siege" && ctx.settlement && ctx.defend) { const s = ctx.settlement; s.siegeBy = []; s.siegeDays = 0; s.relation += 15; P.renown += 30; lines.push(`Oblężenie ${s.name} przełamane!`); chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold); }
-    else if (ctx.kind === "siege" && ctx.settlement) siegeWon(ctx.settlement, lines);
+    else if (ctx.kind === "siege" && ctx.settlement) { siegeWon(ctx.settlement, lines); if (ctx.settlement.kind !== "village") sackNext = () => showSack(ctx.settlement); }
+    if ((ctx as any).sally && ctx.settlement) { const s = ctx.settlement; for (const e of ctx.enemies) { e.siege = undefined; } s.siegeBy = []; s.siegeDays = 0; lines.push(`Nocny wypad rozbił obóz oblegających. ${s.name} wolne!`); P.renown += 25; chron(w, `${P.name} rozbija nocnym wypadem oblężenie ${s.name}.`, PAL.gold); }
     if (ctx.onWin) ctx.onWin(lines);
   } else {
     P.morale = clamp(P.morale - 15, 0, 100);
@@ -407,7 +417,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   }
   // bitwy z lordami zmieniają nastawienie frakcji
   if (auto) lines.unshift(r.win ? "Rozstrzygnięcie bez walki: twoi ludzie zwyciężają." : "Rozstrzygnięcie bez walki: bitwa przegrana.");
-  showAftermath(r, lootGold, lootItems, lines);
+  showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
   G.battle = null;
 }
 
@@ -444,6 +454,23 @@ function releaseFromCaptivity(text: string) {
   closeScreen(); showMapHud(); refreshMapHud();
 }
 
+// Los zdobytego miasta: oszczędzić, złupić albo spalić.
+function showSack(s: Settlement) {
+  const w = WORLD, P = w.player;
+  const loot = Math.round(200 + s.prosperity * (s.kind === "town" ? 9 : 5));
+  const done = (txt: string) => { toast(txt, PAL.gold); showMapHud(); refreshMapHud(); autosave(); };
+  showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("town", w.day, s.culture, isNight(w)), "scene-img")}</div>
+    <h1>${s.name} zdobyte</h1><p>Twoi ludzie stoją na rynku z gołymi ostrzami. Mieszczanie patrzą z okien. Co rozkażesz?</p>
+    <div class="choices">
+      <button class="choice" data-a="spare"><span class="k">1</span>Oszczędź miasto <span class="muted">(relacja +15, honor +2)</span></button>
+      <button class="choice" data-a="loot"><span class="k">2</span>Złup skarbiec i domy <span class="muted">(+${loot} denarów, dobrobyt −25, relacja −20, honor −2)</span></button>
+      <button class="choice" data-a="burn"><span class="k">3</span>Spal, ku przestrodze <span class="muted">(+${Math.round(loot / 3)} denarów, dobrobyt w gruzach, relacja −50, honor −5, postrach)</span></button>
+    </div></div>`, {
+    spare: () => { s.relation += 15; P.honor += 2; chron(w, `${P.name} oszczędza mieszkańców ${s.name}.`, PAL.gold); done("Mieszkańcy odetchnęli. Zapamiętają to."); },
+    loot: () => { P.gold += loot; s.prosperity = Math.max(5, s.prosperity - 25); s.relation -= 20; P.honor -= 2; P.morale = Math.min(100, P.morale + 10); chron(w, `${P.name} łupi ${s.name}.`, PAL.redL); done(`Łupy: ${loot} denarów. Ludzie są zadowoleni.`); },
+    burn: () => { P.gold += Math.round(loot / 3); s.prosperity = 5; s.relation -= 50; P.honor -= 5; P.renown += 15; chron(w, `${P.name} pali ${s.name}. Łuna widoczna z daleka.`, PAL.redL); done("Miasto płonie. Wieść o tym rozejdzie się szybko."); },
+  }, "dialog-scr");
+}
 function siegeWon(s: Settlement, lines: string[]) {
   const w = WORLD, P = w.player, p = playerParty(w);
   s.siegeBy = []; s.siegeDays = 0; p.siege = undefined;

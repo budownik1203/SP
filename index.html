@@ -259,7 +259,7 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .bk.you{border-color:#e9c45e;color:#e9c45e}.bk.out{opacity:.4;text-decoration:line-through}.bk.empty{color:#665;text-align:center}
 .advbar{height:.5em;background:#7a2a20;border:1px solid #000;position:relative}.advbar i{position:absolute;left:0;top:0;bottom:0;background:#5d9a46;transition:width .4s}
 #mini{display:block;margin-top:.3em;border:1px solid rgba(0,0,0,.6);width:7.5em;margin-left:auto;opacity:.78;background:rgba(20,22,14,.35)}
-#mini.big{position:fixed;left:50%;top:10%;transform:translateX(-50%);width:min(60vw,640px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
+#mini.big{position:fixed;right:1.2%;top:16%;width:min(34vw,400px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
 .grp .ic{width:1.1em;height:1.1em;vertical-align:-.15em;margin-right:.25em}
 #abil .ab{min-width:6.5em;min-height:3.4em}#abil .ab .ic{width:1.6em;height:1.6em;display:block;margin:0 auto .1em}
 .casl{display:grid;grid-template-columns:repeat(auto-fill,minmax(11em,1fr));gap:.3em}
@@ -270,6 +270,11 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .cas.best{border-color:#e9c45e;height:100%}.cas.best canvas{width:40px}
 .cas.loot{cursor:pointer}.cas.loot input{margin:0 .2em 0 0}.cas.loot:has(input:not(:checked)){opacity:.45}
 p.rel{color:#e9c45e}
+#startfight{position:absolute;left:50%;top:4.2em;transform:translateX(-50%);pointer-events:auto;z-index:6;font-size:1.1em;padding:.4em 1.2em}
+.acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr));gap:.4em;margin:.4em 0}
+.acard{display:flex;flex-direction:column;gap:.15em;background:#1c1610;border:1px solid #3a2e22;padding:.4em;font-size:.9em}.acard:hover{border-color:#8a6d2a}
+.apic{height:42px;display:flex;justify-content:center;align-items:flex-end;gap:2px;background:linear-gradient(#2a2119,#3b2e1d)}.apic canvas{height:38px;width:auto}
+.bracket.b16 .bk{font-size:11px;padding:2px 5px}.bk.lord{border-color:#a78a3a}
 </style>
 
 <div id="wrap">
@@ -296,6 +301,7 @@ p.rel{color:#e9c45e}
     <div class="hud" id="log"></div>
     <div class="hud" id="banner" hidden></div>
     <div class="hud" id="slow" hidden></div>
+    <button id="startfight" hidden>Do boju! <kbd>Enter</kbd></button>
   </div>
   <div class="hud frame" id="cmd" hidden></div>
 

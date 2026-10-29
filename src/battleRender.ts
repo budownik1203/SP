@@ -38,7 +38,13 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
   for (const p of b.preview) drawSlots(p.slots, p.col, clamp(p.t, 0, 1));
   if (b.drag) {
     pxLine(g, b.drag.sx - sx, b.drag.sy - sy, b.drag.ex - sx, b.drag.ey - sy, PAL.gold);
-    for (const p of b.dragPlan(b.drag)) drawSlots(p.slots, SQUAD_COLORS[p.g], 0.95);
+    for (const p of b.dragPlan(b.drag)) {
+      drawSlots(p.slots, SQUAD_COLORS[p.g], 0.95);
+      // podgląd szerokości i głębokości szyku
+      const cols = Math.max(1, Math.min(p.cols || p.slots.length, p.slots.length)), rows = Math.ceil(p.slots.length / cols);
+      const lx = p.slots.reduce((m, q) => Math.min(m, q.x), 1e9), ly = p.slots.reduce((m, q) => Math.min(m, q.y), 1e9);
+      pxSmall(g, `${cols}X${rows}`, Math.round(p.ax - sx), Math.round(ly - sy) - 3, SQUAD_COLORS[p.g]); void lx;
+    }
   }
   // celownik słupa światła
   for (const f of b.fx) if (f.kind === "beam" && f.t < f.max) {
@@ -431,6 +437,11 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
     g.fillRect(fx, py, 8, 6); g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
     if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
+  }
+  if (u.carry >= 0) {   // drabina niesiona na ramieniu
+    g.fillStyle = PAL.ink; g.fillRect(ix + 2, iy + 4, 22, 3);
+    g.fillStyle = PAL.wood; g.fillRect(ix + 3, iy + 4, 20, 1); g.fillRect(ix + 3, iy + 6, 20, 1);
+    g.fillStyle = PAL.woodD; for (let k = 4; k < 22; k += 4) g.fillRect(ix + k, iy + 4, 1, 3);
   }
   if (u.fleeing) {   // biała flaga nad uciekającym
     const px = bx, py = iy - 8;

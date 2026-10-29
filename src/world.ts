@@ -567,7 +567,7 @@ function partySpeed(w: World, p: Party): number {
   let sp = 4.4 - Math.min(1.8, n * 0.012);
   sp += (cav / n) * 1.3;
   sp -= (wounded / n) * 1.1;
-  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; }
+  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12; }   // lekka przewaga gracza w pościgu
   if (p.kind === "caravan" || p.kind === "villagers") sp *= 0.8;
   if (p.kind === "monster") sp *= 1.15;
   if (p.kind === "undead") sp *= 0.85;
@@ -634,7 +634,12 @@ function dailyTick(w: World) {
     // oblężenie AI
     if (s.siegeBy.length) {
       s.siegeBy = s.siegeBy.filter((id) => { const p = partyById(w, id); return p && p.siege === s.id && atWar(w, p.faction, s.faction); });
-      if (s.siegeBy.length) { s.siegeDays++; if (s.siegeDays >= 4 && !s.siegeBy.includes(w.pid)) aiAssault(w, s); }
+      if (s.siegeBy.length) {
+        s.siegeDays++;
+        // głód: po wyczerpaniu zapasów załoga słabnie z dnia na dzień
+        if (s.siegeDays > siegeStores(s)) { applyLosses(s.garrison, 0.05); if (s.siegeDays === siegeStores(s) + 1) chron(w, `Głód w oblężonym ${s.name}. Załoga słabnie.`, PAL.redL); }
+        if (s.siegeDays >= 4 && !s.siegeBy.includes(w.pid)) aiAssault(w, s);
+      }
       else s.siegeDays = 0;
     }
   }
@@ -725,6 +730,7 @@ function captureSettlement(w: World, s: Settlement, faction: number, ownerLord: 
   w.ownerVersion++;
   chron(w, `${s.name} pada! ${factionName(faction)} odbiera to miejsce frakcji ${factionName(old)}.`, PAL.gold);
 }
+function siegeStores(s: Settlement) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)); }
 function applyLosses(list: Troop[], frac: number) {
   for (const t of list.slice()) { const n = Math.min(t.n, Math.round(t.n * frac * rr(0.8, 1.2))); removeTroops(list, t.type, n); }
 }
@@ -953,6 +959,7 @@ const COMPANIONS: { id: string; name: string; race: Race; role: string; weapon: 
   { id: "ilse", name: "Siostra Ilse", race: "human", role: "kapłanka", weapon: "mace", shield: true, armor: 0.16, bow: 0, horse: false, hp: 120, cost: 400, wage: 10, bio: "Wygnana z zakonu za walkę z nieumarłymi bez rozkazu. Leczy rany i dusze.", helm: "mitre", body: "robe" },
   { id: "dvalin", name: "Dvalin Ognisty Kufel", race: "dwarf", role: "obrońca", weapon: "warhammer", shield: true, armor: 0.28, bow: 0, horse: false, hp: 170, cost: 600, wage: 14, bio: "Krasnolud wygnany z Khazgrim za zbyt głośne śpiewanie w kopalni.", helm: "dwarf", body: "plate" },
   { id: "grashna", name: "Grashna", race: "orc", role: "zwiadowczyni", weapon: "axe", shield: false, armor: 0.14, bow: 0, horse: true, hp: 140, cost: 380, wage: 10, bio: "Orczyca, która porzuciła hordę. Jeździ jak burza, milczy jak grób.", helm: "none", body: "leather" },
+  { id: "brakk", name: "Brakk Żelazna Miarka", race: "dwarf", role: "inżynier", weapon: "warhammer", shield: false, armor: 0.22, bow: 0, horse: false, hp: 140, cost: 550, wage: 13, bio: "Krasnoludzki saper. Postawi wieżę oblężniczą z byle czego i policzy, ile głazów trzeba na mur.", helm: "dwarf", body: "mail" },
   { id: "teodor", name: "Teodor Zdrajca", race: "human", role: "rycerz", weapon: "sword", shield: true, armor: 0.25, bow: 0, horse: true, hp: 150, cost: 800, wage: 18, bio: "Pozbawiony herbu rycerz Korony. Twierdzi, że był niewinny.", helm: "great", body: "plate" },
 ];
 function makeCompanion(id: string): CompanionState {

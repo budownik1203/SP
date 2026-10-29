@@ -224,10 +224,11 @@ function updateTip() {
 }
 
 // ---------- Osady ----------
-const SET = { id: 0, tab: "main", bet: 50, quest: null as Quest | null, unit: "" };
+const SET = { id: 0, tab: "main", bet: 0, kit: 0, quest: null as Quest | null, unit: "" };
 function enterSettlement(s: Settlement) {
   const w = WORLD, P = w.player;
   playerParty(w).path = [];
+  G.view.hover = null; const tipEl = document.getElementById("tip"); if (tipEl) tipEl.hidden = true;
   SET.id = s.id; SET.tab = "main"; SET.quest = null;
   // dostarczenie listu
   for (const q of P.quests) if (!q.done && q.kind === "letter" && q.target === s.id) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => toast(l, PAL.gold)); }
@@ -329,7 +330,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
           <td><button class="mini" data-a="buy" data-v="${k}:1">Kup</button><button class="mini" data-a="buy" data-v="${k}:5">×5</button><button class="mini" data-a="sell" data-v="${k}:1" ${(P.goods[k] || 0) > 0 ? "" : "disabled"}>Sprzedaj</button><button class="mini" data-a="sell" data-v="${k}:all" ${(P.goods[k] || 0) > 0 ? "" : "disabled"}>Wszystko</button></td></tr>`).join("")}</table>
         <p class="tip">Ceny zależą od zapasów. Karawany i wojna je zmieniają. Kupuj tam, gdzie towaru jest dużo, sprzedawaj tam, gdzie go brak.</p>`,
         acts: {
-          buy: (v) => { const [k, ns] = v.split(":"); let n = Number(ns); for (let i = 0; i < n; i++) { const pr = buyPrice(w, s, k); if (P.gold < pr || s.stock[k] < 1) break; P.gold -= pr; s.stock[k]--; P.goods[k] = (P.goods[k] || 0) + 1; } sfx.coin(); re(); },
+          buy: (v) => { const [k, ns] = v.split(":"); if (k === "grain" && P.quests.some((q) => !q.done && q.kind === "grain" && q.giver === s.id)) { toast("Głodują: zboża nie sprzedadzą. Przywieź je z innego miejsca.", PAL.redL); return; } let n = Number(ns); for (let i = 0; i < n; i++) { const pr = buyPrice(w, s, k); if (P.gold < pr || s.stock[k] < 1) break; P.gold -= pr; s.stock[k]--; P.goods[k] = (P.goods[k] || 0) + 1; } sfx.coin(); re(); },
           sell: (v) => { const [k, ns] = v.split(":"); let n = ns === "all" ? P.goods[k] || 0 : Number(ns); for (let i = 0; i < n && (P.goods[k] || 0) > 0; i++) { P.gold += sellPrice(w, s, k); s.stock[k]++; P.goods[k]--; } sfx.coin(); re(); },
         },
       };
@@ -378,23 +379,31 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       };
     }
     case "arena": {
-      const tour = s.tournament > 0;
-      const row = (mode: string, title: string, desc: string, prize: string, fee = 0) => `<div class="arow"><div><b>${title}</b><br><span class="muted">${desc}</span></div><button class="mini" data-a="fight" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee} · ` : ""}${prize}</button></div>`;
+      const tour = s.tournament > 0, night = isNight(w);
+      const wins = (s as any).arenaWins || 0, champ = (s as any).champion === "player";
+      const card = (mode: string, title: string, desc: string, prize: string, pic2: string, fee = 0) => `<div class="acard"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`;
+      const kitRow = `<div class="row"><span>Zestaw:</span>${ARENA_KITS.map((k, i) => `<button class="mini ${SET.kit === i ? "on" : ""}" data-a="kit" data-v="${i}">${k.name}</button>`).join("")}</div>`;
       return {
-        html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu, nikt tu nie ginie… zwykle.</p>
-          ${row("duel", "Pojedynek", "jeden przeciwnik, broń jak twoja", "nagroda 40")}
-          ${row("team3", "Drużyny 3 na 3", "ty i dwóch zawodników", "nagroda 70")}
-          ${row("team5", "Drużyny 5 na 5", "większa przepychanka na piasku", "nagroda 110")}
-          ${row("waves", "Fala za falą", "kolejni przeciwnicy wchodzą, gdy padają poprzedni", "nagroda 160")}
-          ${row("joust", "Pojedynek na kopie", "konno, z kopią w galopie (R)", "nagroda 90")}
-          ${row("death", "Walka na śmierć", "ciemny klub nocą: prawdziwa broń, przeciwnik ginie", "nagroda 300", 60)}
-          ${tour ? `<h2>Turniej (${s.tournament} dni)</h2><p>Drabinka ośmiu zawodników: ćwierćfinał, półfinał (na kopie) i finał. Zwycięzca: 600 denarów i sława.</p>
-            <div class="row"><span>Zakład na siebie: <input type="number" min="0" max="${P.gold}" step="10" value="${SET.bet}" data-in="bet" class="num"></span><button class="mini" data-a="tour">Wejdź do turnieju</button></div>` : "<p class='muted'>Turniej obecnie się nie odbywa. Ogłoszenia pojawiają się na mapie.</p>"}
-          <p class="tip">Na arenie walczysz swoim sprzętem, ale bez armii i kompanów.</p>`,
+        html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu.${wins ? ` Twoje zwycięstwa tutaj: <b>${wins}</b>.` : ""}${champ ? ` <span class="gold">${ic("crown")} Mistrz areny ${s.name}</span>` : ` <span class="muted">(10 zwycięstw: tytuł mistrza areny)</span>`}</p>
+          ${kitRow}
+          <div class="row"><span>Zakład na siebie: <input type="number" min="0" max="${P.gold}" step="10" value="${SET.bet}" data-in="bet" class="num"></span><span class="muted">wygrana zwraca podwójnie</span></div>
+          <div class="acards">
+          ${card("duel", "Pojedynek", "jeden przeciwnik", "40 den.", unitThumb("a_maa"))}
+          ${card("team3", "3 na 3", "ty i dwóch zawodników", "70 den.", unitThumb("m_sword") + unitThumb("m_sword"))}
+          ${card("team5", "5 na 5", "przepychanka drużyn", "110 den.", unitThumb("v_legion") + unitThumb("o_warrior"))}
+          ${card("waves", "Fale", "coraz silniejsi, bonus za serię bez ran", "160 den.", unitThumb("o_berserk"))}
+          ${card("beasts", "Bestie", "wilki i wilk olbrzym", "130 den.", unitThumb("x_wolf") + unitThumb("x_direwolf"))}
+          ${card("archery", "Łucznictwo", "12 strzał, 8 tarcz, kto więcej", "60 den.", unitThumb("x_dummy"))}
+          ${card("joust", "Kopie", "3 przejazdy, punkty za trafienie", "90 den.", unitThumb("a_knight"))}
+          ${night ? card("death", "Zaułek za areną", "nocą, prawdziwa broń, przeciwnik ginie", "300 den.", unitThumb("b_chief"), 60) : ""}
+          </div>
+          ${tour ? `<h2>${ic("banner")} Turniej (${s.tournament} dni)</h2><p>Drabinka 16 zawodników, wśród nich lordowie. Rundy: pieszo, łucznictwo, kopie i finał pieszo. Zwycięzca: 800 denarów, sława i +1 punkt drzewka.</p>
+            <button class="mini" data-a="tour">Wejdź do turnieju</button>` : "<p class='muted'>Turniej obecnie się nie odbywa. Ogłoszenia pojawiają się na mapie.</p>"}`,
         acts: {
           bet: (v) => { SET.bet = clamp(Math.round(Number(v) || 0), 0, P.gold); },
-          fight: (v) => { const [mode, fee] = v.split(":"); P.gold -= Number(fee) || 0; arenaFight(s, mode, false, 0, 0); },
-          tour: () => { const bet = clamp(SET.bet, 0, P.gold); P.gold -= bet; startTourney(s, bet); },
+          kit: (v) => { SET.kit = Number(v); re(); },
+          pick: (v) => { const [mode, fee] = v.split(":"); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
+          tour: () => { startTourney(s, 0); },
         },
       };
     }
@@ -426,9 +435,13 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const n = bes.reduce((a, o) => a + troopCount(o.troops), 0);
       return {
         html: `<p class="bad">${s.name} jest oblężone od ${s.siegeDays} dni przez: ${bes.map((o) => o.name).join(", ")} (${n} ludzi).</p>
-          <p>Możesz stanąć na murach razem z załogą (${troopCount(s.garrison)} ludzi). Obrońcy mają przewagę blanków, kamieni i wrzącego oleju.</p>
-          <div class="btns"><button data-a="defendNow">Broń murów!</button></div>`,
-        acts: { defendNow: () => launchBattle({ kind: "siege", defend: true, enemies: bes, allies: [], garrisonAlly: s.garrison, settlement: s, title: `Obrona: ${s.name}` }, { siegeDefender: 0, engines: { ram: chance(0.7), tower: chance(0.4) } }) },
+          <p>Możesz stanąć na murach razem z załogą (${troopCount(s.garrison)} ludzi). Obrońcy mają przewagę blanków, kamieni, balisty i wrzącego oleju.</p>
+          <p class="${s.siegeDays > siegeStores(s) ? "bad" : "muted"}">${ic("food")} Zapasy: ${s.siegeDays > siegeStores(s) ? "skończyły się, załoga głoduje" : `na ok. ${siegeStores(s) - s.siegeDays} dni`}</p>
+          <div class="btns"><button data-a="defendNow">Broń murów!</button>${isNight(w) ? `<button class="alt" data-a="sally">Nocny wypad na obóz wroga</button>` : `<button class="alt" disabled title="Tylko nocą">Nocny wypad (nocą)</button>`}</div>`,
+        acts: {
+          defendNow: () => launchBattle({ kind: "siege", defend: true, enemies: bes, allies: [], garrisonAlly: s.garrison, settlement: s, title: `Obrona: ${s.name}` }, { siegeDefender: 0, engines: { ram: chance(0.7), tower: chance(0.4) } }),
+          sally: () => { const half = s.garrison.map((t) => ({ ...t, n: Math.ceil(t.n / 2) })); launchBattle({ kind: "field", enemies: bes, allies: [], garrisonAlly: half, settlement: s, title: `Wypad z ${s.name}`, sally: true } as any, { sally: true, night: true, terrain: "plains" }); },
+        },
       };
     }
     case "siege": {
@@ -437,8 +450,9 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const lordsInside = w.parties.filter((o) => o.kind === "lord" && o.faction === s.faction && dist(o.x, o.y, s.cx * WCELL, s.cy * WCELL) < 20);
       return {
         html: `<p>${s.name} broni ${def} ludzi załogi${lordsInside.length ? ` i armie: ${lordsInside.map((l) => l.name).join(", ")}` : ""}.</p>
-          ${inSiege ? `<p>Oblężenie trwa ${s.siegeDays} dni. ${s.siegeDays >= 1 ? "Drabiny gotowe." : "Ludzie zbijają drabiny (1 dzień)."}</p>
-            <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
+          ${inSiege ? `<p>Oblężenie trwa ${s.siegeDays} dni. ${s.siegeDays >= 1 ? "Drabiny gotowe, trzeba je donieść pod mur w bitwie." : "Ludzie zbijają drabiny (1 dzień)."} <span class="${s.siegeDays > siegeStores(s) ? "gold" : "muted"}">${s.siegeDays > siegeStores(s) ? "Obrońcy głodują." : `Zapasy obrońców: ok. ${siegeStores(s) - s.siegeDays} dni.`}</span></p>
+            ${hasEngineer() ? `<p class="tip">${ic("hammer")} Inżynier w drużynie: możesz budować wieżę i trebusz. W bitwie T: strzał z trebusza w miejsce kursora.</p>` : `<p class="tip">${ic("hammer")} Bez inżyniera (kompan) zbudujesz tylko taran. Szukaj krasnoludzkiego sapera w karczmach.</p>`}
+            <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : e.k !== "ram" && !hasEngineer() ? `<button class="mini" disabled>Potrzebny inżynier</button>` : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
             <p class="tip">Każdy dzień oczekiwania posuwa budowę zaznaczonych machin. Bez taranu brama ledwo drgnie.</p>
             <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button><button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
             : `<p>Oblężenie zablokuje dostawy i da czas na zbicie drabin. Obrońcy mają przewagę murów.</p><div class="btns"><button data-a="besiege">Rozpocznij oblężenie</button></div>`}
@@ -459,6 +473,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
   }
   return { html: "", acts: {} };
 }
+function hasEngineer() { return WORLD.player.companions.some((c) => c.role === "inżynier"); }
 const ENGINES = [
   { k: "ram", name: "Taran", days: 1, desc: "Pchany pod bramę, rozbija ją w kilka uderzeń." },
   { k: "tower", name: "Wieża oblężnicza", days: 2, desc: "Podjeżdża pod mur i opuszcza pomost." },
@@ -526,9 +541,11 @@ function raidVillage(s: Settlement) {
 function offerQuest(s: Settlement): Quest | null {
   const w = WORLD, P = w.player;
   if (P.quests.some((q) => !q.done && q.giver === s.id)) return null;
+  if ((s as any).questCd > w.day) return null;   // po wykonanym zadaniu chwila przerwy
   const h = hashInt(s.seed + w.day);
   const kinds: Quest["kind"][] = s.kind === "village" ? ["grain", "wolves", "bandits"] : ["bandits", "letter", "bandits"];
-  const kind = kinds[h % kinds.length];
+  let kind = kinds[h % kinds.length];
+  if (kind === "grain" && s.stock.grain >= 10) kind = "wolves";   // o zboże proszą tylko, gdy naprawdę go brakuje
   const id = w.questId++;
   if (kind === "bandits") {
     const b = w.parties.filter((p) => p.kind === "bandit").sort((a, c) => dist(a.x, a.y, s.cx * WCELL, s.cy * WCELL) - dist(c.x, c.y, s.cx * WCELL, s.cy * WCELL))[0];
@@ -541,7 +558,7 @@ function offerQuest(s: Settlement): Quest | null {
     if (!t) return null;
     return { id, kind, giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };
   }
-  if (kind === "grain") { const n = 8 + (h % 10); return { id, kind, giver: s.id, target: s.id, amount: n, reward: n * 22, days: 10, text: `Przywieź ${n} worków zboża do ${s.name}. Ludzie głodują.`, done: false }; }
+  if (kind === "grain") { const n = Math.max(6, Math.round(16 - s.stock.grain) + (h % 4)); return { id, kind, giver: s.id, target: s.id, amount: n, reward: n * 22, days: 10, text: `Przywieź ${n} worków zboża do ${s.name}. Ludzie głodują.`, done: false }; }
   const lair = w.places.filter((p) => p.kind === "lair" && p.cleared <= 0).sort((a, c) => dist(a.cx, a.cy, s.cx, s.cy) - dist(c.cx, c.cy, s.cx, s.cy))[0];
   if (!lair) return null;
   lair.seen = true; w.explored[cidx(lair.cx, lair.cy)] = 1;
@@ -551,7 +568,7 @@ function completeQuest(q: Quest, lines: string[]) {
   const w = WORLD, P = w.player;
   q.done = true; q.days = 0;
   P.gold += q.reward; P.renown += 8; P.honor += 1;
-  const s = w.settlements[q.giver]; if (s) s.relation += 8;
+  const s = w.settlements[q.giver]; if (s) { s.relation += 8; (s as any).questCd = w.day + 7; }
   gainXp(P, 60 + Math.round(q.reward / 5), lines);
   lines.push(`Zadanie wykonane: ${q.text} Nagroda: ${q.reward} denarów.`);
   chron(w, `${P.name} wykonuje zadanie dla ${s ? s.name : "ludzi"}.`, PAL.moss);
@@ -559,85 +576,117 @@ function completeQuest(q: Quest, lines: string[]) {
 
 // ---------- Arena ----------
 const ARENA_FOES = ["m_sword", "a_maa", "v_legion", "o_warrior", "d_shield", "v_veteran", "o_berserk", "a_guard", "a_knight", "d_warden"];
-const ARENA_PRIZE: Record<string, number> = { duel: 40, team3: 70, team5: 110, waves: 160, joust: 90, death: 300 };
-const TOURNEY_NAMES = ["Gerd Żelazny", "Mirko z Valmory", "Hagen Rudy", "Sybil Ostrze", "Brom Krasnolud", "Ułan Kossa", "Rycerz Bez Herbu", "Draga Ork", "Ostap Wilczy", "Lena z Kassii", "Tybalt Szary", "Kurt Topór"];
+const ARENA_PRIZE: Record<string, number> = { duel: 40, team3: 70, team5: 110, waves: 160, beasts: 130, archery: 60, joust: 90, death: 300 };
+const ARENA_KITS: { name: string; weapon?: string; shield?: boolean; bow?: number }[] = [
+  { name: "Własny" }, { name: "Miecz i tarcza", weapon: "sword", shield: true }, { name: "Dwuręczny", weapon: "longsword", shield: false },
+  { name: "Włócznia", weapon: "spear", shield: false }, { name: "Topór i tarcza", weapon: "axe", shield: true }, { name: "Łuk i nóż", weapon: "dagger", shield: false, bow: 42 },
+];
+const TOURNEY_NAMES = ["Gerd Żelazny", "Mirko z Valmory", "Hagen Rudy", "Sybil Ostrze", "Brom Krasnolud", "Ułan Kossa", "Rycerz Bez Herbu", "Draga Ork", "Ostap Wilczy", "Lena z Kassii", "Tybalt Szary", "Kurt Topór", "Wilk z Brodów", "Jasna Agata", "Orm Kamienny", "Szczerbaty Lech", "Ida z Marchii"];
+const ROUND_NAME = ["1/8 finału", "ćwierćfinał", "półfinał", "finał"];
+const ROUND_MODE = ["duel", "archery", "joust", "duel"];
 function arenaFight(s: Settlement, mode: string, tournament: boolean, round: number, bet: number, foeKey?: string) {
   const w = WORLD, P = w.player;
-  const tier = tournament ? round + 2 : Math.min(4, 1 + Math.floor(P.level / 3));
+  const tier = tournament ? round + 1 : Math.min(4, 1 + Math.floor(P.level / 3));
   const pool = ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier <= tier + 1 && UNITS[k].tier >= Math.max(1, tier - 1));
   const foes: Troop[] = [];
-  if (mode === "joust") addTroops(foes, foeKey && UNITS[foeKey].mount ? foeKey : pick(["a_knight", "v_cata", "a_knight"]), 1);
+  if (mode === "joust") addTroops(foes, foeKey && UNITS[foeKey]?.mount ? foeKey : pick(["a_knight", "v_cata", "a_knight"]), 1);
+  else if (mode === "archery") { /* tarcze stawia bitwa */ addTroops(foes, "x_dummy", 1); }
+  else if (mode === "beasts") { for (let i = 0; i < 4; i++) addTroops(foes, "x_wolf", 1); addTroops(foes, "x_direwolf", 1); }
+  else if (mode === "waves") { const ws = ["b_bandit", "m_sword", "a_maa", "o_warrior", "v_veteran", "o_berserk", "a_guard"].filter((k) => UNITS[k]); for (const k of ws) addTroops(foes, k, 1); }
   else if (foeKey) addTroops(foes, foeKey, 1);
-  else { const n = mode === "team3" ? 3 : mode === "team5" ? 5 : mode === "waves" ? 7 : 1; for (let i = 0; i < n; i++) addTroops(foes, pick(pool.length ? pool : ["m_sword"]), 1); }
-  const titles: Record<string, string> = { duel: "Arena: pojedynek", team3: "Arena: 3 na 3", team5: "Arena: 5 na 5", waves: "Arena: fala za falą", joust: "Pojedynek na kopie", death: "Walka na śmierć" };
-  launchBattle({ kind: "arena", enemies: [], allies: [], enemyTroops: foes, settlement: s, arena: { tournament, round, bet, team: mode.startsWith("team"), mode, foe: foeKey }, title: tournament ? `Turniej: ${["ćwierćfinał", "półfinał", "finał"][round - 1]}` : titles[mode] });
+  else { const n = mode === "team3" ? 3 : mode === "team5" ? 5 : 1; for (let i = 0; i < n; i++) addTroops(foes, pick(pool.length ? pool : ["m_sword"]), 1); }
+  const titles: Record<string, string> = { duel: "Arena: pojedynek", team3: "Arena: 3 na 3", team5: "Arena: 5 na 5", waves: "Arena: fala za falą", beasts: "Arena: bestie", archery: "Łucznictwo", joust: "Pojedynek na kopie", death: "Zaułek: walka na śmierć" };
+  launchBattle({ kind: "arena", enemies: [], allies: [], enemyTroops: foes, settlement: s, arena: { tournament, round, bet, team: mode.startsWith("team"), mode, foe: foeKey, kit: tournament ? 0 : SET.kit } as any, title: tournament ? `Turniej: ${ROUND_NAME[round - 1]}` : titles[mode] });
 }
-// Turniej: drabinka 8 zawodników, 3 rundy. Pozostałe pary rozstrzyga los ważony siłą.
-interface Tourney { sid: number; names: string[]; keys: string[]; alive: boolean[]; round: number; bet: number; opp?: number; }
+// Turniej: drabinka 16 zawodników (w tym miejscowi lordowie), 4 rundy różnego rodzaju.
+interface Tourney { sid: number; names: string[]; keys: string[]; lords: number[]; alive: boolean[]; out: number[]; round: number; bet: number; opp?: number; bets: Record<number, number>; }
 let TOUR: Tourney | null = null;
 function startTourney(s: Settlement, bet: number) {
-  const names = [WORLD.player.name, ...TOURNEY_NAMES.slice().sort(() => rnd() - 0.5).slice(0, 7)];
-  const keys = ["hero", ...[0, 1, 2, 3, 4, 5, 6].map(() => pick(ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier >= 3)))];
-  TOUR = { sid: s.id, names, keys, alive: names.map(() => true), round: 1, bet } as any; (TOUR as any).out = names.map(() => 0);
+  const w = WORLD;
+  const lordsHere = w.lords.filter((l) => l.alive && l.faction === s.faction && !l.captive).slice(0, 4);
+  const names = [w.player.name], keys = ["hero"], lords = [-1];
+  for (const L of lordsHere) { names.push(`${L.title} ${L.name}`); keys.push(pick(["a_knight", "a_champion", "v_praetor", "d_warden"].filter((k) => UNITS[k]))); lords.push(L.id); }
+  const pool = TOURNEY_NAMES.slice().sort(() => rnd() - 0.5);
+  while (names.length < 16) { names.push(pool.pop() || "Nieznajomy"); keys.push(pick(ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier >= 2))); lords.push(-1); }
+  // tasowanie poza bohaterem
+  const idx = [...Array(15).keys()].map((i) => i + 1).sort(() => rnd() - 0.5);
+  const order = [0, ...idx];
+  TOUR = { sid: s.id, names: order.map((i) => names[i]), keys: order.map((i) => keys[i]), lords: order.map((i) => lords[i]), alive: names.map(() => true), out: names.map(() => 0), round: 1, bet, bets: {} };
   showBracket();
 }
+function tourWinner(T: Tourney, g: number, size: number, r: number) { return [...Array(size).keys()].map((k) => g + k).find((k) => T.out[k] === 0 || T.out[k] > r); }
 function showBracket() {
-  const T = TOUR, s = WORLD.settlements[T.sid];
-  // T.alive -> runda odpadnięcia w T.out (0 = wciąż w grze)
-  const out = (T as any).out as number[];
-  const cols = [0, 1, 2, 3].map((r) => { const size = 2 ** r; const res: number[] = []; for (let g = 0; g < 8; g += size) { if (r >= T.round) { res.push(-1); continue; } const w = [...Array(size).keys()].map((k) => g + k).find((k) => out[k] === 0 || out[k] > r); res.push(w ?? -1); } return res; });
-  const cell = (k: number, r: number) => k < 0 ? `<div class="bk empty">?</div>` : `<div class="bk ${k === 0 ? "you" : ""} ${out[k] === r + 1 ? "out" : ""}">${k === 0 ? ic("star") : ""}${esc(T.names[k])}</div>`;
-  const aliveIdx = T.alive.map((a, i) => (a ? i : -1)).filter((i) => i > 0);
+  const T = TOUR, w = WORLD, P = w.player, s = w.settlements[T.sid];
+  const cols = [0, 1, 2, 3, 4].map((r) => { const size = 2 ** r; const res: number[] = []; for (let g = 0; g < 16; g += size) res.push(r >= T.round ? -1 : tourWinner(T, g, size, r) ?? -1); return res; });
+  const cell = (k: number, r: number) => k < 0 ? `<div class="bk empty">?</div>` : `<div class="bk ${k === 0 ? "you" : ""} ${T.out[k] === r + 1 ? "out" : ""} ${T.lords[k] >= 0 ? "lord" : ""}">${k === 0 ? ic("star") : T.lords[k] >= 0 ? ic("crown") : ""}${esc(T.names[k])}${T.bets[k] ? ` <span class="gold">${T.bets[k]}</span>` : ""}</div>`;
   const block = 2 ** T.round;
-  const opp = aliveIdx.find((i) => Math.floor(i / block) === 0) ?? aliveIdx[0];
-  const mode = T.round === 2 ? "joust" : "duel";
+  const opp = T.alive.map((a, i) => (a ? i : -1)).filter((i) => i > 0).find((i) => Math.floor(i / block) === 0);
+  const mode = ROUND_MODE[T.round - 1];
+  // zakłady na innych: pary tej rundy bez bohatera
+  const pairs: [number, number][] = [];
+  for (let g = block; g < 16; g += block) { const L = [...Array(block).keys()].map((k) => g + k).filter((k) => T.alive[k]); if (L.length === 2) pairs.push([L[0], L[1]]); }
+  const betHtml = pairs.length ? `<h2>${ic("coin")} Zakłady na inne pary (50 den., wygrana ×2)</h2><div class="chips">${pairs.map(([a2, b2]) => [a2, b2].map((k) => `<button class="mini ${T.bets[k] ? "on" : ""}" data-a="bet" data-v="${k}" ${P.gold >= 50 && !T.bets[a2] && !T.bets[b2] ? "" : "disabled"}>${esc(T.names[k])}</button>`).join(" vs ")).join(" · ")}</div>` : "";
   showScr(`<div class="card frame wide"><h1>Turniej w ${s.name}</h1>
-    <div class="bracket">${cols.map((c, r) => `<div class="bcol"><span class="muted">${["Zawodnicy", "Półfinał", "Finał", "Zwycięzca"][r]}</span>${c.map((k) => cell(k, r)).join("")}</div>`).join("")}</div>
-    <p>Runda ${T.round}: ${["ćwierćfinał", "półfinał", "finał"][T.round - 1]} · ${mode === "joust" ? "<b>na kopie, konno</b>" : "walka piesza"} · przeciwnik: <b>${esc(T.names[opp])}</b> (${UNITS[T.keys[opp]].name})${T.bet ? ` · zakład ${T.bet}` : ""}</p>
+    <div class="bracket b16">${cols.map((c, r) => `<div class="bcol"><span class="muted">${["Zawodnicy", "Ćwierćfinał", "Półfinał", "Finał", "Zwycięzca"][r]}</span>${c.map((k) => cell(k, r)).join("")}</div>`).join("")}</div>
+    <p>Runda ${T.round}: ${ROUND_NAME[T.round - 1]} · <b>${{ duel: "walka piesza", archery: "łucznictwo do tarcz", joust: "kopie, 3 przejazdy" }[mode]}</b> · przeciwnik: <b>${esc(T.names[opp])}</b>${mode === "duel" ? ` (${UNITS[T.keys[opp]].name})` : ""}${T.lords[opp] >= 0 ? " · <span class='gold'>lord: wygrana podniesie relację</span>" : ""}</p>
+    ${betHtml}
     <div class="btns"><button data-a="go">Do walki!</button><button class="alt" data-a="quit">Wycofaj się</button></div></div>`, {
-    go: () => { T.opp = opp; arenaFight(s, mode, true, T.round, T.bet, mode === "joust" ? undefined : T.keys[opp]); },
+    bet: (v) => { const k = Number(v); if (P.gold < 50) return; P.gold -= 50; T.bets[k] = 50; showBracket(); },
+    go: () => { T.opp = opp; arenaFight(s, mode, true, T.round, 0, mode === "duel" ? T.keys[opp] : undefined); },
     quit: () => { TOUR = null; enterSettlement(s); },
   } as any, "after-scr");
 }
-function tourneyAdvance(heroWon: boolean) {
-  const T = TOUR as any;
+function tourneyAdvance(heroWon: boolean, lines: string[]) {
+  const T = TOUR, w = WORLD, P = w.player;
   const block = 2 ** T.round;
-  // przegrany w meczu bohatera
   const kill = (k: number) => { T.alive[k] = false; T.out[k] = T.round; };
-  if (heroWon) kill(T.opp); else kill(0);
-  // pozostałe pary
-  for (let g = 0; g < 8; g += block) {
+  if (heroWon) { kill(T.opp); if (T.lords[T.opp] >= 0) { const L = lordById(w, T.lords[T.opp]); if (L) { L.relation += 3; lines.push(`${L.title} ${L.name} docenia twoją rękę (+3 relacji).`); } } } else kill(0);
+  for (let g = 0; g < 16; g += block) {
     if (g === 0) continue;
     const grp = [...Array(block).keys()].map((k) => g + k).filter((k) => T.alive[k]);
-    if (grp.length === 2) { const [a, b] = grp; const pa = UNITS[T.keys[a]].tier + rr(0, 2), pb = UNITS[T.keys[b]].tier + rr(0, 2); kill(pa >= pb ? b : a); }
+    if (grp.length === 2) {
+      const [a, b] = grp; const pa = (UNITS[T.keys[a]]?.tier || 2) + (T.lords[a] >= 0 ? 1 : 0) + rr(0, 2.5), pb = (UNITS[T.keys[b]]?.tier || 2) + (T.lords[b] >= 0 ? 1 : 0) + rr(0, 2.5);
+      const win = pa >= pb ? a : b, lose = win === a ? b : a; kill(lose);
+      if (T.bets[win]) { P.gold += T.bets[win] * 2; lines.push(`Zakład na ${T.names[win]} wygrany: +${T.bets[win] * 2} denarów.`); delete T.bets[win]; }
+      if (T.bets[lose]) { lines.push(`Zakład na ${T.names[lose]} przepadł.`); delete T.bets[lose]; }
+    }
   }
   T.round++;
 }
 function arenaFinished(r: BattleResult) {
-  const ctx = G.ctx, w = WORLD, P = w.player, s = ctx.settlement, A = ctx.arena;
+  const ctx = G.ctx, w = WORLD, P = w.player, s = ctx.settlement, A = ctx.arena as any;
   P.hp = Math.max(P.hp, heroMaxHp(P) * (A.mode === "death" ? 0.2 : 0.5));
+  const crowd = G.battle?.crowdGold || 0;
   G.battle = null;
   const lines: string[] = [];
   const won = r.win && !r.heroKO;
+  if (crowd) { P.gold += crowd; lines.push(`Tłum rzucił na piasek ${crowd} denarów i kwiaty.`); }
   if (A.tournament && TOUR) {
-    tourneyAdvance(won);
-    if (!won) { lines.push(`Odpadasz z turnieju (${["ćwierćfinał", "półfinał", "finał"][A.round - 1]}).${A.bet ? ` Zakład (${A.bet}) przepada.` : ""}`); TOUR = null; showAftermath(r, 0, [], lines, () => enterSettlement(s)); return; }
-    if (A.round >= 3) {
-      const prize = 600 + A.bet * 3;
-      P.gold += prize; P.renown += 60; s.relation += 10; P.skillPts += 1;
+    tourneyAdvance(won, lines);
+    if (!won) { lines.push(`Odpadasz z turnieju (${ROUND_NAME[A.round - 1]}).`); TOUR = null; showAftermath(r, 0, [], lines, () => enterSettlement(s)); return; }
+    if (A.round >= 4) {
+      const prize = 800;
+      P.gold += prize; P.renown += 70; s.relation += 10; P.skillPts += 1;
       for (const L of w.lords) if (L.faction === s.faction) L.relation += 2;
-      lines.push(`Wygrywasz turniej w ${s.name}! Nagroda: ${prize} denarów, wielka sława i +1 punkt drzewka.`);
+      lines.push(`Wygrywasz turniej w ${s.name}! ${prize} denarów, wielka sława i +1 punkt drzewka.`);
       chron(w, `${P.name} wygrywa turniej w ${s.name}.`, PAL.gold);
       s.tournament = 0; TOUR = null;
-      gainXp(P, 250, lines);
+      gainXp(P, 300, lines);
       showAftermath(r, 0, [], lines, () => enterSettlement(s)); return;
     }
-    lines.push(`Wygrywasz! Następna runda: ${["półfinał", "finał"][A.round - 1]}.`);
+    lines.push(`Wygrywasz! Następna runda: ${ROUND_NAME[A.round]}.`);
     showAftermath(r, 0, [], lines, () => showBracket());
     return;
   }
-  if (won) { const prize = ARENA_PRIZE[A.mode || "duel"] || 40; P.gold += prize; P.renown += A.mode === "death" ? 8 : 2; lines.push(`Wygrana: ${prize} denarów.`); gainXp(P, A.mode === "death" ? 80 : 30, lines); if (A.mode === "death") P.honor -= 1; }
-  else lines.push(A.mode === "death" ? "Ledwo uchodzisz z życiem. Ktoś wywlókł cię za próg." : "Leżysz na piasku. Tłum gwiżdże.");
+  if (won) {
+    let prize = ARENA_PRIZE[A.mode || "duel"] || 40;
+    if (A.mode === "waves" && r.heroHp >= heroMaxHp(P) * 0.75) { prize += 80; lines.push("Seria bez większych ran: premia 80 denarów!"); }
+    P.gold += prize; P.renown += A.mode === "death" ? 8 : 2; lines.push(`Wygrana: ${prize} denarów.`);
+    if (A.bet) { P.gold += A.bet * 2; lines.push(`Zakład na siebie: +${A.bet * 2} denarów.`); }
+    gainXp(P, A.mode === "death" ? 80 : 30, lines); if (A.mode === "death") P.honor -= 1;
+    const sw = s as any; sw.arenaWins = (sw.arenaWins || 0) + 1;
+    if (sw.arenaWins >= 10 && sw.champion !== "player") { sw.champion = "player"; P.renown += 25; lines.push(`Tytuł: Mistrz areny ${s.name}! Ludzie wołają twoje imię na ulicach.`); chron(w, `${P.name} zostaje mistrzem areny ${s.name}.`, PAL.gold); }
+  } else lines.push((A.mode === "death" ? "Ledwo uchodzisz z życiem. Ktoś wywlókł cię za próg." : "Leżysz na piasku. Tłum gwiżdże.") + (A.bet ? ` Zakład (${A.bet}) przepada.` : ""));
   showAftermath(r, 0, [], lines, () => enterSettlement(s));
 }
 
@@ -1066,7 +1115,7 @@ function showSettings(back: () => void) {
   let body = "";
   if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie");
   if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
-  if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+  if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
   if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
   if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
   const apply = (k: string, val: any) => {
@@ -1082,7 +1131,7 @@ function showSettings(back: () => void) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
     tab: (v) => { SETT.tab = v; showSettings(back); },
-    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+    "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
     "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
     "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
     "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },

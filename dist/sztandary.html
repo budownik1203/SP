@@ -259,7 +259,7 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .bk.you{border-color:#e9c45e;color:#e9c45e}.bk.out{opacity:.4;text-decoration:line-through}.bk.empty{color:#665;text-align:center}
 .advbar{height:.5em;background:#7a2a20;border:1px solid #000;position:relative}.advbar i{position:absolute;left:0;top:0;bottom:0;background:#5d9a46;transition:width .4s}
 #mini{display:block;margin-top:.3em;border:1px solid rgba(0,0,0,.6);width:7.5em;margin-left:auto;opacity:.78;background:rgba(20,22,14,.35)}
-#mini.big{position:fixed;left:50%;top:10%;transform:translateX(-50%);width:min(60vw,640px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
+#mini.big{position:fixed;right:1.2%;top:16%;width:min(34vw,400px);z-index:4;opacity:.96;box-shadow:0 0 0 2px #6b5234;pointer-events:auto;cursor:crosshair}
 .grp .ic{width:1.1em;height:1.1em;vertical-align:-.15em;margin-right:.25em}
 #abil .ab{min-width:6.5em;min-height:3.4em}#abil .ab .ic{width:1.6em;height:1.6em;display:block;margin:0 auto .1em}
 .casl{display:grid;grid-template-columns:repeat(auto-fill,minmax(11em,1fr));gap:.3em}
@@ -270,6 +270,11 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .cas.best{border-color:#e9c45e;height:100%}.cas.best canvas{width:40px}
 .cas.loot{cursor:pointer}.cas.loot input{margin:0 .2em 0 0}.cas.loot:has(input:not(:checked)){opacity:.45}
 p.rel{color:#e9c45e}
+#startfight{position:absolute;left:50%;top:4.2em;transform:translateX(-50%);pointer-events:auto;z-index:6;font-size:1.1em;padding:.4em 1.2em}
+.acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr));gap:.4em;margin:.4em 0}
+.acard{display:flex;flex-direction:column;gap:.15em;background:#1c1610;border:1px solid #3a2e22;padding:.4em;font-size:.9em}.acard:hover{border-color:#8a6d2a}
+.apic{height:42px;display:flex;justify-content:center;align-items:flex-end;gap:2px;background:linear-gradient(#2a2119,#3b2e1d)}.apic canvas{height:38px;width:auto}
+.bracket.b16 .bk{font-size:11px;padding:2px 5px}.bk.lord{border-color:#a78a3a}
 </style>
 
 <div id="wrap">
@@ -296,6 +301,7 @@ p.rel{color:#e9c45e}
     <div class="hud" id="log"></div>
     <div class="hud" id="banner" hidden></div>
     <div class="hud" id="slow" hidden></div>
+    <button id="startfight" hidden>Do boju! <kbd>Enter</kbd></button>
   </div>
   <div class="hud frame" id="cmd" hidden></div>
 
@@ -374,7 +380,7 @@ class Input {
     }
     attach(canvas) {
         this.canvas = canvas;
-        const block = ["Space", "Tab", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        const block = ["Space", "Tab", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F1", "F2", "F3", "F4", "F5"];
         addEventListener("keydown", (e) => {
             if (block.includes(e.code))
                 e.preventDefault();
@@ -2095,6 +2101,8 @@ U({ key: "b_chief", name: "Herszt", culture: "bandit", tier: 2, hp: 120, speed: 
 U({ key: "m_sword", name: "Najemny miecznik", culture: "merc", tier: 2, hp: 100, armor: ARM(0.62, 0.78, 0.88), weapon: "armsword", shield: true, shieldBlock: 0.45, guard: 0.32, look: { race: "human", helms: ["nasal", "kettle"], bodies: ["mail"], tabard: true, patterns: ["quarter"], scabbard: true }, cost: 90, wage: 3 });
 U({ key: "m_xbow", name: "Najemny kusznik", culture: "merc", tier: 2, hp: 80, armor: ARM(0.72, 0.82, 0.9), weapon: "dagger", bow: { dmg: 44, range: 220, reload: 3.4, spread: 0.035, bolt: true }, look: { race: "human", helms: ["kettle"], bodies: ["gambeson"], tabard: true, patterns: ["quarter"], quiver: true }, cost: 85, wage: 3 });
 U({ key: "x_wolf", name: "Wilk", culture: "monster", tier: 1, hp: 60, speed: 70, armor: ARM(1, 1, 1), weapon: "fangs", guard: 0, react: 0.5, look: { race: "wolf", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.stone, PAL.slate], [PAL.dirt, PAL.dirtD], [PAL.ash, PAL.stone]] }, cost: 0, wage: 0 });
+U({ key: "x_dummy", name: "Tarcza strzelecka", culture: "monster", tier: 1, hp: 1, speed: 0, armor: ARM(1, 1, 1), weapon: "club", guard: 0, react: 9, look: { race: "human", helms: ["none"], bodies: ["rags"], tabard: false }, cost: 0, wage: 0 });
+U({ key: "x_direwolf", name: "Wilk olbrzym", culture: "monster", tier: 3, hp: 170, speed: 66, armor: ARM(0.85, 0.85, 0.9), weapon: "fangs", guard: 0.1, react: 0.4, poise: true, look: { race: "wolf", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.dirtD, PAL.black]] }, cost: 0, wage: 0 });
 U({ key: "x_spirit", name: "Duch wilka", culture: "monster", tier: 2, hp: 70, speed: 72, armor: ARM(0.8, 0.6, 0.8), weapon: "fangs", guard: 0, react: 0.5, look: { race: "wolf", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.boneHi, PAL.ash]] }, cost: 0, wage: 0 });
 // Rekrutacja według kultury: wioski dają tier 1, miasta i zamki więcej.
 const RECRUITS = {
@@ -3288,7 +3296,22 @@ function drawSiegeDynamic(g, M, sx, sy) {
         g.fillRect(gx + 4, gy - 14, 3, 9);
         g.fillRect(gx - 8, gy - 4, 8, 2);
     }
-    for (const ly of W2.ladders) {
+    const pl = W2.placed;
+    for (const br of (W2.breaches || [])) { // wyrwy w murze
+        const by = br - sy, bx = W2.x0 - sx;
+        g.fillStyle = PAL.black;
+        g.fillRect(bx - 2, by - 10, W2.x1 - W2.x0 + 4, 20);
+        g.fillStyle = PAL.stone;
+        for (let i = 0; i < 14; i++)
+            g.fillRect(bx - 6 + ((i * 7) % 26), by - 9 + ((i * 5) % 18), 3, 2);
+        g.fillStyle = PAL.ash;
+        for (let i = 0; i < 8; i++)
+            g.fillRect(bx - 8 + ((i * 11) % 30), by - 6 + ((i * 3) % 14), 2, 2);
+    }
+    for (let li = 0; li < W2.ladders.length; li++) {
+        if (pl && !pl[li])
+            continue;
+        const ly = W2.ladders[li];
         const lx = W2.x0 - sx - 10, y0 = ly - sy;
         g.fillStyle = PAL.wood;
         g.fillRect(lx, y0 - 5, 14, 1);
@@ -3351,7 +3374,13 @@ class Unit {
         this.dodgeVy = 0;
         this.countering = false;
         this.bowShake = 0;
+        this.carry = -1;
+        this.carryT = 0;
         this.bearer = false;
+        this.fatigue = 0;
+        this.surrendered = false;
+        this.kiteT = 0;
+        this.crumbleT = 0;
         this.dodgeT = 0;
         this.dodgeCd = 0;
         this.counterT = 0;
@@ -3519,6 +3548,14 @@ class Battle {
         this.castFlash = null;
         this.timeline = [];
         this.tlT = 0;
+        this.orcCry = {};
+        this.archery = null;
+        this.crowdGold = 0;
+        this.keepOut = false;
+        this.cryCd = 0;
+        this.trebAimCd = 0;
+        this.ballistaT = 6;
+        this.joust = null;
         this.groundArrows = [];
         this.looseHorses = [];
         // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
@@ -3537,6 +3574,15 @@ class Battle {
                 this.engines.push({ kind: "ram", x: 420, y: W2.gateY, hp: 700, max: 700, t: 0, done: false, tx: W2.x0 - 16 });
             if (cfg.engines?.tower)
                 this.engines.push({ kind: "tower", x: 380, y: 500 + (chance(0.5) ? -230 : 230), hp: 900, max: 900, t: 0, done: false, tx: W2.x0 - 14 });
+            // drabiny trzeba donieść i przystawić w bitwie
+            W2.placed = W2.ladders.map(() => false);
+            this.map.barrier.crossings = this.map.barrier.crossings.filter((c) => c.gate);
+            for (const ly of W2.ladders)
+                for (let y = ly - 8; y <= ly + 8; y += CELL) {
+                    const cx = Math.floor(W2.x0 / CELL), cy = Math.floor(y / CELL);
+                    if (this.map.grid[cy * this.map.gw + cx] === 5)
+                        this.map.grid[cy * this.map.gw + cx] = 2;
+                }
         }
         this.mw = this.map.w;
         this.mh = this.map.h;
@@ -3547,6 +3593,37 @@ class Battle {
         for (let i = 0; i < 220; i++)
             this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
         this.spawnAll();
+        if (cfg.arena?.archery) { // łucznictwo: słomiane tarcze w różnych odległościach
+            this.units = this.units.filter((u) => u.team === 0);
+            const h = this.hero;
+            h.x = this.mw / 2 - 150;
+            h.y = this.mh / 2;
+            h.loadout = 1;
+            h.ammo = 12;
+            this.heroAmmoMax = 12;
+            if (!h.bowDmg)
+                h.bowDmg = 40;
+            for (let i = 0; i < 8; i++) {
+                const U2 = new Unit("x_dummy", 1, 1, this.mw / 2 - 40 + (i % 4) * 55 + rr(-10, 10), this.mh / 2 - 90 + Math.floor(i / 4) * 150 + rr(-20, 20), 7);
+                U2.face = Math.PI;
+                this.units.push(U2);
+            }
+            this.archery = { score: 0, opp: Math.round(rr(3, 7)), n: 8 };
+        }
+        if (cfg.arena?.joust) {
+            this.joust = { p: [0, 0], pass: -1, resetT: 0 };
+            this.joustReset();
+        }
+        if (cfg.sally)
+            for (const u of this.units)
+                if (u.team === 1) {
+                    u.morale *= 0.6;
+                    if (chance(0.4)) {
+                        u.state = "stagger";
+                        u.t = 0;
+                        u.hold = rr(3, 7);
+                    }
+                } // obóz zaskoczony we śnie
     }
     // ---------- Pomocnicze ----------
     cell(x, y) {
@@ -3561,8 +3638,65 @@ class Battle {
     passable(x, y) { const c = this.cell(x, y); return c !== 2; }
     slowAt(x, y) { const c = this.cell(x, y); return c === 1 ? 0.55 : c === 5 ? 0.35 : 1; }
     // Oblężenie: taran i wieża pchane przez atakujących, trebusz, kamienie i wrzący olej z murów.
+    placeLadder(i) {
+        const W2 = this.map.wall, pl = W2.placed;
+        if (pl[i])
+            return;
+        pl[i] = true;
+        const ly = W2.ladders[i];
+        for (let y = ly - 8; y <= ly + 8; y += CELL) {
+            const cx = Math.floor(W2.x0 / CELL), cy = Math.floor(y / CELL);
+            this.map.grid[cy * this.map.gw + cx] = 5;
+        }
+        this.map.barrier.crossings.push({ y: ly, h: 6 });
+        this.say("Drabina przystawiona do muru!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL);
+        const s = this.vol(W2.x0);
+        this.sfx.thunk(s.v, s.pan);
+        this.dust(W2.x0 - 6, ly, 8);
+        this.relayoutT = 0;
+    }
     updateSiege(dt) {
+        var _a, _b;
         const W2 = this.map.wall, defT = this.cfg.siegeDefender ?? 1, atkT = 1 - defT;
+        // balista na murach
+        this.ballistaT -= dt;
+        if (this.ballistaT <= 0) {
+            this.ballistaT = rr(5, 8);
+            const gunner = this.units.find((u) => u.team === defT && u.active && this.onWall(u));
+            const tg = gunner ? this.units.filter((u) => u.team === atkT && u.active && u.x < W2.x0 - 40 && u.x > W2.x0 - 420).sort((a, b) => (b.mounted ? 1 : 0) - (a.mounted ? 1 : 0))[0] : null;
+            if (gunner && tg) {
+                const a = Math.atan2(tg.y - (gunner.y - 12), tg.x - gunner.x);
+                this.fire(gunner, a, 420, 75, dist(gunner.x, gunner.y, tg.x, tg.y), "bolt");
+                const s = this.vol(gunner.x);
+                this.sfx.thunk(s.v, s.pan);
+            }
+        }
+        // płonące strzały w machiny
+        for (const e of this.engines) {
+            if (e.done || e.x < W2.x0 - 220)
+                continue;
+            if (!e.burnT && chance(dt * 0.12) && this.units.some((u) => u.team === defT && u.active && u.def.bow && this.onWall(u))) {
+                e.burnT = 6;
+                this.say(e.kind === "ram" ? "Płonące strzały w taran!" : "Płonące strzały w wieżę!", defT === 0 ? PAL.gold : PAL.redL);
+            }
+            if (e.burnT > 0) {
+                e.burnT -= dt;
+                e.hp -= 35 * dt;
+                if (chance(dt * 20))
+                    this.parts.push({ x: e.x + rr(-10, 10), y: e.y, z: rr(4, 30), vx: rr(-5, 5), vy: rr(-5, 5), vz: rr(15, 40), life: 0.6, max: 0.6, col: pick([PAL.gold, PAL.redL]), kind: "fire" });
+            }
+        }
+        // dziedziniec: ostatni obrońcy ruszają, gdy brama padnie
+        if (!this.keepOut && (W2.broken || this.units.filter((u) => u.team === atkT && u.active && u.x > W2.x1).length > 6)) {
+            this.keepOut = true;
+            const ord = defT === 0 ? this.orders : this.eorders;
+            if (ord[7]) {
+                ord[7].mode = "charge";
+                this.shout("Walka na dziedzińcu!", defT === 0 ? PAL.gold : PAL.redL);
+                this.say("Ostatni obrońcy wypadają z twierdzy na dziedziniec!", PAL.redL, true);
+                this.sfx.horn?.(0.8);
+            }
+        }
         for (const e of this.engines) {
             if (e.done)
                 continue;
@@ -3690,6 +3824,29 @@ class Battle {
                             this.push(u, bo.x, bo.y, 120);
                         }
                     }
+                if (Math.abs(bo.x - W2.x0) < 22 && Math.abs(bo.y - W2.gateY) >= 22) { // trafienie w mur: trzy głazy w jedno miejsce robią wyrwę
+                    const key = Math.round(bo.y / 40), hits = ((_a = W2).hits || (_a.hits = {}));
+                    hits[key] = (hits[key] || 0) + 1;
+                    const br = ((_b = W2).breaches || (_b.breaches = []));
+                    if (hits[key] >= 3 && !br.includes(key * 40)) {
+                        br.push(key * 40);
+                        for (let y = key * 40 - 10; y <= key * 40 + 10; y += CELL)
+                            for (let x = W2.x0; x <= W2.x1; x += CELL) {
+                                const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+                                if (cy >= 0 && cy < this.map.gh)
+                                    this.map.grid[cy * this.map.gw + cx] = 1;
+                            }
+                        this.map.barrier.crossings.push({ y: key * 40, h: 10 });
+                        this.say("Wyrwa w murze!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL, true);
+                        this.shout("Wyrwa!");
+                        this.shake(5);
+                        this.relayoutT = 0;
+                        for (const u of this.units)
+                            if (u.active && this.onWall(u) && Math.abs(u.y - key * 40) < 14) {
+                                this.damage(u, 60, null, false, "blunt", true);
+                            }
+                    }
+                }
                 if (!W2.broken && Math.abs(bo.y - W2.gateY) < 22 && Math.abs(bo.x - W2.x0) < 20) {
                     W2.gateHp -= 160;
                     if (W2.gateHp <= 0) {
@@ -3729,6 +3886,28 @@ class Battle {
             if (Math.abs(angDiff(u.heading, Math.atan2(e.y - u.y, e.x - u.x))) > (u.hero ? 0.48 : 0.32))
                 continue;
             const k = u.rspeed / u.maxRide;
+            if (this.joust) { // kopie: punkt za czyste trafienie, zrzucenie z konia kończy pojedynek
+                u.couchCd = 1;
+                u.rspeed *= 0.6;
+                const side = u.team;
+                this.joust.p[side] += 1;
+                const sv = this.vol(e.x);
+                this.sfx.hit(sv.v, sv.pan, "blunt", true);
+                this.sfx.clang(sv.v, sv.pan);
+                this.sparks(e.x, e.y - 22, 14, PAL.wood);
+                this.shake(3);
+                this.hitstop = Math.max(this.hitstop, 0.16);
+                this.shout(`${u.hero ? "Trafienie!" : "Trafiony!"} ${this.joust.p[0]} : ${this.joust.p[1]}`, u.hero ? PAL.gold : PAL.redL);
+                if (u.hero)
+                    this.crowd(e.x, e.y, 5);
+                if (chance(0.18 + k * 0.15) && e.mounted) {
+                    this.dismount(e);
+                    this.joust.p[side] += 2;
+                    this.say(`${e.hero ? "Spadasz" : e.def.name + " spada"} z konia!`, PAL.gold, true);
+                }
+                this.joust.resetT = 1.6;
+                break;
+            }
             const dmg = (28 + 60 * k) * e.arm.pierce * (u.hero ? this.heroDmg : 1) * (this.cfg.arena && !this.cfg.arena.lethal ? 0.55 : 1);
             u.couchCd = 0.7;
             u.rspeed *= 0.55;
@@ -3940,6 +4119,13 @@ class Battle {
             const defInf = this.units.filter((u) => u.team === defTeam && u.squad === 1 && !u.hero && !u.companion);
             for (const u of defInf.slice(0, Math.floor(defInf.length * 0.45)))
                 u.squad = wallK;
+            // straż twierdzy: czeka na dziedzińcu, rusza po upadku bramy (druga faza)
+            const rest = defInf.slice(Math.floor(defInf.length * 0.45));
+            if (rest.length >= 6) {
+                for (const u of rest.slice(0, Math.floor(rest.length * 0.4)))
+                    u.squad = 7;
+                ord[7] = { ...newOrder(W2.x1 + 230, W2.gateY, "wall"), face: Math.PI, mode: "hold" };
+            }
             if (defTeam === 1) {
                 ord[5].ax = W2.x1 + 90;
                 ord[5].ay = W2.gateY;
@@ -4454,6 +4640,7 @@ class Battle {
             return [
                 { n: 1, label: "Zajmij wzgórze" }, { n: 2, label: "Zajmij las" }, { n: 3, label: "Oskrzydlenie z lewej" }, { n: 4, label: "Oskrzydlenie z prawej" },
                 { n: 5, label: "Zasadzka: ukryj się" }, { n: 6, label: o.fire ? "Wstrzymaj ogień" : "Strzelać wedle uznania" }, { n: 7, label: o.meleeOnly ? "Wolna broń" : "Tylko broń biała" },
+                { n: 8, label: o.volley ? "SALWA! Strzelajcie razem" : "Salwa na rozkaz (celujcie i czekajcie)", on: !!o.volley },
             ];
         if (this.cmdLevel === "target") {
             const items = this.enemySquadsVisible().map((s) => ({ n: s, label: this.enemySquadName(s), on: o.targetSquad === s }));
@@ -4465,6 +4652,12 @@ class Battle {
     cmdChoose(n) {
         const gs = this.selected;
         this.sfx.ui();
+        if (this.cmdLevel !== "groups" && this.cmdLevel !== "assign" && this.cmdLevel !== "target" && this.heroUp)
+            this.sfx.shout(0.35);
+        if (this.cmdLevel === "groups" && n === 8 && this.allySquads().length && this.cfg.allyObey === false) {
+            this.say("Sojusznicy nie słuchają twoich rozkazów: za słaba relacja z ich panem.", PAL.redL, true);
+            return;
+        }
         const back = () => { this.cmdLevel = "groups"; this.relayoutT = 0; };
         switch (this.cmdLevel) {
             case "assign":
@@ -4540,6 +4733,8 @@ class Battle {
                     this.orderFire(gs);
                 else if (n === 7)
                     this.orderMelee(gs);
+                else if (n === 8)
+                    this.orderVolley(gs);
                 else
                     return;
                 back();
@@ -4560,6 +4755,66 @@ class Battle {
                     back();
                 }
                 return;
+        }
+    }
+    // kopie: po każdym przejeździe jeźdźcy wracają na końce szranków
+    joustReset() {
+        this.joust.pass++;
+        for (const u of this.units)
+            if (u.active && u.mounted) {
+                const left = u.team === 0;
+                u.x = this.mw / 2 + (left ? -210 : 210);
+                u.y = this.mh / 2 + (left ? -18 : 18);
+                u.heading = left ? 0 : Math.PI;
+                u.face = u.heading;
+                u.rspeed = 0;
+                u.state = "idle";
+            }
+        this.say(`Przejazd ${this.joust.pass + 1}`, PAL.bone);
+    }
+    // publiczność: kwiaty i monety za dobre akcje
+    crowd(x, y, n) {
+        if (!this.cfg.arena)
+            return;
+        for (let i = 0; i < n * 3; i++)
+            this.parts.push({ x: x + rr(-30, 30), y: y + rr(-20, 20), z: rr(40, 80), vx: rr(-10, 10), vy: rr(-10, 10), vz: rr(-20, 10), life: 1.4, max: 1.4, col: pick([PAL.redL, PAL.gold, PAL.boneHi, PAL.purpleL]), kind: "blood" });
+        if (this.crowdGold < 40)
+            this.crowdGold += Math.min(n, 40 - this.crowdGold);
+        this.sfx.battleCry?.(0.25);
+        this.sfx.coin?.();
+    }
+    startFight() {
+        if (this.phase !== "deploy")
+            return;
+        this.phase = "fight";
+        this.cmdOpen = false;
+        this.cmdLevel = "groups";
+        this.sfx.horn?.(0.8);
+        this.sfx.battleCry(1);
+        this.shout("Do boju!");
+    }
+    orderVolley(gs) {
+        const o0 = this.ensureOrder(gs[0]);
+        if (o0.volley) {
+            for (const g of gs) {
+                const o = this.ensureOrder(g);
+                o.volley = false;
+                o.fire = true;
+                for (const u of this.squadUnits(g))
+                    if (u.def.bow || u.bowDmg)
+                        u.reload = rr(0, 0.12);
+            }
+            this.shout("Salwa!");
+            this.sfx.horn?.(0.4);
+            this.say("Salwa!", PAL.gold, true);
+        }
+        else {
+            for (const g of gs) {
+                const o = this.ensureOrder(g);
+                o.volley = true;
+                o.fire = true;
+            }
+            this.say("Strzelcy celują i czekają na rozkaz salwy (F5).", PAL.gold);
         }
     }
     cmdBack() {
@@ -4667,6 +4922,57 @@ class Battle {
                 }
             }
             return;
+        }
+        // szybkie rozkazy jak w M&B: F1 stań tu, F2 za mną, F3 szarża, F4 następna formacja, F5 salwa
+        if (I.hit("F1")) {
+            this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my);
+            this.sfx.shout(0.35);
+        }
+        if (I.hit("F2")) {
+            this.orderMode(this.selected, "follow");
+            this.sfx.shout(0.35);
+        }
+        if (I.hit("F3")) {
+            this.orderMode(this.selected, "charge");
+            this.sfx.shout(0.4);
+            this.say("Szarża!", PAL.gold);
+        }
+        if (I.hit("F4")) {
+            const cur = this.ensureOrder(this.selected[0]).formation;
+            const f = FORMATIONS[(FORMATIONS.indexOf(cur) + 1) % FORMATIONS.length];
+            this.orderFormation(this.selected, f);
+            this.flashPreview(this.selected);
+            this.say(`Formacja: ${FORMATION_NAME[f]}`);
+        }
+        if (I.hit("F5")) {
+            const archers = this.liveSquads().filter((g) => this.squadUnits(g).some((u) => u.def.bow));
+            if (archers.length)
+                this.orderVolley(archers);
+        }
+        // okrzyk bojowy bohatera: G
+        if (I.hit("KeyG") && this.heroUp && this.cryCd <= 0 && this.hero.stamina >= 25) {
+            const h = this.hero;
+            this.cryCd = 25;
+            h.stamina -= 25;
+            this.sfx.battleCry(1);
+            this.shout("Za mną!");
+            this.shake(2);
+            for (const u of this.units)
+                if (u.active && dist(u.x, u.y, h.x, h.y) < 170) {
+                    if (u.team === 0)
+                        u.morale = Math.min(100, u.morale + 16);
+                    else if (!u.def.undead)
+                        u.morale -= 8;
+                }
+            this.parts.push({ x: h.x, y: h.y, z: 4, vx: 14, vy: 0, vz: 0, life: 0.7, max: 0.7, col: PAL.gold, kind: "ring" });
+        }
+        // trebusz: T strzela w miejsce kursora
+        if (I.hit("KeyT") && this.cfg.engines?.trebuchet && this.map.wall && this.trebAimCd <= 0 && (this.cfg.siegeDefender ?? 1) === 1) {
+            this.trebAimCd = 11;
+            this.boulders.push({ x: this.cam.x + I.mx, y: this.cam.y + I.my, t: 1.6 });
+            this.say("Trebusz: głaz poleciał!", PAL.gold);
+            const sv = this.vol(200);
+            this.sfx.swing(sv.v, sv.pan, 2);
         }
         if (I.hit("KeyZ"))
             this.orderHere(this.selected, this.cam.x + I.mx, this.cam.y + I.my);
@@ -5023,6 +5329,8 @@ class Battle {
         u.hitDone = false;
         u.countering = u.counterT > 0;
         u.counterT = 0;
+        if (!u.hero)
+            u.fatigue = Math.min(1, u.fatigue + 0.01);
         u.swingVar = dir === "L" || dir === "R" ? rr(-0.45, 0.45) : rr(-0.2, 0.2);
         if (u.hero) {
             const cost = 5 + this.weight(u) * 5;
@@ -5044,6 +5352,11 @@ class Battle {
             const facing = Math.abs(angDiff(e.face, Math.atan2(u.y - e.y, u.x - e.x))) < 1.3;
             if (facing && (e.state === "idle" || e.state === "recover") && chance(e.def.guard * (u.hero ? 1 : 0.8) * (e.decay ? 0.5 : 1)))
                 e.pendingGuard = { dir, at: this.time + e.def.react * rr(0.85, 1.25) };
+            else if (facing && e.def.tier >= 4 && !e.mounted && e.state === "idle" && chance(0.12 * (e.def.tier - 3))) {
+                const a = Math.atan2(e.y - u.y, e.x - u.x);
+                e.vx += Math.cos(a) * 70;
+                e.vy += Math.sin(a) * 70;
+            } // weteran odskakuje
         }
     }
     windupTime(u) { return u.w.windup * (u.hero ? 1 : rr(1, 1.2)) * (u.dir === "O" ? 1.15 : 1) * (u.target?.mounted && !u.mounted ? 0.7 : 1) * (u.cursedT > 0 ? 1.3 : 1); }
@@ -5077,6 +5390,18 @@ class Battle {
             u.couchCd -= dt;
         if (u.shieldOffT > 0)
             u.shieldOffT -= dt;
+        if (!u.hero)
+            u.fatigue = clamp(u.fatigue + dt * (u.moving || u.state === "strike" ? 0.0035 : -0.004), 0, 1); // zmęczenie w długiej bitwie
+        if (u.kiteT > 0)
+            u.kiteT -= dt;
+        if (u.crumbleT > 0) {
+            u.crumbleT -= dt;
+            if (u.crumbleT <= 0) {
+                this.bones(u.x, u.y - 10, 18, null);
+                this.kill(u, null);
+                return;
+            }
+        }
         if (u.burnT > 0) {
             u.burnT -= dt;
             u.hp -= 7 * dt;
@@ -5357,6 +5682,9 @@ class Battle {
             dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 : 1);
         if (a.decay)
             dmg *= 0.75;
+        dmg *= 1 - 0.2 * a.fatigue;
+        if (this.onWall(a))
+            dmg *= 1.15; // z góry muru łatwiej
         if (a.cursedT > 0)
             dmg *= 0.7;
         if (a.bloodRiteT > 0)
@@ -5514,6 +5842,11 @@ class Battle {
             src.kills++;
         if (src?.team === 0 && this.heroCfg && d.def.undead)
             this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
+        if (this.archery && d.key === "x_dummy") {
+            this.archery.score++;
+            this.floater(d.x, d.y - 26, "TRAFIONY!", PAL.gold, true);
+            this.crowd(d.x, d.y, 3);
+        }
         if (d.hero || (this.cfg.arena && !this.cfg.arena.lethal)) {
             // bohater (i każdy na arenie) zostaje ogłuszony, nie ginie
             if (d.mounted) {
@@ -5621,8 +5954,12 @@ class Battle {
         }
         if (d.commander)
             this.commanderDown(d);
-        if (src?.hero)
+        if (src?.hero) {
             this.say(`Zabiłeś: ${d.def.name}`);
+            for (const u of this.units)
+                if (u.team === 0 && u.active && !u.hero && dist(u.x, u.y, src.x, src.y) < 130)
+                    u.morale = Math.min(100, u.morale + (heavy ? 8 : 5));
+        }
     }
     heroDown() {
         for (const sq of this.liveSquads()) {
@@ -5697,11 +6034,11 @@ class Battle {
             this.shake(4);
             for (let i = 0; i < 50; i++)
                 this.parts.push({ x: d.x + rr(-6, 6), y: d.y, z: rr(4, 24), vx: rr(-20, 20), vy: rr(-20, 20), vz: rr(20, 70), life: 1.4, max: 1.4, col: pick([PAL.purpleL, PAL.purple]), kind: "soul" });
+            this.say("Nieumarli rozsypują się w proch!", PAL.purpleL, true);
             for (const u of this.units)
-                if (u.team === d.team && u.active && u.def.undead) {
+                if (u.team === d.team && u.active && u.def.undead && u.key !== "u_dk" && u.key !== "u_necro") {
                     u.decay = true;
-                    if (u.look.race === "skel" && chance(0.15))
-                        this.kill(u, null);
+                    u.crumbleT = rr(1.5, 16);
                 }
         }
         else {
@@ -5908,6 +6245,12 @@ class Battle {
         return { x: su < 0 ? B.x0 - 14 : B.x1 + 14, y: best.y };
     }
     updateAI(u, dt) {
+        if (u.def.speed === 0) {
+            u.vx = 0;
+            u.vy = 0;
+            u.moving = false;
+            return;
+        }
         if (u.decay) {
             u.hp -= 1.3 * dt;
             if (chance(dt * 3))
@@ -5927,6 +6270,15 @@ class Battle {
             unitAbilityAI(this, u, dt);
         const walled = this.map.wall && u.team === (this.cfg.siegeDefender ?? 1) && !this.map.wall.broken; // obrońcy za murami nie mają dokąd uciekać
         if (!u.def.undead && !u.fleeing && u.morale < (walled ? 4 : 18) && !this.cfg.arena && u.lifeT <= 0) {
+            // przy przewadze wroga część się poddaje (więcej jeńców), reszta ucieka
+            const foesNear = this.units.some((e) => e.team !== u.team && e.active && dist(e.x, e.y, u.x, u.y) < 40);
+            if (u.team === 1 && foesNear && u.def.culture !== "monster" && chance(0.4)) {
+                u.surrendered = true;
+                u.state = "fled";
+                this.say(`${u.def.name} rzuca broń i się poddaje!`, PAL.gold);
+                this.floater(u.x, u.y - 30, "PODDAJE SIĘ", PAL.boneHi, true);
+                return;
+            }
             u.fleeing = true;
             this.say(`${u.def.name} ucieka z pola bitwy!`, PAL.ash);
         }
@@ -5949,7 +6301,9 @@ class Battle {
             return;
         }
         const o = this.ordersOf(u.team, u.squad);
-        const mode = o ? o.mode : "charge";
+        let mode = o ? o.mode : "charge";
+        if (u.key === "o_berserk" && this.time > 3)
+            mode = "charge"; // berserkerzy wybiegają przed szereg
         if (mode === "ambush") {
             this.steer(u, u.slotX, u.slotY, u.def.speed * 0.5, dt, 3);
             for (const e of this.units)
@@ -5980,9 +6334,24 @@ class Battle {
         if (u.bowDmg > 0 && t && !u.mounted && !u.hero) {
             const near = this.nearestEnemy(u);
             const closeThreat = near && dist(u.x, u.y, near.x, near.y) < 28;
+            // strzelec cofa się przed piechotą, zamiast od razu sięgać po nóż
+            if (closeThreat && u.ammo > 0 && !near.def.bow && !near.mounted && u.def.tier >= 2 && u.kiteT <= 0 && chance(dt * 2))
+                u.kiteT = 1.1;
+            if (u.kiteT > 0 && near) {
+                const a = Math.atan2(u.y - near.y, u.x - near.x);
+                this.steer(u, u.x + Math.cos(a) * 40, u.y + Math.sin(a) * 40, u.def.speed * 1.05, dt);
+                u.wantFace = a + Math.PI;
+                return;
+            }
             const bow = u.def.bow || { dmg: u.bowDmg, range: 230, reload: 2.2, spread: 0.06 };
             const range = bow.range * (this.height(u.x, u.y) > 0.3 ? 1.3 : 1) * (this.cfg.night ? 0.75 : 1) * (this.fogged ? 0.6 : 1) * (this.cfg.rain ? 0.85 : 1);
             if (!closeThreat && fire && u.ammo > 0 && td < range && mode !== "charge") {
+                if (o?.volley) {
+                    u.wantFace = Math.atan2(t.y - u.y, t.x - u.x);
+                    u.moving = false;
+                    u.reload = Math.max(u.reload, 0.05);
+                    return;
+                } // czekają na salwę
                 if (u.state === "idle") {
                     this.steer(u, u.slotX, u.slotY, u.def.speed * 0.6, dt, 6);
                     u.moving = false;
@@ -6019,6 +6388,28 @@ class Battle {
         const engaged = !!tgt && (mode === "charge" || (slotDist < engage + 18 && tdist < engage + leash));
         // oblężenie: część atakujących pcha taran i wieżę
         const W2 = this.map.wall;
+        // drabiny: co szósty atakujący niesie drabinę pod mur
+        const placed = W2 ? W2.placed : null;
+        if (W2 && placed && u.team !== this.cfg.siegeDefender && !u.def.bow && !u.mounted && u.id % 6 === 1 && placed.some((p) => !p)) {
+            let li = u.id % placed.length;
+            if (placed[li])
+                li = placed.indexOf(false);
+            const px = W2.x0 - 10, py = W2.ladders[li];
+            u.carry = li;
+            if (dist(u.x, u.y, px, py) > 6) {
+                this.steer(u, px, py, u.def.speed * 0.8, dt);
+                return;
+            }
+            u.carryT = (u.carryT || 0) + dt;
+            u.moving = false;
+            if (u.carryT > 2) {
+                u.carryT = 0;
+                u.carry = -1;
+                this.placeLadder(li);
+            }
+            return;
+        }
+        u.carry = -1;
         if (W2 && u.team !== this.cfg.siegeDefender && !u.def.bow && !u.mounted && u.id % 4 === 0 && (!tgt || tdist > 40)) {
             const open = this.engines.filter((en) => !en.done && en.x < en.tx);
             const e = open.length ? open[(u.id >> 2) % open.length] : null;
@@ -6174,6 +6565,16 @@ class Battle {
                 s -= 400;
             if (u.mounted && e.def.bow && !e.mounted)
                 s -= 120;
+            if (u.mounted && (this.inForest(e.x, e.y) || this.cell(e.x, e.y) === 1))
+                s += 200; // jazda omija las i bagno
+            if (u.def.bow) {
+                if (e.hasShield && Math.abs(angDiff(e.face, Math.atan2(u.y - e.y, u.x - e.x))) < 1.0)
+                    s += 70;
+                if (e.target && e.target !== u && e.state !== "idle")
+                    s -= 40;
+                if (!e.hasShield)
+                    s -= 20;
+            }
             if (e.commander && !u.def.bow)
                 s += 40;
             if (u.def.bow)
@@ -6195,7 +6596,7 @@ class Battle {
     steer(u, tx, ty, speed, dt, arrive = 0) {
         let dx = tx - u.x, dy = ty - u.y;
         const d = Math.hypot(dx, dy) || 1;
-        let sp = speed * this.slowAt(u.x, u.y) * (this.cfg.rain ? 0.92 : 1) * (u.legT > 0 ? 0.55 : 1) * this.slope(u, tx, ty);
+        let sp = speed * this.slowAt(u.x, u.y) * (this.cfg.rain ? 0.92 : 1) * (u.legT > 0 ? 0.55 : 1) * this.slope(u, tx, ty) * (1 - 0.25 * u.fatigue);
         if (arrive && d < arrive * 4)
             sp *= d / (arrive * 4);
         dx /= d;
@@ -6259,6 +6660,25 @@ class Battle {
                 ord[Number(k)].flank = null;
             }
             return;
+        }
+        // orkowie: szarża z rykiem, mało formacji
+        if (!siege && !this.orcCry[team] && this.time > 4) {
+            const L = this.units.filter((u) => u.team === team && u.active);
+            if (L.length && L.filter((u) => u.def.culture === "orc").length > L.length * 0.6) {
+                this.orcCry[team] = true;
+                this.charge[team] = true;
+                for (const k of Object.keys(ord)) {
+                    const o = ord[Number(k)];
+                    if (o.mode !== "ambush") {
+                        o.mode = "charge";
+                        o.flank = null;
+                        o.formation = "loose";
+                    }
+                }
+                this.sfx.battleCry(1);
+                this.say(team === 1 ? "Orkowie ryczą i rzucają się do szarży!" : "Twoi orkowie ryczą i ruszają!", PAL.redL, true);
+                this.shake(2);
+            }
         }
         if (defending) {
             // obrońcy trzymają mury i bramę, ruszają tylko na wrogów w środku
@@ -6583,6 +7003,22 @@ class Battle {
                 fighting++;
         this.intensity = this.phase === "fight" ? clamp(fighting / 14, 0, 1) : 0;
         this.sfx.tick(realDt, this.intensity, this.cfg.rain);
+        if (this.phase === "deploy" && !this.paused) {
+            // rozstawienie: czas stoi, gracz ustawia oddziały (PPM przeciągnij), Enter / Spacja rozpoczyna
+            this.cmdOpen = true;
+            this.slowmo = true;
+            this.handleOrders();
+            for (const o of Object.values(this.orders))
+                o.ax = Math.min(o.ax, this.cfg.terrain === "siege" ? this.map.wall.x0 - 60 : this.mw * 0.46);
+            this.relayoutT -= realDt;
+            if (this.relayoutT <= 0) {
+                this.relayoutT = 0.25;
+                this.layoutAll(true);
+            }
+            if (this.input.hit("Enter") || this.input.hit("Space"))
+                this.startFight();
+            return;
+        }
         if (this.phase !== "fight" || this.paused)
             return;
         if (this.hitstop > 0) {
@@ -6593,6 +7029,15 @@ class Battle {
         }
         if (this.slowT > 0)
             this.slowT -= realDt;
+        if (this.cryCd > 0)
+            this.cryCd -= realDt;
+        if (this.joust && this.joust.resetT > 0) {
+            this.joust.resetT -= realDt;
+            if (this.joust.resetT <= 0)
+                this.joustReset();
+        }
+        if (this.trebAimCd > 0)
+            this.trebAimCd -= realDt;
         if (this.focusT > 0)
             this.focusT -= realDt;
         this.slowmo = this.cmdOpen;
@@ -6787,6 +7232,19 @@ class Battle {
             }
     }
     checkEnd(dt = 0) {
+        if (this.archery) {
+            const left = this.units.filter((u) => u.key === "x_dummy" && u.active).length;
+            if (left === 0 || ((this.hero.ammo <= 0) && !this.arrows.length) || this.time > 50) {
+                this.say(`Twoje trafienia: ${this.archery.score} · przeciwnik: ${this.archery.opp}`, PAL.gold, true);
+                this.finish(this.archery.score > this.archery.opp || (this.archery.score === this.archery.opp && chance(0.5)));
+            }
+            return;
+        }
+        if (this.joust && (this.joust.p[0] + this.joust.p[1] >= 3 || this.time > 90)) {
+            this.say(`Kopie: ${this.joust.p[0]} : ${this.joust.p[1]}`, PAL.gold, true);
+            this.finish(this.joust.p[0] > this.joust.p[1]);
+            return;
+        }
         // bezpiecznik: 45 s bez żadnego ciosu kończy impas (szturm odparty / pole bitwy dla silniejszego)
         if (this.phase === "fight" && !this.cfg.arena && (((this.time - this.lastHitT > 45 || this.time - this.lastKillT > 75) && this.time > 60) || this.time > 600)) {
             const pw = (t) => this.units.reduce((a, u) => a + (u.team === t && u.active && !u.fleeing ? u.hp : 0), 0) + this.reserves[t].length * 60;
@@ -6884,6 +7342,8 @@ class Battle {
                     else
                         c.killed++;
                 }
+                else if (u.surrendered && win)
+                    c.wounded++; // poddani trafiają do niewoli
                 else if (u.state === "fled" && team === 1 && !win) { /* uciekli i wrócą */ }
                 else if (u.state === "fled" && team === 0 && !win && chance(0.3))
                     c.killed++;
@@ -7455,8 +7915,14 @@ function renderBattle(b, g) {
         drawSlots(p.slots, p.col, clamp(p.t, 0, 1));
     if (b.drag) {
         pxLine(g, b.drag.sx - sx, b.drag.sy - sy, b.drag.ex - sx, b.drag.ey - sy, PAL.gold);
-        for (const p of b.dragPlan(b.drag))
+        for (const p of b.dragPlan(b.drag)) {
             drawSlots(p.slots, SQUAD_COLORS[p.g], 0.95);
+            // podgląd szerokości i głębokości szyku
+            const cols = Math.max(1, Math.min(p.cols || p.slots.length, p.slots.length)), rows = Math.ceil(p.slots.length / cols);
+            const lx = p.slots.reduce((m, q) => Math.min(m, q.x), 1e9), ly = p.slots.reduce((m, q) => Math.min(m, q.y), 1e9);
+            pxSmall(g, `${cols}X${rows}`, Math.round(p.ax - sx), Math.round(ly - sy) - 3, SQUAD_COLORS[p.g]);
+            void lx;
+        }
     }
     // celownik słupa światła
     for (const f of b.fx)
@@ -8096,6 +8562,16 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
         if (u.team === 0 && u.squad <= 9)
             pxText(g, String(u.squad), fx + 3, py, PAL.ink);
+    }
+    if (u.carry >= 0) { // drabina niesiona na ramieniu
+        g.fillStyle = PAL.ink;
+        g.fillRect(ix + 2, iy + 4, 22, 3);
+        g.fillStyle = PAL.wood;
+        g.fillRect(ix + 3, iy + 4, 20, 1);
+        g.fillRect(ix + 3, iy + 6, 20, 1);
+        g.fillStyle = PAL.woodD;
+        for (let k = 4; k < 22; k += 4)
+            g.fillRect(ix + k, iy + 4, 1, 3);
     }
     if (u.fleeing) { // biała flaga nad uciekającym
         const px = bx, py = iy - 8;
@@ -9434,7 +9910,8 @@ function partySpeed(w, p) {
         if (w.player.equip.horse)
             sp += 0.25;
         sp += w.player.skills.tracking * 0.03;
-    }
+        sp *= 1.12;
+    } // lekka przewaga gracza w pościgu
     if (p.kind === "caravan" || p.kind === "villagers")
         sp *= 0.8;
     if (p.kind === "monster")
@@ -9536,6 +10013,12 @@ function dailyTick(w) {
             s.siegeBy = s.siegeBy.filter((id) => { const p = partyById(w, id); return p && p.siege === s.id && atWar(w, p.faction, s.faction); });
             if (s.siegeBy.length) {
                 s.siegeDays++;
+                // głód: po wyczerpaniu zapasów załoga słabnie z dnia na dzień
+                if (s.siegeDays > siegeStores(s)) {
+                    applyLosses(s.garrison, 0.05);
+                    if (s.siegeDays === siegeStores(s) + 1)
+                        chron(w, `Głód w oblężonym ${s.name}. Załoga słabnie.`, PAL.redL);
+                }
                 if (s.siegeDays >= 4 && !s.siegeBy.includes(w.pid))
                     aiAssault(w, s);
             }
@@ -9699,6 +10182,7 @@ function captureSettlement(w, s, faction, ownerLord) {
     w.ownerVersion++;
     chron(w, `${s.name} pada! ${factionName(faction)} odbiera to miejsce frakcji ${factionName(old)}.`, PAL.gold);
 }
+function siegeStores(s) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)); }
 function applyLosses(list, frac) {
     for (const t of list.slice()) {
         const n = Math.min(t.n, Math.round(t.n * frac * rr(0.8, 1.2)));
@@ -10097,6 +10581,7 @@ const COMPANIONS = [
     { id: "ilse", name: "Siostra Ilse", race: "human", role: "kapłanka", weapon: "mace", shield: true, armor: 0.16, bow: 0, horse: false, hp: 120, cost: 400, wage: 10, bio: "Wygnana z zakonu za walkę z nieumarłymi bez rozkazu. Leczy rany i dusze.", helm: "mitre", body: "robe" },
     { id: "dvalin", name: "Dvalin Ognisty Kufel", race: "dwarf", role: "obrońca", weapon: "warhammer", shield: true, armor: 0.28, bow: 0, horse: false, hp: 170, cost: 600, wage: 14, bio: "Krasnolud wygnany z Khazgrim za zbyt głośne śpiewanie w kopalni.", helm: "dwarf", body: "plate" },
     { id: "grashna", name: "Grashna", race: "orc", role: "zwiadowczyni", weapon: "axe", shield: false, armor: 0.14, bow: 0, horse: true, hp: 140, cost: 380, wage: 10, bio: "Orczyca, która porzuciła hordę. Jeździ jak burza, milczy jak grób.", helm: "none", body: "leather" },
+    { id: "brakk", name: "Brakk Żelazna Miarka", race: "dwarf", role: "inżynier", weapon: "warhammer", shield: false, armor: 0.22, bow: 0, horse: false, hp: 140, cost: 550, wage: 13, bio: "Krasnoludzki saper. Postawi wieżę oblężniczą z byle czego i policzy, ile głazów trzeba na mur.", helm: "dwarf", body: "mail" },
     { id: "teodor", name: "Teodor Zdrajca", race: "human", role: "rycerz", weapon: "sword", shield: true, armor: 0.25, bow: 0, horse: true, hp: 150, cost: 800, wage: 18, bio: "Pozbawiony herbu rycerz Korony. Twierdzi, że był niewinny.", helm: "great", body: "plate" },
 ];
 function makeCompanion(id) {
@@ -11074,6 +11559,9 @@ let sfxUi = () => { };
 let SCREEN = null;
 function showScr(html, acts, cls = "") {
     const root = document.getElementById("ui");
+    const tipEl = document.getElementById("tip");
+    if (tipEl)
+        tipEl.hidden = true; // dymek z mapy nie wisi nad oknem
     if (!SCREEN || SCREEN.el.className !== "win " + cls) {
         if (SCREEN)
             SCREEN.el.remove();
@@ -12122,14 +12610,19 @@ function launchBattle(ctx, cfgExtra = {}) {
     };
     if (ctx.kind === "arena") {
         const A = ctx.arena, mode = A.mode || (A.team ? "team3" : "duel");
-        cfg.arena = { kind: mode.startsWith("team") ? "team" : "duel", lethal: mode === "death" };
-        cfg.maxPerSide = mode === "waves" ? 3 : 20;
+        cfg.arena = { kind: mode.startsWith("team") ? "team" : mode === "beasts" ? "beasts" : "duel", lethal: mode === "death", joust: mode === "joust", archery: mode === "archery" };
+        cfg.maxPerSide = mode === "waves" ? 2 : 20;
         if (mode === "team3")
             cfg.player.troops = [{ type: pick(["m_sword", "a_maa", "v_legion"]), n: 2 }];
         if (mode === "team5")
             cfg.player.troops = [{ type: pick(["m_sword", "a_maa"]), n: 2 }, { type: pick(["v_legion", "o_warrior", "d_shield"]), n: 2 }];
+        const kit = ARENA_KITS[A.kit || 0];
+        if (kit && kit.weapon)
+            cfg.player.hero = { ...cfg.player.hero, weapon: kit.weapon, shield: !!kit.shield, bowDmg: kit.bow || 0, ammo: kit.bow ? 20 : 0 };
         if (mode === "joust")
             cfg.player.hero = { ...cfg.player.hero, weapon: "lance", shield: true, mount: cfg.player.hero.mount || { hp: 130, speed: 118, accel: 66, turn: 2.8 } };
+        if (mode === "archery")
+            cfg.player.hero = { ...cfg.player.hero, bowDmg: Math.max(cfg.player.hero.bowDmg || 0, 40), ammo: 12 };
         if (mode === "death")
             cfg.night = true;
     }
@@ -12153,7 +12646,15 @@ function launchBattle(ctx, cfgExtra = {}) {
     G.state = "battle";
     hideMapHud();
     showBattleHud();
-    b.phase = "fight";
+    // rozstawienie przed bitwą (pole i szturm), chyba że zasadzka albo arena
+    const ambushed = ctx.kind === "field" && ctx.enemies.some((e) => e.ambush);
+    b.phase = settings.deploy !== false && (ctx.kind === "field" || (ctx.kind === "siege" && !ctx.defend)) && !ambushed && !ctx.sally ? "deploy" : "fight";
+    if (b.phase === "deploy") {
+        b.cmdOpen = true;
+        b.say("Rozstawienie: ustaw oddziały (wybierz numer, PPM przeciągnij linię). Enter lub Spacja: do boju!", PAL.gold, true);
+    }
+    // sojusznicy słuchają tylko przy dobrej relacji z ich panem (albo gdy jesteś władcą lub marszałkiem)
+    b.cfg.allyObey = P.status === "król" || ctx.allies.every((a) => a.lord == null || a.lord < 0 || (w.lords[a.lord]?.relation ?? 0) >= 10);
     const intro = ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
     b.say(intro, PAL.bone, true);
     b.shout(ctx.title, PAL.gold);
@@ -12246,6 +12747,7 @@ function applyBattleResult(r, auto = false) {
     P.kills += r.heroKills;
     const lines = [];
     let lootGold = 0;
+    let sackNext = null;
     const lootItems = [];
     if (ctx.kind === "arena") {
         arenaFinished(r);
@@ -12342,8 +12844,22 @@ function applyBattleResult(r, auto = false) {
             lines.push(`Oblężenie ${s.name} przełamane!`);
             chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold);
         }
-        else if (ctx.kind === "siege" && ctx.settlement)
+        else if (ctx.kind === "siege" && ctx.settlement) {
             siegeWon(ctx.settlement, lines);
+            if (ctx.settlement.kind !== "village")
+                sackNext = () => showSack(ctx.settlement);
+        }
+        if (ctx.sally && ctx.settlement) {
+            const s = ctx.settlement;
+            for (const e of ctx.enemies) {
+                e.siege = undefined;
+            }
+            s.siegeBy = [];
+            s.siegeDays = 0;
+            lines.push(`Nocny wypad rozbił obóz oblegających. ${s.name} wolne!`);
+            P.renown += 25;
+            chron(w, `${P.name} rozbija nocnym wypadem oblężenie ${s.name}.`, PAL.gold);
+        }
         if (ctx.onWin)
             ctx.onWin(lines);
     }
@@ -12379,7 +12895,7 @@ function applyBattleResult(r, auto = false) {
     // bitwy z lordami zmieniają nastawienie frakcji
     if (auto)
         lines.unshift(r.win ? "Rozstrzygnięcie bez walki: twoi ludzie zwyciężają." : "Rozstrzygnięcie bez walki: bitwa przegrana.");
-    showAftermath(r, lootGold, lootItems, lines);
+    showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
     G.battle = null;
 }
 function gainXp(P, xp, lines) {
@@ -12422,6 +12938,23 @@ function releaseFromCaptivity(text) {
     closeScreen();
     showMapHud();
     refreshMapHud();
+}
+// Los zdobytego miasta: oszczędzić, złupić albo spalić.
+function showSack(s) {
+    const w = WORLD, P = w.player;
+    const loot = Math.round(200 + s.prosperity * (s.kind === "town" ? 9 : 5));
+    const done = (txt) => { toast(txt, PAL.gold); showMapHud(); refreshMapHud(); autosave(); };
+    showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("town", w.day, s.culture, isNight(w)), "scene-img")}</div>
+    <h1>${s.name} zdobyte</h1><p>Twoi ludzie stoją na rynku z gołymi ostrzami. Mieszczanie patrzą z okien. Co rozkażesz?</p>
+    <div class="choices">
+      <button class="choice" data-a="spare"><span class="k">1</span>Oszczędź miasto <span class="muted">(relacja +15, honor +2)</span></button>
+      <button class="choice" data-a="loot"><span class="k">2</span>Złup skarbiec i domy <span class="muted">(+${loot} denarów, dobrobyt −25, relacja −20, honor −2)</span></button>
+      <button class="choice" data-a="burn"><span class="k">3</span>Spal, ku przestrodze <span class="muted">(+${Math.round(loot / 3)} denarów, dobrobyt w gruzach, relacja −50, honor −5, postrach)</span></button>
+    </div></div>`, {
+        spare: () => { s.relation += 15; P.honor += 2; chron(w, `${P.name} oszczędza mieszkańców ${s.name}.`, PAL.gold); done("Mieszkańcy odetchnęli. Zapamiętają to."); },
+        loot: () => { P.gold += loot; s.prosperity = Math.max(5, s.prosperity - 25); s.relation -= 20; P.honor -= 2; P.morale = Math.min(100, P.morale + 10); chron(w, `${P.name} łupi ${s.name}.`, PAL.redL); done(`Łupy: ${loot} denarów. Ludzie są zadowoleni.`); },
+        burn: () => { P.gold += Math.round(loot / 3); s.prosperity = 5; s.relation -= 50; P.honor -= 5; P.renown += 15; chron(w, `${P.name} pali ${s.name}. Łuna widoczna z daleka.`, PAL.redL); done("Miasto płonie. Wieść o tym rozejdzie się szybko."); },
+    }, "dialog-scr");
 }
 function siegeWon(s, lines) {
     const w = WORLD, P = w.player, p = playerParty(w);
@@ -12822,10 +13355,14 @@ function updateTip() {
     tip.style.top = Math.min(sy + 12, wrap.height - tip.offsetHeight - 8) + "px";
 }
 // ---------- Osady ----------
-const SET = { id: 0, tab: "main", bet: 50, quest: null, unit: "" };
+const SET = { id: 0, tab: "main", bet: 0, kit: 0, quest: null, unit: "" };
 function enterSettlement(s) {
     const w = WORLD, P = w.player;
     playerParty(w).path = [];
+    G.view.hover = null;
+    const tipEl = document.getElementById("tip");
+    if (tipEl)
+        tipEl.hidden = true;
     SET.id = s.id;
     SET.tab = "main";
     SET.quest = null;
@@ -12964,7 +13501,10 @@ function settlementPane(s, hostileS) {
           <td><button class="mini" data-a="buy" data-v="${k}:1">Kup</button><button class="mini" data-a="buy" data-v="${k}:5">×5</button><button class="mini" data-a="sell" data-v="${k}:1" ${(P.goods[k] || 0) > 0 ? "" : "disabled"}>Sprzedaj</button><button class="mini" data-a="sell" data-v="${k}:all" ${(P.goods[k] || 0) > 0 ? "" : "disabled"}>Wszystko</button></td></tr>`).join("")}</table>
         <p class="tip">Ceny zależą od zapasów. Karawany i wojna je zmieniają. Kupuj tam, gdzie towaru jest dużo, sprzedawaj tam, gdzie go brak.</p>`,
                 acts: {
-                    buy: (v) => { const [k, ns] = v.split(":"); let n = Number(ns); for (let i = 0; i < n; i++) {
+                    buy: (v) => { const [k, ns] = v.split(":"); if (k === "grain" && P.quests.some((q) => !q.done && q.kind === "grain" && q.giver === s.id)) {
+                        toast("Głodują: zboża nie sprzedadzą. Przywieź je z innego miejsca.", PAL.redL);
+                        return;
+                    } let n = Number(ns); for (let i = 0; i < n; i++) {
                         const pr = buyPrice(w, s, k);
                         if (P.gold < pr || s.stock[k] < 1)
                             break;
@@ -13027,23 +13567,31 @@ function settlementPane(s, hostileS) {
             };
         }
         case "arena": {
-            const tour = s.tournament > 0;
-            const row = (mode, title, desc, prize, fee = 0) => `<div class="arow"><div><b>${title}</b><br><span class="muted">${desc}</span></div><button class="mini" data-a="fight" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee} · ` : ""}${prize}</button></div>`;
+            const tour = s.tournament > 0, night = isNight(w);
+            const wins = s.arenaWins || 0, champ = s.champion === "player";
+            const card = (mode, title, desc, prize, pic2, fee = 0) => `<div class="acard"><div class="apic">${pic2}</div><b>${title}</b><span class="muted">${desc}</span><span class="gold">${prize}</span><button class="mini" data-a="pick" data-v="${mode}:${fee}" ${P.gold >= fee ? "" : "disabled"}>${fee ? `Wpisowe ${fee}` : "Walcz"}</button></div>`;
+            const kitRow = `<div class="row"><span>Zestaw:</span>${ARENA_KITS.map((k, i) => `<button class="mini ${SET.kit === i ? "on" : ""}" data-a="kit" data-v="${i}">${k.name}</button>`).join("")}</div>`;
             return {
-                html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu, nikt tu nie ginie… zwykle.</p>
-          ${row("duel", "Pojedynek", "jeden przeciwnik, broń jak twoja", "nagroda 40")}
-          ${row("team3", "Drużyny 3 na 3", "ty i dwóch zawodników", "nagroda 70")}
-          ${row("team5", "Drużyny 5 na 5", "większa przepychanka na piasku", "nagroda 110")}
-          ${row("waves", "Fala za falą", "kolejni przeciwnicy wchodzą, gdy padają poprzedni", "nagroda 160")}
-          ${row("joust", "Pojedynek na kopie", "konno, z kopią w galopie (R)", "nagroda 90")}
-          ${row("death", "Walka na śmierć", "ciemny klub nocą: prawdziwa broń, przeciwnik ginie", "nagroda 300", 60)}
-          ${tour ? `<h2>Turniej (${s.tournament} dni)</h2><p>Drabinka ośmiu zawodników: ćwierćfinał, półfinał (na kopie) i finał. Zwycięzca: 600 denarów i sława.</p>
-            <div class="row"><span>Zakład na siebie: <input type="number" min="0" max="${P.gold}" step="10" value="${SET.bet}" data-in="bet" class="num"></span><button class="mini" data-a="tour">Wejdź do turnieju</button></div>` : "<p class='muted'>Turniej obecnie się nie odbywa. Ogłoszenia pojawiają się na mapie.</p>"}
-          <p class="tip">Na arenie walczysz swoim sprzętem, ale bez armii i kompanów.</p>`,
+                html: `<p>Piasek areny, krzyk tłumu. Walczy się do nokautu.${wins ? ` Twoje zwycięstwa tutaj: <b>${wins}</b>.` : ""}${champ ? ` <span class="gold">${ic("crown")} Mistrz areny ${s.name}</span>` : ` <span class="muted">(10 zwycięstw: tytuł mistrza areny)</span>`}</p>
+          ${kitRow}
+          <div class="row"><span>Zakład na siebie: <input type="number" min="0" max="${P.gold}" step="10" value="${SET.bet}" data-in="bet" class="num"></span><span class="muted">wygrana zwraca podwójnie</span></div>
+          <div class="acards">
+          ${card("duel", "Pojedynek", "jeden przeciwnik", "40 den.", unitThumb("a_maa"))}
+          ${card("team3", "3 na 3", "ty i dwóch zawodników", "70 den.", unitThumb("m_sword") + unitThumb("m_sword"))}
+          ${card("team5", "5 na 5", "przepychanka drużyn", "110 den.", unitThumb("v_legion") + unitThumb("o_warrior"))}
+          ${card("waves", "Fale", "coraz silniejsi, bonus za serię bez ran", "160 den.", unitThumb("o_berserk"))}
+          ${card("beasts", "Bestie", "wilki i wilk olbrzym", "130 den.", unitThumb("x_wolf") + unitThumb("x_direwolf"))}
+          ${card("archery", "Łucznictwo", "12 strzał, 8 tarcz, kto więcej", "60 den.", unitThumb("x_dummy"))}
+          ${card("joust", "Kopie", "3 przejazdy, punkty za trafienie", "90 den.", unitThumb("a_knight"))}
+          ${night ? card("death", "Zaułek za areną", "nocą, prawdziwa broń, przeciwnik ginie", "300 den.", unitThumb("b_chief"), 60) : ""}
+          </div>
+          ${tour ? `<h2>${ic("banner")} Turniej (${s.tournament} dni)</h2><p>Drabinka 16 zawodników, wśród nich lordowie. Rundy: pieszo, łucznictwo, kopie i finał pieszo. Zwycięzca: 800 denarów, sława i +1 punkt drzewka.</p>
+            <button class="mini" data-a="tour">Wejdź do turnieju</button>` : "<p class='muted'>Turniej obecnie się nie odbywa. Ogłoszenia pojawiają się na mapie.</p>"}`,
                 acts: {
                     bet: (v) => { SET.bet = clamp(Math.round(Number(v) || 0), 0, P.gold); },
-                    fight: (v) => { const [mode, fee] = v.split(":"); P.gold -= Number(fee) || 0; arenaFight(s, mode, false, 0, 0); },
-                    tour: () => { const bet = clamp(SET.bet, 0, P.gold); P.gold -= bet; startTourney(s, bet); },
+                    kit: (v) => { SET.kit = Number(v); re(); },
+                    pick: (v) => { const [mode, fee] = v.split(":"); const bet = clamp(SET.bet, 0, P.gold - (Number(fee) || 0)); P.gold -= (Number(fee) || 0) + bet; arenaFight(s, mode, false, 0, bet); },
+                    tour: () => { startTourney(s, 0); },
                 },
             };
         }
@@ -13081,9 +13629,13 @@ function settlementPane(s, hostileS) {
             const n = bes.reduce((a, o) => a + troopCount(o.troops), 0);
             return {
                 html: `<p class="bad">${s.name} jest oblężone od ${s.siegeDays} dni przez: ${bes.map((o) => o.name).join(", ")} (${n} ludzi).</p>
-          <p>Możesz stanąć na murach razem z załogą (${troopCount(s.garrison)} ludzi). Obrońcy mają przewagę blanków, kamieni i wrzącego oleju.</p>
-          <div class="btns"><button data-a="defendNow">Broń murów!</button></div>`,
-                acts: { defendNow: () => launchBattle({ kind: "siege", defend: true, enemies: bes, allies: [], garrisonAlly: s.garrison, settlement: s, title: `Obrona: ${s.name}` }, { siegeDefender: 0, engines: { ram: chance(0.7), tower: chance(0.4) } }) },
+          <p>Możesz stanąć na murach razem z załogą (${troopCount(s.garrison)} ludzi). Obrońcy mają przewagę blanków, kamieni, balisty i wrzącego oleju.</p>
+          <p class="${s.siegeDays > siegeStores(s) ? "bad" : "muted"}">${ic("food")} Zapasy: ${s.siegeDays > siegeStores(s) ? "skończyły się, załoga głoduje" : `na ok. ${siegeStores(s) - s.siegeDays} dni`}</p>
+          <div class="btns"><button data-a="defendNow">Broń murów!</button>${isNight(w) ? `<button class="alt" data-a="sally">Nocny wypad na obóz wroga</button>` : `<button class="alt" disabled title="Tylko nocą">Nocny wypad (nocą)</button>`}</div>`,
+                acts: {
+                    defendNow: () => launchBattle({ kind: "siege", defend: true, enemies: bes, allies: [], garrisonAlly: s.garrison, settlement: s, title: `Obrona: ${s.name}` }, { siegeDefender: 0, engines: { ram: chance(0.7), tower: chance(0.4) } }),
+                    sally: () => { const half = s.garrison.map((t) => ({ ...t, n: Math.ceil(t.n / 2) })); launchBattle({ kind: "field", enemies: bes, allies: [], garrisonAlly: half, settlement: s, title: `Wypad z ${s.name}`, sally: true }, { sally: true, night: true, terrain: "plains" }); },
+                },
             };
         }
         case "siege": {
@@ -13092,8 +13644,9 @@ function settlementPane(s, hostileS) {
             const lordsInside = w.parties.filter((o) => o.kind === "lord" && o.faction === s.faction && dist(o.x, o.y, s.cx * WCELL, s.cy * WCELL) < 20);
             return {
                 html: `<p>${s.name} broni ${def} ludzi załogi${lordsInside.length ? ` i armie: ${lordsInside.map((l) => l.name).join(", ")}` : ""}.</p>
-          ${inSiege ? `<p>Oblężenie trwa ${s.siegeDays} dni. ${s.siegeDays >= 1 ? "Drabiny gotowe." : "Ludzie zbijają drabiny (1 dzień)."}</p>
-            <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
+          ${inSiege ? `<p>Oblężenie trwa ${s.siegeDays} dni. ${s.siegeDays >= 1 ? "Drabiny gotowe, trzeba je donieść pod mur w bitwie." : "Ludzie zbijają drabiny (1 dzień)."} <span class="${s.siegeDays > siegeStores(s) ? "gold" : "muted"}">${s.siegeDays > siegeStores(s) ? "Obrońcy głodują." : `Zapasy obrońców: ok. ${siegeStores(s) - s.siegeDays} dni.`}</span></p>
+            ${hasEngineer() ? `<p class="tip">${ic("hammer")} Inżynier w drużynie: możesz budować wieżę i trebusz. W bitwie T: strzał z trebusza w miejsce kursora.</p>` : `<p class="tip">${ic("hammer")} Bez inżyniera (kompan) zbudujesz tylko taran. Szukaj krasnoludzkiego sapera w karczmach.</p>`}
+            <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : e.k !== "ram" && !hasEngineer() ? `<button class="mini" disabled>Potrzebny inżynier</button>` : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
             <p class="tip">Każdy dzień oczekiwania posuwa budowę zaznaczonych machin. Bez taranu brama ledwo drgnie.</p>
             <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button><button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
                     : `<p>Oblężenie zablokuje dostawy i da czas na zbicie drabin. Obrońcy mają przewagę murów.</p><div class="btns"><button data-a="besiege">Rozpocznij oblężenie</button></div>`}
@@ -13120,6 +13673,7 @@ function settlementPane(s, hostileS) {
     }
     return { html: "", acts: {} };
 }
+function hasEngineer() { return WORLD.player.companions.some((c) => c.role === "inżynier"); }
 const ENGINES = [
     { k: "ram", name: "Taran", days: 1, desc: "Pchany pod bramę, rozbija ją w kilka uderzeń." },
     { k: "tower", name: "Wieża oblężnicza", days: 2, desc: "Podjeżdża pod mur i opuszcza pomost." },
@@ -13228,9 +13782,13 @@ function offerQuest(s) {
     const w = WORLD, P = w.player;
     if (P.quests.some((q) => !q.done && q.giver === s.id))
         return null;
+    if (s.questCd > w.day)
+        return null; // po wykonanym zadaniu chwila przerwy
     const h = hashInt(s.seed + w.day);
     const kinds = s.kind === "village" ? ["grain", "wolves", "bandits"] : ["bandits", "letter", "bandits"];
-    const kind = kinds[h % kinds.length];
+    let kind = kinds[h % kinds.length];
+    if (kind === "grain" && s.stock.grain >= 10)
+        kind = "wolves"; // o zboże proszą tylko, gdy naprawdę go brakuje
     const id = w.questId++;
     if (kind === "bandits") {
         const b = w.parties.filter((p) => p.kind === "bandit").sort((a, c) => dist(a.x, a.y, s.cx * WCELL, s.cy * WCELL) - dist(c.x, c.y, s.cx * WCELL, s.cy * WCELL))[0];
@@ -13246,7 +13804,7 @@ function offerQuest(s) {
         return { id, kind, giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };
     }
     if (kind === "grain") {
-        const n = 8 + (h % 10);
+        const n = Math.max(6, Math.round(16 - s.stock.grain) + (h % 4));
         return { id, kind, giver: s.id, target: s.id, amount: n, reward: n * 22, days: 10, text: `Przywieź ${n} worków zboża do ${s.name}. Ludzie głodują.`, done: false };
     }
     const lair = w.places.filter((p) => p.kind === "lair" && p.cleared <= 0).sort((a, c) => dist(a.cx, a.cy, s.cx, s.cy) - dist(c.cx, c.cy, s.cx, s.cy))[0];
@@ -13264,84 +13822,138 @@ function completeQuest(q, lines) {
     P.renown += 8;
     P.honor += 1;
     const s = w.settlements[q.giver];
-    if (s)
+    if (s) {
         s.relation += 8;
+        s.questCd = w.day + 7;
+    }
     gainXp(P, 60 + Math.round(q.reward / 5), lines);
     lines.push(`Zadanie wykonane: ${q.text} Nagroda: ${q.reward} denarów.`);
     chron(w, `${P.name} wykonuje zadanie dla ${s ? s.name : "ludzi"}.`, PAL.moss);
 }
 // ---------- Arena ----------
 const ARENA_FOES = ["m_sword", "a_maa", "v_legion", "o_warrior", "d_shield", "v_veteran", "o_berserk", "a_guard", "a_knight", "d_warden"];
-const ARENA_PRIZE = { duel: 40, team3: 70, team5: 110, waves: 160, joust: 90, death: 300 };
-const TOURNEY_NAMES = ["Gerd Żelazny", "Mirko z Valmory", "Hagen Rudy", "Sybil Ostrze", "Brom Krasnolud", "Ułan Kossa", "Rycerz Bez Herbu", "Draga Ork", "Ostap Wilczy", "Lena z Kassii", "Tybalt Szary", "Kurt Topór"];
+const ARENA_PRIZE = { duel: 40, team3: 70, team5: 110, waves: 160, beasts: 130, archery: 60, joust: 90, death: 300 };
+const ARENA_KITS = [
+    { name: "Własny" }, { name: "Miecz i tarcza", weapon: "sword", shield: true }, { name: "Dwuręczny", weapon: "longsword", shield: false },
+    { name: "Włócznia", weapon: "spear", shield: false }, { name: "Topór i tarcza", weapon: "axe", shield: true }, { name: "Łuk i nóż", weapon: "dagger", shield: false, bow: 42 },
+];
+const TOURNEY_NAMES = ["Gerd Żelazny", "Mirko z Valmory", "Hagen Rudy", "Sybil Ostrze", "Brom Krasnolud", "Ułan Kossa", "Rycerz Bez Herbu", "Draga Ork", "Ostap Wilczy", "Lena z Kassii", "Tybalt Szary", "Kurt Topór", "Wilk z Brodów", "Jasna Agata", "Orm Kamienny", "Szczerbaty Lech", "Ida z Marchii"];
+const ROUND_NAME = ["1/8 finału", "ćwierćfinał", "półfinał", "finał"];
+const ROUND_MODE = ["duel", "archery", "joust", "duel"];
 function arenaFight(s, mode, tournament, round, bet, foeKey) {
     const w = WORLD, P = w.player;
-    const tier = tournament ? round + 2 : Math.min(4, 1 + Math.floor(P.level / 3));
+    const tier = tournament ? round + 1 : Math.min(4, 1 + Math.floor(P.level / 3));
     const pool = ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier <= tier + 1 && UNITS[k].tier >= Math.max(1, tier - 1));
     const foes = [];
     if (mode === "joust")
-        addTroops(foes, foeKey && UNITS[foeKey].mount ? foeKey : pick(["a_knight", "v_cata", "a_knight"]), 1);
+        addTroops(foes, foeKey && UNITS[foeKey]?.mount ? foeKey : pick(["a_knight", "v_cata", "a_knight"]), 1);
+    else if (mode === "archery") { /* tarcze stawia bitwa */
+        addTroops(foes, "x_dummy", 1);
+    }
+    else if (mode === "beasts") {
+        for (let i = 0; i < 4; i++)
+            addTroops(foes, "x_wolf", 1);
+        addTroops(foes, "x_direwolf", 1);
+    }
+    else if (mode === "waves") {
+        const ws = ["b_bandit", "m_sword", "a_maa", "o_warrior", "v_veteran", "o_berserk", "a_guard"].filter((k) => UNITS[k]);
+        for (const k of ws)
+            addTroops(foes, k, 1);
+    }
     else if (foeKey)
         addTroops(foes, foeKey, 1);
     else {
-        const n = mode === "team3" ? 3 : mode === "team5" ? 5 : mode === "waves" ? 7 : 1;
+        const n = mode === "team3" ? 3 : mode === "team5" ? 5 : 1;
         for (let i = 0; i < n; i++)
             addTroops(foes, pick(pool.length ? pool : ["m_sword"]), 1);
     }
-    const titles = { duel: "Arena: pojedynek", team3: "Arena: 3 na 3", team5: "Arena: 5 na 5", waves: "Arena: fala za falą", joust: "Pojedynek na kopie", death: "Walka na śmierć" };
-    launchBattle({ kind: "arena", enemies: [], allies: [], enemyTroops: foes, settlement: s, arena: { tournament, round, bet, team: mode.startsWith("team"), mode, foe: foeKey }, title: tournament ? `Turniej: ${["ćwierćfinał", "półfinał", "finał"][round - 1]}` : titles[mode] });
+    const titles = { duel: "Arena: pojedynek", team3: "Arena: 3 na 3", team5: "Arena: 5 na 5", waves: "Arena: fala za falą", beasts: "Arena: bestie", archery: "Łucznictwo", joust: "Pojedynek na kopie", death: "Zaułek: walka na śmierć" };
+    launchBattle({ kind: "arena", enemies: [], allies: [], enemyTroops: foes, settlement: s, arena: { tournament, round, bet, team: mode.startsWith("team"), mode, foe: foeKey, kit: tournament ? 0 : SET.kit }, title: tournament ? `Turniej: ${ROUND_NAME[round - 1]}` : titles[mode] });
 }
 let TOUR = null;
 function startTourney(s, bet) {
-    const names = [WORLD.player.name, ...TOURNEY_NAMES.slice().sort(() => rnd() - 0.5).slice(0, 7)];
-    const keys = ["hero", ...[0, 1, 2, 3, 4, 5, 6].map(() => pick(ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier >= 3)))];
-    TOUR = { sid: s.id, names, keys, alive: names.map(() => true), round: 1, bet };
-    TOUR.out = names.map(() => 0);
+    const w = WORLD;
+    const lordsHere = w.lords.filter((l) => l.alive && l.faction === s.faction && !l.captive).slice(0, 4);
+    const names = [w.player.name], keys = ["hero"], lords = [-1];
+    for (const L of lordsHere) {
+        names.push(`${L.title} ${L.name}`);
+        keys.push(pick(["a_knight", "a_champion", "v_praetor", "d_warden"].filter((k) => UNITS[k])));
+        lords.push(L.id);
+    }
+    const pool = TOURNEY_NAMES.slice().sort(() => rnd() - 0.5);
+    while (names.length < 16) {
+        names.push(pool.pop() || "Nieznajomy");
+        keys.push(pick(ARENA_FOES.filter((k) => UNITS[k] && UNITS[k].tier >= 2)));
+        lords.push(-1);
+    }
+    // tasowanie poza bohaterem
+    const idx = [...Array(15).keys()].map((i) => i + 1).sort(() => rnd() - 0.5);
+    const order = [0, ...idx];
+    TOUR = { sid: s.id, names: order.map((i) => names[i]), keys: order.map((i) => keys[i]), lords: order.map((i) => lords[i]), alive: names.map(() => true), out: names.map(() => 0), round: 1, bet, bets: {} };
     showBracket();
 }
+function tourWinner(T, g, size, r) { return [...Array(size).keys()].map((k) => g + k).find((k) => T.out[k] === 0 || T.out[k] > r); }
 function showBracket() {
-    const T = TOUR, s = WORLD.settlements[T.sid];
-    // T.alive -> runda odpadnięcia w T.out (0 = wciąż w grze)
-    const out = T.out;
-    const cols = [0, 1, 2, 3].map((r) => { const size = 2 ** r; const res = []; for (let g = 0; g < 8; g += size) {
-        if (r >= T.round) {
-            res.push(-1);
-            continue;
-        }
-        const w = [...Array(size).keys()].map((k) => g + k).find((k) => out[k] === 0 || out[k] > r);
-        res.push(w ?? -1);
-    } return res; });
-    const cell = (k, r) => k < 0 ? `<div class="bk empty">?</div>` : `<div class="bk ${k === 0 ? "you" : ""} ${out[k] === r + 1 ? "out" : ""}">${k === 0 ? ic("star") : ""}${esc(T.names[k])}</div>`;
-    const aliveIdx = T.alive.map((a, i) => (a ? i : -1)).filter((i) => i > 0);
+    const T = TOUR, w = WORLD, P = w.player, s = w.settlements[T.sid];
+    const cols = [0, 1, 2, 3, 4].map((r) => { const size = 2 ** r; const res = []; for (let g = 0; g < 16; g += size)
+        res.push(r >= T.round ? -1 : tourWinner(T, g, size, r) ?? -1); return res; });
+    const cell = (k, r) => k < 0 ? `<div class="bk empty">?</div>` : `<div class="bk ${k === 0 ? "you" : ""} ${T.out[k] === r + 1 ? "out" : ""} ${T.lords[k] >= 0 ? "lord" : ""}">${k === 0 ? ic("star") : T.lords[k] >= 0 ? ic("crown") : ""}${esc(T.names[k])}${T.bets[k] ? ` <span class="gold">${T.bets[k]}</span>` : ""}</div>`;
     const block = 2 ** T.round;
-    const opp = aliveIdx.find((i) => Math.floor(i / block) === 0) ?? aliveIdx[0];
-    const mode = T.round === 2 ? "joust" : "duel";
+    const opp = T.alive.map((a, i) => (a ? i : -1)).filter((i) => i > 0).find((i) => Math.floor(i / block) === 0);
+    const mode = ROUND_MODE[T.round - 1];
+    // zakłady na innych: pary tej rundy bez bohatera
+    const pairs = [];
+    for (let g = block; g < 16; g += block) {
+        const L = [...Array(block).keys()].map((k) => g + k).filter((k) => T.alive[k]);
+        if (L.length === 2)
+            pairs.push([L[0], L[1]]);
+    }
+    const betHtml = pairs.length ? `<h2>${ic("coin")} Zakłady na inne pary (50 den., wygrana ×2)</h2><div class="chips">${pairs.map(([a2, b2]) => [a2, b2].map((k) => `<button class="mini ${T.bets[k] ? "on" : ""}" data-a="bet" data-v="${k}" ${P.gold >= 50 && !T.bets[a2] && !T.bets[b2] ? "" : "disabled"}>${esc(T.names[k])}</button>`).join(" vs ")).join(" · ")}</div>` : "";
     showScr(`<div class="card frame wide"><h1>Turniej w ${s.name}</h1>
-    <div class="bracket">${cols.map((c, r) => `<div class="bcol"><span class="muted">${["Zawodnicy", "Półfinał", "Finał", "Zwycięzca"][r]}</span>${c.map((k) => cell(k, r)).join("")}</div>`).join("")}</div>
-    <p>Runda ${T.round}: ${["ćwierćfinał", "półfinał", "finał"][T.round - 1]} · ${mode === "joust" ? "<b>na kopie, konno</b>" : "walka piesza"} · przeciwnik: <b>${esc(T.names[opp])}</b> (${UNITS[T.keys[opp]].name})${T.bet ? ` · zakład ${T.bet}` : ""}</p>
+    <div class="bracket b16">${cols.map((c, r) => `<div class="bcol"><span class="muted">${["Zawodnicy", "Ćwierćfinał", "Półfinał", "Finał", "Zwycięzca"][r]}</span>${c.map((k) => cell(k, r)).join("")}</div>`).join("")}</div>
+    <p>Runda ${T.round}: ${ROUND_NAME[T.round - 1]} · <b>${{ duel: "walka piesza", archery: "łucznictwo do tarcz", joust: "kopie, 3 przejazdy" }[mode]}</b> · przeciwnik: <b>${esc(T.names[opp])}</b>${mode === "duel" ? ` (${UNITS[T.keys[opp]].name})` : ""}${T.lords[opp] >= 0 ? " · <span class='gold'>lord: wygrana podniesie relację</span>" : ""}</p>
+    ${betHtml}
     <div class="btns"><button data-a="go">Do walki!</button><button class="alt" data-a="quit">Wycofaj się</button></div></div>`, {
-        go: () => { T.opp = opp; arenaFight(s, mode, true, T.round, T.bet, mode === "joust" ? undefined : T.keys[opp]); },
+        bet: (v) => { const k = Number(v); if (P.gold < 50)
+            return; P.gold -= 50; T.bets[k] = 50; showBracket(); },
+        go: () => { T.opp = opp; arenaFight(s, mode, true, T.round, 0, mode === "duel" ? T.keys[opp] : undefined); },
         quit: () => { TOUR = null; enterSettlement(s); },
     }, "after-scr");
 }
-function tourneyAdvance(heroWon) {
-    const T = TOUR;
+function tourneyAdvance(heroWon, lines) {
+    const T = TOUR, w = WORLD, P = w.player;
     const block = 2 ** T.round;
-    // przegrany w meczu bohatera
     const kill = (k) => { T.alive[k] = false; T.out[k] = T.round; };
-    if (heroWon)
+    if (heroWon) {
         kill(T.opp);
+        if (T.lords[T.opp] >= 0) {
+            const L = lordById(w, T.lords[T.opp]);
+            if (L) {
+                L.relation += 3;
+                lines.push(`${L.title} ${L.name} docenia twoją rękę (+3 relacji).`);
+            }
+        }
+    }
     else
         kill(0);
-    // pozostałe pary
-    for (let g = 0; g < 8; g += block) {
+    for (let g = 0; g < 16; g += block) {
         if (g === 0)
             continue;
         const grp = [...Array(block).keys()].map((k) => g + k).filter((k) => T.alive[k]);
         if (grp.length === 2) {
             const [a, b] = grp;
-            const pa = UNITS[T.keys[a]].tier + rr(0, 2), pb = UNITS[T.keys[b]].tier + rr(0, 2);
-            kill(pa >= pb ? b : a);
+            const pa = (UNITS[T.keys[a]]?.tier || 2) + (T.lords[a] >= 0 ? 1 : 0) + rr(0, 2.5), pb = (UNITS[T.keys[b]]?.tier || 2) + (T.lords[b] >= 0 ? 1 : 0) + rr(0, 2.5);
+            const win = pa >= pb ? a : b, lose = win === a ? b : a;
+            kill(lose);
+            if (T.bets[win]) {
+                P.gold += T.bets[win] * 2;
+                lines.push(`Zakład na ${T.names[win]} wygrany: +${T.bets[win] * 2} denarów.`);
+                delete T.bets[win];
+            }
+            if (T.bets[lose]) {
+                lines.push(`Zakład na ${T.names[lose]} przepadł.`);
+                delete T.bets[lose];
+            }
         }
     }
     T.round++;
@@ -13349,49 +13961,70 @@ function tourneyAdvance(heroWon) {
 function arenaFinished(r) {
     const ctx = G.ctx, w = WORLD, P = w.player, s = ctx.settlement, A = ctx.arena;
     P.hp = Math.max(P.hp, heroMaxHp(P) * (A.mode === "death" ? 0.2 : 0.5));
+    const crowd = G.battle?.crowdGold || 0;
     G.battle = null;
     const lines = [];
     const won = r.win && !r.heroKO;
+    if (crowd) {
+        P.gold += crowd;
+        lines.push(`Tłum rzucił na piasek ${crowd} denarów i kwiaty.`);
+    }
     if (A.tournament && TOUR) {
-        tourneyAdvance(won);
+        tourneyAdvance(won, lines);
         if (!won) {
-            lines.push(`Odpadasz z turnieju (${["ćwierćfinał", "półfinał", "finał"][A.round - 1]}).${A.bet ? ` Zakład (${A.bet}) przepada.` : ""}`);
+            lines.push(`Odpadasz z turnieju (${ROUND_NAME[A.round - 1]}).`);
             TOUR = null;
             showAftermath(r, 0, [], lines, () => enterSettlement(s));
             return;
         }
-        if (A.round >= 3) {
-            const prize = 600 + A.bet * 3;
+        if (A.round >= 4) {
+            const prize = 800;
             P.gold += prize;
-            P.renown += 60;
+            P.renown += 70;
             s.relation += 10;
             P.skillPts += 1;
             for (const L of w.lords)
                 if (L.faction === s.faction)
                     L.relation += 2;
-            lines.push(`Wygrywasz turniej w ${s.name}! Nagroda: ${prize} denarów, wielka sława i +1 punkt drzewka.`);
+            lines.push(`Wygrywasz turniej w ${s.name}! ${prize} denarów, wielka sława i +1 punkt drzewka.`);
             chron(w, `${P.name} wygrywa turniej w ${s.name}.`, PAL.gold);
             s.tournament = 0;
             TOUR = null;
-            gainXp(P, 250, lines);
+            gainXp(P, 300, lines);
             showAftermath(r, 0, [], lines, () => enterSettlement(s));
             return;
         }
-        lines.push(`Wygrywasz! Następna runda: ${["półfinał", "finał"][A.round - 1]}.`);
+        lines.push(`Wygrywasz! Następna runda: ${ROUND_NAME[A.round]}.`);
         showAftermath(r, 0, [], lines, () => showBracket());
         return;
     }
     if (won) {
-        const prize = ARENA_PRIZE[A.mode || "duel"] || 40;
+        let prize = ARENA_PRIZE[A.mode || "duel"] || 40;
+        if (A.mode === "waves" && r.heroHp >= heroMaxHp(P) * 0.75) {
+            prize += 80;
+            lines.push("Seria bez większych ran: premia 80 denarów!");
+        }
         P.gold += prize;
         P.renown += A.mode === "death" ? 8 : 2;
         lines.push(`Wygrana: ${prize} denarów.`);
+        if (A.bet) {
+            P.gold += A.bet * 2;
+            lines.push(`Zakład na siebie: +${A.bet * 2} denarów.`);
+        }
         gainXp(P, A.mode === "death" ? 80 : 30, lines);
         if (A.mode === "death")
             P.honor -= 1;
+        const sw = s;
+        sw.arenaWins = (sw.arenaWins || 0) + 1;
+        if (sw.arenaWins >= 10 && sw.champion !== "player") {
+            sw.champion = "player";
+            P.renown += 25;
+            lines.push(`Tytuł: Mistrz areny ${s.name}! Ludzie wołają twoje imię na ulicach.`);
+            chron(w, `${P.name} zostaje mistrzem areny ${s.name}.`, PAL.gold);
+        }
     }
     else
-        lines.push(A.mode === "death" ? "Ledwo uchodzisz z życiem. Ktoś wywlókł cię za próg." : "Leżysz na piasku. Tłum gwiżdże.");
+        lines.push((A.mode === "death" ? "Ledwo uchodzisz z życiem. Ktoś wywlókł cię za próg." : "Leżysz na piasku. Tłum gwiżdże.") + (A.bet ? ` Zakład (${A.bet}) przepada.` : ""));
     showAftermath(r, 0, [], lines, () => enterSettlement(s));
 }
 // ---------- Miejsca specjalne ----------
@@ -13980,7 +14613,7 @@ function showSettings(back) {
     if (SETT.tab === "map")
         body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]);
     if (SETT.tab === "battle")
-        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
     if (SETT.tab === "sound")
         body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Głośność muzyki", 0, 1, 0.05);
     if (SETT.tab === "view")
@@ -14002,7 +14635,7 @@ function showSettings(back) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
         tab: (v) => { SETT.tab = v; showSettings(back); },
-        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
         "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
@@ -14021,7 +14654,7 @@ function showSettings(back) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.9";
+const BUILD = "Build 0.10";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -14035,7 +14668,7 @@ const settings = {
     damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
     musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
     questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
-    atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true,
+    atkMode: "mouse", horseMode: "dir", deploy: true, gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
     const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -14247,7 +14880,8 @@ function battleHud(dt) {
     else
         $("banner").hidden = true;
     $("slow").hidden = !b.cmdOpen;
-    $("slow").textContent = b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+    $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+    $("startfight").hidden = b.phase !== "deploy";
     if (b.focusT > 0) {
         $("slow").hidden = false;
         $("slow").textContent = "Skupienie";
@@ -14292,6 +14926,7 @@ $("mini").addEventListener("mousedown", (e) => {
     b.sfx.ui();
 });
 $("mini").addEventListener("contextmenu", (e) => e.preventDefault());
+$("startfight").addEventListener("mousedown", (e) => { e.stopPropagation(); G.battle?.startFight(); });
 $("cmd").addEventListener("mousedown", (e) => {
     e.stopPropagation();
     const bt = e.target.closest("button");

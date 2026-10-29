@@ -220,7 +220,16 @@ function drawSiegeDynamic(g: CanvasRenderingContext2D, M: BattleMap, sx: number,
   } else {
     g.fillStyle = PAL.woodD; g.fillRect(gx - 4, gy + 8, 10, 3); g.fillRect(gx + 4, gy - 14, 3, 9); g.fillRect(gx - 8, gy - 4, 8, 2);
   }
-  for (const ly of W2.ladders) {
+  const pl = (W2 as any).placed as boolean[] | undefined;
+  for (const br of ((W2 as any).breaches || []) as number[]) {   // wyrwy w murze
+    const by = br - sy, bx = W2.x0 - sx;
+    g.fillStyle = PAL.black; g.fillRect(bx - 2, by - 10, W2.x1 - W2.x0 + 4, 20);
+    g.fillStyle = PAL.stone; for (let i = 0; i < 14; i++) g.fillRect(bx - 6 + ((i * 7) % 26), by - 9 + ((i * 5) % 18), 3, 2);
+    g.fillStyle = PAL.ash; for (let i = 0; i < 8; i++) g.fillRect(bx - 8 + ((i * 11) % 30), by - 6 + ((i * 3) % 14), 2, 2);
+  }
+  for (let li = 0; li < W2.ladders.length; li++) {
+    if (pl && !pl[li]) continue;
+    const ly = W2.ladders[li];
     const lx = W2.x0 - sx - 10, y0 = ly - sy;
     g.fillStyle = PAL.wood; g.fillRect(lx, y0 - 5, 14, 1); g.fillRect(lx, y0 + 5, 14, 1);
     g.fillStyle = PAL.woodD; for (let x = 1; x < 14; x += 3) g.fillRect(lx + x, y0 - 5, 1, 11);

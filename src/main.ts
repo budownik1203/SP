@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.9";
+const BUILD = "Build 0.10";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -16,7 +16,7 @@ const settings: Settings = {
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
-  atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true,
+  atkMode: "mouse", horseMode: "dir", deploy: true, gore: true, dmgHeroOnly: true, outline: true,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -161,7 +161,8 @@ function battleHud(dt: number) {
   if (b.banner) { $("banner").textContent = b.banner.text; $("banner").style.color = b.banner.col; $("banner").hidden = false; $("banner").style.opacity = String(clamp(b.banner.t * 2, 0, 1)); }
   else $("banner").hidden = true;
   $("slow").hidden = !b.cmdOpen;
-  $("slow").textContent = b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+  $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+  $("startfight").hidden = b.phase !== "deploy";
   if (b.focusT > 0) { $("slow").hidden = false; $("slow").textContent = "Skupienie"; }
 }
 
@@ -193,6 +194,7 @@ $("mini").addEventListener("mousedown", (e) => {
   b.sfx.ui();
 });
 $("mini").addEventListener("contextmenu", (e) => e.preventDefault());
+$("startfight").addEventListener("mousedown", (e) => { e.stopPropagation(); G.battle?.startFight(); });
 $("cmd").addEventListener("mousedown", (e) => {
   e.stopPropagation();
   const bt = (e.target as HTMLElement).closest("button") as HTMLButtonElement | null;
