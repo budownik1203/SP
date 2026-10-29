@@ -25,7 +25,7 @@ function castHeroAbility(b: Battle, slot: number) {
   if (A.res === "blood") h.hp -= cost; else (H as any)[A.res] -= cost;
   b.cds[id] = A.cd;
   if (A.corrupt) {
-    H.corruption = Math.min(100, H.corruption + A.corrupt);
+    H.corruption = Math.min(100, H.corruption + A.corrupt * b.corruptMul);
     if (H.corruption > 60 && chance(0.25)) { b.say("Spaczenie pali ci żyły!", PAL.purpleL); h.hp -= 8; b.hurtFlash = 0.3; }
   }
   const wx = b.cam.x + b.input.mx, wy = b.cam.y + b.input.my;
@@ -68,7 +68,7 @@ function castHeroAbility(b: Battle, slot: number) {
     }
     case "fireball": {
       const a = Math.atan2(wy - (h.y - 12), wx - h.x);
-      b.fire(h, a, 240, 55, clamp(dist(h.x, h.y, wx, wy), 30, 320), "fire");
+      b.fire(h, a, 240, 55 * b.fireMul, clamp(dist(h.x, h.y, wx, wy), 30, 320), "fire");
       break;
     }
     case "heal": {

@@ -77,6 +77,7 @@ interface PlayerState {
   hp: number; gold: number; renown: number; honor: number;
   equip: Record<ESlot, string | null>; items: string[]; goods: Record<string, number>;
   abilities: string[]; learned: string[]; abLevels: Record<string, number>;
+  nodes: string[]; perks: Record<string, number>;
   faith: number; mana: number; corruption: number; bandages: number; ammo: number;
   companions: CompanionState[];
   liege: number; status: "wolny" | "najemnik" | "wasal" | "król"; contractDays: number;
@@ -418,7 +419,7 @@ function computeNearest(w: World) {
 }
 
 function lordLook(f: number, ruler: boolean, seed: number): Look {
-  const best: Record<number, string> = { 1: "a_knight", 2: "v_cata", 3: "d_warden", 4: "o_berserk", 5: "u_wight" };
+  const best: Record<number, string> = { 1: "a_paladin", 2: "v_praetor", 3: "d_warden", 4: "o_ironhide", 5: "u_wight" };
   const key = f === 5 && ruler ? "u_dk" : f === 5 && seed % 3 === 1 ? "u_necro" : best[f];
   const L = troopLook(UNITS[key], seed * 7 + 3, f);
   if (f !== 5 || key === "u_wight") L.cape = [FACTIONS[f].col, FACTIONS[f].shade];
@@ -442,7 +443,7 @@ function factionTroops(f: number, budget: number, eliteBias = 0.5): Troop[] {
   while (left > 0 && guard++ < 400) {
     const d = pick(pool);
     if (!d || d.key === "u_dk" || d.key === "hero" || d.key === "companion") continue;
-    const w = d.tier === 1 ? 1 : d.tier === 2 ? 0.7 + eliteBias * 0.3 : d.tier === 3 ? 0.25 + eliteBias * 0.4 : 0.08 + eliteBias * 0.2;
+    const w = [1, 0.85, 0.45 + eliteBias * 0.3, 0.2 + eliteBias * 0.3, 0.06 + eliteBias * 0.2][d.tier - 1] || 0.05;
     if (d.ability && chance(0.6)) continue;
     if (!chance(w)) continue;
     addTroops(out, d.key, 1);
@@ -906,8 +907,8 @@ function playerDaily(w: World) {
   const maxHp = heroMaxHp(P);
   P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (p.state === "camp" ? 0.15 : 0)));
   for (const c of P.companions) c.hp = Math.min(c.maxHp, c.hp + c.maxHp * 0.15);
-  P.faith = Math.min(100, P.faith + 8 + P.attr.cha);
-  P.mana = Math.min(100, P.mana + 10 + P.attr.int * 1.5);
+  P.faith = Math.min(100, P.faith + (8 + P.attr.cha) * (1 + perk(P, "faith")));
+  P.mana = Math.min(100, P.mana + (10 + P.attr.int * 1.5) * (1 + perk(P, "mana")));
   P.corruption = Math.max(0, P.corruption - 0.5);
   // żołd co 7 dni
   if (w.day - P.lastPay >= 7) {
@@ -942,7 +943,7 @@ function desert(w: World, frac: number) {
 }
 let addLogMsg: (t: string, c?: string) => void = () => {};
 
-function heroMaxHp(P: PlayerState) { return 100 + P.attr.str * 4 + P.skills.ironflesh * 6 + P.level * 2; }
+function heroMaxHp(P: PlayerState) { return 70 + P.attr.str * 3 + (P.attr.end || 4) * 7 + P.skills.ironflesh * 8 + P.level * 2 + (P.race === "dwarf" ? 15 : P.race === "orc" ? 10 : 0); }
 
 // ---------- Towarzysze ----------
 const COMPANIONS: { id: string; name: string; race: Race; role: string; weapon: string; shield: boolean; armor: number; bow: number; horse: boolean; hp: number; cost: number; wage: number; bio: string; helm: Helm; body: BodyMat }[] = [

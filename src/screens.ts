@@ -1,6 +1,6 @@
 // Ekrany kampanii: tytuł, kreator bohatera, osady, spotkania, rozmowy z lordami, po bitwie, niewola, postać, ekwipunek, armia, frakcje, kronika, zapis.
 
-const SAVE_AUTO = "sztandary-b4-auto", SAVE_SLOT = "sztandary-b4-slot1";
+const SAVE_AUTO = "sztandary-b5-auto", SAVE_SLOT = "sztandary-b5-slot1";
 
 // ---------- Zapis ----------
 function serializeWorld(w: World) {
@@ -103,8 +103,10 @@ function showCreator() {
         <h2>Rasa</h2><div class="chips">${raceBtns}</div><p class="tip">${R.desc}</p>
         <h2>Pochodzenie</h2><div class="chips">${orBtns}</div>
         <p>${O.desc}</p>
-        <p class="tip">Umiejętności aktywne: ${O.abilities.map((a) => `<b>${ABILITIES[a].name}</b>`).join(", ")} · Złoto: ${O.gold} · Ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")}</p>
-        <p class="tip">Sprzęt: ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>
+        <div class="cre-attrs">${ATTRS.map((k) => { const v = 4 + (O.attr[k] || 0) + (R.attr[k] || 0); return `<div class="attr"><span class="an" style="color:${ATTR_INFO[k].col}">${ATTR_INFO[k].name}</span><div class="bar"><i style="width:${(v / 15) * 100}%;background:${ATTR_INFO[k].col}"></i></div><b>${v}</b></div>`; }).join("")}</div>
+        <p class="tip">Na start: ${ic(NODE(O.node).icon)} <b>${NODE(O.node).name}</b> i 2 punkty drzewek · ${O.hint}</p>
+        <p class="tip">${ic("coin")} ${O.gold} · ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")}</p>
+        <p class="tip">Sprzęt (nędzny): ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>
       </div>
     </div>
     <div class="btns"><button data-a="start">Ruszaj w świat</button><button class="alt" data-a="back">Wróć</button></div>
@@ -179,12 +181,15 @@ function refreshMapHud() {
   const el = document.getElementById("mh-top");
   if (!el) return;
   const status = P.status === "najemnik" ? `najemnik: ${factionShort(P.liege)} (${P.contractDays} dni)` : P.status === "wasal" ? `wasal: ${factionShort(P.liege)}` : P.status === "król" ? P.kingdom : "wolny";
-  el.innerHTML = `<span title="Dzień i pora">Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? " · deszcz" : ""}</span>
-    <span title="Złoto"><b class="gold">${P.gold}</b> denarów</span>
-    <span title="Ludzie / limit">${n}/${partyLimit(w)} ludzi${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
-    <span title="Jedzenie" class="${days < 2 ? "bad" : ""}">Jedzenie: ${food} (${days} dni)</span>
-    <span title="Morale" class="${P.morale < 35 ? "bad" : ""}">Morale ${Math.round(P.morale)}</span>
-    <span class="muted">${status}</span><span class="muted">${BUILD}</span>`;
+  const hpK = P.hp / heroMaxHp(P);
+  el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? ` ${ic("rain")}` : ""}</span>
+    <span class="hb" title="Złoto">${ic("coin")} <b class="gold">${P.gold}</b></span>
+    <span class="hb" title="Ludzie / limit">${ic("man")} ${n}/${partyLimit(w)}${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
+    <span class="hb ${days < 2 ? "bad" : ""}" title="Jedzenie (dni zapasu)">${ic("food")} ${food} <span class="muted">(${days} dni)</span></span>
+    <span class="hb ${P.morale < 35 ? "bad" : ""}" title="Morale">${ic("heart")} ${Math.round(P.morale)}</span>
+    <span class="hb" title="Zdrowie bohatera"><span class="minibar"><i style="width:${hpK * 100}%"></i></span></span>
+    ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
+    <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
   const sp = document.getElementById("mh-speed");
   if (sp) sp.innerHTML = `${[1, 2, 4].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${G.camping ? "Zwiń obóz" : "Obóz"}</button>`;
 }
@@ -219,7 +224,7 @@ function updateTip() {
 }
 
 // ---------- Osady ----------
-const SET = { id: 0, tab: "main", bet: 50, quest: null as Quest | null };
+const SET = { id: 0, tab: "main", bet: 50, quest: null as Quest | null, unit: "" };
 function enterSettlement(s: Settlement) {
   const w = WORLD, P = w.player;
   playerParty(w).path = [];
@@ -254,18 +259,19 @@ function renderSettlement() {
   const scene = drawScene(sceneKind, s.seed, s.culture, isNight(w), s.raided > 0 ? 1 : 0);
   const pane = settlementPane(s, hostileS);
   showScr(`<div class="settle">
-    <div class="scene">${pic(scene, "scene-img")}</div>
+    <div class="scene ${SET.tab === "main" ? "" : "small"}">${pic(scene, "scene-img")}</div>
     <div class="s-head"><h1>${s.name}</h1><span class="muted">${kindName} · ${factionName(s.faction)} · ${owner}</span>
       <span class="muted">Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""} · nastawienie ${s.relation >= 0 ? "+" : ""}${Math.round(s.relation)}${s.raided ? " · <span class='bad'>spustoszona</span>" : ""}</span></div>
-    <div class="s-tabs">${tabs.map(([k, n]) => `<button class="tab ${SET.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("")}</div>
+    <div class="s-tabs">${tabs.map(([k, n]) => `<button class="tab ${SET.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${ic(TAB_ICON[k] || "star")}${n}</button>`).join("")}</div>
     <div class="s-pane">${pane.html}</div>
     <div class="s-foot"><span><b class="gold">${P.gold}</b> denarów</span><span>${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)} ludzi</span><span>Jedzenie ${foodTotal(w)}</span></div>
   </div>`, {
-    tab: (v) => { if (v === "leave") { closeScreen(); refreshMapHud(); return; } if (v === "rest") { restInSettlement(s); return; } if (v === "raid") { raidVillage(s); return; } SET.tab = v; renderSettlement(); },
+    tab: (v) => { if (v === "leave") { closeScreen(); showMapHud(); return; } if (v === "rest") { restInSettlement(s); return; } if (v === "raid") { raidVillage(s); return; } SET.tab = v; renderSettlement(); },
     ...pane.acts,
   }, "settle-scr");
 }
 
+const TAB_ICON: Record<string, string> = { main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
 function recruitPool(s: Settlement): string[] {
   const w = WORLD, P = w.player;
   const cul = s.culture;
@@ -298,12 +304,20 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length);
       const relMul = s.relation < -10 ? 0 : 1;
       const avail = Math.floor(s.recruits * relMul);
+      if (!pool.includes(SET.unit)) SET.unit = pool[0] || "";
+      const k = SET.unit, d = k ? UNITS[k] : null;
+      const cost = (u: string) => UNITS[u].tier >= 2 ? Math.round(UNITS[u].cost * 1.3) : UNITS[u].cost;
+      const ok = !!d && avail > 0 && room > 0 && P.gold >= cost(k);
       return {
-        html: `<p>Ochotnicy: <b>${avail}</b> · Miejsce w armii: <b>${Math.max(0, room)}</b>${relMul === 0 ? " · <span class='bad'>Mieszkańcy nie chcą ci służyć.</span>" : ""}</p>
-        <table class="tbl"><tr><th>Jednostka</th><th>Tier</th><th>Koszt</th><th>Żołd</th><th></th></tr>
-        ${pool.map((k) => { const d = UNITS[k]; const ok = avail > 0 && room > 0 && P.gold >= d.cost; return `<tr><td>${unitBadge(k)} ${d.name}${d.ability ? ` <span class="gold">(${abilityWord(d.ability)})</span>` : ""}</td><td>${d.tier}</td><td>${d.cost}</td><td>${d.wage}/dzień</td><td><button class="mini" data-a="rec" data-v="${k}:1" ${ok ? "" : "disabled"}>+1</button><button class="mini" data-a="rec" data-v="${k}:5" ${ok ? "" : "disabled"}>+5</button></td></tr>`; }).join("")}
-        </table>${pool.length === 0 ? "<p class='muted'>Nikt tu nie chce iść z tobą.</p>" : ""}`,
-        acts: { rec: (v) => { const [k, ns] = v.split(":"); const d = UNITS[k]; let n = Math.min(Number(ns), avail, partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), Math.floor(P.gold / d.cost)); if (n <= 0) return; P.gold -= n * d.cost; s.recruits -= n; addTroops(p.troops, k, n); sfx.coin(); re(); } },
+        html: `<p>${ic("man")} Ochotnicy: <b>${avail}</b> · miejsce w armii: <b>${Math.max(0, room)}</b>${relMul === 0 ? " · <span class='bad'>Mieszkańcy nie chcą ci służyć.</span>" : ""}</p>
+        ${pool.length ? `<div class="pgrid"><div class="ulist">${pool.map((u) => `<button class="urow ${u === k ? "on" : ""}" data-a="pickU" data-v="${u}">${unitThumb(u)}<span class="un"><b>${UNITS[u].name}</b>${tierStars(UNITS[u].tier)}</span><span class="uc">${ic("coin")}${cost(u)}</span></button>`).join("")}</div>
+          <div class="udet"><div class="udet-top">${unitAnim(k, 3)}<div><h2>${d.name}</h2>${tierStars(d.tier)}<p class="tip">Koszt ${cost(k)} · żołd ${d.wage}/dzień</p>
+            <button data-a="rec" data-v="${k}:1" ${ok ? "" : "disabled"}>Werbuj 1</button> <button class="alt" data-a="rec" data-v="${k}:5" ${ok ? "" : "disabled"}>Werbuj 5</button></div></div>
+            ${unitStats(k)}<h2>Dokąd może awansować</h2>${unitTreeHtml(k)}</div></div>` : "<p class='muted'>Nikt tu nie chce iść z tobą.</p>"}`,
+        acts: {
+          pickU: (v) => { SET.unit = v; re(); },
+          rec: (v) => { const [u, ns] = v.split(":"); const c = cost(u); const n = Math.min(Number(ns), avail, partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), Math.floor(P.gold / c)); if (n <= 0) return; P.gold -= n * c; s.recruits -= n; addTroops(p.troops, u, n); sfx.coin(); re(); },
+        },
       };
     }
     case "market": {
@@ -447,7 +461,7 @@ function rumor(s: Settlement, salt = 0): string {
   const k = h % 5;
   if (k === 0) { const L = w.lords[h % w.lords.length]; const p = partyById(w, L.party); return p ? `${L.title} ${L.name} (${factionShort(L.faction)}) był ostatnio widziany niedaleko ${nearestSettlement(w, p.x, p.y).name}.` : `${L.title} ${L.name} nie ma teraz armii.`; }
   if (k === 1) { const pl = w.places.filter((x) => x.kind !== "shrine")[h % w.places.filter((x) => x.kind !== "shrine").length]; if (pl) { pl.seen = true; w.explored[cidx(pl.cx, pl.cy)] = 1; return `Mówią o miejscu zwanym ${pl.name}, w okolicach ${nearestSettlement(w, pl.cx * WCELL, pl.cy * WCELL).name}.`; } }
-  if (k === 2) { const t = w.settlements.filter((x) => x.kind === "town")[h % 10 % w.settlements.filter((x) => x.kind === "town").length]; const g = GOOD_KEYS[(h >> 4) % GOOD_KEYS.length]; return `W ${t.name} ${GOODS[g].name.toLowerCase()} ${t.stock[g] < 20 ? "jest drogie, brakuje go" : "jest tanie, mają go w bród"}.`; }
+  if (k === 2) { const t = w.settlements.filter((x) => x.kind === "town")[h % 10 % w.settlements.filter((x) => x.kind === "town").length]; const g = GOOD_KEYS[(h >>> 4) % GOOD_KEYS.length]; return `W ${t.name} ${GOODS[g].name.toLowerCase()} ${t.stock[g] < 20 ? "jest drogie, brakuje go" : "jest tanie, mają go w bród"}.`; }
   if (k === 3) { const wars: string[] = []; for (const a of [1, 2, 3, 4, 5]) for (const b of [1, 2, 3, 4, 5]) if (a < b && w.factions[a].war[b]) wars.push(`${factionShort(a)} z ${factionShort(b)}`); return wars.length ? `Wojna trwa: ${wars.slice(0, 3).join(", ")}.` : "Podobno wszędzie pokój. Nie potrwa długo."; }
   return pick(["Martwi wstają z grobów coraz bliżej traktu.", "Zbóje grasują przy brodach.", "Ktoś widział Rycerza Śmierci na północy.", "Krasnoludy płacą dobrze za żelazo i piwo.", "Orkowie napadają na karawany w nocy."]);
 }
@@ -566,16 +580,11 @@ function enterPlace(pl: SpecialPlace) {
   let btns = "";
   if (pl.kind === "shrine") {
     btns += `<button data-a="pray" ${pl.cleared > 0 ? "disabled" : ""}>Módl się${pl.cleared > 0 ? ` (za ${pl.cleared} dni)` : ""}</button>`;
-    const canLearn = ["smite", "heal"].filter((a) => !P.learned.includes(a));
-    const canUp = P.learned.includes("smite") && (P.abLevels.smite || 1) < 2;
-    btns += `<button class="alt" data-a="offer" ${P.gold >= 300 && (canLearn.length || canUp) ? "" : "disabled"}>Złóż ofiarę (300): ${canUp && P.level >= 5 ? "Smite poziom 2" : canLearn.length ? ABILITIES[canLearn[0]].name : "nic więcej"}</button>`;
+    const used = (P as any).shrines || ((P as any).shrines = []);
+    const can = !used.includes(pl.id);
+    btns += `<button class="alt" data-a="offer" ${P.gold >= 300 && can ? "" : "disabled"}>Złóż ofiarę (300): +1 punkt drzewka${can ? "" : " (już złożona)"}</button>`;
     acts.pray = () => { P.faith = 100; P.hp = Math.min(heroMaxHp(P), P.hp + heroMaxHp(P) * 0.3); P.morale = Math.min(100, P.morale + 5); P.corruption = Math.max(0, P.corruption - 10); pl.cleared = 3; sfx.heal(); toast("Wiara odnowiona, spaczenie słabnie.", PAL.gold); enterPlace(pl); };
-    acts.offer = () => {
-      if (canUp && P.level >= 5) { P.abLevels.smite = 2; P.gold -= 300; toast("Smite poziom 2: słup świętego światła!", PAL.gold); }
-      else if (canLearn.length) { P.learned.push(canLearn[0]); P.gold -= 300; const free = P.abilities.indexOf(""); if (free >= 0) P.abilities[free] = canLearn[0]; toast(`Nowa umiejętność: ${ABILITIES[canLearn[0]].name}.`, PAL.gold); }
-      else if (canUp) { toast("Potrzebujesz 5. poziomu, by pojąć tę moc.", PAL.ash); return; }
-      sfx.smite(); enterPlace(pl);
-    };
+    acts.offer = () => { P.gold -= 300; P.skillPts++; used.push(pl.id); sfx.smite(); toast("Ofiara przyjęta: +1 punkt drzewka umiejętności.", PAL.gold); enterPlace(pl); };
   } else if (pl.cleared > 0) btns += `<p class="muted">Pusto. Coś tu wróci za ${pl.cleared} dni.</p>`;
   else {
     btns += `<button data-a="attack">Atakuj</button>`;
@@ -628,25 +637,26 @@ function meetParty(o: Party, ambushed: boolean) {
       lines.forEach((l) => toast(l, PAL.gold)); closeScreen();
     },
   };
-  let btns = "";
+  const ch: Choice[] = [];
   if (host) {
-    btns += `<button data-a="fight">Do ataku!</button>`;
-    if (o.kind === "caravan" || o.kind === "villagers" || (o.kind === "bandit" && myPow > theirPow * 3)) btns += `<button class="alt" data-a="surrender">Zażądaj kapitulacji</button>`;
-    if (L) btns += `<button class="alt" data-a="talk">Rozmawiaj</button>`;
-    if (o.kind === "bandit" && ambushed && P.gold > 20) btns += `<button class="alt" data-a="pay">Zapłać (${Math.round(P.gold * 0.25)})</button>`;
-    if (ambushed) { btns += `<button class="alt" data-a="flee">Uciekaj</button>`; if (troopCount(p.troops) > 3) btns += `<button class="alt" data-a="rear">Zostaw straż tylną</button>`; }
-    else btns += `<button class="alt" data-a="leave">Odejdź</button>`;
+    ch.push({ a: "fight", label: "Do ataku!", cls: "danger" });
+    if (o.kind === "caravan" || o.kind === "villagers" || (o.kind === "bandit" && myPow > theirPow * 3)) ch.push({ a: "surrender", label: "Złóżcie broń, a darujemy wam życie." });
+    if (L) ch.push({ a: "talk", label: "Porozmawiajmy, zanim poleje się krew." });
+    if (o.kind === "bandit" && ambushed && P.gold > 20) ch.push({ a: "pay", label: `Weźcie ${Math.round(P.gold * 0.25)} denarów i odejdźcie.` });
+    if (ambushed) { ch.push({ a: "flee", label: "Uciekamy! (próba ucieczki)" }); if (troopCount(p.troops) > 3) ch.push({ a: "rear", label: "Zostawiam straż tylną, reszta za mną." }); }
+    else ch.push({ a: "leave", label: "Odejdź" });
   } else {
-    if (L) btns += `<button data-a="talk">Rozmawiaj</button>`;
-    btns += `<button class="alt danger" data-a="attackNeutral">Atakuj</button><button class="alt" data-a="leave">Odejdź</button>`;
+    if (L) ch.push({ a: "talk", label: "Chcę z tobą pomówić." });
+    ch.push({ a: "attackNeutral", label: "Napadnij na nich", cls: "danger" });
+    ch.push({ a: "leave", label: "Bywaj." });
   }
-  showScr(`<div class="dialog frame meet">
-    <div class="meet-top">${pic(portrait, "portrait big")}<div><h1>${esc(o.name)}</h1><p class="muted">${factionName(o.faction)}</p><p>${greet}</p></div></div>
-    <p>${partyDesc(o)}</p>
+  const comp = o.troops.slice().sort((x, y) => UNITS[y.type].tier - UNITS[x.type].tier).slice(0, 6).map((t) => `<span class="tchip" title="${UNITS[t.type].name}">${unitThumb(t.type)}<b>${t.n}</b></span>`).join("");
+  const ratio = myPow / Math.max(0.1, myPow + theirPow);
+  const info = `<div class="comp-row">${comp}</div>
+    ${host ? `<div class="pow"><span>Ty ${Math.round(myPow)}</span><div class="powbar"><i style="width:${ratio * 100}%"></i></div><span>${Math.round(theirPow)} Wróg</span></div><p class="tip">${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
     ${helpers.length ? `<p class="bad">Na pomoc idą: ${helpers.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${allies.length ? `<p class="gold">Twoi sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${host ? `<p class="tip">Siła: twoja ${Math.round(myPow)} · wroga ${Math.round(theirPow)} · ${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
-    <div class="btns">${btns}</div></div>`, acts, "dialog-scr");
+    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}`;
+  showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: esc(o.name), sub: `${factionName(o.faction)} · ${troopCount(o.troops)} ludzi`, speech: greet.replace(/<[^>]+>/g, ""), info, choices: ch })}</div>`, acts, "dialog-scr");
 }
 
 // ---------- Rozmowa z lordem ----------
@@ -658,7 +668,7 @@ function showLordTalk(L: Lord, back: () => void) {
   const wars = Object.keys(F.war).filter((k) => F.war[Number(k)]).map(Number);
   const opts: string[] = [];
   const acts: Acts = { back: () => back() };
-  const say = (t: string) => { const e = document.getElementById("lord-say"); if (e) e.textContent = t; };
+  const say = (t: string) => { const e = document.getElementById("bubble"); if (e) { e.dataset.full = t; typeBubble(); } };
   if (P.liege === 0 && P.status !== "król" && wars.length && !playerAtWarWith(w, L.faction)) {
     opts.push(`<button class="alt" data-a="merc">Szukam służby jako najemnik</button>`);
     acts.merc = () => { if (troopCount(playerParty(w).troops) < 8) { say("„Wróć, gdy będziesz miał więcej niż garstkę obdartusów.”"); return; } P.liege = L.faction; P.status = "najemnik"; P.contractDays = 30; chron(w, `${P.name} zaciąga się jako najemnik: ${factionName(L.faction)}.`, PAL.gold); toast(`Kontrakt na 30 dni. Wrogowie: ${wars.map(factionShort).join(", ")}.`, PAL.gold); refreshMapHud(); showLordTalk(L, back); };
@@ -711,10 +721,12 @@ function showLordTalk(L: Lord, back: () => void) {
     acts.gift = () => { if (P.gold < 200) return; P.gold -= 200; L.relation += L.personality === "chciwy" ? 8 : 4; say("„Hojność zostanie zapamiętana.”"); };
   }
   const line = L.personality === "okrutny" ? "„Mów szybko, nie lubię czekać.”" : L.personality === "chciwy" ? "„Co mi przynosisz?”" : L.personality === "ostrożny" ? "„Słucham. Ostrożnie dobieraj słowa.”" : "„Słucham cię.”";
-  showScr(`<div class="dialog frame meet">
-    <div class="meet-top">${pic(portrait, "portrait big")}<div><h1>${L.title} ${L.name}</h1><p class="muted">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality}</p><p>Nastawienie: ${relWord} (${L.relation})</p></div></div>
-    <p id="lord-say">${line}</p>
-    <div class="col-btns">${opts.join("")}<button class="alt" data-a="back">Żegnaj</button></div></div>`, acts, "dialog-scr");
+  const ch: Choice[] = opts.map((h) => { const m = h.match(/data-a="([^"]+)"[^>]*>([^<]+)</); return { a: m[1], label: m[2] }; });
+  ch.push({ a: "back", label: "Żegnaj." });
+  const relBar = `<div class="pow rel"><span>Wrogość</span><div class="powbar"><i style="width:${clamp((L.relation + 100) / 2, 0, 100)}%"></i></div><span>Przyjaźń</span></div>`;
+  const lp = partyById(w, L.party);
+  const info = `${relBar}<p class="tip">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality} · nastawienie ${relWord} (${L.relation})${lp ? ` · armia: ${troopCount(lp.troops)}` : ""} · sława ${L.renown}</p>`;
+  showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: `${L.title} ${L.name}`, speech: line, info, choices: ch })}</div>`, acts, "dialog-scr");
 }
 
 // ---------- Po bitwie ----------
@@ -734,6 +746,7 @@ function showAftermath(r: BattleResult, gold: number, items: string[], lines: st
     next: () => {
       closeScreen();
       G.state = "map";
+      showMapHud(); refreshMapHud();
       if (next) { next(); return; }
       if (P.captive) { showCaptivity(); return; }
       showMapHud(); refreshMapHud(); autosave();
@@ -760,42 +773,51 @@ function showCaptivity() {
 function passDay() { const w = WORLD; for (let i = 0; i < 24; i++) worldTick(w, 1); }
 
 // ---------- Okna postaci ----------
+const CH = { tree: "", node: "" };
 function showCharacter() {
   const w = WORLD, P = w.player;
   const portrait = drawPortrait(heroCfgFromPlayer(P).look, PAL.gold);
   const O = ORIGINS[P.origin];
-  const techAvail = Math.floor(P.level / 3) - P.learned.filter((a) => ABILITIES[a].source === "drzewko" && !O.abilities.includes(a)).length;
-  const tech = ["warcry", "bash", "whirl", "focus"].filter((a) => !P.learned.includes(a));
   const nextXp = xpForLevel(P.level + 1), prevXp = xpForLevel(P.level);
-  showScr(`<div class="card frame wide">
-    <div class="char-top">${pic(portrait, "portrait big")}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>
-      ${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp} PD`)}
-      <p>Zdrowie ${Math.round(P.hp)}/${heroMaxHp(P)} · Sława ${P.renown} · Honor ${P.honor} · Zabici ${P.kills} · Wygrane bitwy ${P.battlesWon}</p>
-      <p>Wiara ${Math.round(P.faith)} · Mana ${Math.round(P.mana)} · <span class="${P.corruption > 50 ? "bad" : ""}">Spaczenie ${Math.round(P.corruption)}</span></p></div></div>
-    <div class="cols">
-      <div><h2>Atrybuty ${P.attrPts ? `<span class="gold">(${P.attrPts} pkt)</span>` : ""}</h2>
-        ${Object.keys(ATTR_NAME).map((k) => `<div class="row"><span>${ATTR_NAME[k]}</span><span>${P.attr[k]} <button class="mini" data-a="attr" data-v="${k}" ${P.attrPts ? "" : "disabled"}>+</button></span></div>`).join("")}
-        <p class="tip">Siła: obrażenia i zdrowie · Zręczność: ucieczka z niewoli · Intelekt: mana · Charyzma: wiara i większa armia.</p>
-        <h2>Umiejętności ${P.skillPts ? `<span class="gold">(${P.skillPts} pkt)</span>` : ""}</h2>
-        ${Object.keys(SKILL_NAME).map((k) => `<div class="row"><span>${SKILL_NAME[k]}</span><span>${P.skills[k]} <button class="mini" data-a="skill" data-v="${k}" ${P.skillPts && P.skills[k] < 10 ? "" : "disabled"}>+</button></span></div>`).join("")}
+  if (!CH.tree) CH.tree = NODE(O.node).tree;
+  const tree = STREES.find((t) => t.id === CH.tree);
+  const attrs = ATTRS.map((k) => { const A = ATTR_INFO[k]; return `<div class="attr" title="${A.desc}"><span class="an" style="color:${A.col}">${A.name}</span><div class="bar"><i style="width:${(P.attr[k] / 15) * 100}%;background:${A.col}"></i></div><b>${P.attr[k]}</b><button class="mini" data-a="attr" data-v="${k}" ${P.attrPts ? "" : "disabled"}>+</button></div>`; }).join("");
+  const slots = [0, 1, 2].map((i) => { const a = P.abilities[i]; const A = a ? ABILITIES[a] : null; return `<div class="aslot ${A ? "res-" + A.res : "empty"}"><span class="key">${i + 1}</span>${A ? `<b>${A.name}${a === "smite" && P.abLevels.smite > 1 ? " II" : ""}</b><span class="muted">${RES_NAME[A.res]} ${A.cost} · ${A.cd} s</span>` : `<span class="muted">pusty: odblokuj w drzewku</span>`}</div>`; }).join("");
+  const learned = P.learned.map((a) => `<div class="lchip"><span>${ABILITIES[a].name}</span>${[0, 1, 2].map((i) => `<button class="mini ${P.abilities[i] === a ? "on" : ""}" data-a="slot" data-v="${a}:${i}">${i + 1}</button>`).join("")}</div>`).join("");
+  const tabs = STREES.map((t) => { const blocked = treeExcluded(P, t); const have = NODES.filter((n) => n.tree === t.id && P.nodes.includes(n.id)).length, all = NODES.filter((n) => n.tree === t.id).length; return `<button class="ttab ${t.id === CH.tree ? "on" : ""} ${blocked ? "blocked" : ""}" data-a="tree" data-v="${t.id}">${ic(NODES.find((n) => n.tree === t.id && n.row === 0).icon)}<span>${t.name}</span><small>${have}/${all}</small></button>`; }).join("");
+  const nodes = NODES.filter((n) => n.tree === CH.tree);
+  const lines = nodes.flatMap((n) => n.parents.map((pid) => { const p0 = NODE(pid); const lit = P.nodes.includes(pid) && P.nodes.includes(n.id); return `<line x1="${(p0.col + 0.5) * 100}" y1="${(p0.row + 0.5) * 100}" x2="${(n.col + 0.5) * 100}" y2="${(n.row + 0.5) * 100}" class="${lit ? "lit" : ""}"/>`; })).join("")
+    + nodes.filter((n) => n.excl && n.tree === CH.tree && NODE(n.excl).tree === CH.tree && n.id < n.excl).map((n) => { const m = NODE(n.excl); return `<line x1="${(n.col + 0.5) * 100 + 30}" y1="${(n.row + 0.5) * 100}" x2="${(m.col + 0.5) * 100 - 30}" y2="${(m.row + 0.5) * 100}" class="excl"/>`; }).join("");
+  const nodeHtml = nodes.map((n) => { const st = nodeState(P, n); return `<button class="node ${st} ${CH.node === n.id ? "sel" : ""}" style="left:${((n.col + 0.5) / 3) * 100}%;top:${((n.row + 0.5) / 4) * 100}%" data-a="node" data-v="${n.id}" title="${esc(n.name)}">${ic(n.icon, "big")}<span>${n.name}</span>${n.ability ? `<i class="abmark">umiejętność</i>` : ""}</button>`; }).join("");
+  const sel = CH.node ? NODE(CH.node) : null;
+  const selHtml = sel ? (() => { const st = nodeState(P, sel); const A = sel.ability ? ABILITIES[sel.ability] : null; return `<div class="ninfo"><h2>${sel.name}</h2><p>${sel.desc}</p>${A ? `<p class="tip"><b>${A.name}:</b> ${A.desc} (${RES_NAME[A.res]} ${A.cost}, odnowienie ${A.cd} s${A.corrupt ? `, spaczenie +${A.corrupt}` : ""})</p>` : ""}<p class="${st === "open" ? "gold" : st === "have" ? "muted" : "bad"}">${nodeWhy(P, sel)}</p>${st === "open" ? `<button data-a="unlock" data-v="${sel.id}" ${P.skillPts > 0 ? "" : "disabled"}>Odblokuj (1 punkt)</button>` : ""}</div>`; })() : `<div class="ninfo"><p class="tip">${tree.desc}${tree.excl ? "" : ""} Kliknij węzeł, by zobaczyć szczegóły.</p></div>`;
+  showScr(`<div class="card frame wide char">
+    <div class="char-grid">
+      <div class="char-left">
+        <div class="char-top">${pic(portrait, "portrait big")}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp}`)}</div></div>
+        <p class="tip">Zdrowie ${Math.round(P.hp)}/${heroMaxHp(P)} · sława ${P.renown} · honor ${P.honor} · zabici ${P.kills}<br>Wiara ${Math.round(P.faith)} · mana ${Math.round(P.mana)} · <span class="${P.corruption > 50 ? "bad" : ""}">spaczenie ${Math.round(P.corruption)}</span></p>
+        <h2>Atrybuty ${P.attrPts ? `<span class="gold">+${P.attrPts}</span>` : ""}</h2>${attrs}
+        <h2>Umiejętności aktywne</h2>${slots}
+        ${learned ? `<div class="learned">${learned}</div>` : ""}
       </div>
-      <div><h2>Umiejętności aktywne (klawisze 1–3)</h2>
-        ${[0, 1, 2].map((i) => `<div class="row"><span><span class="key">${i + 1}</span>${P.abilities[i] ? ABILITIES[P.abilities[i]].name + (P.abilities[i] === "smite" ? ` (poz. ${P.abLevels.smite || 1})` : "") : "<span class='muted'>pusty</span>"}</span></div>`).join("")}
-        <h2>Poznane</h2>
-        ${P.learned.map((a) => { const A = ABILITIES[a]; return `<div class="abl"><b>${A.name}</b> <span class="muted">${RES_NAME[A.res]} ${A.cost} · odnowienie ${A.cd} s${A.corrupt ? ` · spaczenie +${A.corrupt}` : ""}</span><br><span class="tip">${A.desc}</span><br>${[0, 1, 2].map((i) => `<button class="mini" data-a="slot" data-v="${a}:${i}">Slot ${i + 1}</button>`).join("")}</div>`; }).join("")}
-        ${techAvail > 0 && tech.length ? `<h2 class="gold">Nowa technika do wyboru</h2>${tech.map((a) => `<div class="row"><span>${ABILITIES[a].name}</span><button class="mini" data-a="learn" data-v="${a}">Poznaj</button></div>`).join("")}` : ""}
-        <p class="tip">Modlitwy (Smite, Leczenie) dają kapliczki. Zaklęcia z ksiąg znajdziesz w ruinach. Techniki bojowe poznajesz co 3 poziomy.</p>
+      <div class="char-right">
+        <div class="ttabs">${tabs}</div>
+        <div class="thead"><b>${tree.name}</b> <span class="muted">(${ATTR_INFO[tree.attr].name})</span> ${treeExcluded(P, tree) ? `<span class="bad">zablokowane: wybrałeś ${STREES.find((t) => t.id === tree.excl).name}</span>` : tree.excl ? `<span class="muted">wyklucza: ${STREES.find((t) => t.id === tree.excl).name}</span>` : ""}<span class="pts">Punkty: <b class="gold">${P.skillPts}</b></span></div>
+        <div class="tview"><svg viewBox="0 0 300 400" preserveAspectRatio="none">${lines}</svg>${nodeHtml}</div>
+        ${selHtml}
       </div>
     </div>
     <div class="btns"><button data-a="close">Zamknij (C)</button></div></div>`, {
-    attr: (k) => { if (P.attrPts <= 0) return; P.attr[k]++; P.attrPts--; if (k === "str") P.hp += 4; showCharacter(); },
-    skill: (k) => { if (P.skillPts <= 0) return; P.skills[k]++; P.skillPts--; if (k === "ironflesh") P.hp += 6; showCharacter(); },
+    attr: (k) => { if (P.attrPts <= 0) return; P.attr[k]++; P.attrPts--; P.hp = Math.min(heroMaxHp(P), P.hp + (k === "end" ? 7 : k === "str" ? 3 : 0)); showCharacter(); },
+    tree: (v) => { CH.tree = v; CH.node = ""; showCharacter(); },
+    node: (v) => { CH.node = v; showCharacter(); },
+    unlock: (v) => { const n = NODE(v); if (unlockNode(P, n)) { sfx.drum(0.8); toast(`Odblokowano: ${n.name}${n.ability ? ` (umiejętność: ${ABILITIES[n.ability].name})` : ""}`, PAL.gold); } showCharacter(); },
     slot: (v) => { const [a, i] = v.split(":"); const idx = Number(i); const prev = P.abilities.indexOf(a); if (prev >= 0) P.abilities[prev] = P.abilities[idx] || ""; P.abilities[idx] = a; showCharacter(); },
-    learn: (a) => { P.learned.push(a); const free = P.abilities.indexOf(""); if (free >= 0) P.abilities[free] = a; showCharacter(); },
     close: () => closeScreen(),
   }, "char-scr");
 }
 
+const SLOT_IC: Record<ESlot, string> = { head: "crown", body: "shield", hands: "hammer", feet: "wind", weapon: "sword", shield: "shield", bow: "bow", horse: "horse" };
 function showInventory() {
   const w = WORLD, P = w.player;
   const H2 = heroCfgFromPlayer(P);
@@ -807,7 +829,7 @@ function showInventory() {
     <div class="inv">
       <div class="doll">${pic(portrait, "portrait big")}${pic(spr, "sprite", 4)}
         <p class="tip">Pancerz: ${Math.round(H2.armor * 100)} · Broń: ${WEAPONS[H2.weapon].name}${H2.bowDmg ? ` · Łuk ${H2.bowDmg}` : ""}${H2.mount ? ` · Koń ${Math.round(H2.mount.speed)}` : ""}</p></div>
-      <div class="slots">${slots.map((s) => { const id = P.equip[s]; const it = id ? ITEMS[id] : null; return `<div class="slot"><span class="muted">${SLOT_NAME[s]}</span><span>${it ? `${itemName(it)} <span class="muted">${itemStat(it)}</span>` : "<span class='muted'>—</span>"}</span>${it ? `<button class="mini" data-a="off" data-v="${s}">Zdejmij</button>` : ""}</div>`; }).join("")}</div>
+      <div class="slots">${slots.map((s) => { const id = P.equip[s]; const it = id ? ITEMS[id] : null; return `<div class="slot"><span class="muted">${ic(SLOT_IC[s])} ${SLOT_NAME[s]}</span><span>${it ? `${itemName(it)} <span class="muted">${itemStat(it)}</span>` : "<span class='muted'>—</span>"}</span>${it ? `<button class="mini" data-a="off" data-v="${s}">Zdejmij</button>` : ""}</div>`; }).join("")}</div>
       <div class="bag"><h2>Juki</h2>${P.items.length ? P.items.map((id, i) => { const it = ITEMS[id]; return `<div class="slot"><span>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span></span><button class="mini" data-a="on" data-v="${i}">Załóż</button></div>`; }).join("") : "<p class='muted'>Puste.</p>"}
         <h2>Towary</h2>${GOOD_KEYS.filter((k) => P.goods[k]).map((k) => `<div class="row"><span>${GOODS[k].name}</span><span>${P.goods[k]}</span></div>`).join("") || "<p class='muted'>Brak.</p>"}
         <p>Opatrunki: ${P.bandages}${P.equip.bow ? ` · Strzały: ${P.ammo}` : ""}</p></div>
@@ -819,27 +841,47 @@ function showInventory() {
   }, "inv-scr");
 }
 
+const PS = { sel: "", tab: "troops" };
+function upCost(from: string, to: string) { return Math.max(10, Math.round((UNITS[to].cost - UNITS[from].cost) * 0.5)); }
 function showParty() {
   const w = WORLD, P = w.player, p = playerParty(w);
-  const rows = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier).map((t) => {
-    const d = UNITS[t.type];
-    const need = d.xp || 100 * d.tier;
-    const can = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
-    const ups = (d.up || []).map((u) => { const cost = Math.max(10, Math.round((UNITS[u].cost - d.cost) * 0.5)); return `<button class="mini" data-a="up" data-v="${t.type}:${u}" ${can > 0 && P.gold >= cost ? "" : "disabled"}>→ ${UNITS[u].name} (${cost})</button>`; }).join("");
-    return `<tr><td>${unitBadge(t.type)} ${d.name} <span class="muted">T${d.tier}</span></td><td>${t.n}${t.wounded ? ` <span class="bad">(${t.wounded} rann.)</span>` : ""}</td><td>${d.up && d.up.length ? `${can} gotowych` : "<span class='muted'>szczyt</span>"}</td><td>${ups}</td><td><button class="mini" data-a="dismiss" data-v="${t.type}">Zwolnij 1</button></td></tr>`;
-  }).join("");
-  showScr(`<div class="card frame wide">
-    <h1>Armia</h1>
-    <p>Ludzie: ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)} · Żołd: ${partyWages(w)}/dzień (wypłata co 7 dni) · Morale ${Math.round(P.morale)} · Szybkość ${partySpeed(w, p).toFixed(1)}</p>
-    <table class="tbl wide">${rows || "<tr><td class='muted'>Nikt za tobą nie idzie.</td></tr>"}</table>
-    <h2>Kompani</h2>${P.companions.length ? P.companions.map((c) => `<div class="comp">${pic(drawPortrait(c.look, PAL.bone), "portrait")}<div><b>${c.name}</b> <span class="muted">${c.role} · zdrowie ${Math.round(c.hp)}/${c.maxHp}</span><br>Dowodzi w bitwie: ${[1, 2, 3].map((s) => `<button class="mini ${c.squad === s ? "on" : ""}" data-a="sq" data-v="${c.id}:${s}">${SQUAD_NAMES[s]}</button>`).join("")} <button class="mini" data-a="fire" data-v="${c.id}">Odpraw</button></div></div>`).join("") : "<p class='muted'>Brak. Szukaj w karczmach.</p>"}
-    ${p.prisoners.length ? `<h2>Jeńcy</h2><p>${p.prisoners.map((t) => `${t.n}× ${UNITS[t.type].name}`).join(", ")} <button class="mini" data-a="freeP">Uwolnij wszystkich</button></p><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie. Czasem sami przechodzą na twoją stronę.</p>` : ""}
-    <p class="tip">Żołnierze zdobywają doświadczenie w bitwach. Awans kosztuje złoto i daje lepszą broń i pancerz. P: piechota, S: strzelcy, J: jazda, M: magowie i kapłani.</p>
+  const list = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier);
+  if (!list.some((t) => t.type === PS.sel)) PS.sel = list[0]?.type || "";
+  const rows = list.map((t) => {
+    const d = UNITS[t.type], need = d.xp || 100 * d.tier;
+    const ready = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
+    return `<button class="urow ${PS.sel === t.type ? "on" : ""}" data-a="sel" data-v="${t.type}">${unitThumb(t.type)}<span class="un"><b>${d.name}</b>${tierStars(d.tier)}</span><span class="uc">${t.n}${t.wounded ? `<i class="bad">-${t.wounded}</i>` : ""}</span>${ready ? `<span class="upok" title="Gotowi do awansu">▲${ready}</span>` : ""}</button>`;
+  }).join("") || "<p class='muted'>Nikt za tobą nie idzie.</p>";
+  const t = list.find((x) => x.type === PS.sel);
+  let detail = "";
+  if (t) {
+    const d = UNITS[t.type], need = d.xp || 100 * d.tier;
+    const ready = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
+    const ups = (d.up || []).map((u) => { const c = upCost(t.type, u); return `<div class="upc">${pic(unitCanvas(u, 0, 0), "uthumb", 2)}<div><b>${UNITS[u].name}</b> ${tierStars(UNITS[u].tier)}<br><span class="muted">${UNITS[u].mount ? "jazda" : UNITS[u].bow ? "strzelec" : "piechota"} · ${c} denarów</span><br><button class="mini" data-a="up" data-v="${t.type}:${u}:1" ${ready > 0 && P.gold >= c ? "" : "disabled"}>Awansuj 1</button><button class="mini" data-a="up" data-v="${t.type}:${u}:all" ${ready > 0 && P.gold >= c ? "" : "disabled"}>Wszystkich (${ready})</button></div></div>`; }).join("");
+    detail = `<div class="udet">
+      <div class="udet-top">${unitAnim(t.type, 3)}<div><h2>${d.name}</h2>${tierStars(d.tier)}<p>${t.n} w armii${t.wounded ? `, <span class="bad">${t.wounded} rannych</span>` : ""}</p>
+        ${d.up && d.up.length ? barHtml(t.xp % need, need, "xp", `doświadczenie ${t.xp % need}/${need}`) : "<p class='muted'>Najwyższy stopień.</p>"}</div></div>
+      ${unitStats(t.type)}
+      ${ups ? `<h2>Awans ${ready ? `<span class="gold">(${ready} gotowych)</span>` : ""}</h2><div class="ups">${ups}</div>` : ""}
+      <h2>Drzewko jednostki</h2>${unitTreeHtml(t.type, "sel")}
+      <button class="mini danger" data-a="dismiss" data-v="${t.type}">Zwolnij jednego</button>
+    </div>`;
+  }
+  const tabs = [["troops", "Oddziały"], ["comp", `Kompani (${P.companions.length}/3)`], ["pris", `Jeńcy (${troopCount(p.prisoners)})`]].map(([k, n]) => `<button class="tab ${PS.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("");
+  let body = "";
+  if (PS.tab === "troops") body = `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`;
+  else if (PS.tab === "comp") body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>Dowodzi: ${[1, 2, 3].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button></div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
+  else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie. Czasem sami przechodzą na twoją stronę.</p>` : "<p class='muted'>Nie masz jeńców.</p>";
+  showScr(`<div class="card frame wide party">
+    <div class="phead"><h1>Armia</h1><span>${ic("man")} ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)}</span><span>${ic("coin")} żołd ${partyWages(w)}/dzień</span><span>${ic("heart")} morale ${Math.round(P.morale)}</span><span>${ic("horse")} szybkość ${partySpeed(w, p).toFixed(1)}</span></div>
+    <div class="s-tabs">${tabs}</div>${body}
     <div class="btns"><button data-a="close">Zamknij (P)</button></div></div>`, {
-    up: (v) => { const [from, to] = v.split(":"); const d = UNITS[from], t = p.troops.find((x) => x.type === from); const need = d.xp || 100 * d.tier; const cost = Math.max(10, Math.round((UNITS[to].cost - d.cost) * 0.5)); if (!t || t.xp < need || P.gold < cost) return; P.gold -= cost; t.xp -= need; removeTroops(p.troops, from, 1); addTroops(p.troops, to, 1); sfx.coin(); showParty(); },
+    tab: (v) => { PS.tab = v; showParty(); },
+    sel: (v) => { if (p.troops.some((x) => x.type === v)) PS.sel = v; showParty(); },
+    up: (v) => { const [from, to, n] = v.split(":"); const d = UNITS[from], tr = p.troops.find((x) => x.type === from); if (!tr) return; const need = d.xp || 100 * d.tier, c = upCost(from, to); let k = n === "all" ? 999 : 1, done = 0; while (k-- > 0 && tr.xp >= need && P.gold >= c && tr.n - tr.wounded > 0) { P.gold -= c; tr.xp -= need; removeTroops(p.troops, from, 1); addTroops(p.troops, to, 1); done++; if (!p.troops.includes(tr)) break; } if (done) { sfx.coin(); toast(`${done}× ${d.name} → ${UNITS[to].name}`, PAL.gold); PS.sel = to; } showParty(); },
     dismiss: (k) => { removeTroops(p.troops, k, 1); showParty(); },
-    sq: (v) => { const [id, s] = v.split(":"); const c = P.companions.find((x) => x.id === id); c.squad = Number(s); showParty(); },
-    fire: (id) => { const c = P.companions.find((x) => x.id === id); P.companions = P.companions.filter((x) => x.id !== id); const t = pick(w.settlements.filter((s) => s.kind === "town")); t.companions.push(id); toast(`${c.name} odchodzi. Może kiedyś spotkacie się w ${t.name}.`); showParty(); },
+    sq: (v) => { const [id, s2] = v.split(":"); const c = P.companions.find((x) => x.id === id); c.squad = Number(s2); showParty(); },
+    fire: (id) => { const c = P.companions.find((x) => x.id === id); P.companions = P.companions.filter((x) => x.id !== id); const t2 = pick(w.settlements.filter((s2) => s2.kind === "town")); t2.companions.push(id); toast(`${c.name} odchodzi. Może kiedyś spotkacie się w ${t2.name}.`); showParty(); },
     freeP: () => { p.prisoners = []; P.honor += 1; showParty(); },
     close: () => closeScreen(),
   }, "party-scr");

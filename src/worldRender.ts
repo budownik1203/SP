@@ -76,8 +76,8 @@ function renderWorldMap(w: World) {
     if (w.road[i]) continue;
     if (t === T_FOREST) {
       const bl = !!w.blight[i];
-      tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >> 4) % 2 === 0);
-      if ((h >> 8) % 3 > 0) tree(x + 5 + ((h >> 2) % 3), y + 3 + ((h >> 6) % 3), bl && (h >> 3) % 3 > 0, true);
+      tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >>> 4) % 2 === 0);
+      if ((h >>> 8) % 3 > 0) tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
     } else if (t === T_MOUNT) {
       if ((cx + cy * 3) % 2 === 0 || (h % 3 === 0)) {
         const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 9 + (h % 5);
@@ -344,7 +344,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       gr.addColorStop(0, `rgba(170,110,40,${0.35 * dark / 0.6})`); gr.addColorStop(1, "rgba(170,110,40,0)");
       g.fillStyle = gr; g.fillRect(x - 26, y - 26, 52, 52);
       g.fillStyle = `rgba(200,150,60,${dark})`;
-      for (let k = 0; k < (s.kind === "village" ? 2 : 5); k++) { const hh = hashInt(s.seed + k); g.fillRect(Math.round(x - 8 + (hh % 16)), Math.round(y - 6 + ((hh >> 5) % 10)), 1, 1); }
+      for (let k = 0; k < (s.kind === "village" ? 2 : 5); k++) { const hh = hashInt(s.seed + k); g.fillRect(Math.round(x - 8 + (hh % 16)), Math.round(y - 6 + ((hh >>> 5) % 10)), 1, 1); }
     }
     if (pp) { const x = pp.x - sx, y = pp.y - sy; const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, 12); gr.addColorStop(0, `rgba(170,110,40,${0.3 * dark / 0.6})`); gr.addColorStop(1, "rgba(170,110,40,0)"); g.fillStyle = gr; g.fillRect(x - 14, y - 18, 28, 28); }
     g.globalCompositeOperation = "source-over";
@@ -352,7 +352,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   // deszcz
   if (w.rain) {
     g.fillStyle = "rgba(160,170,170,0.28)";
-    for (let i = 0; i < 110; i++) { const s = hashInt(i * 7 + 1); const x = ((s % 997) * 3 - t * 40) % W, y = (((s >> 10) % 400) + t * 200) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3); }
+    for (let i = 0; i < 110; i++) { const s = hashInt(i * 7 + 1); const x = ((s % 997) * 3 - t * 40) % W, y = (((s >>> 10) % 400) + t * 200) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3); }
   }
   // chmury cienia
   g.globalAlpha = 0.08;

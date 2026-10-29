@@ -113,53 +113,128 @@ function U(d: Partial<UnitDef> & { key: string; name: string }) {
 U({ key: "hero", name: "Ty", hp: 170, speed: 52, armor: ARM(0.55, 0.7, 0.85), weapon: "sword", shield: true, guard: 0, react: 0, look: { race: "human", helms: ["crest"], bodies: ["mail"], tabard: true }, cost: 0, wage: 0 });
 U({ key: "companion", name: "Towarzysz", hp: 140, speed: 50, armor: ARM(0.6, 0.72, 0.85), weapon: "sword", shield: true, shieldBlock: 0.5, guard: 0.5, react: 0.28, look: { race: "human", helms: ["nasal"], bodies: ["mail"], tabard: true }, cost: 0, wage: 0 });
 
+// ---------- Drzewka jednostek (jak w Mount & Blade): T1–T2 bez rozgałęzień, potem gałęzie aż do T5 ----------
+// Wygląd i siła rosną z poziomem: łachmany i pałki na dole, kolczuga w środku, płyta dopiero na szczycie.
+type URole = "levy" | "inf" | "shield" | "two" | "spear" | "archer" | "xbow" | "cav" | "thrower";
+const GEAR: Record<string, { helms: Helm[][]; bodies: BodyMat[][] }> = {
+  human: { helms: [["none", "cap", "hood"], ["cap", "kettle", "coif"], ["kettle", "nasal", "coif"], ["nasal", "great"], ["great", "crest"]], bodies: [["rags", "rags", "gambeson"], ["gambeson", "leather"], ["mail"], ["mail"], ["plate"]] },
+  dwarf: { helms: [["none", "cap"], ["cap", "dwarf"], ["dwarf"], ["dwarf", "great"], ["dwarf"]], bodies: [["leather", "rags"], ["leather", "gambeson"], ["mail"], ["mail", "plate"], ["plate"]] },
+  orc: { helms: [["none"], ["none", "orc"], ["orc", "none"], ["orc"], ["orc"]], bodies: [["rags"], ["rags", "leather"], ["leather"], ["leather", "mail"], ["mail", "plate"]] },
+  skel: { helms: [["none"], ["none", "rustcap"], ["rustcap", "kettle"], ["kettle", "nasal"], ["great", "crest"]], bodies: [["bones"], ["rags", "bones"], ["mail"], ["mail"], ["plate"]] },
+};
+const TIER_COST = [20, 45, 90, 160, 260], TIER_WAGE = [1, 2, 3, 5, 8], TIER_XP = [60, 140, 240, 380, 0];
+const ROLE_WEAPON: Record<URole, string[][]> = {
+  levy: [["club", "spear", "dagger"], ["spear", "club"], ["spear"], ["spear"], ["spear"]],
+  inf: [["club"], ["axe", "club"], ["armsword", "axe"], ["sword", "mace"], ["sword", "mace"]],
+  shield: [["club"], ["axe"], ["armsword", "axe"], ["sword", "axe"], ["sword", "warhammer"]],
+  two: [["club"], ["axe"], ["greataxe"], ["greataxe", "longsword"], ["longsword", "greataxe", "warhammer"]],
+  spear: [["spear"], ["spear"], ["spear"], ["spear"], ["spear"]],
+  archer: [["dagger"], ["dagger"], ["dagger", "axe"], ["armsword"], ["armsword", "sword"]],
+  xbow: [["dagger"], ["dagger"], ["dagger", "axe"], ["armsword", "axe"], ["armsword", "warhammer"]],
+  cav: [["club"], ["cavsword"], ["cavsword"], ["cavsword", "mace"], ["mace", "cavsword"]],
+  thrower: [["club"], ["axe"], ["axe"], ["axe"], ["axe"]],
+};
+function TU(culture: Culture, race: Race, key: string, name: string, tier: number, role: URole, up?: string[], extra: Partial<UnitDef> = {}, kit: Partial<LookKit> = {}) {
+  const t = tier - 1, g = GEAR[race] || GEAR.human;
+  const ranged = role === "archer" || role === "xbow" || role === "thrower";
+  const bodyTier = ranged ? Math.max(0, t - 1) : t;
+  const wl = ROLE_WEAPON[role][t];
+  const weapon = wl[hashInt(key.length * 7 + key.charCodeAt(2)) % wl.length];
+  const undead = race === "skel";
+  const tough = race === "dwarf" || race === "orc" ? 12 : undead ? -6 : 0;
+  const ac = [0.93, 0.84, 0.72, 0.62, 0.5][bodyTier] - (race === "dwarf" ? 0.04 : 0);
+  const armor = undead ? ARM(ac, ac * 0.55, 1.35 - t * 0.06) : ARM(ac, Math.min(0.96, ac + 0.1), Math.min(0.97, ac + 0.16));
+  const shield = role === "shield" || role === "spear" && tier >= 2 || role === "cav" && tier <= 4 || role === "levy" && tier === 2;
+  const d: Partial<UnitDef> & { key: string; name: string } = {
+    key, name, culture, tier, hp: 70 + tier * 13 + tough, speed: race === "dwarf" ? 37 : race === "skel" ? 40 : role === "archer" || race === "orc" ? 46 : 44,
+    armor, weapon, shield, shieldBlock: shield ? 0.28 + t * 0.07 : 0, guard: 0.14 + t * 0.08, react: 0.44 - t * 0.035, undead,
+    poise: tier >= 5 && (role === "two" || role === "shield") || race === "dwarf" && tier >= 4,
+    up, xp: TIER_XP[t], cost: undead ? Math.round(TIER_COST[t] * 0.6) : TIER_COST[t], wage: undead ? 0 : TIER_WAGE[t],
+    look: { race, helms: ranged && t <= 2 ? ["hood", ...g.helms[t]] as Helm[] : g.helms[t], bodies: g.bodies[bodyTier], tabard: race !== "orc" && tier >= 2 && !(undead && tier < 4), cape: tier >= 5 || role === "cav" && tier >= 4, quiver: ranged && role !== "thrower", scabbard: tier >= 3 && !ranged, tall: tier >= 5 && race !== "dwarf", hood: race === "skel" ? [[PAL.dusk, PAL.ink], [PAL.purple, PAL.dusk]] : [[PAL.dirt, PAL.dirtD], [PAL.moss, PAL.grassD]], skins: race === "orc" ? O_SKIN : undefined, ...kit },
+  };
+  if (role === "archer") d.bow = { dmg: 18 + tier * 6, range: 190 + tier * 18, reload: 2.4 - tier * 0.07, spread: 0.1 - tier * 0.013 };
+  if (role === "xbow") d.bow = { dmg: 26 + tier * 8, range: 190 + tier * 12, reload: 3.6, spread: 0.06 - tier * 0.007, bolt: true };
+  if (role === "thrower") d.bow = { dmg: 22 + tier * 5, range: 110 + tier * 8, reload: 2.4, spread: 0.08, axe: true };
+  if (role === "cav") { d.mount = undead ? BONEHORSE : tier >= 5 ? WARHORSE : HORSE; d.radius = 8; d.speed = 44; }
+  U({ ...d, ...extra });
+}
+
 // Korona Aureliańska
-U({ key: "a_recruit", name: "Rekrut", culture: "aurelia", tier: 1, hp: 80, armor: ARM(0.8, 0.85, 0.9), weapon: "spear", shield: false, guard: 0.2, look: { race: "human", helms: ["cap", "none", "kettle"], bodies: ["gambeson", "rags"], tabard: true, patterns: ["plain"] }, up: ["a_maa", "a_archer", "a_squire"], xp: 60, cost: 25, wage: 1 });
-U({ key: "a_maa", name: "Zbrojny", culture: "aurelia", tier: 2, hp: 95, armor: ARM(0.65, 0.8, 0.9), weapon: "armsword", shield: true, shieldBlock: 0.42, guard: 0.3, react: 0.34, look: { race: "human", helms: ["nasal", "kettle", "coif"], bodies: ["mail"], tabard: true, scabbard: true }, up: ["a_guard"], xp: 120, cost: 60, wage: 2 });
-U({ key: "a_guard", name: "Gwardzista Korony", culture: "aurelia", tier: 3, hp: 110, armor: ARM(0.5, 0.65, 0.85), weapon: "longsword", shield: false, guard: 0.42, react: 0.3, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true, tall: true }, cost: 140, wage: 4 });
-U({ key: "a_archer", name: "Łucznik", culture: "aurelia", tier: 2, hp: 70, speed: 46, armor: ARM(0.85, 0.9, 0.95), weapon: "dagger", guard: 0.15, react: 0.42, bow: { dmg: 30, range: 240, reload: 2.0, spread: 0.06 }, look: { race: "human", helms: ["hood", "kettle"], bodies: ["leather"], tabard: false, quiver: true, hood: [[PAL.moss, PAL.grassD], [PAL.dirt, PAL.dirtD]] }, up: ["a_longbow"], xp: 120, cost: 55, wage: 2 });
-U({ key: "a_longbow", name: "Długi łucznik", culture: "aurelia", tier: 3, hp: 80, speed: 46, armor: ARM(0.75, 0.85, 0.9), weapon: "armsword", guard: 0.25, react: 0.38, bow: { dmg: 40, range: 280, reload: 2.2, spread: 0.045 }, look: { race: "human", helms: ["hood", "nasal"], bodies: ["mail"], tabard: true, quiver: true, hood: [[PAL.red, PAL.bloodD]] }, cost: 120, wage: 3 });
-U({ key: "a_squire", name: "Giermek konny", culture: "aurelia", tier: 2, hp: 90, armor: ARM(0.65, 0.8, 0.9), weapon: "cavsword", shield: true, shieldBlock: 0.35, look: { race: "human", helms: ["nasal", "kettle"], bodies: ["mail"], tabard: true }, mount: HORSE, radius: 8, up: ["a_knight"], xp: 140, cost: 90, wage: 3 });
-U({ key: "a_knight", name: "Rycerz", culture: "aurelia", tier: 3, hp: 120, armor: ARM(0.48, 0.62, 0.82), weapon: "sword", shield: true, shieldBlock: 0.45, guard: 0.4, react: 0.3, look: { race: "human", helms: ["great", "crest"], bodies: ["plate"], tabard: true, cape: true }, mount: WARHORSE, radius: 8, cost: 220, wage: 6 });
-U({ key: "a_priest", name: "Kapłan bojowy", culture: "aurelia", tier: 3, hp: 90, speed: 42, armor: ARM(0.75, 0.85, 0.85), weapon: "mace", shield: false, guard: 0.3, look: { race: "human", helms: ["mitre"], bodies: ["robe"], tabard: false, hood: [[PAL.bone, PAL.ash]] }, cost: 150, wage: 4, ability: "priest" });
+TU("aurelia", "human", "a_recruit", "Rekrut", 1, "levy", ["a_militia"]);
+TU("aurelia", "human", "a_militia", "Milicjant", 2, "levy", ["a_maa", "a_archer", "a_squire"]);
+TU("aurelia", "human", "a_maa", "Zbrojny", 3, "shield", ["a_sergeant", "a_halberd"]);
+TU("aurelia", "human", "a_sergeant", "Sierżant Korony", 4, "shield", ["a_guard"]);
+TU("aurelia", "human", "a_guard", "Gwardzista Korony", 5, "shield");
+TU("aurelia", "human", "a_halberd", "Pikinier", 4, "spear", ["a_champion"]);
+TU("aurelia", "human", "a_champion", "Czempion Korony", 5, "two");
+TU("aurelia", "human", "a_archer", "Łucznik", 3, "archer", ["a_longbow"]);
+TU("aurelia", "human", "a_longbow", "Długi łucznik", 4, "archer", ["a_warbow"]);
+TU("aurelia", "human", "a_warbow", "Łucznik Królewski", 5, "archer");
+TU("aurelia", "human", "a_squire", "Giermek konny", 3, "cav", ["a_knight"]);
+TU("aurelia", "human", "a_knight", "Rycerz", 4, "cav", ["a_paladin"]);
+TU("aurelia", "human", "a_paladin", "Rycerz Zakonny", 5, "cav");
+U({ key: "a_priest", name: "Kapłan bojowy", culture: "aurelia", tier: 3, hp: 95, speed: 42, armor: ARM(0.75, 0.85, 0.85), weapon: "mace", shield: false, guard: 0.3, look: { race: "human", helms: ["mitre"], bodies: ["robe"], tabard: false, hood: [[PAL.bone, PAL.ash]] }, cost: 150, wage: 4, ability: "priest" });
 
 // Legion Varusa
-U({ key: "v_levy", name: "Poborowy", culture: "varus", tier: 1, hp: 80, armor: ARM(0.8, 0.85, 0.9), weapon: "spear", look: { race: "human", helms: ["kettle", "cap"], bodies: ["gambeson"], tabard: true, patterns: ["plain"] }, up: ["v_legion", "v_xbow", "v_rider"], xp: 60, cost: 25, wage: 1 });
-U({ key: "v_legion", name: "Legionista", culture: "varus", tier: 2, hp: 100, armor: ARM(0.62, 0.78, 0.88), weapon: "armsword", shield: true, shieldBlock: 0.5, guard: 0.28, react: 0.34, look: { race: "human", helms: ["nasal", "great"], bodies: ["mail"], tabard: true, scabbard: true }, up: ["v_veteran"], xp: 120, cost: 65, wage: 2 });
-U({ key: "v_veteran", name: "Weteran Legionu", culture: "varus", tier: 3, hp: 115, armor: ARM(0.5, 0.62, 0.85), weapon: "sword", shield: true, shieldBlock: 0.55, guard: 0.4, react: 0.3, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true }, cost: 150, wage: 4 });
-U({ key: "v_xbow", name: "Kusznik", culture: "varus", tier: 2, hp: 75, speed: 44, armor: ARM(0.75, 0.85, 0.9), weapon: "dagger", guard: 0.15, bow: { dmg: 42, range: 220, reload: 3.4, spread: 0.035, bolt: true }, look: { race: "human", helms: ["kettle"], bodies: ["gambeson", "leather"], tabard: true, quiver: true }, up: ["v_hxbow"], xp: 120, cost: 60, wage: 2 });
-U({ key: "v_hxbow", name: "Ciężki kusznik", culture: "varus", tier: 3, hp: 90, speed: 42, armor: ARM(0.6, 0.72, 0.88), weapon: "armsword", guard: 0.25, bow: { dmg: 55, range: 240, reload: 3.6, spread: 0.03, bolt: true }, look: { race: "human", helms: ["kettle", "nasal"], bodies: ["mail"], tabard: true, quiver: true }, cost: 130, wage: 3 });
-U({ key: "v_rider", name: "Jeździec Legionu", culture: "varus", tier: 2, hp: 90, armor: ARM(0.65, 0.8, 0.9), weapon: "cavsword", shield: true, shieldBlock: 0.35, look: { race: "human", helms: ["nasal"], bodies: ["mail"], tabard: true }, mount: HORSE, radius: 8, up: ["v_cata"], xp: 140, cost: 95, wage: 3 });
-U({ key: "v_cata", name: "Katafrakt", culture: "varus", tier: 3, hp: 125, armor: ARM(0.45, 0.58, 0.8), weapon: "mace", shield: true, shieldBlock: 0.4, guard: 0.35, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true }, mount: WARHORSE, radius: 8, cost: 230, wage: 6 });
-U({ key: "v_mage", name: "Mag ognia", culture: "varus", tier: 3, hp: 70, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.redL, PAL.red]] }, cost: 170, wage: 5, ability: "mage" });
+TU("varus", "human", "v_levy", "Poborowy", 1, "levy", ["v_conscript"]);
+TU("varus", "human", "v_conscript", "Rekrut Legionu", 2, "spear", ["v_legion", "v_xbow", "v_rider"]);
+TU("varus", "human", "v_legion", "Legionista", 3, "shield", ["v_veteran"]);
+TU("varus", "human", "v_veteran", "Weteran Legionu", 4, "shield", ["v_praetor", "v_executor"]);
+TU("varus", "human", "v_praetor", "Pretorianin", 5, "shield");
+TU("varus", "human", "v_executor", "Kat Legionu", 5, "two");
+TU("varus", "human", "v_xbow", "Kusznik", 3, "xbow", ["v_hxbow"]);
+TU("varus", "human", "v_hxbow", "Ciężki kusznik", 4, "xbow", ["v_arbalest"]);
+TU("varus", "human", "v_arbalest", "Arbaleciarz", 5, "xbow");
+TU("varus", "human", "v_rider", "Jeździec Legionu", 3, "cav", ["v_cata"]);
+TU("varus", "human", "v_cata", "Katafrakt", 4, "cav", ["v_clib"]);
+TU("varus", "human", "v_clib", "Klibanariusz", 5, "cav");
+U({ key: "v_mage", name: "Mag ognia", culture: "varus", tier: 3, hp: 75, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.redL, PAL.red]] }, cost: 170, wage: 5, ability: "mage" });
 
 // Twierdze Khazgrim
-U({ key: "d_young", name: "Brodaty rekrut", culture: "dwarf", tier: 1, hp: 95, speed: 38, armor: ARM(0.7, 0.8, 0.85), weapon: "axe", shield: true, shieldBlock: 0.35, look: { race: "dwarf", helms: ["dwarf", "none"], bodies: ["leather", "mail"], tabard: true, patterns: ["plain"] }, up: ["d_shield", "d_xbow"], xp: 70, cost: 35, wage: 1 });
-U({ key: "d_shield", name: "Tarczownik", culture: "dwarf", tier: 2, hp: 115, speed: 37, armor: ARM(0.55, 0.65, 0.82), weapon: "axe", shield: true, shieldBlock: 0.6, guard: 0.35, react: 0.34, poise: true, look: { race: "dwarf", helms: ["dwarf"], bodies: ["mail"], tabard: true }, up: ["d_warden"], xp: 140, cost: 80, wage: 2 });
-U({ key: "d_warden", name: "Strażnik Głębi", culture: "dwarf", tier: 3, hp: 135, speed: 36, armor: ARM(0.42, 0.52, 0.75), weapon: "warhammer", shield: false, guard: 0.45, react: 0.3, poise: true, look: { race: "dwarf", helms: ["dwarf", "great"], bodies: ["plate"], tabard: true, cape: true }, cost: 170, wage: 4 });
-U({ key: "d_xbow", name: "Kusznik krasnoludzki", culture: "dwarf", tier: 2, hp: 90, speed: 37, armor: ARM(0.65, 0.75, 0.85), weapon: "axe", guard: 0.2, bow: { dmg: 46, range: 230, reload: 3.3, spread: 0.035, bolt: true }, look: { race: "dwarf", helms: ["dwarf", "none"], bodies: ["mail"], tabard: true, quiver: true }, up: ["d_rune"], xp: 130, cost: 70, wage: 2 });
-U({ key: "d_rune", name: "Strzelec runiczny", culture: "dwarf", tier: 3, hp: 105, speed: 36, armor: ARM(0.52, 0.62, 0.8), weapon: "warhammer", guard: 0.3, bow: { dmg: 60, range: 250, reload: 3.4, spread: 0.028, bolt: true }, look: { race: "dwarf", helms: ["dwarf"], bodies: ["plate"], tabard: true, quiver: true }, cost: 150, wage: 4 });
-U({ key: "d_runepriest", name: "Kapłan run", culture: "dwarf", tier: 3, hp: 110, speed: 36, armor: ARM(0.6, 0.7, 0.8), weapon: "warhammer", guard: 0.3, look: { race: "dwarf", helms: ["dwarf"], bodies: ["robe"], tabard: false, hood: [[PAL.goldD, PAL.dirtD]] }, cost: 160, wage: 4, ability: "priest" });
+TU("dwarf", "dwarf", "d_young", "Brodaty rekrut", 1, "levy", ["d_miner"]);
+TU("dwarf", "dwarf", "d_miner", "Górnik", 2, "shield", ["d_shield", "d_axe", "d_xbow"]);
+TU("dwarf", "dwarf", "d_shield", "Tarczownik", 3, "shield", ["d_ironguard"]);
+TU("dwarf", "dwarf", "d_ironguard", "Żelazna Straż", 4, "shield", ["d_warden"]);
+TU("dwarf", "dwarf", "d_warden", "Strażnik Głębi", 5, "shield");
+TU("dwarf", "dwarf", "d_axe", "Topornik", 3, "two", ["d_longbeard"]);
+TU("dwarf", "dwarf", "d_longbeard", "Długobrody", 4, "two", ["d_slayer"]);
+TU("dwarf", "dwarf", "d_slayer", "Zabójca Olbrzymów", 5, "two", undefined, {}, { helms: ["none"], bodies: ["leather"] });
+TU("dwarf", "dwarf", "d_xbow", "Kusznik krasnoludzki", 3, "xbow", ["d_rune"]);
+TU("dwarf", "dwarf", "d_rune", "Strzelec runiczny", 4, "xbow", ["d_thunder"]);
+TU("dwarf", "dwarf", "d_thunder", "Gromowładny", 5, "xbow");
+U({ key: "d_runepriest", name: "Kapłan run", culture: "dwarf", tier: 3, hp: 115, speed: 36, armor: ARM(0.6, 0.7, 0.8), weapon: "warhammer", guard: 0.3, look: { race: "dwarf", helms: ["dwarf"], bodies: ["robe"], tabard: false, hood: [[PAL.goldD, PAL.dirtD]] }, cost: 160, wage: 4, ability: "priest" });
 
 // Horda Ghrakka
-U({ key: "o_young", name: "Młody ork", culture: "orc", tier: 1, hp: 100, speed: 46, armor: ARM(0.85, 0.9, 0.9), weapon: "club", look: { race: "orc", helms: ["none"], bodies: ["rags", "leather"], tabard: false, skins: O_SKIN }, up: ["o_warrior", "o_thrower", "o_rider"], xp: 60, cost: 25, wage: 1 });
-U({ key: "o_warrior", name: "Wojownik orków", culture: "orc", tier: 2, hp: 125, speed: 46, armor: ARM(0.72, 0.82, 0.85), weapon: "axe", shield: true, shieldBlock: 0.3, guard: 0.25, look: { race: "orc", helms: ["orc", "none"], bodies: ["leather"], tabard: false, skins: O_SKIN }, up: ["o_berserk"], xp: 120, cost: 60, wage: 2 });
-U({ key: "o_berserk", name: "Krwawy berserker", culture: "orc", tier: 3, hp: 150, speed: 50, armor: ARM(0.75, 0.85, 0.85), weapon: "greataxe", guard: 0.15, poise: true, look: { race: "orc", helms: ["none", "orc"], bodies: ["rags"], tabard: false, skins: O_SKIN }, cost: 140, wage: 4 });
-U({ key: "o_thrower", name: "Miotacz toporów", culture: "orc", tier: 2, hp: 105, speed: 46, armor: ARM(0.8, 0.88, 0.88), weapon: "axe", guard: 0.2, bow: { dmg: 34, range: 120, reload: 2.4, spread: 0.08, axe: true }, look: { race: "orc", helms: ["none"], bodies: ["leather"], tabard: false, skins: O_SKIN }, up: ["o_hunter"], xp: 120, cost: 55, wage: 2 });
-U({ key: "o_hunter", name: "Łowca czaszek", culture: "orc", tier: 3, hp: 120, speed: 48, armor: ARM(0.72, 0.8, 0.85), weapon: "axe", guard: 0.25, bow: { dmg: 38, range: 230, reload: 2.2, spread: 0.06 }, look: { race: "orc", helms: ["orc"], bodies: ["leather"], tabard: false, quiver: true, skins: O_SKIN }, cost: 120, wage: 3 });
-U({ key: "o_rider", name: "Jeździec Hordy", culture: "orc", tier: 2, hp: 110, armor: ARM(0.75, 0.85, 0.88), weapon: "axe", shield: true, shieldBlock: 0.25, look: { race: "orc", helms: ["orc"], bodies: ["leather"], tabard: false, skins: O_SKIN }, mount: HORSE, radius: 8, cost: 95, wage: 3 });
-U({ key: "o_shaman", name: "Szaman krwi", culture: "orc", tier: 3, hp: 100, speed: 44, armor: ARM(0.85, 0.9, 0.9), weapon: "staff", look: { race: "orc", helms: ["none"], bodies: ["robe"], tabard: false, skins: O_SKIN, hood: [[PAL.bloodD, PAL.black]] }, cost: 150, wage: 4, ability: "shaman" });
+TU("orc", "orc", "o_young", "Młody ork", 1, "levy", ["o_grunt"]);
+TU("orc", "orc", "o_grunt", "Siepacz", 2, "inf", ["o_warrior", "o_thrower", "o_rider"]);
+TU("orc", "orc", "o_warrior", "Wojownik orków", 3, "shield", ["o_blackfang"]);
+TU("orc", "orc", "o_blackfang", "Czarny Kieł", 4, "two", ["o_berserk", "o_ironhide"]);
+TU("orc", "orc", "o_berserk", "Krwawy berserker", 5, "two", undefined, { speed: 52 }, { helms: ["none"], bodies: ["rags"] });
+TU("orc", "orc", "o_ironhide", "Żelazna Skóra", 5, "shield");
+TU("orc", "orc", "o_thrower", "Miotacz toporów", 3, "thrower", ["o_hunter"]);
+TU("orc", "orc", "o_hunter", "Łowca czaszek", 4, "archer", ["o_bowchief"]);
+TU("orc", "orc", "o_bowchief", "Wódz łowców", 5, "archer");
+TU("orc", "orc", "o_rider", "Jeździec Hordy", 3, "cav", ["o_raider"]);
+TU("orc", "orc", "o_raider", "Łupieżca", 4, "cav", ["o_warrider"]);
+TU("orc", "orc", "o_warrider", "Pancerny jeździec Hordy", 5, "cav");
+U({ key: "o_shaman", name: "Szaman krwi", culture: "orc", tier: 3, hp: 105, speed: 44, armor: ARM(0.85, 0.9, 0.9), weapon: "staff", look: { race: "orc", helms: ["none"], bodies: ["robe"], tabard: false, skins: O_SKIN, hood: [[PAL.bloodD, PAL.black]] }, cost: 150, wage: 4, ability: "shaman" });
 
-// Martwe Królestwo
-const UND_ARM = ARM(0.85, 0.45, 1.4);
-U({ key: "u_skel", name: "Szkielet", culture: "undead", tier: 1, hp: 90, speed: 40, armor: UND_ARM, weapon: "rusty", guard: 0.36, react: 0.36, undead: true, look: { race: "skel", helms: ["none", "none", "rustcap"], bodies: ["bones"], tabard: false, hood: [[PAL.dusk, PAL.ink]] }, up: ["u_warrior", "u_archer"], xp: 80, cost: 15, wage: 0 });
-U({ key: "u_warrior", name: "Szkielet wojownik", culture: "undead", tier: 2, hp: 104, speed: 40, armor: ARM(0.75, 0.42, 1.3), weapon: "rusty", shield: true, shieldBlock: 0.35, guard: 0.42, react: 0.34, undead: true, look: { race: "skel", helms: ["rustcap"], bodies: ["mail"], tabard: false, hood: [[PAL.dusk, PAL.ink]] }, up: ["u_wight"], xp: 140, cost: 40, wage: 0 });
-U({ key: "u_wight", name: "Upiorny strażnik", culture: "undead", tier: 3, hp: 130, speed: 42, armor: ARM(0.55, 0.4, 1.1), weapon: "longsword", guard: 0.5, react: 0.28, undead: true, poise: true, look: { race: "skel", helms: ["hood"], bodies: ["mail"], tabard: false, hood: [[PAL.purple, PAL.dusk]] }, cost: 90, wage: 0 });
-U({ key: "u_archer", name: "Szkielet łucznik", culture: "undead", tier: 2, hp: 62, speed: 40, armor: UND_ARM, weapon: "bonedagger", guard: 0.15, react: 0.44, bow: { dmg: 26, range: 225, reload: 2.2, spread: 0.09 }, undead: true, look: { race: "skel", helms: ["hood"], bodies: ["bones"], tabard: false, hood: [[PAL.purple, PAL.dusk]] }, cost: 35, wage: 0 });
+// Martwe Królestwo: od gołych kości do upiorów w zardzewiałej płycie
+TU("undead", "skel", "u_skel", "Szkielet", 1, "levy", ["u_risen"], { weapon: "rusty" });
+TU("undead", "skel", "u_risen", "Powstały", 2, "shield", ["u_warrior", "u_archer", "u_rider"], { weapon: "rusty" });
+TU("undead", "skel", "u_warrior", "Szkielet wojownik", 3, "shield", ["u_legion"], { weapon: "rusty" });
+TU("undead", "skel", "u_legion", "Kościany legionista", 4, "shield", ["u_wight", "u_reaper"]);
+TU("undead", "skel", "u_wight", "Upiorny strażnik", 5, "shield", undefined, { react: 0.28 });
+TU("undead", "skel", "u_reaper", "Żniwiarz", 5, "two");
+TU("undead", "skel", "u_archer", "Szkielet łucznik", 3, "archer", ["u_marksman"], { weapon: "bonedagger" });
+TU("undead", "skel", "u_marksman", "Kościany strzelec", 4, "archer", ["u_spectral"]);
+TU("undead", "skel", "u_spectral", "Widmowy łucznik", 5, "archer");
+TU("undead", "skel", "u_rider", "Upiorny jeździec", 3, "cav", ["u_blackrider"], { weapon: "rusty" });
+TU("undead", "skel", "u_blackrider", "Czarny jeździec", 4, "cav", ["u_doomrider"]);
+TU("undead", "skel", "u_doomrider", "Jeździec Zguby", 5, "cav");
 U({ key: "u_ghoul", name: "Ghul", culture: "undead", tier: 2, hp: 95, speed: 60, armor: ARM(1, 0.9, 0.9), weapon: "claws", guard: 0.1, react: 0.4, undead: true, look: { race: "ghoul", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.ash, PAL.stone], [PAL.moss, PAL.grassD], [PAL.stone, PAL.slate]] }, cost: 30, wage: 0 });
-U({ key: "u_rider", name: "Upiorny jeździec", culture: "undead", tier: 3, hp: 95, armor: ARM(0.7, 0.45, 1.2), weapon: "rusty", shield: true, shieldBlock: 0.3, undead: true, look: { race: "skel", helms: ["rustcap"], bodies: ["mail"], tabard: false }, mount: BONEHORSE, radius: 8, cost: 80, wage: 0 });
 U({ key: "u_necro", name: "Nekromanta", culture: "undead", tier: 3, hp: 80, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", undead: false, look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.purple, PAL.dusk]], skins: [[PAL.bone, PAL.ash]] }, cost: 160, wage: 5, ability: "necro" });
-U({ key: "u_dk", name: "Rycerz Śmierci", culture: "undead", tier: 4, hp: 480, speed: 42, armor: ARM(0.45, 0.55, 0.8), weapon: "great", guard: 0.6, react: 0.24, undead: true, poise: true, radius: 8, look: { race: "dk", helms: ["none"], bodies: ["plate"], tabard: false }, cost: 0, wage: 0, ability: "deathtouch" });
+U({ key: "u_dk", name: "Rycerz Śmierci", culture: "undead", tier: 5, hp: 480, speed: 42, armor: ARM(0.45, 0.55, 0.8), weapon: "great", guard: 0.6, react: 0.24, undead: true, poise: true, radius: 8, look: { race: "dk", helms: ["none"], bodies: ["plate"], tabard: false }, cost: 0, wage: 0, ability: "deathtouch" });
 
 // Bandyci, najemnicy, bestie
 U({ key: "b_bandit", name: "Bandyta", culture: "bandit", tier: 1, hp: 75, speed: 46, armor: ARM(0.9, 0.9, 0.95), weapon: "club", look: { race: "human", helms: ["none", "cap", "hood"], bodies: ["rags", "leather"], tabard: false, hood: [[PAL.dirt, PAL.dirtD], [PAL.ink, PAL.black]] }, cost: 20, wage: 1 });
@@ -172,11 +247,11 @@ U({ key: "x_spirit", name: "Duch wilka", culture: "monster", tier: 2, hp: 70, sp
 
 // Rekrutacja według kultury: wioski dają tier 1, miasta i zamki więcej.
 const RECRUITS: Record<Culture, { village: string[]; town: string[]; special?: string }> = {
-  aurelia: { village: ["a_recruit"], town: ["a_recruit", "a_maa", "a_archer", "a_squire"], special: "a_priest" },
-  varus: { village: ["v_levy"], town: ["v_levy", "v_legion", "v_xbow", "v_rider"], special: "v_mage" },
-  dwarf: { village: ["d_young"], town: ["d_young", "d_shield", "d_xbow"], special: "d_runepriest" },
-  orc: { village: ["o_young"], town: ["o_young", "o_warrior", "o_thrower", "o_rider"], special: "o_shaman" },
-  undead: { village: ["u_skel"], town: ["u_skel", "u_warrior", "u_archer", "u_ghoul"], special: "u_necro" },
+  aurelia: { village: ["a_recruit"], town: ["a_recruit", "a_militia"], special: "a_priest" },
+  varus: { village: ["v_levy"], town: ["v_levy", "v_conscript"], special: "v_mage" },
+  dwarf: { village: ["d_young"], town: ["d_young", "d_miner"], special: "d_runepriest" },
+  orc: { village: ["o_young"], town: ["o_young", "o_grunt"], special: "o_shaman" },
+  undead: { village: ["u_skel"], town: ["u_skel", "u_risen", "u_ghoul"], special: "u_necro" },
   bandit: { village: ["b_bandit"], town: ["b_bandit", "b_archer"] },
   monster: { village: ["x_wolf"], town: ["x_wolf"] },
   merc: { village: ["m_sword"], town: ["m_sword", "m_xbow"] },
@@ -225,6 +300,7 @@ I({ id: "coif", name: "Czepiec kolczy", slot: "head", price: 110, tier: 2, armor
 I({ id: "crest", name: "Hełm z kitą", slot: "head", price: 260, tier: 3, armor: 0.1, helm: "crest" });
 I({ id: "great", name: "Hełm garnczkowy", slot: "head", price: 420, tier: 3, armor: 0.13, helm: "great" });
 I({ id: "dwarfhelm", name: "Rogaty hełm runiczny", slot: "head", price: 380, tier: 3, armor: 0.12, helm: "dwarf", culture: "dwarf" });
+I({ id: "robe", name: "Habit", slot: "body", price: 25, tier: 1, armor: 0.04, body: "robe" });
 I({ id: "rags", name: "Łachmany", slot: "body", price: 5, tier: 1, armor: 0.02, body: "rags" });
 I({ id: "gambeson", name: "Przeszywanica", slot: "body", price: 80, tier: 1, armor: 0.1, body: "gambeson" });
 I({ id: "leather", name: "Kaftan skórzany", slot: "body", price: 110, tier: 1, armor: 0.12, body: "leather" });

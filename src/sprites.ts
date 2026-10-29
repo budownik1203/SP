@@ -420,7 +420,21 @@ function drawSkeleton(L: Look, dir: number, frame: number, headless = false): HT
   else for (let y = top + 1; y < top + 8; y += 2) { P.r(cx - 4, y, 3, 1, B); P.r(cx + 1, y, 3, 1, B); P.p(cx - 4, y + 1, BD); P.p(cx + 3, y + 1, BD); }
   P.r(cx - 4, top, 8, 1, BH);   // obojczyki
   // łachmany lub resztki zbroi
-  if (L.body === "mail") for (let y = top + 1; y < top + 7; y++) for (let x = cx - 4; x <= cx + 3; x++) if ((x + y) % 2 && vrand(L.seed, x * 9 + y) < 0.7) P.p(x, y, (x + y) % 4 ? PAL.rust : PAL.steelD);
+  // zardzewiały ekwipunek: kolczuga, płyta, tabard; im wyższy tier, tym pełniejszy
+  const rust = (x: number, y: number, base: string) => (vrand(L.seed, x * 13 + y * 5) < 0.3 ? PAL.rust : base);
+  if (L.body === "mail" || L.body === "plate") {
+    for (let y = top + 1; y < top + 10; y++) for (let x = cx - 4; x <= cx + 3; x++) {
+      if (L.body === "mail") { if (vrand(L.seed, x * 9 + y) < 0.9) P.p(x, y, rust(x, y, (x + y) % 2 ? PAL.steelD : PAL.steel)); }
+      else P.p(x, y, rust(x, y, (y - top) % 4 === 3 ? PAL.steelD : x > cx ? PAL.steelD : PAL.steel));
+    }
+    P.r(cx - 4, top + 8, 8, 1, PAL.woodD); P.p(cx - 1, top + 8, PAL.goldD);   // pas
+    if (L.body === "plate") {
+      for (const sx of dir === 2 ? [cx - 1] : [cx - 7, cx + 4]) { P.r(sx, top - 1, 3, 3, PAL.steel); P.r(sx, top + 2, 3, 1, PAL.steelD); P.p(sx + 1, top, PAL.rust); }
+      for (let y = top + 9; y < top + 12; y++) for (let x = cx - 4; x <= cx + 3; x++) if ((x + y) % 3) P.p(x, y, rust(x, y, PAL.steelD));
+    }
+  }
+  if (L.tabard && dir !== 1) { const tc = L.tabard.main; for (let y = top + 2; y < 25; y++) for (let x = cx - 2; x <= cx + 1; x++) if (y < 23 || vrand(L.seed, x * 3 + y) < 0.5) P.p(x, y, y % 5 === 0 ? L.tabard.shade : tc); P.p(cx - 1, top + 4, L.tabard.trim); }
+  if (L.body === "leather") for (let y = top + 1; y < top + 9; y++) for (let x = cx - 4; x <= cx + 3; x++) if (vrand(L.seed, x * 5 + y) < 0.75) P.p(x, y, (y - top) % 4 === 3 ? PAL.woodD : PAL.dirt);
   for (let y = top + 6; y < 26; y++) for (let x = cx - 4; x <= cx + 3; x++) if (vrand(L.seed, x * 31 + y * 7) < 0.35 - (y - top) * 0.012) P.p(x, y, rag);
   // ręce
   if (dir === 2) { P.r(cx, top + 1, 1, 5, B); P.p(cx, top + 6, BH); P.r(cx + 1, top + 7, 1, 3, B); P.r(cx + 1, top + 10, 2, 1, BH); }
@@ -438,6 +452,19 @@ function drawSkeleton(L: Look, dir: number, frame: number, headless = false): HT
     } else if (dir === 2) {
       P.r(cx + 1, hy + 3, 2, 2, PAL.black); P.p(cx + 2, hy + 3, PAL.purpleL); P.p(cx + 3, hy + 5, PAL.black); P.r(cx, hy + 7, 3, 1, PAL.black);
     } else { P.r(cx - 2, hy + 2, 5, 1, BD); }
+    const H = L.helm;
+    if (H === "kettle" || H === "nasal" || H === "great" || H === "crest") {
+      const met = (x: number, y: number) => P.p(x, y, rust(x, y, x > cx ? PAL.steelD : PAL.steel));
+      for (let y = hy - 1; y < hy + 3; y++) for (let x = cx - 4; x <= cx + 4; x++) met(x, y);
+      if (H === "kettle") { P.r(cx - 6, hy + 2, 13, 1, PAL.steelD); P.p(cx - 6, hy + 2, PAL.rust); }
+      if (H === "nasal" && dir !== 1) P.r(dir === 2 ? cx + 2 : cx, hy + 3, 1, 3, PAL.steelD);
+      if (H === "great" || H === "crest") {
+        for (let y = hy + 3; y < hy + 8; y++) for (let x = cx - 4; x <= cx + 4; x++) met(x, y);
+        if (dir === 0) { P.r(cx - 3, hy + 4, 7, 1, PAL.black); P.p(cx - 2, hy + 4, PAL.purpleL); P.p(cx + 2, hy + 4, PAL.purpleL); }
+        else if (dir === 2) { P.r(cx + 1, hy + 4, 4, 1, PAL.black); P.p(cx + 3, hy + 4, PAL.purpleL); }
+        if (H === "crest") { P.r(cx - 1, hy - 4, 2, 3, PAL.purple); P.r(cx - 2, hy - 5, 4, 1, PAL.purpleL); }
+      }
+    }
     if (L.helm === "rustcap") { P.r(cx - 4, hy - 1, 9, 3, PAL.rust); P.r(cx - 3, hy - 1, 3, 1, PAL.stone); P.r(cx - 4, hy + 2, 9, 1, PAL.dirtD); }
     if (L.helm === "hood") { const hc = L.hood || [PAL.purple, PAL.dusk]; P.r(cx - 4, hy - 1, 9, 3, hc[0]); P.r(cx - 4, hy + 2, 1, 6, hc[0]); P.r(cx + 4, hy + 2, 1, 6, hc[1]); if (dir === 1) P.r(cx - 3, hy + 2, 7, 6, hc[0]); }
   }

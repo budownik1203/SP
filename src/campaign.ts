@@ -28,13 +28,14 @@ const G = {
 function W0() { return WORLD; }
 
 // ---------- Nowa gra ----------
-const ORIGINS: Record<string, { name: string; desc: string; attr: Partial<Record<string, number>>; skills: Partial<Record<string, number>>; equip: Partial<Record<ESlot, string>>; items: string[]; gold: number; abilities: string[]; troops: [string, number][]; renown: number; faith: number; mana: number; corruption: number }> = {
-  merc: { name: "Najemnik", desc: "Lata wojaczki za cudzy grosz. Mocny cios, twarda skóra, kilku kompanów z dawnego oddziału.", attr: { str: 2, agi: 1 }, skills: { ironflesh: 2, powerstrike: 2, leadership: 1 }, equip: { weapon: "w_armsword", shield: "s_heater", body: "gambeson", head: "kettle", feet: "boots" }, items: ["w_club"], gold: 350, abilities: ["warcry", "bash"], troops: [["m_sword", 4], ["m_xbow", 2]], renown: 20, faith: 20, mana: 0, corruption: 0 },
-  priest: { name: "Kapłan wojownik", desc: "Zakon nauczył cię modlitwy i buławy. Nieumarli boją się twojej wiary.", attr: { cha: 2, str: 1 }, skills: { medicine: 3, leadership: 1, ironflesh: 1 }, equip: { weapon: "w_mace", shield: "s_buckler", body: "gambeson", head: "coif", feet: "boots" }, items: [], gold: 250, abilities: ["smite", "heal"], troops: [["a_recruit", 6]], renown: 10, faith: 100, mana: 0, corruption: 0 },
-  mage: { name: "Mag renegat", desc: "Wygnany z Kolegium za zakazane księgi. Ogień i klątwy, ale każde zaklęcie zostawia ślad spaczenia.", attr: { int: 3 }, skills: { medicine: 1, trade: 1, tracking: 1 }, equip: { weapon: "w_staff", body: "leather", head: "hood", feet: "boots" }, items: ["w_dagger"], gold: 300, abilities: ["fireball", "curse"], troops: [["v_levy", 4]], renown: 5, faith: 0, mana: 100, corruption: 10 },
-  noble: { name: "Szlachcic bez ziemi", desc: "Herb bez zamku. Masz konia, dobry miecz i nazwisko, które otwiera drzwi.", attr: { cha: 2, agi: 1 }, skills: { riding: 3, leadership: 2, trade: 1 }, equip: { weapon: "w_sword", shield: "s_heater", body: "mail", head: "nasal", feet: "boots", hands: "gloves", horse: "h_nag" }, items: [], gold: 600, abilities: ["warcry", "focus"], troops: [["a_squire", 2], ["a_recruit", 3]], renown: 80, faith: 30, mana: 0, corruption: 0 },
-  barb: { name: "Barbarzyńca", desc: "Z dzikich ziem za rzeką. Wielki topór, furia w żyłach i krwawe obrzędy przodków.", attr: { str: 3 }, skills: { ironflesh: 3, powerstrike: 2 }, equip: { weapon: "w_greataxe", body: "leather", feet: "boots" }, items: [], gold: 150, abilities: ["whirl", "blood"], troops: [["o_young", 3]], renown: 10, faith: 0, mana: 20, corruption: 0 },
-  hunter: { name: "Łowca", desc: "Las był twoim domem. Łuk, topór i wilcze duchy, które idą za tobą od dziecka.", attr: { agi: 3 }, skills: { archery: 3, tracking: 3 }, equip: { weapon: "w_axe", bow: "b_short", body: "leather", head: "hood", feet: "boots" }, items: [], gold: 200, abilities: ["focus", "summon"], troops: [["a_archer", 3]], renown: 5, faith: 10, mana: 60, corruption: 5 },
+// Pochodzenia: atrybuty, jeden darmowy węzeł bez umiejętności aktywnej i nędzny sprzęt. Reszta do zdobycia.
+const ORIGINS: Record<string, { name: string; desc: string; attr: Partial<Record<HAttr, number>>; node: string; equip: Partial<Record<ESlot, string>>; items: string[]; gold: number; troops: [string, number][]; renown: number; faith: number; mana: number; corruption: number; hint: string }> = {
+  merc: { name: "Najemnik", desc: "Lata wojaczki za cudzy grosz. Zostały ci topór, stary puklerz i dwóch kompanów z rozbitego oddziału.", attr: { str: 2, end: 1 }, node: "ps1", equip: { weapon: "w_axe", shield: "s_buckler", body: "gambeson", head: "cap", feet: "boots" }, items: [], gold: 250, troops: [["m_sword", 2], ["a_recruit", 2]], renown: 15, faith: 10, mana: 0, corruption: 0, hint: "Oręż: Tarczownik lub Rębacz" },
+  priest: { name: "Kapłan wojownik", desc: "Zakon dał ci habit, pałkę i wiarę. Nieumarli boją się twojej modlitwy.", attr: { cha: 2, end: 1 }, node: "pray", equip: { weapon: "w_club", body: "robe", feet: "boots" }, items: [], gold: 150, troops: [["a_recruit", 4]], renown: 5, faith: 100, mana: 0, corruption: 0, hint: "Wiara: Smite i Modlitwa leczenia" },
+  mage: { name: "Mag renegat", desc: "Wygnany z Kolegium za zakazane księgi. Masz kostur, płaszcz i głowę pełną zaklęć.", attr: { int: 3 }, node: "flow", equip: { weapon: "w_staff", body: "robe", head: "hood" }, items: [], gold: 200, troops: [["v_levy", 3]], renown: 0, faith: 0, mana: 100, corruption: 8, hint: "Magia: Kula ognia albo Mrok" },
+  noble: { name: "Szlachcic bez ziemi", desc: "Herb bez zamku. Została ci szkapa, miecz po ojcu i nazwisko, które czasem otwiera drzwi.", attr: { cha: 2, agi: 1 }, node: "ld1", equip: { weapon: "w_armsword", body: "gambeson", head: "cap", feet: "boots", horse: "h_nag" }, items: [], gold: 450, troops: [["a_recruit", 3], ["a_militia", 1]], renown: 60, faith: 20, mana: 0, corruption: 0, hint: "Dowództwo i Łowiectwo (jazda)" },
+  barb: { name: "Barbarzyńca", desc: "Z dzikich ziem za rzeką. Topór, łachmany i furia w żyłach.", attr: { str: 2, end: 2 }, node: "if1", equip: { weapon: "w_axe", body: "rags" }, items: [], gold: 80, troops: [["o_young", 3]], renown: 5, faith: 0, mana: 20, corruption: 0, hint: "Kondycja: Furia i Okrzyk" },
+  hunter: { name: "Łowca", desc: "Las był twoim domem. Krótki łuk, nóż i znajomość tropów.", attr: { agi: 3 }, node: "ar1", equip: { weapon: "w_dagger", bow: "b_short", body: "leather", head: "hood" }, items: [], gold: 120, troops: [["a_recruit", 3]], renown: 0, faith: 10, mana: 40, corruption: 0, hint: "Łowiectwo: Skupienie i Wilcza wataha" },
 };
 const RACES: Record<string, { name: string; race: Race; desc: string; attr: Partial<Record<string, number>> }> = {
   human: { name: "Człowiek", race: "human", desc: "Wszechstronni i liczni. Ludzie łatwiej dogadują się z koronami.", attr: { cha: 1 } },
@@ -43,23 +44,24 @@ const RACES: Record<string, { name: string; race: Race; desc: string; attr: Part
   undead: { name: "Przebudzony", race: "skel", desc: "Martwy, który wstał z własną wolą. Nie czuje bólu, żywi mu nie ufają.", attr: { int: 1 } },
 };
 const SKILL_NAME: Record<string, string> = { ironflesh: "Wytrzymałość", powerstrike: "Silny cios", archery: "Łucznictwo", riding: "Jazda konna", leadership: "Dowodzenie", trade: "Handel", medicine: "Medycyna", tactics: "Taktyka", tracking: "Tropienie" };
-const ATTR_NAME: Record<string, string> = { str: "Siła", agi: "Zręczność", int: "Intelekt", cha: "Charyzma" };
+
 
 function newPlayer(name: string, raceId: string, originId: string, look: Look): PlayerState {
   const O = ORIGINS[originId], R = RACES[raceId];
-  const attr: Record<string, number> = { str: 4, agi: 4, int: 4, cha: 4 };
+  const attr: Record<string, number> = { str: 4, agi: 4, end: 4, int: 4, cha: 4 };
   for (const k in O.attr) attr[k] += O.attr[k];
   for (const k in R.attr) attr[k] += R.attr[k];
   const skills: Record<string, number> = {};
-  for (const k in SKILL_NAME) skills[k] = O.skills[k] || 0;
+  for (const k in SKILL_NAME) skills[k] = 0;
   const equip: Record<ESlot, string | null> = { head: null, body: null, hands: null, feet: null, weapon: null, shield: null, bow: null, horse: null };
   for (const k in O.equip) equip[k as ESlot] = O.equip[k as ESlot];
   const P: PlayerState = {
-    name, race: raceId, origin: originId, look, level: 1, xp: 0, attrPts: 0, skillPts: 0, attr, skills, hp: 0, gold: O.gold, renown: O.renown, honor: 0,
-    equip, items: O.items.slice(), goods: { grain: 12, meat: 4 }, abilities: O.abilities.concat([""]).slice(0, 3), learned: O.abilities.slice(), abLevels: { smite: 1 },
-    faith: O.faith, mana: O.mana, corruption: O.corruption, bandages: 3, ammo: 30, companions: [], liege: 0, status: "wolny", contractDays: 0, wars: [],
-    morale: 70, wageDebt: 0, lastPay: 1, captive: null, quests: [], kingdom: `Królestwo ${name}`, kills: 0, battlesWon: 0,
+    name, race: raceId, origin: originId, look, level: 1, xp: 0, attrPts: 1, skillPts: 2, attr, skills, hp: 0, gold: O.gold, renown: O.renown, honor: 0,
+    equip, items: O.items.slice(), goods: { grain: 10, meat: 3 }, abilities: ["", "", ""], learned: [], abLevels: { smite: 1 }, nodes: [], perks: {},
+    faith: O.faith, mana: O.mana, corruption: O.corruption, bandages: 2, ammo: 30, companions: [], liege: 0, status: "wolny", contractDays: 0, wars: [],
+    morale: 65, wageDebt: 0, lastPay: 1, captive: null, quests: [], kingdom: `Królestwo ${name}`, kills: 0, battlesWon: 0,
   };
+  unlockNode(P, NODE(O.node), true);
   P.hp = heroMaxHp(P);
   return P;
 }
@@ -106,9 +108,12 @@ function mapUpdate(dt: number) {
   // najechanie kursorem
   const wx = G.view.cam.x + I.mx, wy = G.view.cam.y + I.my;
   G.view.hover = null;
+  // osada ma pierwszeństwo, gdy kursor jest na niej (lordowie często stoją pod murami)
+  let sd = 1e9, sId = -1;
+  for (const s of w.settlements) { if (!w.explored[cidx(s.cx, s.cy)]) continue; const d = dist(s.cx * WCELL + 4, s.cy * WCELL, wx, wy); if (d < 16 && d < sd) { sd = d; sId = s.id; } }
   let bd = 12;
-  for (const o of w.parties) { if (o.kind === "player" || !partyVisible(w, o)) continue; const d = dist(o.x, o.y - 6, wx, wy); if (d < bd) { bd = d; G.view.hover = { kind: "party", id: o.id }; } }
-  if (!G.view.hover) for (const s of w.settlements) { if (!w.explored[cidx(s.cx, s.cy)]) continue; const d = dist(s.cx * WCELL + 4, s.cy * WCELL, wx, wy); if (d < 16) { G.view.hover = { kind: "settlement", id: s.id }; break; } }
+  for (const o of w.parties) { if (o.kind === "player" || !partyVisible(w, o)) continue; const d = dist(o.x, o.y - 6, wx, wy); if (d < bd && d < sd - 6) { bd = d; G.view.hover = { kind: "party", id: o.id }; } }
+  if (!G.view.hover && sId >= 0) G.view.hover = { kind: "settlement", id: sId };
   if (!G.view.hover) for (const pl of w.places) { if (!w.explored[cidx(pl.cx, pl.cy)]) continue; if (dist(pl.cx * WCELL + 4, pl.cy * WCELL, wx, wy) < 10) { G.view.hover = { kind: "place", id: pl.id }; break; } }
   updateTip();
   // klik: ruch
@@ -240,7 +245,14 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const tb = document.getElementById("toasts"); if (tb) tb.innerHTML = "";
   G.battle = new Battle(cfg, input, sfx, settings);
   const b = G.battle;
-  b.heroDmg = 1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.05;
+  const two = P.equip.weapon && WEAPONS[ITEMS[P.equip.weapon].weapon]?.twoHanded;
+  b.heroDmg = 1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.06 + (two ? perk(P, "twoHand") : 0);
+  b.heroStamina = 1 + (P.attr.end - 4) * 0.04 + perk(P, "stamina");
+  b.heroBlockCost = 1 + perk(P, "blockCost");
+  b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
+  b.fireMul = 1 + perk(P, "fireDmg");
+  b.furyMul = 1 + perk(P, "fury");
+  b.heroSpeed = 1 + (P.attr.agi - 4) * 0.015;
   for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2, 20, 100);
   G.state = "battle";
   hideMapHud();
@@ -304,7 +316,7 @@ function battleFinished() {
     P.morale = clamp(P.morale + 8, 0, 100);
     lootGold = Math.round(ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03));
     if (chance(0.35 + enemyPow * 0.01)) { const pool = Object.values(ITEMS).filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); lootItems.push(pick(pool).id); }
-    if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; const books = ["fireball", "curse", "summon", "blood"].filter((a) => !P.learned.includes(a)); if (books.length) { const a = pick(books); P.learned.push(a); lines.push(`W ruinach znajdujesz starą księgę: ${ABILITIES[a].name}. Nowa umiejętność!`); } lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id); }
+    if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id); }
     P.gold += lootGold;
     for (const it of lootItems) P.items.push(it);
     // jeńcy
@@ -351,9 +363,8 @@ function gainXp(P: PlayerState, xp: number, lines: string[]) {
   P.xp += xp;
   lines.push(`Doświadczenie: +${xp}.`);
   while (P.xp >= xpForLevel(P.level + 1)) {
-    P.level++; P.attrPts += 1; P.skillPts += 2;
-    lines.push(`Awans na poziom ${P.level}! Punkty: 1 atrybut, 2 umiejętności.`);
-    if (P.level % 3 === 0) lines.push("Możesz poznać nową technikę bojową w oknie postaci.");
+    P.level++; P.attrPts += 1; P.skillPts += 1;
+    lines.push(`Awans na poziom ${P.level}! +1 punkt atrybutu, +1 punkt drzewka (okno postaci, C).`);
     sfx.drum(1);
   }
 }

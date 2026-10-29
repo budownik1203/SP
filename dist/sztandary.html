@@ -127,6 +127,7 @@ input.num{width:5em}
 .s-head{display:flex;flex-wrap:wrap;gap:.2em 1em;align-items:baseline}
 .s-head h1{margin:0}
 .s-tabs{display:flex;flex-wrap:wrap;gap:.25em}
+.settle .scene.small .scene-img canvas{height:clamp(4em,16vh,9em);width:100%;object-fit:cover;object-position:center 70%}
 .s-pane{min-height:6em}
 .s-foot{display:flex;gap:1.2em;color:var(--muted);border-top:1px solid var(--edge2);padding-top:.25em}
 .dialog{max-width:36em;width:100%;max-height:100%;overflow:auto}
@@ -144,6 +145,103 @@ input.num{width:5em}
 .lords{display:grid;grid-template-columns:repeat(auto-fill,minmax(16em,1fr));gap:.15em .8em;font-size:.9em}
 .sw{display:inline-block;width:.7em;height:.7em;margin-right:.4em;border:1px solid #000;vertical-align:middle}
 .after{max-width:44em}
+
+/* ---- B5: ikony, dialogi, drzewka, armia ---- */
+.ic{image-rendering:pixelated;width:1.15em;height:1.15em;vertical-align:-.2em;display:inline-block}
+.ic.big{width:2.2em;height:2.2em}
+.mbtn{font-size:.85em;padding:.2em .55em;background:linear-gradient(#3d352a,#221d18);color:var(--text);box-shadow:inset 0 0 0 1px var(--edge),0 2px 0 #000;display:flex;align-items:center;gap:.35em}
+.mbtn:hover{background:linear-gradient(#574b3c,#2a241d)}
+kbd{font:inherit;font-size:.8em;color:var(--gold);border:1px solid var(--edge);padding:0 .25em;background:#0a0908}
+.mi .ic{width:1.3em;height:1.3em}
+.hb{display:inline-flex;align-items:center;gap:.3em}
+.minibar{display:inline-block;width:3.5em;height:.45em;background:#0a0908;border:1px solid var(--edge2);position:relative}
+.minibar i{position:absolute;inset:0 auto 0 0;background:#9a3a2e}
+.pulse{animation:pulse .8s infinite alternate}
+.s-tabs .tab{display:inline-flex;align-items:center;gap:.3em}
+/* dialog */
+.dlg{display:grid;gap:.5em}
+.dlg-row{display:grid;grid-template-columns:auto 1fr auto;gap:.8em;align-items:start}
+.dlg-name{margin-bottom:.3em;font-size:1.15em}
+.bubble{position:relative;background:#0f0d0a;border:2px solid var(--edge);padding:.5em .7em;min-height:3.2em;font-size:1.05em;line-height:1.4;cursor:pointer}
+.bubble::before{content:"";position:absolute;right:-10px;top:1em;border:8px solid transparent;border-left-color:var(--edge)}
+.dlg-info{margin-top:.4em}
+.choices{list-style:none;margin:.2em 0 0;padding:0;display:grid;gap:.25em}
+button.choice{all:unset;cursor:pointer;display:flex;align-items:center;gap:.5em;width:100%;box-sizing:border-box;padding:.3em .6em;background:linear-gradient(90deg,#2a241d,#16130f);border-left:3px solid var(--edge);color:var(--text)}
+button.choice:hover,button.choice:focus-visible{border-left-color:var(--gold);background:linear-gradient(90deg,#3d352a,#1a1612);color:#f0e6cc}
+button.choice.danger{border-left-color:#7a2a22}
+button.choice:disabled{opacity:.4;cursor:default}
+.comp-row{display:flex;flex-wrap:wrap;gap:.3em}
+.tchip{display:inline-flex;flex-direction:column;align-items:center;background:#0f0d0a;border:1px solid var(--edge2);padding:.1em .25em;min-width:2.6em}
+.tchip b{font-size:.85em}.tchip small{font-size:.7em;color:var(--muted);max-width:6em;text-align:center}
+.pow{display:flex;align-items:center;gap:.5em;margin:.4em 0 .1em;font-size:.9em}
+.powbar{flex:1;height:.7em;background:#5e1716;border:1px solid #0a0908;position:relative}
+.powbar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(#b8933a,#6a5423)}
+.pow.rel .powbar{background:linear-gradient(90deg,#5e1716,#3d352a)}
+.pow.rel .powbar i{background:transparent;border-right:3px solid var(--gold)}
+/* jednostki */
+.uthumb canvas{width:calc(var(--s)*16px);height:calc(var(--s)*20px);image-rendering:pixelated;display:block}
+.uthumb[style] canvas{width:calc(var(--w) * var(--s) / 2);height:auto}
+.uanim{image-rendering:pixelated;background-repeat:no-repeat;animation:walk .6s steps(4) infinite;flex:none}
+@keyframes walk{to{background-position:var(--sw) 0}}
+@media (prefers-reduced-motion:reduce){.uanim{animation:none}}
+.stars{color:var(--gold);font-size:.8em;letter-spacing:-.05em}
+.pgrid{display:grid;grid-template-columns:minmax(12em,1fr) 2fr;gap:.8em}
+@media (max-width:720px){.pgrid{grid-template-columns:1fr}}
+.ulist{display:grid;gap:.2em;align-content:start;max-height:60vh;overflow:auto}
+button.urow{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto auto;gap:.4em;align-items:center;padding:.15em .4em;background:#16130f;border:1px solid var(--edge2)}
+button.urow:hover{background:#2a241d}button.urow.on{border-color:var(--gold);background:#2a241d}
+.urow .un{display:grid;line-height:1.1}.urow .uc{font-weight:600}.urow .uc i{font-style:normal;margin-left:.3em;font-size:.85em}
+.upok{color:var(--gold);font-size:.85em}
+.udet{background:#0f0d0a;border:1px solid var(--edge2);padding:.5em .7em;max-height:62vh;overflow:auto}
+.udet-top{display:flex;gap:.6em;align-items:flex-start}
+.udet-top h2{margin:.1em 0}
+.ustats{display:grid;gap:.15em;margin:.4em 0}
+.stat{display:grid;grid-template-columns:5.5em 1fr 2.5em;gap:.4em;align-items:center;font-size:.9em}
+.stat b{text-align:right}
+.s-hp i{background:#9a3a2e}.s-arm i{background:#92969c}.s-atk i{background:#b14a32}.s-def i{background:#6b6b3e}.s-spd i{background:#a8873a}.s-bow i{background:#8b8b52}
+.hpb i{background:#9a3a2e}
+.ups{display:grid;gap:.4em}
+.upc{display:flex;gap:.5em;align-items:center;background:#16130f;border:1px solid var(--edge2);padding:.3em}
+.utree{overflow:auto;padding:.3em 0}
+.tn{display:flex;align-items:center}
+.tch{display:flex;flex-direction:column;gap:.2em;margin-left:.8em;padding-left:.6em;border-left:1px solid var(--edge)}
+.tch>.tn::before{content:"";width:.6em;border-top:1px solid var(--edge);margin-left:-.6em}
+.tbox{display:flex;flex-direction:column;align-items:center;min-width:5.5em;padding:.15em .3em;background:#16130f;border:1px solid var(--edge2);font-size:.75em;text-align:center;cursor:default}
+.tbox[data-a]{cursor:pointer}
+.tbox.cur{border-color:var(--gold);background:#2a241d}
+/* postać */
+.char-grid{display:grid;grid-template-columns:minmax(15em,1fr) 2fr;gap:1em}
+@media (max-width:760px){.char-grid{grid-template-columns:1fr}}
+.attr{display:grid;grid-template-columns:6.5em 1fr 1.8em auto;gap:.4em;align-items:center;margin:.15em 0}
+.attr .an{font-weight:600}
+.cre-attrs{margin:.4em 0}
+.aslot{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:.4em;padding:.25em .4em;margin:.2em 0;background:#16130f;border:1px solid var(--edge2)}
+.aslot .key{grid-row:span 2;align-self:center}
+.aslot.res-faith{border-color:#7d6326}.aslot.res-mana{border-color:#462750}.aslot.res-fury,.aslot.res-blood{border-color:#5e1716}
+.learned{display:flex;flex-wrap:wrap;gap:.25em;margin-top:.3em}
+.lchip{display:flex;align-items:center;gap:.2em;background:#0f0d0a;border:1px solid var(--edge2);padding:.05em .3em;font-size:.85em}
+.ttabs{display:flex;flex-wrap:wrap;gap:.2em}
+button.ttab{all:unset;cursor:pointer;display:flex;align-items:center;gap:.3em;padding:.2em .45em;background:#16130f;border:1px solid var(--edge2);font-size:.85em}
+button.ttab small{color:var(--muted)}
+button.ttab.on{border-color:var(--gold);background:#2a241d}
+button.ttab.blocked{opacity:.4}
+.thead{display:flex;gap:.6em;align-items:baseline;margin:.4em 0;flex-wrap:wrap}
+.thead .pts{margin-left:auto}
+.tview{position:relative;height:clamp(14em,46vh,24em);background:radial-gradient(#1f1a14,#0f0d0a);border:1px solid var(--edge2)}
+.tview svg{position:absolute;inset:0;width:100%;height:100%}
+.tview line{stroke:#3d352a;stroke-width:3}.tview line.lit{stroke:#b8933a}.tview line.excl{stroke:#7a2a22;stroke-dasharray:6 5}
+button.node{all:unset;cursor:pointer;position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.1em;width:7em;text-align:center;font-size:.8em;line-height:1.1}
+button.node .ic{padding:.25em;background:#16130f;border:2px solid #3d352a;box-shadow:0 2px 0 #000}
+button.node.have .ic{border-color:var(--gold);background:#3d352a}
+button.node.open .ic{border-color:#8b8b52;animation:pulse .9s infinite alternate}
+button.node.locked{opacity:.55}
+button.node.blocked{opacity:.3;filter:grayscale(1)}
+button.node.sel .ic{outline:2px solid #ded7c6;outline-offset:2px}
+.abmark{font-style:normal;font-size:.75em;color:var(--purple)}
+.ninfo{margin-top:.4em;padding:.3em .5em;background:#0f0d0a;border:1px solid var(--edge2);min-height:4em}
+.ninfo h2{margin:.1em 0 .2em}
+.phead{display:flex;gap:1em;align-items:baseline;flex-wrap:wrap}
+.comp.big{align-items:center}
 </style>
 
 <div id="wrap">
@@ -175,12 +273,12 @@ input.num{width:5em}
     <div class="frame" id="mh-top"></div>
     <div id="mh-speed"></div>
     <div id="mh-btns">
-      <button class="mini" data-win="char">Postać [C]</button>
-      <button class="mini" data-win="inv">Ekwipunek [I]</button>
-      <button class="mini" data-win="party">Armia [P]</button>
-      <button class="mini" data-win="fac">Frakcje [F]</button>
-      <button class="mini" data-win="chron">Kronika [K]</button>
-      <button class="mini" data-win="quest">Zadania [J]</button>
+      <button class="mbtn" data-win="char"><span class="mi" data-ic="star"></span>Postać <kbd>C</kbd></button>
+      <button class="mbtn" data-win="inv"><span class="mi" data-ic="shield"></span>Ekwipunek <kbd>I</kbd></button>
+      <button class="mbtn" data-win="party"><span class="mi" data-ic="man"></span>Armia <kbd>P</kbd></button>
+      <button class="mbtn" data-win="fac"><span class="mi" data-ic="banner"></span>Frakcje <kbd>F</kbd></button>
+      <button class="mbtn" data-win="chron"><span class="mi" data-ic="scroll"></span>Kronika <kbd>K</kbd></button>
+      <button class="mbtn" data-win="quest"><span class="mi" data-ic="eye"></span>Zadania <kbd>J</kbd></button>
     </div>
     <div class="frame" id="tip" hidden></div>
   </div>
@@ -915,11 +1013,45 @@ function drawSkeleton(L, dir, frame, headless = false) {
         }
     P.r(cx - 4, top, 8, 1, BH); // obojczyki
     // łachmany lub resztki zbroi
-    if (L.body === "mail")
-        for (let y = top + 1; y < top + 7; y++)
+    // zardzewiały ekwipunek: kolczuga, płyta, tabard; im wyższy tier, tym pełniejszy
+    const rust = (x, y, base) => (vrand(L.seed, x * 13 + y * 5) < 0.3 ? PAL.rust : base);
+    if (L.body === "mail" || L.body === "plate") {
+        for (let y = top + 1; y < top + 10; y++)
+            for (let x = cx - 4; x <= cx + 3; x++) {
+                if (L.body === "mail") {
+                    if (vrand(L.seed, x * 9 + y) < 0.9)
+                        P.p(x, y, rust(x, y, (x + y) % 2 ? PAL.steelD : PAL.steel));
+                }
+                else
+                    P.p(x, y, rust(x, y, (y - top) % 4 === 3 ? PAL.steelD : x > cx ? PAL.steelD : PAL.steel));
+            }
+        P.r(cx - 4, top + 8, 8, 1, PAL.woodD);
+        P.p(cx - 1, top + 8, PAL.goldD); // pas
+        if (L.body === "plate") {
+            for (const sx of dir === 2 ? [cx - 1] : [cx - 7, cx + 4]) {
+                P.r(sx, top - 1, 3, 3, PAL.steel);
+                P.r(sx, top + 2, 3, 1, PAL.steelD);
+                P.p(sx + 1, top, PAL.rust);
+            }
+            for (let y = top + 9; y < top + 12; y++)
+                for (let x = cx - 4; x <= cx + 3; x++)
+                    if ((x + y) % 3)
+                        P.p(x, y, rust(x, y, PAL.steelD));
+        }
+    }
+    if (L.tabard && dir !== 1) {
+        const tc = L.tabard.main;
+        for (let y = top + 2; y < 25; y++)
+            for (let x = cx - 2; x <= cx + 1; x++)
+                if (y < 23 || vrand(L.seed, x * 3 + y) < 0.5)
+                    P.p(x, y, y % 5 === 0 ? L.tabard.shade : tc);
+        P.p(cx - 1, top + 4, L.tabard.trim);
+    }
+    if (L.body === "leather")
+        for (let y = top + 1; y < top + 9; y++)
             for (let x = cx - 4; x <= cx + 3; x++)
-                if ((x + y) % 2 && vrand(L.seed, x * 9 + y) < 0.7)
-                    P.p(x, y, (x + y) % 4 ? PAL.rust : PAL.steelD);
+                if (vrand(L.seed, x * 5 + y) < 0.75)
+                    P.p(x, y, (y - top) % 4 === 3 ? PAL.woodD : PAL.dirt);
     for (let y = top + 6; y < 26; y++)
         for (let x = cx - 4; x <= cx + 3; x++)
             if (vrand(L.seed, x * 31 + y * 7) < 0.35 - (y - top) * 0.012)
@@ -964,6 +1096,37 @@ function drawSkeleton(L, dir, frame, headless = false) {
         }
         else {
             P.r(cx - 2, hy + 2, 5, 1, BD);
+        }
+        const H = L.helm;
+        if (H === "kettle" || H === "nasal" || H === "great" || H === "crest") {
+            const met = (x, y) => P.p(x, y, rust(x, y, x > cx ? PAL.steelD : PAL.steel));
+            for (let y = hy - 1; y < hy + 3; y++)
+                for (let x = cx - 4; x <= cx + 4; x++)
+                    met(x, y);
+            if (H === "kettle") {
+                P.r(cx - 6, hy + 2, 13, 1, PAL.steelD);
+                P.p(cx - 6, hy + 2, PAL.rust);
+            }
+            if (H === "nasal" && dir !== 1)
+                P.r(dir === 2 ? cx + 2 : cx, hy + 3, 1, 3, PAL.steelD);
+            if (H === "great" || H === "crest") {
+                for (let y = hy + 3; y < hy + 8; y++)
+                    for (let x = cx - 4; x <= cx + 4; x++)
+                        met(x, y);
+                if (dir === 0) {
+                    P.r(cx - 3, hy + 4, 7, 1, PAL.black);
+                    P.p(cx - 2, hy + 4, PAL.purpleL);
+                    P.p(cx + 2, hy + 4, PAL.purpleL);
+                }
+                else if (dir === 2) {
+                    P.r(cx + 1, hy + 4, 4, 1, PAL.black);
+                    P.p(cx + 3, hy + 4, PAL.purpleL);
+                }
+                if (H === "crest") {
+                    P.r(cx - 1, hy - 4, 2, 3, PAL.purple);
+                    P.r(cx - 2, hy - 5, 4, 1, PAL.purpleL);
+                }
+            }
         }
         if (L.helm === "rustcap") {
             P.r(cx - 4, hy - 1, 9, 3, PAL.rust);
@@ -1746,49 +1909,127 @@ function U(d) {
 // bohater (wartości bazowe; ekwipunek je zmienia)
 U({ key: "hero", name: "Ty", hp: 170, speed: 52, armor: ARM(0.55, 0.7, 0.85), weapon: "sword", shield: true, guard: 0, react: 0, look: { race: "human", helms: ["crest"], bodies: ["mail"], tabard: true }, cost: 0, wage: 0 });
 U({ key: "companion", name: "Towarzysz", hp: 140, speed: 50, armor: ARM(0.6, 0.72, 0.85), weapon: "sword", shield: true, shieldBlock: 0.5, guard: 0.5, react: 0.28, look: { race: "human", helms: ["nasal"], bodies: ["mail"], tabard: true }, cost: 0, wage: 0 });
+const GEAR = {
+    human: { helms: [["none", "cap", "hood"], ["cap", "kettle", "coif"], ["kettle", "nasal", "coif"], ["nasal", "great"], ["great", "crest"]], bodies: [["rags", "rags", "gambeson"], ["gambeson", "leather"], ["mail"], ["mail"], ["plate"]] },
+    dwarf: { helms: [["none", "cap"], ["cap", "dwarf"], ["dwarf"], ["dwarf", "great"], ["dwarf"]], bodies: [["leather", "rags"], ["leather", "gambeson"], ["mail"], ["mail", "plate"], ["plate"]] },
+    orc: { helms: [["none"], ["none", "orc"], ["orc", "none"], ["orc"], ["orc"]], bodies: [["rags"], ["rags", "leather"], ["leather"], ["leather", "mail"], ["mail", "plate"]] },
+    skel: { helms: [["none"], ["none", "rustcap"], ["rustcap", "kettle"], ["kettle", "nasal"], ["great", "crest"]], bodies: [["bones"], ["rags", "bones"], ["mail"], ["mail"], ["plate"]] },
+};
+const TIER_COST = [20, 45, 90, 160, 260], TIER_WAGE = [1, 2, 3, 5, 8], TIER_XP = [60, 140, 240, 380, 0];
+const ROLE_WEAPON = {
+    levy: [["club", "spear", "dagger"], ["spear", "club"], ["spear"], ["spear"], ["spear"]],
+    inf: [["club"], ["axe", "club"], ["armsword", "axe"], ["sword", "mace"], ["sword", "mace"]],
+    shield: [["club"], ["axe"], ["armsword", "axe"], ["sword", "axe"], ["sword", "warhammer"]],
+    two: [["club"], ["axe"], ["greataxe"], ["greataxe", "longsword"], ["longsword", "greataxe", "warhammer"]],
+    spear: [["spear"], ["spear"], ["spear"], ["spear"], ["spear"]],
+    archer: [["dagger"], ["dagger"], ["dagger", "axe"], ["armsword"], ["armsword", "sword"]],
+    xbow: [["dagger"], ["dagger"], ["dagger", "axe"], ["armsword", "axe"], ["armsword", "warhammer"]],
+    cav: [["club"], ["cavsword"], ["cavsword"], ["cavsword", "mace"], ["mace", "cavsword"]],
+    thrower: [["club"], ["axe"], ["axe"], ["axe"], ["axe"]],
+};
+function TU(culture, race, key, name, tier, role, up, extra = {}, kit = {}) {
+    const t = tier - 1, g = GEAR[race] || GEAR.human;
+    const ranged = role === "archer" || role === "xbow" || role === "thrower";
+    const bodyTier = ranged ? Math.max(0, t - 1) : t;
+    const wl = ROLE_WEAPON[role][t];
+    const weapon = wl[hashInt(key.length * 7 + key.charCodeAt(2)) % wl.length];
+    const undead = race === "skel";
+    const tough = race === "dwarf" || race === "orc" ? 12 : undead ? -6 : 0;
+    const ac = [0.93, 0.84, 0.72, 0.62, 0.5][bodyTier] - (race === "dwarf" ? 0.04 : 0);
+    const armor = undead ? ARM(ac, ac * 0.55, 1.35 - t * 0.06) : ARM(ac, Math.min(0.96, ac + 0.1), Math.min(0.97, ac + 0.16));
+    const shield = role === "shield" || role === "spear" && tier >= 2 || role === "cav" && tier <= 4 || role === "levy" && tier === 2;
+    const d = {
+        key, name, culture, tier, hp: 70 + tier * 13 + tough, speed: race === "dwarf" ? 37 : race === "skel" ? 40 : role === "archer" || race === "orc" ? 46 : 44,
+        armor, weapon, shield, shieldBlock: shield ? 0.28 + t * 0.07 : 0, guard: 0.14 + t * 0.08, react: 0.44 - t * 0.035, undead,
+        poise: tier >= 5 && (role === "two" || role === "shield") || race === "dwarf" && tier >= 4,
+        up, xp: TIER_XP[t], cost: undead ? Math.round(TIER_COST[t] * 0.6) : TIER_COST[t], wage: undead ? 0 : TIER_WAGE[t],
+        look: { race, helms: ranged && t <= 2 ? ["hood", ...g.helms[t]] : g.helms[t], bodies: g.bodies[bodyTier], tabard: race !== "orc" && tier >= 2 && !(undead && tier < 4), cape: tier >= 5 || role === "cav" && tier >= 4, quiver: ranged && role !== "thrower", scabbard: tier >= 3 && !ranged, tall: tier >= 5 && race !== "dwarf", hood: race === "skel" ? [[PAL.dusk, PAL.ink], [PAL.purple, PAL.dusk]] : [[PAL.dirt, PAL.dirtD], [PAL.moss, PAL.grassD]], skins: race === "orc" ? O_SKIN : undefined, ...kit },
+    };
+    if (role === "archer")
+        d.bow = { dmg: 18 + tier * 6, range: 190 + tier * 18, reload: 2.4 - tier * 0.07, spread: 0.1 - tier * 0.013 };
+    if (role === "xbow")
+        d.bow = { dmg: 26 + tier * 8, range: 190 + tier * 12, reload: 3.6, spread: 0.06 - tier * 0.007, bolt: true };
+    if (role === "thrower")
+        d.bow = { dmg: 22 + tier * 5, range: 110 + tier * 8, reload: 2.4, spread: 0.08, axe: true };
+    if (role === "cav") {
+        d.mount = undead ? BONEHORSE : tier >= 5 ? WARHORSE : HORSE;
+        d.radius = 8;
+        d.speed = 44;
+    }
+    U({ ...d, ...extra });
+}
 // Korona Aureliańska
-U({ key: "a_recruit", name: "Rekrut", culture: "aurelia", tier: 1, hp: 80, armor: ARM(0.8, 0.85, 0.9), weapon: "spear", shield: false, guard: 0.2, look: { race: "human", helms: ["cap", "none", "kettle"], bodies: ["gambeson", "rags"], tabard: true, patterns: ["plain"] }, up: ["a_maa", "a_archer", "a_squire"], xp: 60, cost: 25, wage: 1 });
-U({ key: "a_maa", name: "Zbrojny", culture: "aurelia", tier: 2, hp: 95, armor: ARM(0.65, 0.8, 0.9), weapon: "armsword", shield: true, shieldBlock: 0.42, guard: 0.3, react: 0.34, look: { race: "human", helms: ["nasal", "kettle", "coif"], bodies: ["mail"], tabard: true, scabbard: true }, up: ["a_guard"], xp: 120, cost: 60, wage: 2 });
-U({ key: "a_guard", name: "Gwardzista Korony", culture: "aurelia", tier: 3, hp: 110, armor: ARM(0.5, 0.65, 0.85), weapon: "longsword", shield: false, guard: 0.42, react: 0.3, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true, tall: true }, cost: 140, wage: 4 });
-U({ key: "a_archer", name: "Łucznik", culture: "aurelia", tier: 2, hp: 70, speed: 46, armor: ARM(0.85, 0.9, 0.95), weapon: "dagger", guard: 0.15, react: 0.42, bow: { dmg: 30, range: 240, reload: 2.0, spread: 0.06 }, look: { race: "human", helms: ["hood", "kettle"], bodies: ["leather"], tabard: false, quiver: true, hood: [[PAL.moss, PAL.grassD], [PAL.dirt, PAL.dirtD]] }, up: ["a_longbow"], xp: 120, cost: 55, wage: 2 });
-U({ key: "a_longbow", name: "Długi łucznik", culture: "aurelia", tier: 3, hp: 80, speed: 46, armor: ARM(0.75, 0.85, 0.9), weapon: "armsword", guard: 0.25, react: 0.38, bow: { dmg: 40, range: 280, reload: 2.2, spread: 0.045 }, look: { race: "human", helms: ["hood", "nasal"], bodies: ["mail"], tabard: true, quiver: true, hood: [[PAL.red, PAL.bloodD]] }, cost: 120, wage: 3 });
-U({ key: "a_squire", name: "Giermek konny", culture: "aurelia", tier: 2, hp: 90, armor: ARM(0.65, 0.8, 0.9), weapon: "cavsword", shield: true, shieldBlock: 0.35, look: { race: "human", helms: ["nasal", "kettle"], bodies: ["mail"], tabard: true }, mount: HORSE, radius: 8, up: ["a_knight"], xp: 140, cost: 90, wage: 3 });
-U({ key: "a_knight", name: "Rycerz", culture: "aurelia", tier: 3, hp: 120, armor: ARM(0.48, 0.62, 0.82), weapon: "sword", shield: true, shieldBlock: 0.45, guard: 0.4, react: 0.3, look: { race: "human", helms: ["great", "crest"], bodies: ["plate"], tabard: true, cape: true }, mount: WARHORSE, radius: 8, cost: 220, wage: 6 });
-U({ key: "a_priest", name: "Kapłan bojowy", culture: "aurelia", tier: 3, hp: 90, speed: 42, armor: ARM(0.75, 0.85, 0.85), weapon: "mace", shield: false, guard: 0.3, look: { race: "human", helms: ["mitre"], bodies: ["robe"], tabard: false, hood: [[PAL.bone, PAL.ash]] }, cost: 150, wage: 4, ability: "priest" });
+TU("aurelia", "human", "a_recruit", "Rekrut", 1, "levy", ["a_militia"]);
+TU("aurelia", "human", "a_militia", "Milicjant", 2, "levy", ["a_maa", "a_archer", "a_squire"]);
+TU("aurelia", "human", "a_maa", "Zbrojny", 3, "shield", ["a_sergeant", "a_halberd"]);
+TU("aurelia", "human", "a_sergeant", "Sierżant Korony", 4, "shield", ["a_guard"]);
+TU("aurelia", "human", "a_guard", "Gwardzista Korony", 5, "shield");
+TU("aurelia", "human", "a_halberd", "Pikinier", 4, "spear", ["a_champion"]);
+TU("aurelia", "human", "a_champion", "Czempion Korony", 5, "two");
+TU("aurelia", "human", "a_archer", "Łucznik", 3, "archer", ["a_longbow"]);
+TU("aurelia", "human", "a_longbow", "Długi łucznik", 4, "archer", ["a_warbow"]);
+TU("aurelia", "human", "a_warbow", "Łucznik Królewski", 5, "archer");
+TU("aurelia", "human", "a_squire", "Giermek konny", 3, "cav", ["a_knight"]);
+TU("aurelia", "human", "a_knight", "Rycerz", 4, "cav", ["a_paladin"]);
+TU("aurelia", "human", "a_paladin", "Rycerz Zakonny", 5, "cav");
+U({ key: "a_priest", name: "Kapłan bojowy", culture: "aurelia", tier: 3, hp: 95, speed: 42, armor: ARM(0.75, 0.85, 0.85), weapon: "mace", shield: false, guard: 0.3, look: { race: "human", helms: ["mitre"], bodies: ["robe"], tabard: false, hood: [[PAL.bone, PAL.ash]] }, cost: 150, wage: 4, ability: "priest" });
 // Legion Varusa
-U({ key: "v_levy", name: "Poborowy", culture: "varus", tier: 1, hp: 80, armor: ARM(0.8, 0.85, 0.9), weapon: "spear", look: { race: "human", helms: ["kettle", "cap"], bodies: ["gambeson"], tabard: true, patterns: ["plain"] }, up: ["v_legion", "v_xbow", "v_rider"], xp: 60, cost: 25, wage: 1 });
-U({ key: "v_legion", name: "Legionista", culture: "varus", tier: 2, hp: 100, armor: ARM(0.62, 0.78, 0.88), weapon: "armsword", shield: true, shieldBlock: 0.5, guard: 0.28, react: 0.34, look: { race: "human", helms: ["nasal", "great"], bodies: ["mail"], tabard: true, scabbard: true }, up: ["v_veteran"], xp: 120, cost: 65, wage: 2 });
-U({ key: "v_veteran", name: "Weteran Legionu", culture: "varus", tier: 3, hp: 115, armor: ARM(0.5, 0.62, 0.85), weapon: "sword", shield: true, shieldBlock: 0.55, guard: 0.4, react: 0.3, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true }, cost: 150, wage: 4 });
-U({ key: "v_xbow", name: "Kusznik", culture: "varus", tier: 2, hp: 75, speed: 44, armor: ARM(0.75, 0.85, 0.9), weapon: "dagger", guard: 0.15, bow: { dmg: 42, range: 220, reload: 3.4, spread: 0.035, bolt: true }, look: { race: "human", helms: ["kettle"], bodies: ["gambeson", "leather"], tabard: true, quiver: true }, up: ["v_hxbow"], xp: 120, cost: 60, wage: 2 });
-U({ key: "v_hxbow", name: "Ciężki kusznik", culture: "varus", tier: 3, hp: 90, speed: 42, armor: ARM(0.6, 0.72, 0.88), weapon: "armsword", guard: 0.25, bow: { dmg: 55, range: 240, reload: 3.6, spread: 0.03, bolt: true }, look: { race: "human", helms: ["kettle", "nasal"], bodies: ["mail"], tabard: true, quiver: true }, cost: 130, wage: 3 });
-U({ key: "v_rider", name: "Jeździec Legionu", culture: "varus", tier: 2, hp: 90, armor: ARM(0.65, 0.8, 0.9), weapon: "cavsword", shield: true, shieldBlock: 0.35, look: { race: "human", helms: ["nasal"], bodies: ["mail"], tabard: true }, mount: HORSE, radius: 8, up: ["v_cata"], xp: 140, cost: 95, wage: 3 });
-U({ key: "v_cata", name: "Katafrakt", culture: "varus", tier: 3, hp: 125, armor: ARM(0.45, 0.58, 0.8), weapon: "mace", shield: true, shieldBlock: 0.4, guard: 0.35, look: { race: "human", helms: ["great"], bodies: ["plate"], tabard: true, cape: true }, mount: WARHORSE, radius: 8, cost: 230, wage: 6 });
-U({ key: "v_mage", name: "Mag ognia", culture: "varus", tier: 3, hp: 70, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.redL, PAL.red]] }, cost: 170, wage: 5, ability: "mage" });
+TU("varus", "human", "v_levy", "Poborowy", 1, "levy", ["v_conscript"]);
+TU("varus", "human", "v_conscript", "Rekrut Legionu", 2, "spear", ["v_legion", "v_xbow", "v_rider"]);
+TU("varus", "human", "v_legion", "Legionista", 3, "shield", ["v_veteran"]);
+TU("varus", "human", "v_veteran", "Weteran Legionu", 4, "shield", ["v_praetor", "v_executor"]);
+TU("varus", "human", "v_praetor", "Pretorianin", 5, "shield");
+TU("varus", "human", "v_executor", "Kat Legionu", 5, "two");
+TU("varus", "human", "v_xbow", "Kusznik", 3, "xbow", ["v_hxbow"]);
+TU("varus", "human", "v_hxbow", "Ciężki kusznik", 4, "xbow", ["v_arbalest"]);
+TU("varus", "human", "v_arbalest", "Arbaleciarz", 5, "xbow");
+TU("varus", "human", "v_rider", "Jeździec Legionu", 3, "cav", ["v_cata"]);
+TU("varus", "human", "v_cata", "Katafrakt", 4, "cav", ["v_clib"]);
+TU("varus", "human", "v_clib", "Klibanariusz", 5, "cav");
+U({ key: "v_mage", name: "Mag ognia", culture: "varus", tier: 3, hp: 75, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.redL, PAL.red]] }, cost: 170, wage: 5, ability: "mage" });
 // Twierdze Khazgrim
-U({ key: "d_young", name: "Brodaty rekrut", culture: "dwarf", tier: 1, hp: 95, speed: 38, armor: ARM(0.7, 0.8, 0.85), weapon: "axe", shield: true, shieldBlock: 0.35, look: { race: "dwarf", helms: ["dwarf", "none"], bodies: ["leather", "mail"], tabard: true, patterns: ["plain"] }, up: ["d_shield", "d_xbow"], xp: 70, cost: 35, wage: 1 });
-U({ key: "d_shield", name: "Tarczownik", culture: "dwarf", tier: 2, hp: 115, speed: 37, armor: ARM(0.55, 0.65, 0.82), weapon: "axe", shield: true, shieldBlock: 0.6, guard: 0.35, react: 0.34, poise: true, look: { race: "dwarf", helms: ["dwarf"], bodies: ["mail"], tabard: true }, up: ["d_warden"], xp: 140, cost: 80, wage: 2 });
-U({ key: "d_warden", name: "Strażnik Głębi", culture: "dwarf", tier: 3, hp: 135, speed: 36, armor: ARM(0.42, 0.52, 0.75), weapon: "warhammer", shield: false, guard: 0.45, react: 0.3, poise: true, look: { race: "dwarf", helms: ["dwarf", "great"], bodies: ["plate"], tabard: true, cape: true }, cost: 170, wage: 4 });
-U({ key: "d_xbow", name: "Kusznik krasnoludzki", culture: "dwarf", tier: 2, hp: 90, speed: 37, armor: ARM(0.65, 0.75, 0.85), weapon: "axe", guard: 0.2, bow: { dmg: 46, range: 230, reload: 3.3, spread: 0.035, bolt: true }, look: { race: "dwarf", helms: ["dwarf", "none"], bodies: ["mail"], tabard: true, quiver: true }, up: ["d_rune"], xp: 130, cost: 70, wage: 2 });
-U({ key: "d_rune", name: "Strzelec runiczny", culture: "dwarf", tier: 3, hp: 105, speed: 36, armor: ARM(0.52, 0.62, 0.8), weapon: "warhammer", guard: 0.3, bow: { dmg: 60, range: 250, reload: 3.4, spread: 0.028, bolt: true }, look: { race: "dwarf", helms: ["dwarf"], bodies: ["plate"], tabard: true, quiver: true }, cost: 150, wage: 4 });
-U({ key: "d_runepriest", name: "Kapłan run", culture: "dwarf", tier: 3, hp: 110, speed: 36, armor: ARM(0.6, 0.7, 0.8), weapon: "warhammer", guard: 0.3, look: { race: "dwarf", helms: ["dwarf"], bodies: ["robe"], tabard: false, hood: [[PAL.goldD, PAL.dirtD]] }, cost: 160, wage: 4, ability: "priest" });
+TU("dwarf", "dwarf", "d_young", "Brodaty rekrut", 1, "levy", ["d_miner"]);
+TU("dwarf", "dwarf", "d_miner", "Górnik", 2, "shield", ["d_shield", "d_axe", "d_xbow"]);
+TU("dwarf", "dwarf", "d_shield", "Tarczownik", 3, "shield", ["d_ironguard"]);
+TU("dwarf", "dwarf", "d_ironguard", "Żelazna Straż", 4, "shield", ["d_warden"]);
+TU("dwarf", "dwarf", "d_warden", "Strażnik Głębi", 5, "shield");
+TU("dwarf", "dwarf", "d_axe", "Topornik", 3, "two", ["d_longbeard"]);
+TU("dwarf", "dwarf", "d_longbeard", "Długobrody", 4, "two", ["d_slayer"]);
+TU("dwarf", "dwarf", "d_slayer", "Zabójca Olbrzymów", 5, "two", undefined, {}, { helms: ["none"], bodies: ["leather"] });
+TU("dwarf", "dwarf", "d_xbow", "Kusznik krasnoludzki", 3, "xbow", ["d_rune"]);
+TU("dwarf", "dwarf", "d_rune", "Strzelec runiczny", 4, "xbow", ["d_thunder"]);
+TU("dwarf", "dwarf", "d_thunder", "Gromowładny", 5, "xbow");
+U({ key: "d_runepriest", name: "Kapłan run", culture: "dwarf", tier: 3, hp: 115, speed: 36, armor: ARM(0.6, 0.7, 0.8), weapon: "warhammer", guard: 0.3, look: { race: "dwarf", helms: ["dwarf"], bodies: ["robe"], tabard: false, hood: [[PAL.goldD, PAL.dirtD]] }, cost: 160, wage: 4, ability: "priest" });
 // Horda Ghrakka
-U({ key: "o_young", name: "Młody ork", culture: "orc", tier: 1, hp: 100, speed: 46, armor: ARM(0.85, 0.9, 0.9), weapon: "club", look: { race: "orc", helms: ["none"], bodies: ["rags", "leather"], tabard: false, skins: O_SKIN }, up: ["o_warrior", "o_thrower", "o_rider"], xp: 60, cost: 25, wage: 1 });
-U({ key: "o_warrior", name: "Wojownik orków", culture: "orc", tier: 2, hp: 125, speed: 46, armor: ARM(0.72, 0.82, 0.85), weapon: "axe", shield: true, shieldBlock: 0.3, guard: 0.25, look: { race: "orc", helms: ["orc", "none"], bodies: ["leather"], tabard: false, skins: O_SKIN }, up: ["o_berserk"], xp: 120, cost: 60, wage: 2 });
-U({ key: "o_berserk", name: "Krwawy berserker", culture: "orc", tier: 3, hp: 150, speed: 50, armor: ARM(0.75, 0.85, 0.85), weapon: "greataxe", guard: 0.15, poise: true, look: { race: "orc", helms: ["none", "orc"], bodies: ["rags"], tabard: false, skins: O_SKIN }, cost: 140, wage: 4 });
-U({ key: "o_thrower", name: "Miotacz toporów", culture: "orc", tier: 2, hp: 105, speed: 46, armor: ARM(0.8, 0.88, 0.88), weapon: "axe", guard: 0.2, bow: { dmg: 34, range: 120, reload: 2.4, spread: 0.08, axe: true }, look: { race: "orc", helms: ["none"], bodies: ["leather"], tabard: false, skins: O_SKIN }, up: ["o_hunter"], xp: 120, cost: 55, wage: 2 });
-U({ key: "o_hunter", name: "Łowca czaszek", culture: "orc", tier: 3, hp: 120, speed: 48, armor: ARM(0.72, 0.8, 0.85), weapon: "axe", guard: 0.25, bow: { dmg: 38, range: 230, reload: 2.2, spread: 0.06 }, look: { race: "orc", helms: ["orc"], bodies: ["leather"], tabard: false, quiver: true, skins: O_SKIN }, cost: 120, wage: 3 });
-U({ key: "o_rider", name: "Jeździec Hordy", culture: "orc", tier: 2, hp: 110, armor: ARM(0.75, 0.85, 0.88), weapon: "axe", shield: true, shieldBlock: 0.25, look: { race: "orc", helms: ["orc"], bodies: ["leather"], tabard: false, skins: O_SKIN }, mount: HORSE, radius: 8, cost: 95, wage: 3 });
-U({ key: "o_shaman", name: "Szaman krwi", culture: "orc", tier: 3, hp: 100, speed: 44, armor: ARM(0.85, 0.9, 0.9), weapon: "staff", look: { race: "orc", helms: ["none"], bodies: ["robe"], tabard: false, skins: O_SKIN, hood: [[PAL.bloodD, PAL.black]] }, cost: 150, wage: 4, ability: "shaman" });
-// Martwe Królestwo
-const UND_ARM = ARM(0.85, 0.45, 1.4);
-U({ key: "u_skel", name: "Szkielet", culture: "undead", tier: 1, hp: 90, speed: 40, armor: UND_ARM, weapon: "rusty", guard: 0.36, react: 0.36, undead: true, look: { race: "skel", helms: ["none", "none", "rustcap"], bodies: ["bones"], tabard: false, hood: [[PAL.dusk, PAL.ink]] }, up: ["u_warrior", "u_archer"], xp: 80, cost: 15, wage: 0 });
-U({ key: "u_warrior", name: "Szkielet wojownik", culture: "undead", tier: 2, hp: 104, speed: 40, armor: ARM(0.75, 0.42, 1.3), weapon: "rusty", shield: true, shieldBlock: 0.35, guard: 0.42, react: 0.34, undead: true, look: { race: "skel", helms: ["rustcap"], bodies: ["mail"], tabard: false, hood: [[PAL.dusk, PAL.ink]] }, up: ["u_wight"], xp: 140, cost: 40, wage: 0 });
-U({ key: "u_wight", name: "Upiorny strażnik", culture: "undead", tier: 3, hp: 130, speed: 42, armor: ARM(0.55, 0.4, 1.1), weapon: "longsword", guard: 0.5, react: 0.28, undead: true, poise: true, look: { race: "skel", helms: ["hood"], bodies: ["mail"], tabard: false, hood: [[PAL.purple, PAL.dusk]] }, cost: 90, wage: 0 });
-U({ key: "u_archer", name: "Szkielet łucznik", culture: "undead", tier: 2, hp: 62, speed: 40, armor: UND_ARM, weapon: "bonedagger", guard: 0.15, react: 0.44, bow: { dmg: 26, range: 225, reload: 2.2, spread: 0.09 }, undead: true, look: { race: "skel", helms: ["hood"], bodies: ["bones"], tabard: false, hood: [[PAL.purple, PAL.dusk]] }, cost: 35, wage: 0 });
+TU("orc", "orc", "o_young", "Młody ork", 1, "levy", ["o_grunt"]);
+TU("orc", "orc", "o_grunt", "Siepacz", 2, "inf", ["o_warrior", "o_thrower", "o_rider"]);
+TU("orc", "orc", "o_warrior", "Wojownik orków", 3, "shield", ["o_blackfang"]);
+TU("orc", "orc", "o_blackfang", "Czarny Kieł", 4, "two", ["o_berserk", "o_ironhide"]);
+TU("orc", "orc", "o_berserk", "Krwawy berserker", 5, "two", undefined, { speed: 52 }, { helms: ["none"], bodies: ["rags"] });
+TU("orc", "orc", "o_ironhide", "Żelazna Skóra", 5, "shield");
+TU("orc", "orc", "o_thrower", "Miotacz toporów", 3, "thrower", ["o_hunter"]);
+TU("orc", "orc", "o_hunter", "Łowca czaszek", 4, "archer", ["o_bowchief"]);
+TU("orc", "orc", "o_bowchief", "Wódz łowców", 5, "archer");
+TU("orc", "orc", "o_rider", "Jeździec Hordy", 3, "cav", ["o_raider"]);
+TU("orc", "orc", "o_raider", "Łupieżca", 4, "cav", ["o_warrider"]);
+TU("orc", "orc", "o_warrider", "Pancerny jeździec Hordy", 5, "cav");
+U({ key: "o_shaman", name: "Szaman krwi", culture: "orc", tier: 3, hp: 105, speed: 44, armor: ARM(0.85, 0.9, 0.9), weapon: "staff", look: { race: "orc", helms: ["none"], bodies: ["robe"], tabard: false, skins: O_SKIN, hood: [[PAL.bloodD, PAL.black]] }, cost: 150, wage: 4, ability: "shaman" });
+// Martwe Królestwo: od gołych kości do upiorów w zardzewiałej płycie
+TU("undead", "skel", "u_skel", "Szkielet", 1, "levy", ["u_risen"], { weapon: "rusty" });
+TU("undead", "skel", "u_risen", "Powstały", 2, "shield", ["u_warrior", "u_archer", "u_rider"], { weapon: "rusty" });
+TU("undead", "skel", "u_warrior", "Szkielet wojownik", 3, "shield", ["u_legion"], { weapon: "rusty" });
+TU("undead", "skel", "u_legion", "Kościany legionista", 4, "shield", ["u_wight", "u_reaper"]);
+TU("undead", "skel", "u_wight", "Upiorny strażnik", 5, "shield", undefined, { react: 0.28 });
+TU("undead", "skel", "u_reaper", "Żniwiarz", 5, "two");
+TU("undead", "skel", "u_archer", "Szkielet łucznik", 3, "archer", ["u_marksman"], { weapon: "bonedagger" });
+TU("undead", "skel", "u_marksman", "Kościany strzelec", 4, "archer", ["u_spectral"]);
+TU("undead", "skel", "u_spectral", "Widmowy łucznik", 5, "archer");
+TU("undead", "skel", "u_rider", "Upiorny jeździec", 3, "cav", ["u_blackrider"], { weapon: "rusty" });
+TU("undead", "skel", "u_blackrider", "Czarny jeździec", 4, "cav", ["u_doomrider"]);
+TU("undead", "skel", "u_doomrider", "Jeździec Zguby", 5, "cav");
 U({ key: "u_ghoul", name: "Ghul", culture: "undead", tier: 2, hp: 95, speed: 60, armor: ARM(1, 0.9, 0.9), weapon: "claws", guard: 0.1, react: 0.4, undead: true, look: { race: "ghoul", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.ash, PAL.stone], [PAL.moss, PAL.grassD], [PAL.stone, PAL.slate]] }, cost: 30, wage: 0 });
-U({ key: "u_rider", name: "Upiorny jeździec", culture: "undead", tier: 3, hp: 95, armor: ARM(0.7, 0.45, 1.2), weapon: "rusty", shield: true, shieldBlock: 0.3, undead: true, look: { race: "skel", helms: ["rustcap"], bodies: ["mail"], tabard: false }, mount: BONEHORSE, radius: 8, cost: 80, wage: 0 });
 U({ key: "u_necro", name: "Nekromanta", culture: "undead", tier: 3, hp: 80, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", undead: false, look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.purple, PAL.dusk]], skins: [[PAL.bone, PAL.ash]] }, cost: 160, wage: 5, ability: "necro" });
-U({ key: "u_dk", name: "Rycerz Śmierci", culture: "undead", tier: 4, hp: 480, speed: 42, armor: ARM(0.45, 0.55, 0.8), weapon: "great", guard: 0.6, react: 0.24, undead: true, poise: true, radius: 8, look: { race: "dk", helms: ["none"], bodies: ["plate"], tabard: false }, cost: 0, wage: 0, ability: "deathtouch" });
+U({ key: "u_dk", name: "Rycerz Śmierci", culture: "undead", tier: 5, hp: 480, speed: 42, armor: ARM(0.45, 0.55, 0.8), weapon: "great", guard: 0.6, react: 0.24, undead: true, poise: true, radius: 8, look: { race: "dk", helms: ["none"], bodies: ["plate"], tabard: false }, cost: 0, wage: 0, ability: "deathtouch" });
 // Bandyci, najemnicy, bestie
 U({ key: "b_bandit", name: "Bandyta", culture: "bandit", tier: 1, hp: 75, speed: 46, armor: ARM(0.9, 0.9, 0.95), weapon: "club", look: { race: "human", helms: ["none", "cap", "hood"], bodies: ["rags", "leather"], tabard: false, hood: [[PAL.dirt, PAL.dirtD], [PAL.ink, PAL.black]] }, cost: 20, wage: 1 });
 U({ key: "b_archer", name: "Łucznik bandytów", culture: "bandit", tier: 1, hp: 65, speed: 46, armor: ARM(0.9, 0.9, 0.95), weapon: "dagger", bow: { dmg: 24, range: 210, reload: 2.4, spread: 0.09 }, look: { race: "human", helms: ["hood"], bodies: ["leather"], tabard: false, quiver: true, hood: [[PAL.dirtD, PAL.black]] }, cost: 25, wage: 1 });
@@ -1799,11 +2040,11 @@ U({ key: "x_wolf", name: "Wilk", culture: "monster", tier: 1, hp: 60, speed: 70,
 U({ key: "x_spirit", name: "Duch wilka", culture: "monster", tier: 2, hp: 70, speed: 72, armor: ARM(0.8, 0.6, 0.8), weapon: "fangs", guard: 0, react: 0.5, look: { race: "wolf", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.boneHi, PAL.ash]] }, cost: 0, wage: 0 });
 // Rekrutacja według kultury: wioski dają tier 1, miasta i zamki więcej.
 const RECRUITS = {
-    aurelia: { village: ["a_recruit"], town: ["a_recruit", "a_maa", "a_archer", "a_squire"], special: "a_priest" },
-    varus: { village: ["v_levy"], town: ["v_levy", "v_legion", "v_xbow", "v_rider"], special: "v_mage" },
-    dwarf: { village: ["d_young"], town: ["d_young", "d_shield", "d_xbow"], special: "d_runepriest" },
-    orc: { village: ["o_young"], town: ["o_young", "o_warrior", "o_thrower", "o_rider"], special: "o_shaman" },
-    undead: { village: ["u_skel"], town: ["u_skel", "u_warrior", "u_archer", "u_ghoul"], special: "u_necro" },
+    aurelia: { village: ["a_recruit"], town: ["a_recruit", "a_militia"], special: "a_priest" },
+    varus: { village: ["v_levy"], town: ["v_levy", "v_conscript"], special: "v_mage" },
+    dwarf: { village: ["d_young"], town: ["d_young", "d_miner"], special: "d_runepriest" },
+    orc: { village: ["o_young"], town: ["o_young", "o_grunt"], special: "o_shaman" },
+    undead: { village: ["u_skel"], town: ["u_skel", "u_risen", "u_ghoul"], special: "u_necro" },
     bandit: { village: ["b_bandit"], town: ["b_bandit", "b_archer"] },
     monster: { village: ["x_wolf"], town: ["x_wolf"] },
     merc: { village: ["m_sword"], town: ["m_sword", "m_xbow"] },
@@ -1839,6 +2080,7 @@ I({ id: "coif", name: "Czepiec kolczy", slot: "head", price: 110, tier: 2, armor
 I({ id: "crest", name: "Hełm z kitą", slot: "head", price: 260, tier: 3, armor: 0.1, helm: "crest" });
 I({ id: "great", name: "Hełm garnczkowy", slot: "head", price: 420, tier: 3, armor: 0.13, helm: "great" });
 I({ id: "dwarfhelm", name: "Rogaty hełm runiczny", slot: "head", price: 380, tier: 3, armor: 0.12, helm: "dwarf", culture: "dwarf" });
+I({ id: "robe", name: "Habit", slot: "body", price: 25, tier: 1, armor: 0.04, body: "robe" });
 I({ id: "rags", name: "Łachmany", slot: "body", price: 5, tier: 1, armor: 0.02, body: "rags" });
 I({ id: "gambeson", name: "Przeszywanica", slot: "body", price: 80, tier: 1, armor: 0.1, body: "gambeson" });
 I({ id: "leather", name: "Kaftan skórzany", slot: "body", price: 110, tier: 1, armor: 0.12, body: "leather" });
@@ -3084,7 +3326,15 @@ class Battle {
         this.lastAbility = "";
         this.fx = [];
         this.heroDmg = 1;
+        this.heroStamina = 1;
+        this.heroBlockCost = 1;
+        this.corruptMul = 1;
+        this.fireMul = 1;
+        this.furyMul = 1;
+        this.heroSpeed = 1;
         this.light = null;
+        // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
+        this.mopT = 0;
         this.cfg = cfg;
         this.map = makeBattleMap(cfg.terrain, cfg.night);
         this.mw = this.map.w;
@@ -4018,7 +4268,7 @@ class Battle {
             }
         }
         else {
-            let sp = h.def.speed * rite * this.slowAt(h.x, h.y);
+            let sp = h.def.speed * this.heroSpeed * rite * this.slowAt(h.x, h.y);
             const canSprint = sprint && h.stamina > 1 && (mx || my) && !h.blocking && h.state === "idle";
             if (canSprint) {
                 sp *= 1.45;
@@ -4046,7 +4296,7 @@ class Battle {
         if (h.staminaWait > 0)
             h.staminaWait -= dt;
         else if (!h.blocking)
-            h.stamina = Math.min(100, h.stamina + 20 * dt);
+            h.stamina = Math.min(100, h.stamina + 20 * this.heroStamina * dt);
         h.stamina = Math.max(0, h.stamina);
         if (this.heroCfg)
             this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
@@ -4400,10 +4650,10 @@ class Battle {
                 this.shout("Parowanie!");
                 d.stamina = Math.min(100, d.stamina + 8);
                 if (this.heroCfg)
-                    this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12);
+                    this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12 * this.furyMul);
                 return;
             }
-            d.stamina -= 9 + w.dmg[dir] * 0.35;
+            d.stamina -= (9 + w.dmg[dir] * 0.35) * this.heroBlockCost;
             d.staminaWait = 0.6;
             this.sfx.thunk(1, s.pan);
             this.sparks(hx, hy, 6, PAL.steelL);
@@ -4491,9 +4741,9 @@ class Battle {
         if (a.bloodRiteT > 0)
             a.hp = Math.min(a.maxHp, a.hp + dmg * 0.25);
         if (a.hero && this.heroCfg)
-            this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6);
+            this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6 * this.furyMul);
         if (d.hero && this.heroCfg)
-            this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8);
+            this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8 * this.furyMul);
         this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
         if (heroInvolved) {
             const killed = d.hp <= 0;
@@ -5636,7 +5886,7 @@ class Battle {
                 this.sfx.moan(s.v * 0.8, s.pan);
             }
         }
-        this.checkEnd();
+        this.checkEnd(dt);
     }
     moraleCheck() {
         for (const sq of this.liveSquads()) {
@@ -5703,13 +5953,39 @@ class Battle {
                 }
             }
     }
-    checkEnd() {
-        const foes = this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length;
-        const ours = this.units.filter((u) => u.team === 0 && u.active && u.lifeT <= 0).length + this.reserves[0].length;
-        if (foes === 0)
-            this.finish(true);
-        else if (ours === 0)
-            this.finish(false);
+    checkEnd(dt = 0) {
+        const foes = this.units.filter((u) => u.team === 1 && u.active);
+        const foeFight = foes.filter((u) => !u.fleeing);
+        const ours = this.units.filter((u) => u.team === 0 && u.active && u.lifeT <= 0);
+        const ourFight = ours.filter((u) => !u.fleeing);
+        if (foeFight.length && !this.reserves[1].length && foeFight.every((u) => u.hidden))
+            for (const u of foeFight)
+                if (u.hidden)
+                    this.reveal(u);
+        if (!foeFight.length && !this.reserves[1].length) {
+            if (!foes.length) {
+                this.finish(true);
+                return;
+            }
+            this.mopT += dt;
+            if (this.mopT > 2.5) {
+                for (const u of foes)
+                    u.state = "fled";
+                this.finish(true);
+            }
+            return;
+        }
+        if (!ourFight.length && !this.reserves[0].length) {
+            if (!ours.length) {
+                this.finish(false);
+                return;
+            }
+            this.mopT += dt;
+            if (this.mopT > 2.5)
+                this.finish(false);
+            return;
+        }
+        this.mopT = 0;
     }
     // Odwrót z bitwy: gracz wycofuje się, część żołnierzy w zasięgu wroga może przepaść.
     retreat() {
@@ -5884,7 +6160,7 @@ function castHeroAbility(b, slot) {
         H[A.res] -= cost;
     b.cds[id] = A.cd;
     if (A.corrupt) {
-        H.corruption = Math.min(100, H.corruption + A.corrupt);
+        H.corruption = Math.min(100, H.corruption + A.corrupt * b.corruptMul);
         if (H.corruption > 60 && chance(0.25)) {
             b.say("Spaczenie pali ci żyły!", PAL.purpleL);
             h.hp -= 8;
@@ -5954,7 +6230,7 @@ function castHeroAbility(b, slot) {
         }
         case "fireball": {
             const a = Math.atan2(wy - (h.y - 12), wx - h.x);
-            b.fire(h, a, 240, 55, clamp(dist(h.x, h.y, wx, wy), 30, 320), "fire");
+            b.fire(h, a, 240, 55 * b.fireMul, clamp(dist(h.x, h.y, wx, wy), 30, 320), "fire");
             break;
         }
         case "heal": {
@@ -6570,7 +6846,7 @@ function drawRain(b, g, sx, sy) {
         const s = hashInt(i * 7 + 3);
         const sp = 260 + (s % 120);
         const x = ((((s % 997) * 7 - sx * 0.8 - b.real * 60) % W) + W) % W;
-        const y = ((((s >> 10) % 600) - sy * 0.8 + b.real * sp) % H + H) % H;
+        const y = ((((s >>> 10) % 600) - sy * 0.8 + b.real * sp) % H + H) % H;
         g.fillRect(Math.round(x), Math.round(y), 1, 4);
         g.fillRect(Math.round(x) - 1, Math.round(y) + 4, 1, 1);
     }
@@ -6578,8 +6854,8 @@ function drawRain(b, g, sx, sy) {
     g.fillStyle = "rgba(170,180,180,0.4)";
     for (let i = 0; i < 20; i++) {
         const s = hashInt(i * 31 + Math.floor(b.real * 12));
-        g.fillRect(s % W, (s >> 12) % H, 1, 1);
-        g.fillRect((s % W) + 2, (s >> 12) % H, 1, 1);
+        g.fillRect(s % W, (s >>> 12) % H, 1, 1);
+        g.fillRect((s % W) + 2, (s >>> 12) % H, 1, 1);
     }
 }
 function drawCrosshair(b, g) {
@@ -6755,7 +7031,7 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillStyle = PAL.blood;
         for (let i = 0; i < n; i++) {
             const hs = hashInt(u.id * 13 + i);
-            g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >> 4) % 8), 1, (hs >> 8) % 3 === 0 ? 2 : 1);
+            g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >>> 4) % 8), 1, (hs >>> 8) % 3 === 0 ? 2 : 1);
         }
     }
     if (u.flash > 0) {
@@ -7567,7 +7843,7 @@ function computeNearest(w) {
         }
 }
 function lordLook(f, ruler, seed) {
-    const best = { 1: "a_knight", 2: "v_cata", 3: "d_warden", 4: "o_berserk", 5: "u_wight" };
+    const best = { 1: "a_paladin", 2: "v_praetor", 3: "d_warden", 4: "o_ironhide", 5: "u_wight" };
     const key = f === 5 && ruler ? "u_dk" : f === 5 && seed % 3 === 1 ? "u_necro" : best[f];
     const L = troopLook(UNITS[key], seed * 7 + 3, f);
     if (f !== 5 || key === "u_wight")
@@ -7593,7 +7869,7 @@ function factionTroops(f, budget, eliteBias = 0.5) {
         const d = pick(pool);
         if (!d || d.key === "u_dk" || d.key === "hero" || d.key === "companion")
             continue;
-        const w = d.tier === 1 ? 1 : d.tier === 2 ? 0.7 + eliteBias * 0.3 : d.tier === 3 ? 0.25 + eliteBias * 0.4 : 0.08 + eliteBias * 0.2;
+        const w = [1, 0.85, 0.45 + eliteBias * 0.3, 0.2 + eliteBias * 0.3, 0.06 + eliteBias * 0.2][d.tier - 1] || 0.05;
         if (d.ability && chance(0.6))
             continue;
         if (!chance(w))
@@ -8360,8 +8636,8 @@ function playerDaily(w) {
     P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (p.state === "camp" ? 0.15 : 0)));
     for (const c of P.companions)
         c.hp = Math.min(c.maxHp, c.hp + c.maxHp * 0.15);
-    P.faith = Math.min(100, P.faith + 8 + P.attr.cha);
-    P.mana = Math.min(100, P.mana + 10 + P.attr.int * 1.5);
+    P.faith = Math.min(100, P.faith + (8 + P.attr.cha) * (1 + perk(P, "faith")));
+    P.mana = Math.min(100, P.mana + (10 + P.attr.int * 1.5) * (1 + perk(P, "mana")));
     P.corruption = Math.max(0, P.corruption - 0.5);
     // żołd co 7 dni
     if (w.day - P.lastPay >= 7) {
@@ -8436,7 +8712,7 @@ function desert(w, frac) {
         addLogMsg(`Zdezerterowało ${lost} ludzi.`, PAL.redL);
 }
 let addLogMsg = () => { };
-function heroMaxHp(P) { return 100 + P.attr.str * 4 + P.skills.ironflesh * 6 + P.level * 2; }
+function heroMaxHp(P) { return 70 + P.attr.str * 3 + (P.attr.end || 4) * 7 + P.skills.ironflesh * 8 + P.level * 2 + (P.race === "dwarf" ? 15 : P.race === "orc" ? 10 : 0); }
 // ---------- Towarzysze ----------
 const COMPANIONS = [
     { id: "kasia", name: "Kasia Wrona", race: "human", role: "łuczniczka", weapon: "dagger", shield: false, armor: 0.12, bow: 46, horse: false, hp: 110, cost: 300, wage: 8, bio: "Kłusowniczka spod Valmory. Nie pyta, do kogo strzela, póki płacisz.", helm: "hood", body: "leather" },
@@ -8457,6 +8733,136 @@ function makeCompanion(id) {
     };
     return { id, name: c.name, look, hp: c.hp, maxHp: c.hp, weapon: c.weapon, shield: c.shield, armor: c.armor, bow: c.bow, horse: c.horse, role: c.role, wage: c.wage, bio: c.bio, level: 1, squad: c.bow ? 2 : c.horse ? 3 : 1 };
 }
+
+"use strict";
+// Drzewka umiejętności bohatera: pięć atrybutów, siedem drzewek z węzłami, wymaganiami i wykluczeniami.
+// Umiejętności aktywne (1–3) zdobywa się wyłącznie przez odblokowanie węzłów.
+const ATTRS = ["str", "agi", "end", "int", "cha"];
+const ATTR_INFO = {
+    str: { name: "Siła", short: "SIŁ", desc: "Obrażenia w walce wręcz, trochę zdrowia. Drzewko: Oręż.", col: "#a3463a" },
+    agi: { name: "Zręczność", short: "ZRĘ", desc: "Szybkość w bitwie, łuk, jazda, ucieczki. Drzewko: Łowiectwo.", col: "#8b8b52" },
+    end: { name: "Kondycja", short: "KON", desc: "Zdrowie i odnowa wytrzymałości. Drzewko: Kondycja.", col: "#b07a3a" },
+    int: { name: "Intelekt", short: "INT", desc: "Mana i jej odnowa, medycyna. Drzewka: Magia i Mrok.", col: "#8a64a6" },
+    cha: { name: "Charyzma", short: "CHA", desc: "Wielkość armii, wiara, ceny. Drzewka: Dowództwo i Wiara.", col: "#b8933a" },
+};
+const STREES = [
+    { id: "arms", name: "Oręż", attr: "str", desc: "Walka wręcz: siła ciosu i styl walki." },
+    { id: "body", name: "Kondycja", attr: "end", desc: "Twarde ciało, długi oddech, furia." },
+    { id: "hunt", name: "Łowiectwo", attr: "agi", desc: "Łuk, koń, tropy i bestie." },
+    { id: "lead", name: "Dowództwo", attr: "cha", desc: "Armia, handel, taktyka i medycyna polowa." },
+    { id: "faith", name: "Wiara", attr: "cha", excl: "dark", desc: "Modlitwa i święty ogień. Wyklucza Mrok." },
+    { id: "magic", name: "Magia", attr: "int", desc: "Ogień i przepływ many. Każde zaklęcie grozi spaczeniem." },
+    { id: "dark", name: "Mrok", attr: "int", excl: "faith", desc: "Klątwy, krew i duchy. Wyklucza Wiarę." },
+];
+const NODES = [
+    // Oręż
+    { id: "ps1", tree: "arms", name: "Silny cios", desc: "+6% obrażeń wręcz.", row: 0, col: 1, req: { str: 4 }, parents: [], skills: { powerstrike: 1 }, icon: "sword" },
+    { id: "ps2", tree: "arms", name: "Ciężka ręka", desc: "+6% obrażeń wręcz, ciosy łatwiej przerywają wroga.", row: 1, col: 1, req: { str: 6 }, parents: ["ps1"], skills: { powerstrike: 1 }, icon: "sword" },
+    { id: "shieldman", tree: "arms", name: "Tarczownik", desc: "Blok kosztuje o 40% mniej wytrzymałości. Daje Szarżę tarczą.", row: 2, col: 0, req: { str: 6, end: 5 }, parents: ["ps2"], excl: "cleaver", perks: { blockCost: -0.4 }, ability: "bash", icon: "shield" },
+    { id: "cleaver", tree: "arms", name: "Rębacz", desc: "+15% obrażeń bronią dwuręczną. Daje Wir ostrza.", row: 2, col: 2, req: { str: 7 }, parents: ["ps2"], excl: "shieldman", perks: { twoHand: 0.15 }, ability: "whirl", icon: "axe" },
+    { id: "ps3", tree: "arms", name: "Mistrz broni", desc: "+8% obrażeń wręcz.", row: 3, col: 1, req: { str: 9 }, parents: ["shieldman", "cleaver"], skills: { powerstrike: 1 }, icon: "crown" },
+    // Kondycja
+    { id: "if1", tree: "body", name: "Twarda skóra", desc: "+8 zdrowia.", row: 0, col: 1, req: { end: 4 }, parents: [], skills: { ironflesh: 1 }, icon: "heart" },
+    { id: "wind", tree: "body", name: "Drugi oddech", desc: "Wytrzymałość odnawia się o 30% szybciej.", row: 1, col: 0, req: { end: 5 }, parents: ["if1"], perks: { stamina: 0.3 }, icon: "wind" },
+    { id: "if2", tree: "body", name: "Żelazne ciało", desc: "+8 zdrowia.", row: 1, col: 2, req: { end: 6 }, parents: ["if1"], skills: { ironflesh: 1 }, icon: "heart" },
+    { id: "rage", tree: "body", name: "Furia", desc: "Furia rośnie szybciej. Daje Okrzyk bojowy.", row: 2, col: 1, req: { end: 6, str: 5 }, parents: ["wind", "if2"], perks: { fury: 0.5 }, ability: "warcry", icon: "fire" },
+    { id: "if3", tree: "body", name: "Nieugięty", desc: "+10 zdrowia, mniej zachwiań od ciosów.", row: 3, col: 1, req: { end: 9 }, parents: ["rage"], skills: { ironflesh: 1 }, perks: { poise: 1 }, icon: "crown" },
+    // Łowiectwo
+    { id: "ar1", tree: "hunt", name: "Strzelec", desc: "+5% obrażeń łukiem, celniej.", row: 0, col: 0, req: { agi: 4 }, parents: [], skills: { archery: 1 }, icon: "bow" },
+    { id: "rd1", tree: "hunt", name: "Jeździec", desc: "Szybszy koń. Pozwala dosiadać lepszych koni.", row: 0, col: 2, req: { agi: 4 }, parents: [], skills: { riding: 1 }, icon: "horse" },
+    { id: "tr1", tree: "hunt", name: "Tropiciel", desc: "Większy zasięg wzroku na mapie, szybszy marsz.", row: 1, col: 1, req: { agi: 5 }, parents: ["ar1", "rd1"], skills: { tracking: 2 }, icon: "eye" },
+    { id: "ar2", tree: "hunt", name: "Sokole oko", desc: "+10% obrażeń łukiem. Daje Skupienie.", row: 2, col: 0, req: { agi: 7 }, parents: ["tr1"], skills: { archery: 2 }, ability: "focus", icon: "bow" },
+    { id: "rd2", tree: "hunt", name: "Kawalerzysta", desc: "Jeszcze szybszy koń, konie bojowe.", row: 2, col: 2, req: { agi: 6 }, parents: ["tr1"], skills: { riding: 2 }, icon: "horse" },
+    { id: "wolves", tree: "hunt", name: "Wilcza wataha", desc: "Daje Przyzwanie wilczych duchów.", row: 3, col: 1, req: { agi: 8, int: 5 }, parents: ["ar2", "rd2"], ability: "summon", icon: "wolf" },
+    // Dowództwo
+    { id: "ld1", tree: "lead", name: "Dowódca", desc: "+5 ludzi w armii, lepsze morale.", row: 0, col: 1, req: { cha: 4 }, parents: [], skills: { leadership: 1 }, icon: "banner" },
+    { id: "tr", tree: "lead", name: "Kupiec", desc: "Lepsze ceny kupna i sprzedaży.", row: 1, col: 0, req: { cha: 5 }, parents: ["ld1"], skills: { trade: 2 }, icon: "coin" },
+    { id: "med", tree: "lead", name: "Felczer", desc: "Ranni szybciej wracają, więcej rannych zamiast poległych.", row: 1, col: 2, req: { int: 5 }, parents: ["ld1"], skills: { medicine: 2 }, icon: "cross" },
+    { id: "ld2", tree: "lead", name: "Wódz", desc: "+10 ludzi w armii. Daje Okrzyk bojowy.", row: 2, col: 1, req: { cha: 7 }, parents: ["tr", "med"], skills: { leadership: 2 }, ability: "warcry", icon: "banner" },
+    { id: "tac", tree: "lead", name: "Taktyk", desc: "Łatwiejsze ucieczki i lepsze morale na start bitwy.", row: 3, col: 1, req: { cha: 8, int: 5 }, parents: ["ld2"], skills: { tactics: 2, leadership: 1 }, icon: "crown" },
+    // Wiara
+    { id: "pray", tree: "faith", name: "Pobożność", desc: "Wiara odnawia się szybciej.", row: 0, col: 1, req: { cha: 4 }, parents: [], perks: { faith: 0.5 }, icon: "cross" },
+    { id: "smite", tree: "faith", name: "Smite", desc: "Daje Smite: następny cios płonie świętym ogniem.", row: 1, col: 0, req: { cha: 5 }, parents: ["pray"], ability: "smite", icon: "sun" },
+    { id: "heal", tree: "faith", name: "Modlitwa leczenia", desc: "Daje Modlitwę leczenia.", row: 1, col: 2, req: { cha: 5, int: 4 }, parents: ["pray"], ability: "heal", skills: { medicine: 1 }, icon: "heart" },
+    { id: "smite2", tree: "faith", name: "Słup światła", desc: "Smite poziom 2: słup świętego światła przy kursorze.", row: 3, col: 0, req: { cha: 8 }, parents: ["smite"], smite2: true, icon: "sun" },
+    { id: "saint", tree: "faith", name: "Męczennik", desc: "Mniej spaczenia, więcej wiary z zabitych nieumarłych.", row: 3, col: 2, req: { cha: 7 }, parents: ["heal"], perks: { corruptRes: 0.5, faith: 0.5 }, icon: "crown" },
+    // Magia
+    { id: "flow", tree: "magic", name: "Przepływ many", desc: "Mana odnawia się szybciej.", row: 0, col: 1, req: { int: 4 }, parents: [], perks: { mana: 0.5 }, icon: "drop" },
+    { id: "fire", tree: "magic", name: "Kula ognia", desc: "Daje Kulę ognia.", row: 1, col: 1, req: { int: 5 }, parents: ["flow"], ability: "fireball", icon: "fire" },
+    { id: "herb", tree: "magic", name: "Zielarstwo", desc: "Medycyna: ranni wracają szybciej.", row: 2, col: 0, req: { int: 6 }, parents: ["fire"], skills: { medicine: 2 }, icon: "leaf" },
+    { id: "pyro", tree: "magic", name: "Ognista dusza", desc: "+40% obrażeń Kuli ognia, mniejszy koszt many.", row: 2, col: 2, req: { int: 7 }, parents: ["fire"], perks: { fireDmg: 0.4 }, icon: "fire" },
+    { id: "arch", tree: "magic", name: "Arcymag", desc: "Większa mana i mniej spaczenia.", row: 3, col: 1, req: { int: 9 }, parents: ["herb", "pyro"], perks: { mana: 0.5, corruptRes: 0.3 }, icon: "crown" },
+    // Mrok
+    { id: "curse", tree: "dark", name: "Klątwa", desc: "Daje Klątwę osłabienia.", row: 0, col: 1, req: { int: 4 }, parents: [], ability: "curse", icon: "skull" },
+    { id: "blood", tree: "dark", name: "Krwawy rytuał", desc: "Daje Krwawy rytuał.", row: 1, col: 0, req: { int: 5, end: 5 }, parents: ["curse"], ability: "blood", icon: "drop" },
+    { id: "pact", tree: "dark", name: "Pakt", desc: "Spaczenie rośnie wolniej.", row: 1, col: 2, req: { int: 6 }, parents: ["curse"], perks: { corruptRes: 0.4 }, icon: "skull" },
+    { id: "spirits", tree: "dark", name: "Przyzwanie duchów", desc: "Daje Przyzwanie wilczych duchów.", row: 2, col: 1, req: { int: 7 }, parents: ["blood", "pact"], ability: "summon", icon: "wolf" },
+    { id: "lich", tree: "dark", name: "Władca kości", desc: "Mana szybciej, nieumarli w armii nie dezerterują.", row: 3, col: 1, req: { int: 9 }, parents: ["spirits"], perks: { mana: 0.6 }, icon: "crown" },
+];
+const NODE = (id) => NODES.find((n) => n.id === id);
+function treeExcluded(P, t) { return !!t.excl && P.nodes.some((id) => NODE(id).tree === t.excl); }
+function nodeState(P, n) {
+    if (P.nodes.includes(n.id))
+        return "have";
+    const t = STREES.find((x) => x.id === n.tree);
+    if (treeExcluded(P, t))
+        return "blocked";
+    if (n.excl && P.nodes.includes(n.excl))
+        return "blocked";
+    if (n.parents.length && !n.parents.some((p) => P.nodes.includes(p)))
+        return "locked";
+    for (const a in n.req)
+        if (P.attr[a] < n.req[a])
+            return "locked";
+    return "open";
+}
+function nodeWhy(P, n) {
+    const st = nodeState(P, n);
+    if (st === "have")
+        return "Odblokowane";
+    if (st === "blocked")
+        return n.excl && P.nodes.includes(n.excl) ? `Wyklucza się z: ${NODE(n.excl).name}` : `Drzewko wyklucza się z: ${STREES.find((t) => t.id === STREES.find((x) => x.id === n.tree).excl).name}`;
+    const miss = [];
+    if (n.parents.length && !n.parents.some((p) => P.nodes.includes(p)))
+        miss.push("najpierw: " + n.parents.map((p) => NODE(p).name).join(" lub "));
+    for (const a in n.req)
+        if (P.attr[a] < n.req[a])
+            miss.push(`${ATTR_INFO[a].name} ${n.req[a]}`);
+    if (st === "open" && P.skillPts <= 0)
+        return "Brak punktów";
+    return miss.length ? "Wymaga: " + miss.join(", ") : "Można odblokować";
+}
+function unlockNode(P, n, free = false) {
+    if (nodeState(P, n) !== "open")
+        return false;
+    if (!free) {
+        if (P.skillPts <= 0)
+            return false;
+        P.skillPts--;
+    }
+    P.nodes.push(n.id);
+    applyNode(P, n);
+    return true;
+}
+function applyNode(P, n) {
+    if (n.skills)
+        for (const k in n.skills)
+            P.skills[k] = (P.skills[k] || 0) + n.skills[k];
+    if (n.perks)
+        for (const k in n.perks)
+            P.perks[k] = (P.perks[k] || 0) + n.perks[k];
+    if (n.ability && !P.learned.includes(n.ability)) {
+        P.learned.push(n.ability);
+        const free = P.abilities.indexOf("");
+        if (free >= 0)
+            P.abilities[free] = n.ability;
+    }
+    if (n.smite2)
+        P.abLevels.smite = 2;
+    if (n.skills?.ironflesh)
+        P.hp += 8;
+}
+function perk(P, k) { return P.perks?.[k] || 0; }
 
 "use strict";
 // Rysowanie mapy świata: teren malowany raz, osady jako budynki, miejsca specjalne, oddziały, granice, mgła wojny, noc i pogoda.
@@ -8588,9 +8994,9 @@ function renderWorldMap(w) {
                 continue;
             if (t === T_FOREST) {
                 const bl = !!w.blight[i];
-                tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >> 4) % 2 === 0);
-                if ((h >> 8) % 3 > 0)
-                    tree(x + 5 + ((h >> 2) % 3), y + 3 + ((h >> 6) % 3), bl && (h >> 3) % 3 > 0, true);
+                tree(x + 2 + (h % 3), y + 6, bl && h % 3 > 0, (h >>> 4) % 2 === 0);
+                if ((h >>> 8) % 3 > 0)
+                    tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
             }
             else if (t === T_MOUNT) {
                 if ((cx + cy * 3) % 2 === 0 || (h % 3 === 0)) {
@@ -9057,7 +9463,7 @@ function renderWorld(w, v, g) {
             g.fillStyle = `rgba(200,150,60,${dark})`;
             for (let k = 0; k < (s.kind === "village" ? 2 : 5); k++) {
                 const hh = hashInt(s.seed + k);
-                g.fillRect(Math.round(x - 8 + (hh % 16)), Math.round(y - 6 + ((hh >> 5) % 10)), 1, 1);
+                g.fillRect(Math.round(x - 8 + (hh % 16)), Math.round(y - 6 + ((hh >>> 5) % 10)), 1, 1);
             }
         }
         if (pp) {
@@ -9075,7 +9481,7 @@ function renderWorld(w, v, g) {
         g.fillStyle = "rgba(160,170,170,0.28)";
         for (let i = 0; i < 110; i++) {
             const s = hashInt(i * 7 + 1);
-            const x = ((s % 997) * 3 - t * 40) % W, y = (((s >> 10) % 400) + t * 200) % H;
+            const x = ((s % 997) * 3 - t * 40) % W, y = (((s >>> 10) % 400) + t * 200) % H;
             g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3);
         }
     }
@@ -9191,6 +9597,7 @@ class Win {
             }
         }
         PICS.clear();
+        typeBubble();
         return this;
     }
     close() { this.el.remove(); if (this.onClose)
@@ -9692,6 +10099,156 @@ function drawScene(kind, seed, culture, night, extra = 0) {
     SCENE_CACHE.set(key, c);
     return c;
 }
+// ---------- Ikony pikselowe (9×9) ----------
+const ICON_URL = new Map();
+const ICON_ART = {
+    coin: [PAL.gold, ["..xxxxx..", ".xx...xx.", "xx.xxx.xx", "x.x.x.x.x", "x.xx..x.x", "x..xx.x.x", "xx.xxx.xx", ".xx...xx.", "..xxxxx.."]],
+    man: [PAL.boneHi, ["...xxx...", "...xxx...", "....x....", ".xxxxxxx.", "x..xxx..x", "...xxx...", "...x.x...", "..xx.xx..", "..x...x.."]],
+    food: [PAL.dirtL, ["....xx...", "...xxxx..", "..xxxxxx.", ".xx.xx.xx", ".xxxxxxxx", "xxxxxxxxx", "x.xx.xx.x", ".xxxxxxx.", "..xxxxx.."]],
+    heart: [PAL.redL, [".xx...xx.", "xxxx.xxxx", "xxxxxxxxx", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", "...xxx...", "....x....", "........."]],
+    sun: [PAL.gold, ["....x....", ".x..x..x.", "..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", ".x..x..x.", "....x...."]],
+    moon: [PAL.bone, ["...xxx...", "..xx.....", ".xx......", ".xx......", ".xx......", ".xx......", "..xx.....", "...xxx...", "........."]],
+    rain: [PAL.waterL, ["..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", ".........", ".x..x..x.", "x..x..x..", ".x..x..x.", "x..x..x..", "........."]],
+    sword: [PAL.steelL, [".......xx", "......xxx", ".....xxx.", "....xxx..", "x..xxx...", ".xxxx....", "..xx.....", ".x.xx....", "x...x...."]],
+    shield: [PAL.redL, ["xxxxxxxxx", "x.......x", "x...x...x", "x..xxx..x", "x...x...x", ".x.....x.", "..x...x..", "...x.x...", "....x...."]],
+    bow: [PAL.dirtL, ["..xx.....", "...xx...x", "....x..x.", "....xxx..", "....xx...", "....x.x..", "...xx..x.", "..xx....x", "........."]],
+    horse: [PAL.dirtL, [".......xx", "......xxx", "xxxxxxxx.", "xxxxxxxx.", "xxxxxxx..", "x.x..x.x.", "x.x..x.x.", "x.x..x.x.", "........."]],
+    axe: [PAL.steelL, ["...xxx...", "..xxxx...", ".xxxxx...", "..xxxxx..", "....x.x..", ".....x...", "......x..", ".......x.", "........x"]],
+    crown: [PAL.gold, [".........", "x...x...x", "xx.xxx.xx", "xxxxxxxxx", "xxxxxxxxx", "x.x.x.x.x", "xxxxxxxxx", ".........", "........."]],
+    wind: [PAL.boneHi, [".........", "xxxxxx...", "......x..", "xxxxxxx..", ".........", "xxxxxxxx.", "........x", "...xxxxx.", "........."]],
+    fire: [PAL.redL, ["....x....", "...xx....", "...xxx.x.", "..xxxxxx.", ".xxx.xxx.", ".xx...xx.", ".xx...xx.", "..xx.xx..", "...xxx..."]],
+    eye: [PAL.boneHi, [".........", "..xxxxx..", ".x.....x.", "x..xxx..x", "x..x.x..x", "x..xxx..x", ".x.....x.", "..xxxxx..", "........."]],
+    wolf: [PAL.ash, ["x.....x..", "xx...xx..", "xxxxxxx..", "x.xxx.x..", "xxxxxxxx.", ".xxxxxxx.", "..x.xxxxx", "...x....x", "........."]],
+    banner: [PAL.redL, ["x........", "xxxxxxx..", "xxxxxxxx.", "xxxxxxx..", "xxxxxxxx.", "x........", "x........", "x........", "x........"]],
+    cross: [PAL.gold, ["...xxx...", "...xxx...", "xxxxxxxxx", "xxxxxxxxx", "...xxx...", "...xxx...", "...xxx...", "...xxx...", "........."]],
+    drop: [PAL.bloodL, ["....x....", "...xxx...", "...xxx...", "..xxxxx..", ".xxxxxxx.", ".xxxxxxx.", ".xx.xxxx.", "..xxxxx..", "........."]],
+    leaf: [PAL.moss, [".......xx", "....xxxxx", "..xxxxxx.", ".xxxxxxx.", ".xxxx.x..", "xxx.xx...", "x.xx.....", "x........", "........."]],
+    skull: [PAL.bone, ["..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", "x..x..x.x", "x..x..x.x", "xxxxxxxxx", ".xxx.xxx.", "..x.x.x..", "........."]],
+    star: [PAL.gold, ["....x....", "....x....", "...xxx...", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", "..xx.xx..", ".x.....x.", "........."]],
+    scroll: [PAL.bone, [".xxxxxxx.", "x.x.....x", ".xxxxxxx.", ".x.....x.", ".x.xxx.x.", ".x.....x.", ".x.xxx.x.", ".xxxxxxx.", "x.......x"]],
+    chain: [PAL.steel, ["xxx......", "x.x......", "xxxxx....", "..x.x....", "..xxxxx..", "....x.x..", "....xxxxx", "......x.x", "......xxx"]],
+    castle: [PAL.ash, ["x.x...x.x", "xxx...xxx", "xxx.x.xxx", "xxxxxxxxx", "xxxxxxxxx", "xxxx.xxxx", "xxx...xxx", "xxx...xxx", "........."]],
+    hammer: [PAL.steelL, ["xxxxx....", "xxxxx....", "xxxxx....", "..x......", "...x.....", "....x....", ".....x...", "......x..", ".......x."]],
+    mug: [PAL.gold, [".xxxxx...", "xxxxxxx..", "x.....xx.", "x.....x.x", "x.....x.x", "x.....xx.", "x.....x..", "xxxxxxx..", "........."]],
+    tent: [PAL.dirtL, ["....x....", "...xxx...", "..xx.xx..", "..x...x..", ".xx...xx.", ".x..x..x.", "xx..x..xx", "x...x...x", "xxxxxxxxx"]],
+};
+function iconUrl(name) {
+    let u = ICON_URL.get(name);
+    if (u)
+        return u;
+    const art = ICON_ART[name] || ICON_ART.star;
+    const P = new Pix(9, 9);
+    art[1].forEach((row, y) => { for (let x = 0; x < 9; x++)
+        if (row[x] === "x")
+            P.p(x, y, art[0]); });
+    u = P.toCanvas(true, true).toDataURL();
+    ICON_URL.set(name, u);
+    return u;
+}
+function ic(name, cls = "") { return `<img class="ic ${cls}" src="${iconUrl(name)}" alt="">`; }
+// ---------- Podgląd jednostki: postać z koniem, przód i bok ----------
+const UPREV = new Map();
+function unitCanvas(key, dir = 0, frame = 0, faction, look) {
+    const def = UNITS[key];
+    const fac = faction ?? (FACTION_OF_CULTURE[def.culture] || (def.culture === "merc" ? 9 : def.culture === "monster" ? 7 : 6));
+    const ck = [key, dir, frame, fac, look ? look.seed : ""].join(":");
+    let c = UPREV.get(ck);
+    if (c)
+        return c;
+    if (def.mount && dir === 0)
+        dir = 2; // jeźdźca lepiej widać z boku
+    const L = look || troopLook(def, 7, fac);
+    const spr = spritesFor(L, look ? "prev:" + key + L.seed : `${key}:${fac}:7`);
+    const img = spr.frames[dir][frame];
+    if (def.mount) {
+        const F = FACTIONS[fac] || FACTIONS[6];
+        const hs = getHorse(7, [F.col, F.shade, F.trim], !!def.mount.undead);
+        const himg = hs.frames[dir][frame];
+        const [cv, g] = mkCanvas(40, 48);
+        g.drawImage(himg, Math.round(20 - himg.width / 2), 48 - himg.height + 2);
+        const riderY = dir === 2 ? -11 : -9;
+        g.drawImage(img, 0, 0, img.width, Math.round(img.height * 0.66), Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, Math.round(img.height * 0.66));
+        c = cv;
+    }
+    else {
+        const [cv, g] = mkCanvas(32, 40);
+        g.drawImage(img, 4, 6);
+        c = cv;
+    }
+    UPREV.set(ck, c);
+    return c;
+}
+// Animowany pasek klatek (bok, chód) jako tło CSS.
+function unitAnim(key, scale = 3, look) {
+    const frames = [0, 1, 2, 3].map((f) => unitCanvas(key, 2, f, undefined, look));
+    const w = frames[0].width, h = frames[0].height;
+    const [strip, g] = mkCanvas(w * 4, h);
+    frames.forEach((f, i) => g.drawImage(f, i * w, 0));
+    return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 4 * scale}px ${h * scale}px;--sw:-${w * 4 * scale}px"></div>`;
+}
+function unitThumb(key, scale = 1) { return pic(unitCanvas(key, 0, 0), "uthumb", scale); }
+function tierStars(t) { return `<span class="stars">${"★".repeat(t)}<span class="muted">${"★".repeat(Math.max(0, 5 - t))}</span></span>`; }
+function unitStats(key) {
+    const d = UNITS[key], w = WEAPONS[d.weapon];
+    const bar = (lab, v, max, cls, txt) => `<div class="stat"><span>${lab}</span><div class="bar ${cls}"><i style="width:${clamp((v / max) * 100, 0, 100)}%"></i></div><b>${txt ?? Math.round(v)}</b></div>`;
+    const atk = (w.dmg.L + w.dmg.O + w.dmg.T) / 3;
+    return `<div class="ustats">
+    ${bar("Zdrowie", d.hp, 160, "s-hp")}
+    ${bar("Pancerz", (1 - d.armor.cut) * 100, 60, "s-arm", Math.round((1 - d.armor.cut) * 100) + "")}
+    ${bar("Atak", atk, 50, "s-atk")}
+    ${bar("Obrona", d.guard * 100, 70, "s-def")}
+    ${bar("Szybkość", d.mount ? d.mount.speed : d.speed, d.mount ? 120 : 60, "s-spd", String(d.mount ? d.mount.speed : d.speed))}
+    ${d.bow ? bar(d.bow.bolt ? "Kusza" : d.bow.axe ? "Topory" : "Łuk", d.bow.dmg, 70, "s-bow") : ""}
+    <p class="tip">${w.name}${d.shield ? " i tarcza" : ""}${d.mount ? " · konno" : ""}${d.undead ? " · nieumarły: odporny na strzały, kruchy na obuch" : ""}${d.ability ? " · " + abilityWord(d.ability) : ""} · żołd ${d.wage}/dzień</p>
+  </div>`;
+}
+// Drzewko linii jednostki: od korzenia kultury do szczytu, bieżąca podświetlona.
+function unitRoot(key) {
+    let cur = key;
+    for (let guard = 0; guard < 8; guard++) {
+        const parent = Object.values(UNITS).find((u) => u.up && u.up.includes(cur));
+        if (!parent)
+            break;
+        cur = parent.key;
+    }
+    return cur;
+}
+function unitTreeHtml(key, act = "", actFor) {
+    const root = unitRoot(key);
+    const node = (k) => {
+        const d = UNITS[k];
+        const kids = (d.up || []).map(node).join("");
+        return `<div class="tn"><div class="tbox ${k === key ? "cur" : ""}" ${act ? `data-a="${act}" data-v="${k}"` : ""} title="${esc(d.name)}">${unitThumb(k)}<span>${d.name}</span><span class="stars">${"★".repeat(d.tier)}</span>${actFor ? actFor(k) : ""}</div>${kids ? `<div class="tch">${kids}</div>` : ""}</div>`;
+    };
+    return `<div class="utree">${node(root)}</div>`;
+}
+function dialogHtml(o) {
+    return `<div class="dlg">
+    ${o.scene ? `<div class="scene">${pic(o.scene, "scene-img")}</div>` : ""}
+    <div class="dlg-row">
+      <div class="dlg-p">${pic(o.left, "portrait big")}</div>
+      <div class="dlg-mid"><div class="dlg-name"><b>${o.title}</b>${o.sub ? ` <span class="muted">${o.sub}</span>` : ""}</div>
+        <div class="bubble" id="bubble" data-full="${esc(o.speech)}"></div>
+        ${o.info ? `<div class="dlg-info">${o.info}</div>` : ""}</div>
+      <div class="dlg-p">${pic(o.right, "portrait big")}</div>
+    </div>
+    <ol class="choices">${o.choices.map((c, i) => `<li><button class="choice ${c.cls || ""}" data-a="${c.a}" data-v="${c.v || ""}" ${c.disabled ? "disabled" : ""}><span class="key">${i + 1}</span>${c.label}</button></li>`).join("")}</ol>
+  </div>`;
+}
+// Pisanie tekstu w dymku litera po literze.
+function typeBubble() {
+    const b = document.getElementById("bubble");
+    if (!b)
+        return;
+    const full = b.dataset.full || "";
+    let i = 0;
+    const step = () => { if (!document.body.contains(b))
+        return; i = Math.min(full.length, i + 2); b.textContent = full.slice(0, i); if (i < full.length)
+        setTimeout(step, 14); };
+    step();
+    b.addEventListener("click", () => { i = full.length; b.textContent = full; });
+}
+function playerPortrait() { return drawPortrait(heroCfgFromPlayer(WORLD.player).look, PAL.gold); }
 
 "use strict";
 // Kampania: stan gry, ruch po mapie, spotkania, bitwy z mapy i ich skutki, oblężenia, arena, niewola, zapis.
@@ -9710,13 +10267,14 @@ const G = {
 };
 function W0() { return WORLD; }
 // ---------- Nowa gra ----------
+// Pochodzenia: atrybuty, jeden darmowy węzeł bez umiejętności aktywnej i nędzny sprzęt. Reszta do zdobycia.
 const ORIGINS = {
-    merc: { name: "Najemnik", desc: "Lata wojaczki za cudzy grosz. Mocny cios, twarda skóra, kilku kompanów z dawnego oddziału.", attr: { str: 2, agi: 1 }, skills: { ironflesh: 2, powerstrike: 2, leadership: 1 }, equip: { weapon: "w_armsword", shield: "s_heater", body: "gambeson", head: "kettle", feet: "boots" }, items: ["w_club"], gold: 350, abilities: ["warcry", "bash"], troops: [["m_sword", 4], ["m_xbow", 2]], renown: 20, faith: 20, mana: 0, corruption: 0 },
-    priest: { name: "Kapłan wojownik", desc: "Zakon nauczył cię modlitwy i buławy. Nieumarli boją się twojej wiary.", attr: { cha: 2, str: 1 }, skills: { medicine: 3, leadership: 1, ironflesh: 1 }, equip: { weapon: "w_mace", shield: "s_buckler", body: "gambeson", head: "coif", feet: "boots" }, items: [], gold: 250, abilities: ["smite", "heal"], troops: [["a_recruit", 6]], renown: 10, faith: 100, mana: 0, corruption: 0 },
-    mage: { name: "Mag renegat", desc: "Wygnany z Kolegium za zakazane księgi. Ogień i klątwy, ale każde zaklęcie zostawia ślad spaczenia.", attr: { int: 3 }, skills: { medicine: 1, trade: 1, tracking: 1 }, equip: { weapon: "w_staff", body: "leather", head: "hood", feet: "boots" }, items: ["w_dagger"], gold: 300, abilities: ["fireball", "curse"], troops: [["v_levy", 4]], renown: 5, faith: 0, mana: 100, corruption: 10 },
-    noble: { name: "Szlachcic bez ziemi", desc: "Herb bez zamku. Masz konia, dobry miecz i nazwisko, które otwiera drzwi.", attr: { cha: 2, agi: 1 }, skills: { riding: 3, leadership: 2, trade: 1 }, equip: { weapon: "w_sword", shield: "s_heater", body: "mail", head: "nasal", feet: "boots", hands: "gloves", horse: "h_nag" }, items: [], gold: 600, abilities: ["warcry", "focus"], troops: [["a_squire", 2], ["a_recruit", 3]], renown: 80, faith: 30, mana: 0, corruption: 0 },
-    barb: { name: "Barbarzyńca", desc: "Z dzikich ziem za rzeką. Wielki topór, furia w żyłach i krwawe obrzędy przodków.", attr: { str: 3 }, skills: { ironflesh: 3, powerstrike: 2 }, equip: { weapon: "w_greataxe", body: "leather", feet: "boots" }, items: [], gold: 150, abilities: ["whirl", "blood"], troops: [["o_young", 3]], renown: 10, faith: 0, mana: 20, corruption: 0 },
-    hunter: { name: "Łowca", desc: "Las był twoim domem. Łuk, topór i wilcze duchy, które idą za tobą od dziecka.", attr: { agi: 3 }, skills: { archery: 3, tracking: 3 }, equip: { weapon: "w_axe", bow: "b_short", body: "leather", head: "hood", feet: "boots" }, items: [], gold: 200, abilities: ["focus", "summon"], troops: [["a_archer", 3]], renown: 5, faith: 10, mana: 60, corruption: 5 },
+    merc: { name: "Najemnik", desc: "Lata wojaczki za cudzy grosz. Zostały ci topór, stary puklerz i dwóch kompanów z rozbitego oddziału.", attr: { str: 2, end: 1 }, node: "ps1", equip: { weapon: "w_axe", shield: "s_buckler", body: "gambeson", head: "cap", feet: "boots" }, items: [], gold: 250, troops: [["m_sword", 2], ["a_recruit", 2]], renown: 15, faith: 10, mana: 0, corruption: 0, hint: "Oręż: Tarczownik lub Rębacz" },
+    priest: { name: "Kapłan wojownik", desc: "Zakon dał ci habit, pałkę i wiarę. Nieumarli boją się twojej modlitwy.", attr: { cha: 2, end: 1 }, node: "pray", equip: { weapon: "w_club", body: "robe", feet: "boots" }, items: [], gold: 150, troops: [["a_recruit", 4]], renown: 5, faith: 100, mana: 0, corruption: 0, hint: "Wiara: Smite i Modlitwa leczenia" },
+    mage: { name: "Mag renegat", desc: "Wygnany z Kolegium za zakazane księgi. Masz kostur, płaszcz i głowę pełną zaklęć.", attr: { int: 3 }, node: "flow", equip: { weapon: "w_staff", body: "robe", head: "hood" }, items: [], gold: 200, troops: [["v_levy", 3]], renown: 0, faith: 0, mana: 100, corruption: 8, hint: "Magia: Kula ognia albo Mrok" },
+    noble: { name: "Szlachcic bez ziemi", desc: "Herb bez zamku. Została ci szkapa, miecz po ojcu i nazwisko, które czasem otwiera drzwi.", attr: { cha: 2, agi: 1 }, node: "ld1", equip: { weapon: "w_armsword", body: "gambeson", head: "cap", feet: "boots", horse: "h_nag" }, items: [], gold: 450, troops: [["a_recruit", 3], ["a_militia", 1]], renown: 60, faith: 20, mana: 0, corruption: 0, hint: "Dowództwo i Łowiectwo (jazda)" },
+    barb: { name: "Barbarzyńca", desc: "Z dzikich ziem za rzeką. Topór, łachmany i furia w żyłach.", attr: { str: 2, end: 2 }, node: "if1", equip: { weapon: "w_axe", body: "rags" }, items: [], gold: 80, troops: [["o_young", 3]], renown: 5, faith: 0, mana: 20, corruption: 0, hint: "Kondycja: Furia i Okrzyk" },
+    hunter: { name: "Łowca", desc: "Las był twoim domem. Krótki łuk, nóż i znajomość tropów.", attr: { agi: 3 }, node: "ar1", equip: { weapon: "w_dagger", bow: "b_short", body: "leather", head: "hood" }, items: [], gold: 120, troops: [["a_recruit", 3]], renown: 0, faith: 10, mana: 40, corruption: 0, hint: "Łowiectwo: Skupienie i Wilcza wataha" },
 };
 const RACES = {
     human: { name: "Człowiek", race: "human", desc: "Wszechstronni i liczni. Ludzie łatwiej dogadują się z koronami.", attr: { cha: 1 } },
@@ -9725,26 +10283,26 @@ const RACES = {
     undead: { name: "Przebudzony", race: "skel", desc: "Martwy, który wstał z własną wolą. Nie czuje bólu, żywi mu nie ufają.", attr: { int: 1 } },
 };
 const SKILL_NAME = { ironflesh: "Wytrzymałość", powerstrike: "Silny cios", archery: "Łucznictwo", riding: "Jazda konna", leadership: "Dowodzenie", trade: "Handel", medicine: "Medycyna", tactics: "Taktyka", tracking: "Tropienie" };
-const ATTR_NAME = { str: "Siła", agi: "Zręczność", int: "Intelekt", cha: "Charyzma" };
 function newPlayer(name, raceId, originId, look) {
     const O = ORIGINS[originId], R = RACES[raceId];
-    const attr = { str: 4, agi: 4, int: 4, cha: 4 };
+    const attr = { str: 4, agi: 4, end: 4, int: 4, cha: 4 };
     for (const k in O.attr)
         attr[k] += O.attr[k];
     for (const k in R.attr)
         attr[k] += R.attr[k];
     const skills = {};
     for (const k in SKILL_NAME)
-        skills[k] = O.skills[k] || 0;
+        skills[k] = 0;
     const equip = { head: null, body: null, hands: null, feet: null, weapon: null, shield: null, bow: null, horse: null };
     for (const k in O.equip)
         equip[k] = O.equip[k];
     const P = {
-        name, race: raceId, origin: originId, look, level: 1, xp: 0, attrPts: 0, skillPts: 0, attr, skills, hp: 0, gold: O.gold, renown: O.renown, honor: 0,
-        equip, items: O.items.slice(), goods: { grain: 12, meat: 4 }, abilities: O.abilities.concat([""]).slice(0, 3), learned: O.abilities.slice(), abLevels: { smite: 1 },
-        faith: O.faith, mana: O.mana, corruption: O.corruption, bandages: 3, ammo: 30, companions: [], liege: 0, status: "wolny", contractDays: 0, wars: [],
-        morale: 70, wageDebt: 0, lastPay: 1, captive: null, quests: [], kingdom: `Królestwo ${name}`, kills: 0, battlesWon: 0,
+        name, race: raceId, origin: originId, look, level: 1, xp: 0, attrPts: 1, skillPts: 2, attr, skills, hp: 0, gold: O.gold, renown: O.renown, honor: 0,
+        equip, items: O.items.slice(), goods: { grain: 10, meat: 3 }, abilities: ["", "", ""], learned: [], abLevels: { smite: 1 }, nodes: [], perks: {},
+        faith: O.faith, mana: O.mana, corruption: O.corruption, bandages: 2, ammo: 30, companions: [], liege: 0, status: "wolny", contractDays: 0, wars: [],
+        morale: 65, wageDebt: 0, lastPay: 1, captive: null, quests: [], kingdom: `Królestwo ${name}`, kills: 0, battlesWon: 0,
     };
+    unlockNode(P, NODE(O.node), true);
     P.hp = heroMaxHp(P);
     return P;
 }
@@ -9823,26 +10381,29 @@ function mapUpdate(dt) {
     // najechanie kursorem
     const wx = G.view.cam.x + I.mx, wy = G.view.cam.y + I.my;
     G.view.hover = null;
+    // osada ma pierwszeństwo, gdy kursor jest na niej (lordowie często stoją pod murami)
+    let sd = 1e9, sId = -1;
+    for (const s of w.settlements) {
+        if (!w.explored[cidx(s.cx, s.cy)])
+            continue;
+        const d = dist(s.cx * WCELL + 4, s.cy * WCELL, wx, wy);
+        if (d < 16 && d < sd) {
+            sd = d;
+            sId = s.id;
+        }
+    }
     let bd = 12;
     for (const o of w.parties) {
         if (o.kind === "player" || !partyVisible(w, o))
             continue;
         const d = dist(o.x, o.y - 6, wx, wy);
-        if (d < bd) {
+        if (d < bd && d < sd - 6) {
             bd = d;
             G.view.hover = { kind: "party", id: o.id };
         }
     }
-    if (!G.view.hover)
-        for (const s of w.settlements) {
-            if (!w.explored[cidx(s.cx, s.cy)])
-                continue;
-            const d = dist(s.cx * WCELL + 4, s.cy * WCELL, wx, wy);
-            if (d < 16) {
-                G.view.hover = { kind: "settlement", id: s.id };
-                break;
-            }
-        }
+    if (!G.view.hover && sId >= 0)
+        G.view.hover = { kind: "settlement", id: sId };
     if (!G.view.hover)
         for (const pl of w.places) {
             if (!w.explored[cidx(pl.cx, pl.cy)])
@@ -10075,7 +10636,14 @@ function launchBattle(ctx, cfgExtra = {}) {
         tb.innerHTML = "";
     G.battle = new Battle(cfg, input, sfx, settings);
     const b = G.battle;
-    b.heroDmg = 1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.05;
+    const two = P.equip.weapon && WEAPONS[ITEMS[P.equip.weapon].weapon]?.twoHanded;
+    b.heroDmg = 1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.06 + (two ? perk(P, "twoHand") : 0);
+    b.heroStamina = 1 + (P.attr.end - 4) * 0.04 + perk(P, "stamina");
+    b.heroBlockCost = 1 + perk(P, "blockCost");
+    b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
+    b.fireMul = 1 + perk(P, "fireDmg");
+    b.furyMul = 1 + perk(P, "fury");
+    b.heroSpeed = 1 + (P.attr.agi - 4) * 0.015;
     for (const u of b.units)
         if (u.team === 0 && !u.hero)
             u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2, 20, 100);
@@ -10177,12 +10745,8 @@ function battleFinished() {
         }
         if (ctx.place && ctx.place.kind === "ruins") {
             lootGold += 300;
-            const books = ["fireball", "curse", "summon", "blood"].filter((a) => !P.learned.includes(a));
-            if (books.length) {
-                const a = pick(books);
-                P.learned.push(a);
-                lines.push(`W ruinach znajdujesz starą księgę: ${ABILITIES[a].name}. Nowa umiejętność!`);
-            }
+            P.skillPts++;
+            lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności.");
             lootItems.push(pick(Object.values(ITEMS).filter((it) => it.tier >= 2 && it.slot !== "horse")).id);
         }
         P.gold += lootGold;
@@ -10266,10 +10830,8 @@ function gainXp(P, xp, lines) {
     while (P.xp >= xpForLevel(P.level + 1)) {
         P.level++;
         P.attrPts += 1;
-        P.skillPts += 2;
-        lines.push(`Awans na poziom ${P.level}! Punkty: 1 atrybut, 2 umiejętności.`);
-        if (P.level % 3 === 0)
-            lines.push("Możesz poznać nową technikę bojową w oknie postaci.");
+        P.skillPts += 1;
+        lines.push(`Awans na poziom ${P.level}! +1 punkt atrybutu, +1 punkt drzewka (okno postaci, C).`);
         sfx.drum(1);
     }
 }
@@ -10405,7 +10967,7 @@ function rearguard(o) {
 
 "use strict";
 // Ekrany kampanii: tytuł, kreator bohatera, osady, spotkania, rozmowy z lordami, po bitwie, niewola, postać, ekwipunek, armia, frakcje, kronika, zapis.
-const SAVE_AUTO = "sztandary-b4-auto", SAVE_SLOT = "sztandary-b4-slot1";
+const SAVE_AUTO = "sztandary-b5-auto", SAVE_SLOT = "sztandary-b5-slot1";
 // ---------- Zapis ----------
 function serializeWorld(w) {
     const o = { ...w };
@@ -10558,8 +11120,10 @@ function showCreator() {
         <h2>Rasa</h2><div class="chips">${raceBtns}</div><p class="tip">${R.desc}</p>
         <h2>Pochodzenie</h2><div class="chips">${orBtns}</div>
         <p>${O.desc}</p>
-        <p class="tip">Umiejętności aktywne: ${O.abilities.map((a) => `<b>${ABILITIES[a].name}</b>`).join(", ")} · Złoto: ${O.gold} · Ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")}</p>
-        <p class="tip">Sprzęt: ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>
+        <div class="cre-attrs">${ATTRS.map((k) => { const v = 4 + (O.attr[k] || 0) + (R.attr[k] || 0); return `<div class="attr"><span class="an" style="color:${ATTR_INFO[k].col}">${ATTR_INFO[k].name}</span><div class="bar"><i style="width:${(v / 15) * 100}%;background:${ATTR_INFO[k].col}"></i></div><b>${v}</b></div>`; }).join("")}</div>
+        <p class="tip">Na start: ${ic(NODE(O.node).icon)} <b>${NODE(O.node).name}</b> i 2 punkty drzewek · ${O.hint}</p>
+        <p class="tip">${ic("coin")} ${O.gold} · ludzie: ${O.troops.map(([t, n]) => `${n}× ${UNITS[t].name}`).join(", ")}</p>
+        <p class="tip">Sprzęt (nędzny): ${Object.values(O.equip).map((i) => ITEMS[i].name).join(", ")}</p>
       </div>
     </div>
     <div class="btns"><button data-a="start">Ruszaj w świat</button><button class="alt" data-a="back">Wróć</button></div>
@@ -10648,12 +11212,15 @@ function refreshMapHud() {
     if (!el)
         return;
     const status = P.status === "najemnik" ? `najemnik: ${factionShort(P.liege)} (${P.contractDays} dni)` : P.status === "wasal" ? `wasal: ${factionShort(P.liege)}` : P.status === "król" ? P.kingdom : "wolny";
-    el.innerHTML = `<span title="Dzień i pora">Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? " · deszcz" : ""}</span>
-    <span title="Złoto"><b class="gold">${P.gold}</b> denarów</span>
-    <span title="Ludzie / limit">${n}/${partyLimit(w)} ludzi${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
-    <span title="Jedzenie" class="${days < 2 ? "bad" : ""}">Jedzenie: ${food} (${days} dni)</span>
-    <span title="Morale" class="${P.morale < 35 ? "bad" : ""}">Morale ${Math.round(P.morale)}</span>
-    <span class="muted">${status}</span><span class="muted">${BUILD}</span>`;
+    const hpK = P.hp / heroMaxHp(P);
+    el.innerHTML = `<span class="hb" title="Dzień i pora">${ic(isNight(w) ? "moon" : "sun")} Dzień ${w.day} · ${String(Math.floor(w.hour)).padStart(2, "0")}:00 ${timeWord(w.hour)}${w.rain ? ` ${ic("rain")}` : ""}</span>
+    <span class="hb" title="Złoto">${ic("coin")} <b class="gold">${P.gold}</b></span>
+    <span class="hb" title="Ludzie / limit">${ic("man")} ${n}/${partyLimit(w)}${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
+    <span class="hb ${days < 2 ? "bad" : ""}" title="Jedzenie (dni zapasu)">${ic("food")} ${food} <span class="muted">(${days} dni)</span></span>
+    <span class="hb ${P.morale < 35 ? "bad" : ""}" title="Morale">${ic("heart")} ${Math.round(P.morale)}</span>
+    <span class="hb" title="Zdrowie bohatera"><span class="minibar"><i style="width:${hpK * 100}%"></i></span></span>
+    ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
+    <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
     const sp = document.getElementById("mh-speed");
     if (sp)
         sp.innerHTML = `${[1, 2, 4].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${G.camping ? "Zwiń obóz" : "Obóz"}</button>`;
@@ -10697,7 +11264,7 @@ function updateTip() {
     tip.style.top = Math.min(sy + 12, wrap.height - tip.offsetHeight - 8) + "px";
 }
 // ---------- Osady ----------
-const SET = { id: 0, tab: "main", bet: 50, quest: null };
+const SET = { id: 0, tab: "main", bet: 50, quest: null, unit: "" };
 function enterSettlement(s) {
     const w = WORLD, P = w.player;
     playerParty(w).path = [];
@@ -10754,16 +11321,16 @@ function renderSettlement() {
     const scene = drawScene(sceneKind, s.seed, s.culture, isNight(w), s.raided > 0 ? 1 : 0);
     const pane = settlementPane(s, hostileS);
     showScr(`<div class="settle">
-    <div class="scene">${pic(scene, "scene-img")}</div>
+    <div class="scene ${SET.tab === "main" ? "" : "small"}">${pic(scene, "scene-img")}</div>
     <div class="s-head"><h1>${s.name}</h1><span class="muted">${kindName} · ${factionName(s.faction)} · ${owner}</span>
       <span class="muted">Dobrobyt ${Math.round(s.prosperity)}${s.kind !== "village" ? ` · załoga ${troopCount(s.garrison)}` : ""} · nastawienie ${s.relation >= 0 ? "+" : ""}${Math.round(s.relation)}${s.raided ? " · <span class='bad'>spustoszona</span>" : ""}</span></div>
-    <div class="s-tabs">${tabs.map(([k, n]) => `<button class="tab ${SET.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("")}</div>
+    <div class="s-tabs">${tabs.map(([k, n]) => `<button class="tab ${SET.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${ic(TAB_ICON[k] || "star")}${n}</button>`).join("")}</div>
     <div class="s-pane">${pane.html}</div>
     <div class="s-foot"><span><b class="gold">${P.gold}</b> denarów</span><span>${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)} ludzi</span><span>Jedzenie ${foodTotal(w)}</span></div>
   </div>`, {
         tab: (v) => { if (v === "leave") {
             closeScreen();
-            refreshMapHud();
+            showMapHud();
             return;
         } if (v === "rest") {
             restInSettlement(s);
@@ -10775,6 +11342,7 @@ function renderSettlement() {
         ...pane.acts,
     }, "settle-scr");
 }
+const TAB_ICON = { main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
 function recruitPool(s) {
     const w = WORLD, P = w.player;
     const cul = s.culture;
@@ -10810,13 +11378,22 @@ function settlementPane(s, hostileS) {
             const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length);
             const relMul = s.relation < -10 ? 0 : 1;
             const avail = Math.floor(s.recruits * relMul);
+            if (!pool.includes(SET.unit))
+                SET.unit = pool[0] || "";
+            const k = SET.unit, d = k ? UNITS[k] : null;
+            const cost = (u) => UNITS[u].tier >= 2 ? Math.round(UNITS[u].cost * 1.3) : UNITS[u].cost;
+            const ok = !!d && avail > 0 && room > 0 && P.gold >= cost(k);
             return {
-                html: `<p>Ochotnicy: <b>${avail}</b> · Miejsce w armii: <b>${Math.max(0, room)}</b>${relMul === 0 ? " · <span class='bad'>Mieszkańcy nie chcą ci służyć.</span>" : ""}</p>
-        <table class="tbl"><tr><th>Jednostka</th><th>Tier</th><th>Koszt</th><th>Żołd</th><th></th></tr>
-        ${pool.map((k) => { const d = UNITS[k]; const ok = avail > 0 && room > 0 && P.gold >= d.cost; return `<tr><td>${unitBadge(k)} ${d.name}${d.ability ? ` <span class="gold">(${abilityWord(d.ability)})</span>` : ""}</td><td>${d.tier}</td><td>${d.cost}</td><td>${d.wage}/dzień</td><td><button class="mini" data-a="rec" data-v="${k}:1" ${ok ? "" : "disabled"}>+1</button><button class="mini" data-a="rec" data-v="${k}:5" ${ok ? "" : "disabled"}>+5</button></td></tr>`; }).join("")}
-        </table>${pool.length === 0 ? "<p class='muted'>Nikt tu nie chce iść z tobą.</p>" : ""}`,
-                acts: { rec: (v) => { const [k, ns] = v.split(":"); const d = UNITS[k]; let n = Math.min(Number(ns), avail, partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), Math.floor(P.gold / d.cost)); if (n <= 0)
-                        return; P.gold -= n * d.cost; s.recruits -= n; addTroops(p.troops, k, n); sfx.coin(); re(); } },
+                html: `<p>${ic("man")} Ochotnicy: <b>${avail}</b> · miejsce w armii: <b>${Math.max(0, room)}</b>${relMul === 0 ? " · <span class='bad'>Mieszkańcy nie chcą ci służyć.</span>" : ""}</p>
+        ${pool.length ? `<div class="pgrid"><div class="ulist">${pool.map((u) => `<button class="urow ${u === k ? "on" : ""}" data-a="pickU" data-v="${u}">${unitThumb(u)}<span class="un"><b>${UNITS[u].name}</b>${tierStars(UNITS[u].tier)}</span><span class="uc">${ic("coin")}${cost(u)}</span></button>`).join("")}</div>
+          <div class="udet"><div class="udet-top">${unitAnim(k, 3)}<div><h2>${d.name}</h2>${tierStars(d.tier)}<p class="tip">Koszt ${cost(k)} · żołd ${d.wage}/dzień</p>
+            <button data-a="rec" data-v="${k}:1" ${ok ? "" : "disabled"}>Werbuj 1</button> <button class="alt" data-a="rec" data-v="${k}:5" ${ok ? "" : "disabled"}>Werbuj 5</button></div></div>
+            ${unitStats(k)}<h2>Dokąd może awansować</h2>${unitTreeHtml(k)}</div></div>` : "<p class='muted'>Nikt tu nie chce iść z tobą.</p>"}`,
+                acts: {
+                    pickU: (v) => { SET.unit = v; re(); },
+                    rec: (v) => { const [u, ns] = v.split(":"); const c = cost(u); const n = Math.min(Number(ns), avail, partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length), Math.floor(P.gold / c)); if (n <= 0)
+                        return; P.gold -= n * c; s.recruits -= n; addTroops(p.troops, u, n); sfx.coin(); re(); },
+                },
             };
         }
         case "market": {
@@ -11002,7 +11579,7 @@ function rumor(s, salt = 0) {
     }
     if (k === 2) {
         const t = w.settlements.filter((x) => x.kind === "town")[h % 10 % w.settlements.filter((x) => x.kind === "town").length];
-        const g = GOOD_KEYS[(h >> 4) % GOOD_KEYS.length];
+        const g = GOOD_KEYS[(h >>> 4) % GOOD_KEYS.length];
         return `W ${t.name} ${GOODS[g].name.toLowerCase()} ${t.stock[g] < 20 ? "jest drogie, brakuje go" : "jest tanie, mają go w bród"}.`;
     }
     if (k === 3) {
@@ -11164,31 +11741,11 @@ function enterPlace(pl) {
     let btns = "";
     if (pl.kind === "shrine") {
         btns += `<button data-a="pray" ${pl.cleared > 0 ? "disabled" : ""}>Módl się${pl.cleared > 0 ? ` (za ${pl.cleared} dni)` : ""}</button>`;
-        const canLearn = ["smite", "heal"].filter((a) => !P.learned.includes(a));
-        const canUp = P.learned.includes("smite") && (P.abLevels.smite || 1) < 2;
-        btns += `<button class="alt" data-a="offer" ${P.gold >= 300 && (canLearn.length || canUp) ? "" : "disabled"}>Złóż ofiarę (300): ${canUp && P.level >= 5 ? "Smite poziom 2" : canLearn.length ? ABILITIES[canLearn[0]].name : "nic więcej"}</button>`;
+        const used = P.shrines || (P.shrines = []);
+        const can = !used.includes(pl.id);
+        btns += `<button class="alt" data-a="offer" ${P.gold >= 300 && can ? "" : "disabled"}>Złóż ofiarę (300): +1 punkt drzewka${can ? "" : " (już złożona)"}</button>`;
         acts.pray = () => { P.faith = 100; P.hp = Math.min(heroMaxHp(P), P.hp + heroMaxHp(P) * 0.3); P.morale = Math.min(100, P.morale + 5); P.corruption = Math.max(0, P.corruption - 10); pl.cleared = 3; sfx.heal(); toast("Wiara odnowiona, spaczenie słabnie.", PAL.gold); enterPlace(pl); };
-        acts.offer = () => {
-            if (canUp && P.level >= 5) {
-                P.abLevels.smite = 2;
-                P.gold -= 300;
-                toast("Smite poziom 2: słup świętego światła!", PAL.gold);
-            }
-            else if (canLearn.length) {
-                P.learned.push(canLearn[0]);
-                P.gold -= 300;
-                const free = P.abilities.indexOf("");
-                if (free >= 0)
-                    P.abilities[free] = canLearn[0];
-                toast(`Nowa umiejętność: ${ABILITIES[canLearn[0]].name}.`, PAL.gold);
-            }
-            else if (canUp) {
-                toast("Potrzebujesz 5. poziomu, by pojąć tę moc.", PAL.ash);
-                return;
-            }
-            sfx.smite();
-            enterPlace(pl);
-        };
+        acts.offer = () => { P.gold -= 300; P.skillPts++; used.push(pl.id); sfx.smite(); toast("Ofiara przyjęta: +1 punkt drzewka umiejętności.", PAL.gold); enterPlace(pl); };
     }
     else if (pl.cleared > 0)
         btns += `<p class="muted">Pusto. Coś tu wróci za ${pl.cleared} dni.</p>`;
@@ -11266,35 +11823,36 @@ function meetParty(o, ambushed) {
             closeScreen();
         },
     };
-    let btns = "";
+    const ch = [];
     if (host) {
-        btns += `<button data-a="fight">Do ataku!</button>`;
+        ch.push({ a: "fight", label: "Do ataku!", cls: "danger" });
         if (o.kind === "caravan" || o.kind === "villagers" || (o.kind === "bandit" && myPow > theirPow * 3))
-            btns += `<button class="alt" data-a="surrender">Zażądaj kapitulacji</button>`;
+            ch.push({ a: "surrender", label: "Złóżcie broń, a darujemy wam życie." });
         if (L)
-            btns += `<button class="alt" data-a="talk">Rozmawiaj</button>`;
+            ch.push({ a: "talk", label: "Porozmawiajmy, zanim poleje się krew." });
         if (o.kind === "bandit" && ambushed && P.gold > 20)
-            btns += `<button class="alt" data-a="pay">Zapłać (${Math.round(P.gold * 0.25)})</button>`;
+            ch.push({ a: "pay", label: `Weźcie ${Math.round(P.gold * 0.25)} denarów i odejdźcie.` });
         if (ambushed) {
-            btns += `<button class="alt" data-a="flee">Uciekaj</button>`;
+            ch.push({ a: "flee", label: "Uciekamy! (próba ucieczki)" });
             if (troopCount(p.troops) > 3)
-                btns += `<button class="alt" data-a="rear">Zostaw straż tylną</button>`;
+                ch.push({ a: "rear", label: "Zostawiam straż tylną, reszta za mną." });
         }
         else
-            btns += `<button class="alt" data-a="leave">Odejdź</button>`;
+            ch.push({ a: "leave", label: "Odejdź" });
     }
     else {
         if (L)
-            btns += `<button data-a="talk">Rozmawiaj</button>`;
-        btns += `<button class="alt danger" data-a="attackNeutral">Atakuj</button><button class="alt" data-a="leave">Odejdź</button>`;
+            ch.push({ a: "talk", label: "Chcę z tobą pomówić." });
+        ch.push({ a: "attackNeutral", label: "Napadnij na nich", cls: "danger" });
+        ch.push({ a: "leave", label: "Bywaj." });
     }
-    showScr(`<div class="dialog frame meet">
-    <div class="meet-top">${pic(portrait, "portrait big")}<div><h1>${esc(o.name)}</h1><p class="muted">${factionName(o.faction)}</p><p>${greet}</p></div></div>
-    <p>${partyDesc(o)}</p>
+    const comp = o.troops.slice().sort((x, y) => UNITS[y.type].tier - UNITS[x.type].tier).slice(0, 6).map((t) => `<span class="tchip" title="${UNITS[t.type].name}">${unitThumb(t.type)}<b>${t.n}</b></span>`).join("");
+    const ratio = myPow / Math.max(0.1, myPow + theirPow);
+    const info = `<div class="comp-row">${comp}</div>
+    ${host ? `<div class="pow"><span>Ty ${Math.round(myPow)}</span><div class="powbar"><i style="width:${ratio * 100}%"></i></div><span>${Math.round(theirPow)} Wróg</span></div><p class="tip">${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
     ${helpers.length ? `<p class="bad">Na pomoc idą: ${helpers.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${allies.length ? `<p class="gold">Twoi sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}
-    ${host ? `<p class="tip">Siła: twoja ${Math.round(myPow)} · wroga ${Math.round(theirPow)} · ${strengthWord(myPow / Math.max(0.1, theirPow))}</p>` : ""}
-    <div class="btns">${btns}</div></div>`, acts, "dialog-scr");
+    ${allies.length ? `<p class="gold">Sojusznicy w pobliżu: ${allies.map((h) => h.name).join(", ")}.</p>` : ""}`;
+    showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: esc(o.name), sub: `${factionName(o.faction)} · ${troopCount(o.troops)} ludzi`, speech: greet.replace(/<[^>]+>/g, ""), info, choices: ch })}</div>`, acts, "dialog-scr");
 }
 // ---------- Rozmowa z lordem ----------
 function showLordTalk(L, back) {
@@ -11305,8 +11863,10 @@ function showLordTalk(L, back) {
     const wars = Object.keys(F.war).filter((k) => F.war[Number(k)]).map(Number);
     const opts = [];
     const acts = { back: () => back() };
-    const say = (t) => { const e = document.getElementById("lord-say"); if (e)
-        e.textContent = t; };
+    const say = (t) => { const e = document.getElementById("bubble"); if (e) {
+        e.dataset.full = t;
+        typeBubble();
+    } };
     if (P.liege === 0 && P.status !== "król" && wars.length && !playerAtWarWith(w, L.faction)) {
         opts.push(`<button class="alt" data-a="merc">Szukam służby jako najemnik</button>`);
         acts.merc = () => { if (troopCount(playerParty(w).troops) < 8) {
@@ -11399,10 +11959,12 @@ function showLordTalk(L, back) {
             return; P.gold -= 200; L.relation += L.personality === "chciwy" ? 8 : 4; say("„Hojność zostanie zapamiętana.”"); };
     }
     const line = L.personality === "okrutny" ? "„Mów szybko, nie lubię czekać.”" : L.personality === "chciwy" ? "„Co mi przynosisz?”" : L.personality === "ostrożny" ? "„Słucham. Ostrożnie dobieraj słowa.”" : "„Słucham cię.”";
-    showScr(`<div class="dialog frame meet">
-    <div class="meet-top">${pic(portrait, "portrait big")}<div><h1>${L.title} ${L.name}</h1><p class="muted">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality}</p><p>Nastawienie: ${relWord} (${L.relation})</p></div></div>
-    <p id="lord-say">${line}</p>
-    <div class="col-btns">${opts.join("")}<button class="alt" data-a="back">Żegnaj</button></div></div>`, acts, "dialog-scr");
+    const ch = opts.map((h) => { const m = h.match(/data-a="([^"]+)"[^>]*>([^<]+)</); return { a: m[1], label: m[2] }; });
+    ch.push({ a: "back", label: "Żegnaj." });
+    const relBar = `<div class="pow rel"><span>Wrogość</span><div class="powbar"><i style="width:${clamp((L.relation + 100) / 2, 0, 100)}%"></i></div><span>Przyjaźń</span></div>`;
+    const lp = partyById(w, L.party);
+    const info = `${relBar}<p class="tip">${factionName(L.faction)}${L.ruler ? " · władca" : ""} · ${L.personality} · nastawienie ${relWord} (${L.relation})${lp ? ` · armia: ${troopCount(lp.troops)}` : ""} · sława ${L.renown}</p>`;
+    showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: portrait, title: `${L.title} ${L.name}`, speech: line, info, choices: ch })}</div>`, acts, "dialog-scr");
 }
 // ---------- Po bitwie ----------
 function showAftermath(r, gold, items, lines, next) {
@@ -11421,6 +11983,8 @@ function showAftermath(r, gold, items, lines, next) {
         next: () => {
             closeScreen();
             G.state = "map";
+            showMapHud();
+            refreshMapHud();
             if (next) {
                 next();
                 return;
@@ -11464,47 +12028,56 @@ function showCaptivity() {
 function passDay() { const w = WORLD; for (let i = 0; i < 24; i++)
     worldTick(w, 1); }
 // ---------- Okna postaci ----------
+const CH = { tree: "", node: "" };
 function showCharacter() {
     const w = WORLD, P = w.player;
     const portrait = drawPortrait(heroCfgFromPlayer(P).look, PAL.gold);
     const O = ORIGINS[P.origin];
-    const techAvail = Math.floor(P.level / 3) - P.learned.filter((a) => ABILITIES[a].source === "drzewko" && !O.abilities.includes(a)).length;
-    const tech = ["warcry", "bash", "whirl", "focus"].filter((a) => !P.learned.includes(a));
     const nextXp = xpForLevel(P.level + 1), prevXp = xpForLevel(P.level);
-    showScr(`<div class="card frame wide">
-    <div class="char-top">${pic(portrait, "portrait big")}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>
-      ${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp} PD`)}
-      <p>Zdrowie ${Math.round(P.hp)}/${heroMaxHp(P)} · Sława ${P.renown} · Honor ${P.honor} · Zabici ${P.kills} · Wygrane bitwy ${P.battlesWon}</p>
-      <p>Wiara ${Math.round(P.faith)} · Mana ${Math.round(P.mana)} · <span class="${P.corruption > 50 ? "bad" : ""}">Spaczenie ${Math.round(P.corruption)}</span></p></div></div>
-    <div class="cols">
-      <div><h2>Atrybuty ${P.attrPts ? `<span class="gold">(${P.attrPts} pkt)</span>` : ""}</h2>
-        ${Object.keys(ATTR_NAME).map((k) => `<div class="row"><span>${ATTR_NAME[k]}</span><span>${P.attr[k]} <button class="mini" data-a="attr" data-v="${k}" ${P.attrPts ? "" : "disabled"}>+</button></span></div>`).join("")}
-        <p class="tip">Siła: obrażenia i zdrowie · Zręczność: ucieczka z niewoli · Intelekt: mana · Charyzma: wiara i większa armia.</p>
-        <h2>Umiejętności ${P.skillPts ? `<span class="gold">(${P.skillPts} pkt)</span>` : ""}</h2>
-        ${Object.keys(SKILL_NAME).map((k) => `<div class="row"><span>${SKILL_NAME[k]}</span><span>${P.skills[k]} <button class="mini" data-a="skill" data-v="${k}" ${P.skillPts && P.skills[k] < 10 ? "" : "disabled"}>+</button></span></div>`).join("")}
+    if (!CH.tree)
+        CH.tree = NODE(O.node).tree;
+    const tree = STREES.find((t) => t.id === CH.tree);
+    const attrs = ATTRS.map((k) => { const A = ATTR_INFO[k]; return `<div class="attr" title="${A.desc}"><span class="an" style="color:${A.col}">${A.name}</span><div class="bar"><i style="width:${(P.attr[k] / 15) * 100}%;background:${A.col}"></i></div><b>${P.attr[k]}</b><button class="mini" data-a="attr" data-v="${k}" ${P.attrPts ? "" : "disabled"}>+</button></div>`; }).join("");
+    const slots = [0, 1, 2].map((i) => { const a = P.abilities[i]; const A = a ? ABILITIES[a] : null; return `<div class="aslot ${A ? "res-" + A.res : "empty"}"><span class="key">${i + 1}</span>${A ? `<b>${A.name}${a === "smite" && P.abLevels.smite > 1 ? " II" : ""}</b><span class="muted">${RES_NAME[A.res]} ${A.cost} · ${A.cd} s</span>` : `<span class="muted">pusty: odblokuj w drzewku</span>`}</div>`; }).join("");
+    const learned = P.learned.map((a) => `<div class="lchip"><span>${ABILITIES[a].name}</span>${[0, 1, 2].map((i) => `<button class="mini ${P.abilities[i] === a ? "on" : ""}" data-a="slot" data-v="${a}:${i}">${i + 1}</button>`).join("")}</div>`).join("");
+    const tabs = STREES.map((t) => { const blocked = treeExcluded(P, t); const have = NODES.filter((n) => n.tree === t.id && P.nodes.includes(n.id)).length, all = NODES.filter((n) => n.tree === t.id).length; return `<button class="ttab ${t.id === CH.tree ? "on" : ""} ${blocked ? "blocked" : ""}" data-a="tree" data-v="${t.id}">${ic(NODES.find((n) => n.tree === t.id && n.row === 0).icon)}<span>${t.name}</span><small>${have}/${all}</small></button>`; }).join("");
+    const nodes = NODES.filter((n) => n.tree === CH.tree);
+    const lines = nodes.flatMap((n) => n.parents.map((pid) => { const p0 = NODE(pid); const lit = P.nodes.includes(pid) && P.nodes.includes(n.id); return `<line x1="${(p0.col + 0.5) * 100}" y1="${(p0.row + 0.5) * 100}" x2="${(n.col + 0.5) * 100}" y2="${(n.row + 0.5) * 100}" class="${lit ? "lit" : ""}"/>`; })).join("")
+        + nodes.filter((n) => n.excl && n.tree === CH.tree && NODE(n.excl).tree === CH.tree && n.id < n.excl).map((n) => { const m = NODE(n.excl); return `<line x1="${(n.col + 0.5) * 100 + 30}" y1="${(n.row + 0.5) * 100}" x2="${(m.col + 0.5) * 100 - 30}" y2="${(m.row + 0.5) * 100}" class="excl"/>`; }).join("");
+    const nodeHtml = nodes.map((n) => { const st = nodeState(P, n); return `<button class="node ${st} ${CH.node === n.id ? "sel" : ""}" style="left:${((n.col + 0.5) / 3) * 100}%;top:${((n.row + 0.5) / 4) * 100}%" data-a="node" data-v="${n.id}" title="${esc(n.name)}">${ic(n.icon, "big")}<span>${n.name}</span>${n.ability ? `<i class="abmark">umiejętność</i>` : ""}</button>`; }).join("");
+    const sel = CH.node ? NODE(CH.node) : null;
+    const selHtml = sel ? (() => { const st = nodeState(P, sel); const A = sel.ability ? ABILITIES[sel.ability] : null; return `<div class="ninfo"><h2>${sel.name}</h2><p>${sel.desc}</p>${A ? `<p class="tip"><b>${A.name}:</b> ${A.desc} (${RES_NAME[A.res]} ${A.cost}, odnowienie ${A.cd} s${A.corrupt ? `, spaczenie +${A.corrupt}` : ""})</p>` : ""}<p class="${st === "open" ? "gold" : st === "have" ? "muted" : "bad"}">${nodeWhy(P, sel)}</p>${st === "open" ? `<button data-a="unlock" data-v="${sel.id}" ${P.skillPts > 0 ? "" : "disabled"}>Odblokuj (1 punkt)</button>` : ""}</div>`; })() : `<div class="ninfo"><p class="tip">${tree.desc}${tree.excl ? "" : ""} Kliknij węzeł, by zobaczyć szczegóły.</p></div>`;
+    showScr(`<div class="card frame wide char">
+    <div class="char-grid">
+      <div class="char-left">
+        <div class="char-top">${pic(portrait, "portrait big")}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp}`)}</div></div>
+        <p class="tip">Zdrowie ${Math.round(P.hp)}/${heroMaxHp(P)} · sława ${P.renown} · honor ${P.honor} · zabici ${P.kills}<br>Wiara ${Math.round(P.faith)} · mana ${Math.round(P.mana)} · <span class="${P.corruption > 50 ? "bad" : ""}">spaczenie ${Math.round(P.corruption)}</span></p>
+        <h2>Atrybuty ${P.attrPts ? `<span class="gold">+${P.attrPts}</span>` : ""}</h2>${attrs}
+        <h2>Umiejętności aktywne</h2>${slots}
+        ${learned ? `<div class="learned">${learned}</div>` : ""}
       </div>
-      <div><h2>Umiejętności aktywne (klawisze 1–3)</h2>
-        ${[0, 1, 2].map((i) => `<div class="row"><span><span class="key">${i + 1}</span>${P.abilities[i] ? ABILITIES[P.abilities[i]].name + (P.abilities[i] === "smite" ? ` (poz. ${P.abLevels.smite || 1})` : "") : "<span class='muted'>pusty</span>"}</span></div>`).join("")}
-        <h2>Poznane</h2>
-        ${P.learned.map((a) => { const A = ABILITIES[a]; return `<div class="abl"><b>${A.name}</b> <span class="muted">${RES_NAME[A.res]} ${A.cost} · odnowienie ${A.cd} s${A.corrupt ? ` · spaczenie +${A.corrupt}` : ""}</span><br><span class="tip">${A.desc}</span><br>${[0, 1, 2].map((i) => `<button class="mini" data-a="slot" data-v="${a}:${i}">Slot ${i + 1}</button>`).join("")}</div>`; }).join("")}
-        ${techAvail > 0 && tech.length ? `<h2 class="gold">Nowa technika do wyboru</h2>${tech.map((a) => `<div class="row"><span>${ABILITIES[a].name}</span><button class="mini" data-a="learn" data-v="${a}">Poznaj</button></div>`).join("")}` : ""}
-        <p class="tip">Modlitwy (Smite, Leczenie) dają kapliczki. Zaklęcia z ksiąg znajdziesz w ruinach. Techniki bojowe poznajesz co 3 poziomy.</p>
+      <div class="char-right">
+        <div class="ttabs">${tabs}</div>
+        <div class="thead"><b>${tree.name}</b> <span class="muted">(${ATTR_INFO[tree.attr].name})</span> ${treeExcluded(P, tree) ? `<span class="bad">zablokowane: wybrałeś ${STREES.find((t) => t.id === tree.excl).name}</span>` : tree.excl ? `<span class="muted">wyklucza: ${STREES.find((t) => t.id === tree.excl).name}</span>` : ""}<span class="pts">Punkty: <b class="gold">${P.skillPts}</b></span></div>
+        <div class="tview"><svg viewBox="0 0 300 400" preserveAspectRatio="none">${lines}</svg>${nodeHtml}</div>
+        ${selHtml}
       </div>
     </div>
     <div class="btns"><button data-a="close">Zamknij (C)</button></div></div>`, {
         attr: (k) => { if (P.attrPts <= 0)
-            return; P.attr[k]++; P.attrPts--; if (k === "str")
-            P.hp += 4; showCharacter(); },
-        skill: (k) => { if (P.skillPts <= 0)
-            return; P.skills[k]++; P.skillPts--; if (k === "ironflesh")
-            P.hp += 6; showCharacter(); },
+            return; P.attr[k]++; P.attrPts--; P.hp = Math.min(heroMaxHp(P), P.hp + (k === "end" ? 7 : k === "str" ? 3 : 0)); showCharacter(); },
+        tree: (v) => { CH.tree = v; CH.node = ""; showCharacter(); },
+        node: (v) => { CH.node = v; showCharacter(); },
+        unlock: (v) => { const n = NODE(v); if (unlockNode(P, n)) {
+            sfx.drum(0.8);
+            toast(`Odblokowano: ${n.name}${n.ability ? ` (umiejętność: ${ABILITIES[n.ability].name})` : ""}`, PAL.gold);
+        } showCharacter(); },
         slot: (v) => { const [a, i] = v.split(":"); const idx = Number(i); const prev = P.abilities.indexOf(a); if (prev >= 0)
             P.abilities[prev] = P.abilities[idx] || ""; P.abilities[idx] = a; showCharacter(); },
-        learn: (a) => { P.learned.push(a); const free = P.abilities.indexOf(""); if (free >= 0)
-            P.abilities[free] = a; showCharacter(); },
         close: () => closeScreen(),
     }, "char-scr");
 }
+const SLOT_IC = { head: "crown", body: "shield", hands: "hammer", feet: "wind", weapon: "sword", shield: "shield", bow: "bow", horse: "horse" };
 function showInventory() {
     const w = WORLD, P = w.player;
     const H2 = heroCfgFromPlayer(P);
@@ -11516,7 +12089,7 @@ function showInventory() {
     <div class="inv">
       <div class="doll">${pic(portrait, "portrait big")}${pic(spr, "sprite", 4)}
         <p class="tip">Pancerz: ${Math.round(H2.armor * 100)} · Broń: ${WEAPONS[H2.weapon].name}${H2.bowDmg ? ` · Łuk ${H2.bowDmg}` : ""}${H2.mount ? ` · Koń ${Math.round(H2.mount.speed)}` : ""}</p></div>
-      <div class="slots">${slots.map((s) => { const id = P.equip[s]; const it = id ? ITEMS[id] : null; return `<div class="slot"><span class="muted">${SLOT_NAME[s]}</span><span>${it ? `${itemName(it)} <span class="muted">${itemStat(it)}</span>` : "<span class='muted'>—</span>"}</span>${it ? `<button class="mini" data-a="off" data-v="${s}">Zdejmij</button>` : ""}</div>`; }).join("")}</div>
+      <div class="slots">${slots.map((s) => { const id = P.equip[s]; const it = id ? ITEMS[id] : null; return `<div class="slot"><span class="muted">${ic(SLOT_IC[s])} ${SLOT_NAME[s]}</span><span>${it ? `${itemName(it)} <span class="muted">${itemStat(it)}</span>` : "<span class='muted'>—</span>"}</span>${it ? `<button class="mini" data-a="off" data-v="${s}">Zdejmij</button>` : ""}</div>`; }).join("")}</div>
       <div class="bag"><h2>Juki</h2>${P.items.length ? P.items.map((id, i) => { const it = ITEMS[id]; return `<div class="slot"><span>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span></span><button class="mini" data-a="on" data-v="${i}">Załóż</button></div>`; }).join("") : "<p class='muted'>Puste.</p>"}
         <h2>Towary</h2>${GOOD_KEYS.filter((k) => P.goods[k]).map((k) => `<div class="row"><span>${GOODS[k].name}</span><span>${P.goods[k]}</span></div>`).join("") || "<p class='muted'>Brak.</p>"}
         <p>Opatrunki: ${P.bandages}${P.equip.bow ? ` · Strzały: ${P.ammo}` : ""}</p></div>
@@ -11539,28 +12112,65 @@ function showInventory() {
         close: () => closeScreen(),
     }, "inv-scr");
 }
+const PS = { sel: "", tab: "troops" };
+function upCost(from, to) { return Math.max(10, Math.round((UNITS[to].cost - UNITS[from].cost) * 0.5)); }
 function showParty() {
     const w = WORLD, P = w.player, p = playerParty(w);
-    const rows = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier).map((t) => {
-        const d = UNITS[t.type];
-        const need = d.xp || 100 * d.tier;
-        const can = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
-        const ups = (d.up || []).map((u) => { const cost = Math.max(10, Math.round((UNITS[u].cost - d.cost) * 0.5)); return `<button class="mini" data-a="up" data-v="${t.type}:${u}" ${can > 0 && P.gold >= cost ? "" : "disabled"}>→ ${UNITS[u].name} (${cost})</button>`; }).join("");
-        return `<tr><td>${unitBadge(t.type)} ${d.name} <span class="muted">T${d.tier}</span></td><td>${t.n}${t.wounded ? ` <span class="bad">(${t.wounded} rann.)</span>` : ""}</td><td>${d.up && d.up.length ? `${can} gotowych` : "<span class='muted'>szczyt</span>"}</td><td>${ups}</td><td><button class="mini" data-a="dismiss" data-v="${t.type}">Zwolnij 1</button></td></tr>`;
-    }).join("");
-    showScr(`<div class="card frame wide">
-    <h1>Armia</h1>
-    <p>Ludzie: ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)} · Żołd: ${partyWages(w)}/dzień (wypłata co 7 dni) · Morale ${Math.round(P.morale)} · Szybkość ${partySpeed(w, p).toFixed(1)}</p>
-    <table class="tbl wide">${rows || "<tr><td class='muted'>Nikt za tobą nie idzie.</td></tr>"}</table>
-    <h2>Kompani</h2>${P.companions.length ? P.companions.map((c) => `<div class="comp">${pic(drawPortrait(c.look, PAL.bone), "portrait")}<div><b>${c.name}</b> <span class="muted">${c.role} · zdrowie ${Math.round(c.hp)}/${c.maxHp}</span><br>Dowodzi w bitwie: ${[1, 2, 3].map((s) => `<button class="mini ${c.squad === s ? "on" : ""}" data-a="sq" data-v="${c.id}:${s}">${SQUAD_NAMES[s]}</button>`).join("")} <button class="mini" data-a="fire" data-v="${c.id}">Odpraw</button></div></div>`).join("") : "<p class='muted'>Brak. Szukaj w karczmach.</p>"}
-    ${p.prisoners.length ? `<h2>Jeńcy</h2><p>${p.prisoners.map((t) => `${t.n}× ${UNITS[t.type].name}`).join(", ")} <button class="mini" data-a="freeP">Uwolnij wszystkich</button></p><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie. Czasem sami przechodzą na twoją stronę.</p>` : ""}
-    <p class="tip">Żołnierze zdobywają doświadczenie w bitwach. Awans kosztuje złoto i daje lepszą broń i pancerz. P: piechota, S: strzelcy, J: jazda, M: magowie i kapłani.</p>
+    const list = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier);
+    if (!list.some((t) => t.type === PS.sel))
+        PS.sel = list[0]?.type || "";
+    const rows = list.map((t) => {
+        const d = UNITS[t.type], need = d.xp || 100 * d.tier;
+        const ready = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
+        return `<button class="urow ${PS.sel === t.type ? "on" : ""}" data-a="sel" data-v="${t.type}">${unitThumb(t.type)}<span class="un"><b>${d.name}</b>${tierStars(d.tier)}</span><span class="uc">${t.n}${t.wounded ? `<i class="bad">-${t.wounded}</i>` : ""}</span>${ready ? `<span class="upok" title="Gotowi do awansu">▲${ready}</span>` : ""}</button>`;
+    }).join("") || "<p class='muted'>Nikt za tobą nie idzie.</p>";
+    const t = list.find((x) => x.type === PS.sel);
+    let detail = "";
+    if (t) {
+        const d = UNITS[t.type], need = d.xp || 100 * d.tier;
+        const ready = d.up && d.up.length ? Math.min(t.n - t.wounded, Math.floor(t.xp / need)) : 0;
+        const ups = (d.up || []).map((u) => { const c = upCost(t.type, u); return `<div class="upc">${pic(unitCanvas(u, 0, 0), "uthumb", 2)}<div><b>${UNITS[u].name}</b> ${tierStars(UNITS[u].tier)}<br><span class="muted">${UNITS[u].mount ? "jazda" : UNITS[u].bow ? "strzelec" : "piechota"} · ${c} denarów</span><br><button class="mini" data-a="up" data-v="${t.type}:${u}:1" ${ready > 0 && P.gold >= c ? "" : "disabled"}>Awansuj 1</button><button class="mini" data-a="up" data-v="${t.type}:${u}:all" ${ready > 0 && P.gold >= c ? "" : "disabled"}>Wszystkich (${ready})</button></div></div>`; }).join("");
+        detail = `<div class="udet">
+      <div class="udet-top">${unitAnim(t.type, 3)}<div><h2>${d.name}</h2>${tierStars(d.tier)}<p>${t.n} w armii${t.wounded ? `, <span class="bad">${t.wounded} rannych</span>` : ""}</p>
+        ${d.up && d.up.length ? barHtml(t.xp % need, need, "xp", `doświadczenie ${t.xp % need}/${need}`) : "<p class='muted'>Najwyższy stopień.</p>"}</div></div>
+      ${unitStats(t.type)}
+      ${ups ? `<h2>Awans ${ready ? `<span class="gold">(${ready} gotowych)</span>` : ""}</h2><div class="ups">${ups}</div>` : ""}
+      <h2>Drzewko jednostki</h2>${unitTreeHtml(t.type, "sel")}
+      <button class="mini danger" data-a="dismiss" data-v="${t.type}">Zwolnij jednego</button>
+    </div>`;
+    }
+    const tabs = [["troops", "Oddziały"], ["comp", `Kompani (${P.companions.length}/3)`], ["pris", `Jeńcy (${troopCount(p.prisoners)})`]].map(([k, n]) => `<button class="tab ${PS.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("");
+    let body = "";
+    if (PS.tab === "troops")
+        body = `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`;
+    else if (PS.tab === "comp")
+        body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>Dowodzi: ${[1, 2, 3].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button></div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
+    else
+        body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie. Czasem sami przechodzą na twoją stronę.</p>` : "<p class='muted'>Nie masz jeńców.</p>";
+    showScr(`<div class="card frame wide party">
+    <div class="phead"><h1>Armia</h1><span>${ic("man")} ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)}</span><span>${ic("coin")} żołd ${partyWages(w)}/dzień</span><span>${ic("heart")} morale ${Math.round(P.morale)}</span><span>${ic("horse")} szybkość ${partySpeed(w, p).toFixed(1)}</span></div>
+    <div class="s-tabs">${tabs}</div>${body}
     <div class="btns"><button data-a="close">Zamknij (P)</button></div></div>`, {
-        up: (v) => { const [from, to] = v.split(":"); const d = UNITS[from], t = p.troops.find((x) => x.type === from); const need = d.xp || 100 * d.tier; const cost = Math.max(10, Math.round((UNITS[to].cost - d.cost) * 0.5)); if (!t || t.xp < need || P.gold < cost)
-            return; P.gold -= cost; t.xp -= need; removeTroops(p.troops, from, 1); addTroops(p.troops, to, 1); sfx.coin(); showParty(); },
+        tab: (v) => { PS.tab = v; showParty(); },
+        sel: (v) => { if (p.troops.some((x) => x.type === v))
+            PS.sel = v; showParty(); },
+        up: (v) => { const [from, to, n] = v.split(":"); const d = UNITS[from], tr = p.troops.find((x) => x.type === from); if (!tr)
+            return; const need = d.xp || 100 * d.tier, c = upCost(from, to); let k = n === "all" ? 999 : 1, done = 0; while (k-- > 0 && tr.xp >= need && P.gold >= c && tr.n - tr.wounded > 0) {
+            P.gold -= c;
+            tr.xp -= need;
+            removeTroops(p.troops, from, 1);
+            addTroops(p.troops, to, 1);
+            done++;
+            if (!p.troops.includes(tr))
+                break;
+        } if (done) {
+            sfx.coin();
+            toast(`${done}× ${d.name} → ${UNITS[to].name}`, PAL.gold);
+            PS.sel = to;
+        } showParty(); },
         dismiss: (k) => { removeTroops(p.troops, k, 1); showParty(); },
-        sq: (v) => { const [id, s] = v.split(":"); const c = P.companions.find((x) => x.id === id); c.squad = Number(s); showParty(); },
-        fire: (id) => { const c = P.companions.find((x) => x.id === id); P.companions = P.companions.filter((x) => x.id !== id); const t = pick(w.settlements.filter((s) => s.kind === "town")); t.companions.push(id); toast(`${c.name} odchodzi. Może kiedyś spotkacie się w ${t.name}.`); showParty(); },
+        sq: (v) => { const [id, s2] = v.split(":"); const c = P.companions.find((x) => x.id === id); c.squad = Number(s2); showParty(); },
+        fire: (id) => { const c = P.companions.find((x) => x.id === id); P.companions = P.companions.filter((x) => x.id !== id); const t2 = pick(w.settlements.filter((s2) => s2.kind === "town")); t2.companions.push(id); toast(`${c.name} odchodzi. Może kiedyś spotkacie się w ${t2.name}.`); showParty(); },
         freeP: () => { p.prisoners = []; P.honor += 1; showParty(); },
         close: () => closeScreen(),
     }, "party-scr");
@@ -11642,7 +12252,7 @@ function showSettings(back) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.4";
+const BUILD = "Build 0.5";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -11676,6 +12286,8 @@ onChronicle = (t, c) => { if (G.state === "map" && WORLD) {
 let zoomIdx = 1;
 const $ = (id) => document.getElementById(id);
 document.title = "Sztandary Popiołu · " + BUILD;
+for (const e of Array.from(document.querySelectorAll("[data-ic]")))
+    e.innerHTML = ic(e.dataset.ic);
 $("build").textContent = BUILD;
 function fit() {
     const fs = !!document.fullscreenElement;
@@ -11876,7 +12488,26 @@ addEventListener("keydown", () => sfx.init(), { once: true });
 // ---------- Pętla ----------
 let last = performance.now();
 let mapHudT = 0;
+let lastErr = 0;
 function frame(now) {
+    try {
+        frameInner(now);
+    }
+    catch (e) {
+        console.error(e);
+        // błąd nie może zatrzymać pętli gry: zgłoś i graj dalej
+        if (now - lastErr > 3000) {
+            lastErr = now;
+            toast("Wystąpił błąd gry (zapisany w konsoli). Gra działa dalej.", PAL.redL);
+        }
+        try {
+            input.endFrame();
+        }
+        catch (e2) { /* nic */ }
+    }
+    requestAnimationFrame(frame);
+}
+function frameInner(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     const typing = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT");
@@ -11931,6 +12562,15 @@ function frame(now) {
             else
                 showPauseMenu();
         }
+        // dialogi: odpowiedzi klawiszami 1–9
+        if (screenOpen())
+            for (let n = 1; n <= 9; n++)
+                if (input.hit("Digit" + n)) {
+                    const bs = SCREEN.el.querySelectorAll("button.choice");
+                    const bt = bs[n - 1];
+                    if (bt && !bt.disabled)
+                        bt.click();
+                }
         if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr/.test(SCREEN.el.className)) {
             if (input.hit("KeyC"))
                 openWin("char");
@@ -11955,7 +12595,9 @@ function frame(now) {
         mapHudT -= dt;
         if (mapHudT <= 0) {
             mapHudT = 0.5;
-            if (!$("maphud").hidden)
+            if ($("maphud").hidden && !screenOpen() && !WORLD.player.captive)
+                showMapHud();
+            else if (!$("maphud").hidden)
                 refreshMapHud();
         }
         sfx.tick(dt, 0, WORLD.rain);
@@ -11968,7 +12610,6 @@ function frame(now) {
         sfx.tick(dt, 0, false);
     }
     input.endFrame();
-    requestAnimationFrame(frame);
 }
 // Tło ekranu tytułowego: płonący horyzont, sztandary i popiół.
 const TB = { t: 0, ash: Array.from({ length: 140 }, () => ({ x: rr(0, 640), y: rr(0, 360), s: rr(6, 18), p: rr(0.3, 1) })) };
@@ -12011,6 +12652,6 @@ requestAnimationFrame(frame);
 window.__game = () => ({ G, WORLD, battle: G.battle });
 window.__battle = () => G.battle;
 window.__meet = (o) => meetParty(o, false);
-window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB };
+window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET };
 
 })();</script>

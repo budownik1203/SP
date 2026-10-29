@@ -35,6 +35,7 @@ class Win {
     this.el.innerHTML = html;
     for (const s of Array.from(this.el.querySelectorAll("[data-pic]"))) { const c = PICS.get((s as HTMLElement).dataset.pic); if (c) { const cc = c.cloneNode() as HTMLCanvasElement; cc.getContext("2d").drawImage(c, 0, 0); s.appendChild(cc); } }
     PICS.clear();
+    typeBubble();
     return this;
   }
   close() { this.el.remove(); if (this.onClose) this.onClose(); }
@@ -259,3 +260,144 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
   SCENE_CACHE.set(key, c);
   return c;
 }
+
+// ---------- Ikony pikselowe (9×9) ----------
+const ICON_URL = new Map<string, string>();
+const ICON_ART: Record<string, [string, string[]]> = {
+  coin: [PAL.gold, ["..xxxxx..", ".xx...xx.", "xx.xxx.xx", "x.x.x.x.x", "x.xx..x.x", "x..xx.x.x", "xx.xxx.xx", ".xx...xx.", "..xxxxx.."]],
+  man: [PAL.boneHi, ["...xxx...", "...xxx...", "....x....", ".xxxxxxx.", "x..xxx..x", "...xxx...", "...x.x...", "..xx.xx..", "..x...x.."]],
+  food: [PAL.dirtL, ["....xx...", "...xxxx..", "..xxxxxx.", ".xx.xx.xx", ".xxxxxxxx", "xxxxxxxxx", "x.xx.xx.x", ".xxxxxxx.", "..xxxxx.."]],
+  heart: [PAL.redL, [".xx...xx.", "xxxx.xxxx", "xxxxxxxxx", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", "...xxx...", "....x....", "........."]],
+  sun: [PAL.gold, ["....x....", ".x..x..x.", "..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", ".x..x..x.", "....x...."]],
+  moon: [PAL.bone, ["...xxx...", "..xx.....", ".xx......", ".xx......", ".xx......", ".xx......", "..xx.....", "...xxx...", "........."]],
+  rain: [PAL.waterL, ["..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", ".........", ".x..x..x.", "x..x..x..", ".x..x..x.", "x..x..x..", "........."]],
+  sword: [PAL.steelL, [".......xx", "......xxx", ".....xxx.", "....xxx..", "x..xxx...", ".xxxx....", "..xx.....", ".x.xx....", "x...x...."]],
+  shield: [PAL.redL, ["xxxxxxxxx", "x.......x", "x...x...x", "x..xxx..x", "x...x...x", ".x.....x.", "..x...x..", "...x.x...", "....x...."]],
+  bow: [PAL.dirtL, ["..xx.....", "...xx...x", "....x..x.", "....xxx..", "....xx...", "....x.x..", "...xx..x.", "..xx....x", "........."]],
+  horse: [PAL.dirtL, [".......xx", "......xxx", "xxxxxxxx.", "xxxxxxxx.", "xxxxxxx..", "x.x..x.x.", "x.x..x.x.", "x.x..x.x.", "........."]],
+  axe: [PAL.steelL, ["...xxx...", "..xxxx...", ".xxxxx...", "..xxxxx..", "....x.x..", ".....x...", "......x..", ".......x.", "........x"]],
+  crown: [PAL.gold, [".........", "x...x...x", "xx.xxx.xx", "xxxxxxxxx", "xxxxxxxxx", "x.x.x.x.x", "xxxxxxxxx", ".........", "........."]],
+  wind: [PAL.boneHi, [".........", "xxxxxx...", "......x..", "xxxxxxx..", ".........", "xxxxxxxx.", "........x", "...xxxxx.", "........."]],
+  fire: [PAL.redL, ["....x....", "...xx....", "...xxx.x.", "..xxxxxx.", ".xxx.xxx.", ".xx...xx.", ".xx...xx.", "..xx.xx..", "...xxx..."]],
+  eye: [PAL.boneHi, [".........", "..xxxxx..", ".x.....x.", "x..xxx..x", "x..x.x..x", "x..xxx..x", ".x.....x.", "..xxxxx..", "........."]],
+  wolf: [PAL.ash, ["x.....x..", "xx...xx..", "xxxxxxx..", "x.xxx.x..", "xxxxxxxx.", ".xxxxxxx.", "..x.xxxxx", "...x....x", "........."]],
+  banner: [PAL.redL, ["x........", "xxxxxxx..", "xxxxxxxx.", "xxxxxxx..", "xxxxxxxx.", "x........", "x........", "x........", "x........"]],
+  cross: [PAL.gold, ["...xxx...", "...xxx...", "xxxxxxxxx", "xxxxxxxxx", "...xxx...", "...xxx...", "...xxx...", "...xxx...", "........."]],
+  drop: [PAL.bloodL, ["....x....", "...xxx...", "...xxx...", "..xxxxx..", ".xxxxxxx.", ".xxxxxxx.", ".xx.xxxx.", "..xxxxx..", "........."]],
+  leaf: [PAL.moss, [".......xx", "....xxxxx", "..xxxxxx.", ".xxxxxxx.", ".xxxx.x..", "xxx.xx...", "x.xx.....", "x........", "........."]],
+  skull: [PAL.bone, ["..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", "x..x..x.x", "x..x..x.x", "xxxxxxxxx", ".xxx.xxx.", "..x.x.x..", "........."]],
+  star: [PAL.gold, ["....x....", "....x....", "...xxx...", "xxxxxxxxx", ".xxxxxxx.", "..xxxxx..", "..xx.xx..", ".x.....x.", "........."]],
+  scroll: [PAL.bone, [".xxxxxxx.", "x.x.....x", ".xxxxxxx.", ".x.....x.", ".x.xxx.x.", ".x.....x.", ".x.xxx.x.", ".xxxxxxx.", "x.......x"]],
+  chain: [PAL.steel, ["xxx......", "x.x......", "xxxxx....", "..x.x....", "..xxxxx..", "....x.x..", "....xxxxx", "......x.x", "......xxx"]],
+  castle: [PAL.ash, ["x.x...x.x", "xxx...xxx", "xxx.x.xxx", "xxxxxxxxx", "xxxxxxxxx", "xxxx.xxxx", "xxx...xxx", "xxx...xxx", "........."]],
+  hammer: [PAL.steelL, ["xxxxx....", "xxxxx....", "xxxxx....", "..x......", "...x.....", "....x....", ".....x...", "......x..", ".......x."]],
+  mug: [PAL.gold, [".xxxxx...", "xxxxxxx..", "x.....xx.", "x.....x.x", "x.....x.x", "x.....xx.", "x.....x..", "xxxxxxx..", "........."]],
+  tent: [PAL.dirtL, ["....x....", "...xxx...", "..xx.xx..", "..x...x..", ".xx...xx.", ".x..x..x.", "xx..x..xx", "x...x...x", "xxxxxxxxx"]],
+};
+function iconUrl(name: string): string {
+  let u = ICON_URL.get(name);
+  if (u) return u;
+  const art = ICON_ART[name] || ICON_ART.star;
+  const P = new Pix(9, 9);
+  art[1].forEach((row, y) => { for (let x = 0; x < 9; x++) if (row[x] === "x") P.p(x, y, art[0]); });
+  u = P.toCanvas(true, true).toDataURL();
+  ICON_URL.set(name, u);
+  return u;
+}
+function ic(name: string, cls = "") { return `<img class="ic ${cls}" src="${iconUrl(name)}" alt="">`; }
+
+// ---------- Podgląd jednostki: postać z koniem, przód i bok ----------
+const UPREV = new Map<string, HTMLCanvasElement>();
+function unitCanvas(key: string, dir = 0, frame = 0, faction?: number, look?: Look): HTMLCanvasElement {
+  const def = UNITS[key];
+  const fac = faction ?? (FACTION_OF_CULTURE[def.culture] || (def.culture === "merc" ? 9 : def.culture === "monster" ? 7 : 6));
+  const ck = [key, dir, frame, fac, look ? look.seed : ""].join(":");
+  let c = UPREV.get(ck);
+  if (c) return c;
+  if (def.mount && dir === 0) dir = 2;   // jeźdźca lepiej widać z boku
+  const L = look || troopLook(def, 7, fac);
+  const spr = spritesFor(L, look ? "prev:" + key + L.seed : `${key}:${fac}:7`);
+  const img = spr.frames[dir][frame];
+  if (def.mount) {
+    const F = FACTIONS[fac] || FACTIONS[6];
+    const hs = getHorse(7, [F.col, F.shade, F.trim], !!def.mount.undead);
+    const himg = hs.frames[dir][frame];
+    const [cv, g] = mkCanvas(40, 48);
+    g.drawImage(himg, Math.round(20 - himg.width / 2), 48 - himg.height + 2);
+    const riderY = dir === 2 ? -11 : -9;
+    g.drawImage(img, 0, 0, img.width, Math.round(img.height * 0.66), Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, Math.round(img.height * 0.66));
+    c = cv;
+  } else {
+    const [cv, g] = mkCanvas(32, 40);
+    g.drawImage(img, 4, 6);
+    c = cv;
+  }
+  UPREV.set(ck, c);
+  return c;
+}
+// Animowany pasek klatek (bok, chód) jako tło CSS.
+function unitAnim(key: string, scale = 3, look?: Look) {
+  const frames = [0, 1, 2, 3].map((f) => unitCanvas(key, 2, f, undefined, look));
+  const w = frames[0].width, h = frames[0].height;
+  const [strip, g] = mkCanvas(w * 4, h);
+  frames.forEach((f, i) => g.drawImage(f, i * w, 0));
+  return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 4 * scale}px ${h * scale}px;--sw:-${w * 4 * scale}px"></div>`;
+}
+function unitThumb(key: string, scale = 1) { return pic(unitCanvas(key, 0, 0), "uthumb", scale); }
+function tierStars(t: number) { return `<span class="stars">${"★".repeat(t)}<span class="muted">${"★".repeat(Math.max(0, 5 - t))}</span></span>`; }
+function unitStats(key: string) {
+  const d = UNITS[key], w = WEAPONS[d.weapon];
+  const bar = (lab: string, v: number, max: number, cls: string, txt?: string) => `<div class="stat"><span>${lab}</span><div class="bar ${cls}"><i style="width:${clamp((v / max) * 100, 0, 100)}%"></i></div><b>${txt ?? Math.round(v)}</b></div>`;
+  const atk = (w.dmg.L + w.dmg.O + w.dmg.T) / 3;
+  return `<div class="ustats">
+    ${bar("Zdrowie", d.hp, 160, "s-hp")}
+    ${bar("Pancerz", (1 - d.armor.cut) * 100, 60, "s-arm", Math.round((1 - d.armor.cut) * 100) + "")}
+    ${bar("Atak", atk, 50, "s-atk")}
+    ${bar("Obrona", d.guard * 100, 70, "s-def")}
+    ${bar("Szybkość", d.mount ? d.mount.speed : d.speed, d.mount ? 120 : 60, "s-spd", String(d.mount ? d.mount.speed : d.speed))}
+    ${d.bow ? bar(d.bow.bolt ? "Kusza" : d.bow.axe ? "Topory" : "Łuk", d.bow.dmg, 70, "s-bow") : ""}
+    <p class="tip">${w.name}${d.shield ? " i tarcza" : ""}${d.mount ? " · konno" : ""}${d.undead ? " · nieumarły: odporny na strzały, kruchy na obuch" : ""}${d.ability ? " · " + abilityWord(d.ability) : ""} · żołd ${d.wage}/dzień</p>
+  </div>`;
+}
+// Drzewko linii jednostki: od korzenia kultury do szczytu, bieżąca podświetlona.
+function unitRoot(key: string): string {
+  let cur = key;
+  for (let guard = 0; guard < 8; guard++) { const parent = Object.values(UNITS).find((u) => u.up && u.up.includes(cur)); if (!parent) break; cur = parent.key; }
+  return cur;
+}
+function unitTreeHtml(key: string, act = "", actFor?: (k: string) => string) {
+  const root = unitRoot(key);
+  const node = (k: string): string => {
+    const d = UNITS[k];
+    const kids = (d.up || []).map(node).join("");
+    return `<div class="tn"><div class="tbox ${k === key ? "cur" : ""}" ${act ? `data-a="${act}" data-v="${k}"` : ""} title="${esc(d.name)}">${unitThumb(k)}<span>${d.name}</span><span class="stars">${"★".repeat(d.tier)}</span>${actFor ? actFor(k) : ""}</div>${kids ? `<div class="tch">${kids}</div>` : ""}</div>`;
+  };
+  return `<div class="utree">${node(root)}</div>`;
+}
+
+// ---------- Dialog: dwa portrety, dymek, numerowane odpowiedzi ----------
+interface Choice { a: string; label: string; v?: string; cls?: string; disabled?: boolean; }
+function dialogHtml(o: { left: HTMLCanvasElement; right: HTMLCanvasElement; title: string; sub?: string; speech: string; info?: string; choices: Choice[]; scene?: HTMLCanvasElement }) {
+  return `<div class="dlg">
+    ${o.scene ? `<div class="scene">${pic(o.scene, "scene-img")}</div>` : ""}
+    <div class="dlg-row">
+      <div class="dlg-p">${pic(o.left, "portrait big")}</div>
+      <div class="dlg-mid"><div class="dlg-name"><b>${o.title}</b>${o.sub ? ` <span class="muted">${o.sub}</span>` : ""}</div>
+        <div class="bubble" id="bubble" data-full="${esc(o.speech)}"></div>
+        ${o.info ? `<div class="dlg-info">${o.info}</div>` : ""}</div>
+      <div class="dlg-p">${pic(o.right, "portrait big")}</div>
+    </div>
+    <ol class="choices">${o.choices.map((c, i) => `<li><button class="choice ${c.cls || ""}" data-a="${c.a}" data-v="${c.v || ""}" ${c.disabled ? "disabled" : ""}><span class="key">${i + 1}</span>${c.label}</button></li>`).join("")}</ol>
+  </div>`;
+}
+// Pisanie tekstu w dymku litera po literze.
+function typeBubble() {
+  const b = document.getElementById("bubble");
+  if (!b) return;
+  const full = b.dataset.full || "";
+  let i = 0;
+  const step = () => { if (!document.body.contains(b)) return; i = Math.min(full.length, i + 2); b.textContent = full.slice(0, i); if (i < full.length) setTimeout(step, 14); };
+  step();
+  b.addEventListener("click", () => { i = full.length; b.textContent = full; });
+}
+function playerPortrait() { return drawPortrait(heroCfgFromPlayer(WORLD.player).look, PAL.gold); }

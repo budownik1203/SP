@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.4";
+const BUILD = "Build 0.5";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -27,6 +27,7 @@ onChronicle = (t, c) => { if (G.state === "map" && WORLD) { const p = playerPart
 let zoomIdx = 1;
 const $ = (id: string) => document.getElementById(id);
 document.title = "Sztandary Popiołu · " + BUILD;
+for (const e of Array.from(document.querySelectorAll("[data-ic]"))) (e as HTMLElement).innerHTML = ic((e as HTMLElement).dataset.ic);
 $("build").textContent = BUILD;
 
 function fit() {
@@ -191,7 +192,17 @@ addEventListener("keydown", () => sfx.init(), { once: true });
 // ---------- Pętla ----------
 let last = performance.now();
 let mapHudT = 0;
+let lastErr = 0;
 function frame(now: number) {
+  try { frameInner(now); } catch (e) {
+    console.error(e);
+    // błąd nie może zatrzymać pętli gry: zgłoś i graj dalej
+    if (now - lastErr > 3000) { lastErr = now; toast("Wystąpił błąd gry (zapisany w konsoli). Gra działa dalej.", PAL.redL); }
+    try { input.endFrame(); } catch (e2) { /* nic */ }
+  }
+  requestAnimationFrame(frame);
+}
+function frameInner(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   const typing = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT");
@@ -210,6 +221,8 @@ function frame(now: number) {
     battleEndCheck(dt);
   } else if (G.state === "map" && WORLD) {
     if (input.hit("Escape")) { if (screenOpen()) { const c = SCREEN.el.className; if (!/after-scr|dialog-scr/.test(c) || /place-scr/.test(c)) closeScreen(); } else showPauseMenu(); }
+    // dialogi: odpowiedzi klawiszami 1–9
+    if (screenOpen()) for (let n = 1; n <= 9; n++) if (input.hit("Digit" + n)) { const bs = SCREEN.el.querySelectorAll("button.choice"); const bt = bs[n - 1] as HTMLButtonElement; if (bt && !bt.disabled) bt.click(); }
     if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr/.test(SCREEN.el.className)) {
       if (input.hit("KeyC")) openWin("char"); if (input.hit("KeyI")) openWin("inv"); if (input.hit("KeyP")) openWin("party");
       if (input.hit("KeyF")) openWin("fac"); if (input.hit("KeyK")) openWin("chron"); if (input.hit("KeyJ")) openWin("quest");
@@ -218,7 +231,7 @@ function frame(now: number) {
     if (!screenOpen()) mapUpdate(dt); else G.view.time += dt;
     renderWorld(WORLD, G.view, ctx);
     mapHudT -= dt;
-    if (mapHudT <= 0) { mapHudT = 0.5; if (!$("maphud").hidden) refreshMapHud(); }
+    if (mapHudT <= 0) { mapHudT = 0.5; if ($("maphud").hidden && !screenOpen() && !WORLD.player.captive) showMapHud(); else if (!$("maphud").hidden) refreshMapHud(); }
     sfx.tick(dt, 0, WORLD.rain);
   } else {
     // tło menu: mapa świata albo ciemność z popiołem
@@ -227,7 +240,6 @@ function frame(now: number) {
     sfx.tick(dt, 0, false);
   }
   input.endFrame();
-  requestAnimationFrame(frame);
 }
 
 // Tło ekranu tytułowego: płonący horyzont, sztandary i popiół.
@@ -253,4 +265,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET };

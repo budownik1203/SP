@@ -22,6 +22,7 @@
     "src/abilities.ts",
     "src/battleRender.ts",
     "src/world.ts",
+    "src/skills.ts",
     "src/worldRender.ts",
     "src/ui.ts",
     "src/campaign.ts",

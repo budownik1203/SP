@@ -220,13 +220,13 @@ function drawRain(b: Battle, g: CanvasRenderingContext2D, sx: number, sy: number
     const s = hashInt(i * 7 + 3);
     const sp = 260 + (s % 120);
     const x = ((((s % 997) * 7 - sx * 0.8 - b.real * 60) % W) + W) % W;
-    const y = ((((s >> 10) % 600) - sy * 0.8 + b.real * sp) % H + H) % H;
+    const y = ((((s >>> 10) % 600) - sy * 0.8 + b.real * sp) % H + H) % H;
     g.fillRect(Math.round(x), Math.round(y), 1, 4);
     g.fillRect(Math.round(x) - 1, Math.round(y) + 4, 1, 1);
   }
   // rozpryski
   g.fillStyle = "rgba(170,180,180,0.4)";
-  for (let i = 0; i < 20; i++) { const s = hashInt(i * 31 + Math.floor(b.real * 12)); g.fillRect(s % W, (s >> 12) % H, 1, 1); g.fillRect((s % W) + 2, (s >> 12) % H, 1, 1); }
+  for (let i = 0; i < 20; i++) { const s = hashInt(i * 31 + Math.floor(b.real * 12)); g.fillRect(s % W, (s >>> 12) % H, 1, 1); g.fillRect((s % W) + 2, (s >>> 12) % H, 1, 1); }
 }
 
 function drawCrosshair(b: Battle, g: CanvasRenderingContext2D) {
@@ -345,7 +345,7 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
   if (!u.def.undead && u.hp < u.maxHp) {   // rany na ciele
     const n = Math.floor((1 - u.hp / u.maxHp) * 8);
     g.fillStyle = PAL.blood;
-    for (let i = 0; i < n; i++) { const hs = hashInt(u.id * 13 + i); g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >> 4) % 8), 1, (hs >> 8) % 3 === 0 ? 2 : 1); }
+    for (let i = 0; i < n; i++) { const hs = hashInt(u.id * 13 + i); g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >>> 4) % 8), 1, (hs >>> 8) % 3 === 0 ? 2 : 1); }
   }
   if (u.flash > 0) { g.globalAlpha = alpha * clamp(u.flash / 0.08, 0, 1) * 0.8; draw(u.spr.white[dirI][frame]); g.globalAlpha = alpha; }
   if (u.decay || u.cursedT > 0) { g.globalAlpha = 0.22 + Math.sin(b.real * 6 + u.id) * 0.08; g.fillStyle = PAL.purple; g.fillRect(ix + 7, iy + 4, img.width - 14, srcH - 6); g.globalAlpha = alpha; }

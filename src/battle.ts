@@ -222,7 +222,7 @@ class Battle {
   cds: Record<string, number> = {};
   lastAbility = "";
   fx: AbilityFx[] = [];
-  heroDmg = 1;
+  heroDmg = 1; heroStamina = 1; heroBlockCost = 1; corruptMul = 1; fireMul = 1; furyMul = 1; heroSpeed = 1;
   light: HTMLCanvasElement | null = null;
 
   constructor(cfg: BattleConfig, public input: Input, public sfx: Sfx, public settings: Settings) {
@@ -740,7 +740,7 @@ class Battle {
       else this.ride(h, h.x + Math.cos(h.heading) * 40, h.y + Math.sin(h.heading) * 40, 0, dt);
       if (gallop && h.rspeed > 60) { h.stamina -= 10 * dt; h.staminaWait = 0.6; }
     } else {
-      let sp = h.def.speed * rite * this.slowAt(h.x, h.y);
+      let sp = h.def.speed * this.heroSpeed * rite * this.slowAt(h.x, h.y);
       const canSprint = sprint && h.stamina > 1 && (mx || my) && !h.blocking && h.state === "idle";
       if (canSprint) { sp *= 1.45; h.stamina -= 18 * dt; h.staminaWait = 0.6; }
       if (h.blocking) sp *= 0.5;
@@ -755,7 +755,7 @@ class Battle {
       h.moving = !!(mx || my);
     }
     if (h.staminaWait > 0) h.staminaWait -= dt;
-    else if (!h.blocking) h.stamina = Math.min(100, h.stamina + 20 * dt);
+    else if (!h.blocking) h.stamina = Math.min(100, h.stamina + 20 * this.heroStamina * dt);
     h.stamina = Math.max(0, h.stamina);
     if (this.heroCfg) this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
 
@@ -948,10 +948,10 @@ class Battle {
         this.sparks(hx, hy, 20, PAL.gold); this.impact(hx, hy, PAL.gold, 1.4);
         this.shout("Parowanie!");
         d.stamina = Math.min(100, d.stamina + 8);
-        if (this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12);
+        if (this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12 * this.furyMul);
         return;
       }
-      d.stamina -= 9 + w.dmg[dir] * 0.35; d.staminaWait = 0.6;
+      d.stamina -= (9 + w.dmg[dir] * 0.35) * this.heroBlockCost; d.staminaWait = 0.6;
       this.sfx.thunk(1, s.pan);
       this.sparks(hx, hy, 6, PAL.steelL); this.impact(hx, hy, PAL.wood, 0.7);
       this.push(d, a.x, a.y, 40);
@@ -1000,8 +1000,8 @@ class Battle {
       return;
     }
     if (a.bloodRiteT > 0) a.hp = Math.min(a.maxHp, a.hp + dmg * 0.25);
-    if (a.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6);
-    if (d.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8);
+    if (a.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6 * this.furyMul);
+    if (d.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8 * this.furyMul);
     this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
     if (heroInvolved) {
       const killed = d.hp <= 0;
@@ -1667,7 +1667,7 @@ class Battle {
       const z = this.units.filter((u) => u.team === 1 && u.active && !u.hidden && u.def.undead && dist(u.x, u.y, h.x, h.y) < 200);
       if (z.length) { const u = pick(z); const s = this.vol(u.x); this.sfx.moan(s.v * 0.8, s.pan); }
     }
-    this.checkEnd();
+    this.checkEnd(dt);
   }
 
   moraleCheck() {
@@ -1715,11 +1715,25 @@ class Battle {
     }
   }
 
-  checkEnd() {
-    const foes = this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length;
-    const ours = this.units.filter((u) => u.team === 0 && u.active && u.lifeT <= 0).length + this.reserves[0].length;
-    if (foes === 0) this.finish(true);
-    else if (ours === 0) this.finish(false);
+  // Koniec bitwy: liczą się tylko walczący. Ukryci dostają rozkaz ataku, uciekający nie blokują zwycięstwa.
+  mopT = 0;
+  checkEnd(dt = 0) {
+    const foes = this.units.filter((u) => u.team === 1 && u.active);
+    const foeFight = foes.filter((u) => !u.fleeing);
+    const ours = this.units.filter((u) => u.team === 0 && u.active && u.lifeT <= 0);
+    const ourFight = ours.filter((u) => !u.fleeing);
+    if (foeFight.length && !this.reserves[1].length && foeFight.every((u) => u.hidden)) for (const u of foeFight) if (u.hidden) this.reveal(u);
+    if (!foeFight.length && !this.reserves[1].length) {
+      if (!foes.length) { this.finish(true); return; }
+      this.mopT += dt; if (this.mopT > 2.5) { for (const u of foes) u.state = "fled"; this.finish(true); }
+      return;
+    }
+    if (!ourFight.length && !this.reserves[0].length) {
+      if (!ours.length) { this.finish(false); return; }
+      this.mopT += dt; if (this.mopT > 2.5) this.finish(false);
+      return;
+    }
+    this.mopT = 0;
   }
 
   // Odwrót z bitwy: gracz wycofuje się, część żołnierzy w zasięgu wroga może przepaść.
