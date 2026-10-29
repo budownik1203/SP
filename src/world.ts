@@ -570,7 +570,7 @@ const BUILDINGS: Record<string, { name: string; cost: number; days: number; desc
 function fiefIncome(w: World, s: Settlement) {
   const S = s as any, b = S.build || {};
   const base = (s.kind === "town" ? 60 : s.kind === "castle" ? 30 : 15) * (0.5 + s.prosperity / 100) * (s.raided ? 0.2 : 1);
-  const mul = 1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0);
+  const mul = 1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0) + perk(w.player, "fiefB");
   return Math.round(base * mul);
 }
 function smithItems(s: Settlement): string[] {
@@ -589,7 +589,7 @@ function partySpeed(w: World, p: Party): number {
   sp += (cav / n) * 1.6;
   sp -= (wounded / n) * 1.6;
   if (season(w) === 3) sp *= 0.85;   // zima: śnieg spowalnia
-  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12; }   // lekka przewaga gracza w pościgu
+  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12 * (1 + perk(w.player, "mapSpeed")); }   // lekka przewaga gracza w pościgu
   if (p.kind === "caravan" || p.kind === "villagers") sp *= 0.8;
   if (p.kind === "monster") sp *= 1.15;
   if (p.kind === "undead") sp *= 0.85;
@@ -600,7 +600,7 @@ function partySpeed(w: World, p: Party): number {
   if (w.blight[i] && p.faction !== 5) sp *= 0.93;
   return Math.max(0.8, sp);
 }
-function sightRadius(w: World, p?: Party) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 : 0); }
+function sightRadius(w: World, p?: Party) { const base = isNight(w) ? 7 : 13; return base + (p && p.kind === "player" ? w.player.skills.tracking * 0.8 + perk(w.player, "sightB") : 0); }
 
 // Pory roku: 30 dni każda. 0 wiosna, 1 lato, 2 jesień, 3 zima.
 function season(w: World) { return Math.floor((w.day - 1) / 30) % 4; }
@@ -922,9 +922,9 @@ function playerParty(w: World) { return partyById(w, w.pid); }
 function partyWages(w: World) {
   const p = playerParty(w);
   let s = 0;
-  for (const t of p.troops) s += (UNITS[t.type]?.wage || 1) * t.n;
+  for (const t of p.troops) s += (UNITS[t.type]?.wage || 1) * t.n * (UNITS[t.type]?.undead ? 1 - perk(w.player, "undeadWage") : 1);
   for (const c of w.player.companions) s += c.wage;
-  return s;
+  return Math.round(s * (1 - perk(w.player, "wageB")));
 }
 function partyLimit(w: World) { const P = w.player; return 20 + P.skills.leadership * 5 + Math.floor(P.attr.cha * 1.5) + Math.floor(P.renown / 25); }
 function foodTotal(w: World) { return FOOD_KEYS.reduce((s, k) => s + (w.player.goods[k] || 0), 0); }
@@ -933,13 +933,16 @@ function playerDaily(w: World) {
   if (!p || P.captive) return;
   const n = troopCount(p.troops) + 1 + P.companions.length;
   // jedzenie
-  let need = Math.ceil(n / 8);
+  let need = Math.ceil(n / 8 * (1 - Math.min(0.5, perk(P, "food"))));
   const kinds = FOOD_KEYS.filter((k) => (P.goods[k] || 0) > 0).length;
   for (const k of FOOD_KEYS) { while (need > 0 && (P.goods[k] || 0) > 0) { P.goods[k]--; need--; } }
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }
   else P.morale += kinds >= 2 ? 1.5 : 0.3;
   // rany
   companionsDaily(w);
+  // rasy w jednej armii: orkowie z krasnoludami albo żywi z nieumarłymi kiepsko się znoszą
+  const races = new Set(p.troops.map((t) => UNITS[t.type]?.culture));
+  if ((races.has("orc") && races.has("dwarf")) || (races.has("undead") && [...races].some((c) => c && c !== "undead" && c !== "merc" && c !== "bandit"))) { P.morale -= 2; if (chance(0.15)) addLogMsg("W obozie dochodzi do bójki między rasami. Morale spada.", PAL.redL); }
   // jeńcy po kilku dniach w niewoli: część gotowa przejść na twoją stronę
   const pa2 = p as any;
   if (p.prisoners.length) { pa2.prisDays = (pa2.prisDays || 0) + 1; if (pa2.prisDays >= 3) pa2.willing = Math.min(troopCount(p.prisoners), (pa2.willing || 0) + Math.ceil(troopCount(p.prisoners) * 0.2)); } else { pa2.prisDays = 0; pa2.willing = 0; }
@@ -951,12 +954,12 @@ function playerDaily(w: World) {
     else { const g = Math.round(c.gold * (1.15 + P.skills.trade * 0.03 + rr(0, 0.25))); P.gold += g; addLogMsg(`Karawana wraca z ${w.settlements[c.to].name}: ${g} denarów (zysk ${g - c.gold}).`, PAL.gold); }
   }
   const cm = p.state === "camp" ? ((P as any).campMode || "rest") : "";
-  const heal = 0.1 + P.skills.medicine * 0.03 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0);
+  const heal = 0.06 + P.skills.medicine * 0.05 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0);   // medycyna wyraźniej przyspiesza leczenie
   // obóz: trening podnosi doświadczenie (kosztem jedzenia), wartownicy chronią przed zaskoczeniem
-  if (cm === "train") { for (const t of p.troops) t.xp += (6 + P.skills.leadership * 2) * Math.max(1, t.n - t.wounded); if ((P.goods.grain || 0) > 0) P.goods.grain--; }
+  if (cm === "train") { for (const t of p.troops) t.xp += (6 + P.skills.leadership * 2) * Math.max(1, t.n - t.wounded) * (1 + perk(P, "trainB") + (P.companions.some((c) => c.role === "rycerz" || c.role === "obrońca") ? 0.3 : 0)); if ((P.goods.grain || 0) > 0) P.goods.grain--; }
   for (const t of p.troops) t.wounded = Math.max(0, t.wounded - Math.ceil(t.wounded * heal));
   const maxHp = heroMaxHp(P);
-  P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0)));
+  P.hp = Math.min(maxHp, P.hp + maxHp * (0.12 + (cm === "rest" ? 0.25 : cm ? 0.1 : 0)) * (1 + perk(P, "heal")));
   for (const c of P.companions) c.hp = Math.min(c.maxHp, c.hp + c.maxHp * 0.15);
   P.faith = Math.min(100, P.faith + (8 + P.attr.cha) * (1 + perk(P, "faith")));
   P.mana = Math.min(100, P.mana + (10 + P.attr.int * 1.5) * (1 + perk(P, "mana")));
@@ -1007,7 +1010,7 @@ function desert(w: World, frac: number) {
 }
 let addLogMsg: (t: string, c?: string) => void = () => {};
 
-function heroMaxHp(P: PlayerState) { return 70 + P.attr.str * 3 + (P.attr.end || 4) * 7 + P.skills.ironflesh * 8 + P.level * 2 + (P.race === "dwarf" ? 15 : P.race === "orc" ? 10 : 0); }
+function heroMaxHp(P: PlayerState) { return 70 + P.attr.str * 3 + (P.attr.end || 4) * 7 + P.skills.ironflesh * 8 + P.level * 2 + (P.race === "dwarf" ? 15 : P.race === "orc" ? 10 : 0) + perk(P, "maxHp"); }
 
 // ---------- Towarzysze ----------
 const COMPANIONS: { id: string; name: string; race: Race; role: string; weapon: string; shield: boolean; armor: number; bow: number; horse: boolean; hp: number; cost: number; wage: number; bio: string; helm: Helm; body: BodyMat }[] = [
@@ -1050,10 +1053,10 @@ function companionsDaily(w: World) {
   const here = P.companions.filter((c) => !((c as any).away > w.day));
   for (const c of P.companions) { const cc = c as any; if (cc.away && cc.away <= w.day) { cc.away = 0; const msg = cc.mission === "scout" ? scoutReport(w) : cc.mission === "trade" ? (() => { const g = Math.round(rr(120, 320) * (c.role === "kupcowa" ? 1.6 : 1)); P.gold += g; return `przynosi ${g} denarów z handlu`; })() : (() => { const n = 2 + Math.round(rr(0, 4)); addTroops(p.troops, RECRUITS[nearestSettlement(w, p.x, p.y).culture]?.village[0] || "a_recruit", n); return `prowadzi ${n} ochotników`; })(); addLogMsg(`${c.name} wraca z misji: ${msg}.`, PAL.gold); cc.mission = ""; } }
   for (const a of here) for (const b of here) {
-    if (a === b || !COMP_TRAITS[a.id]?.hates.includes(b.id) || !chance(0.06)) continue;
+    if (a === b || !COMP_TRAITS[a.id]?.hates.includes(b.id) || !chance(perk(P, "loyal") ? 0.02 : 0.06)) continue;
     P.morale -= 3; const ca = a as any; ca.grudge = (ca.grudge || 0) + 1;
     addLogMsg(`${a.name} kłóci się z ${b.name}. Ludzie patrzą na to krzywo.`, PAL.redL);
-    if (ca.grudge >= 4) { P.companions = P.companions.filter((x) => x !== a); addLogMsg(`${a.name} ma dość towarzystwa ${b.name} i odchodzi.`, PAL.redL); chron(w, `${a.name} opuszcza ${P.name}.`); return; }
+    if (ca.grudge >= 4 && !perk(P, "loyal")) { P.companions = P.companions.filter((x) => x !== a); addLogMsg(`${a.name} ma dość towarzystwa ${b.name} i odchodzi.`, PAL.redL); chron(w, `${a.name} opuszcza ${P.name}.`); return; }
   }
   for (const a of here) { if (here.some((b) => COMP_TRAITS[a.id]?.likes.includes(b.id)) && chance(0.04)) P.morale = Math.min(100, P.morale + 2); }
   for (const c of here) { const why = COMP_TRAITS[c.id]?.quit?.(P); if (why && chance(0.25)) { P.companions = P.companions.filter((x) => x !== c); addLogMsg(`${c.name}: „${why}” Odchodzi.`, PAL.redL); chron(w, `${c.name} opuszcza ${P.name}.`); return; } }

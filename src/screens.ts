@@ -263,7 +263,7 @@ function renderSettlement() {
     if (s.kind !== "castle") tabs.push(["market", s.kind === "village" ? "Kup żywność" : "Targ"]);
     if (s.kind === "town") { tabs.push(["smith", "Kowal"]); tabs.push(["tavern", "Karczma"]); tabs.push(["arena", s.tournament ? "Arena · turniej!" : "Arena"]); }
     if (s.kind !== "castle") tabs.push(["quest", s.kind === "village" ? "Sołtys" : "Rada miejska"]);
-    if (s.kind === "castle") { tabs.push(["throne", "Sala tronowa"]); tabs.push(["armory", "Zbrojownia"]); tabs.push(["dungeon", "Lochy"]); }
+    if (s.kind === "castle") { tabs.push(["throne", "Sala tronowa"]); tabs.push(["elite", "Elita"]); tabs.push(["armory", "Zbrojownia"]); tabs.push(["dungeon", "Lochy"]); }
     if (mine && s.kind !== "village") tabs.push(["manage", "Załoga"]);
     if (mine) tabs.push(["rule", "Zarząd"]);
     if (s.kind !== "village") tabs.push(["rest", "Odpocznij"]);
@@ -295,11 +295,11 @@ function renderSettlement() {
   }, "settle-scr");
 }
 
-const TAB_ICON: Record<string, string> = { throne: "crown", armory: "sword", dungeon: "chain", rule: "scroll", main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
+const TAB_ICON: Record<string, string> = { elite: "star", throne: "crown", armory: "sword", dungeon: "chain", rule: "scroll", main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
 function recruitPool(s: Settlement): string[] {
   const w = WORLD, P = w.player;
   const cul = s.culture;
-  if (cul === "undead" && P.race !== "undead" && P.liege !== 5) return [];
+  if (cul === "undead" && P.race !== "undead" && P.liege !== 5 && !perk(P, "undeadOk")) return [];   // nieumarli dopiero po pakcie z mrokiem
   const R = RECRUITS[cul];
   if (!R) return [];
   if (s.kind === "village") { const v = R.village.slice(); if (s.relation >= 20 || (s as any).build?.koszary) v.push(R.town[1] || R.town[0]); return [...new Set(v)]; }   // przychylna wioska daje lepszych
@@ -352,6 +352,18 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       return {
         html: `<p>Kasztelan sprzedaje to, co zostało po ostatniej kampanii. Wojskowy sprzęt, drożej niż u kowala.</p><table class="tbl">${list.map((it) => { const pr = Math.round(itemPrice(it, true, P.skills.trade) * 1.15); return `<tr><td>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)} ${cmpEquip(it)}</span></td><td>${pr}</td><td><button class="mini" data-a="buyA" data-v="${it.id}" ${P.gold >= pr ? "" : "disabled"}>Kup</button></td></tr>`; }).join("")}</table>`,
         acts: { buyA: (v) => { const it = ITEMS[v], pr = Math.round(itemPrice(it, true, P.skills.trade) * 1.15); if (P.gold < pr) return; P.gold -= pr; P.items.push(v); sfx.coin(); toast(`Kupiono: ${it.name}.`); re(); } },
+      };
+    }
+    case "elite": {
+      const ruler = w.lords.find((l) => l.ruler && l.faction === s.faction);
+      const ok = s.owner === -2 || P.liege === s.faction || (ruler && ruler.relation >= 20);
+      const wk = Math.floor(w.day / 7), key = "elite" + s.id + "_" + wk, used = (P as any)[key] || 0, left = Math.max(0, 4 - used);
+      const list = ELITE[s.culture] || [];
+      const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length);
+      const cost = (u: string) => Math.round(UNITS[u].cost * 1.6);
+      return {
+        html: `<p>Doborowi wojownicy ${factionName(s.faction)}. Służą tylko tym, którym ufa władca.</p>${ok ? `<p class="tip">Dostępnych w tym tygodniu: <b>${left}</b>.</p><div class="pgrid"><div class="ulist">${list.map((u) => `<div class="urow">${unitThumb(u)}<span class="un"><b>${UNITS[u].name}</b>${tierStars(UNITS[u].tier)}</span><span class="uc">${ic("coin")}${cost(u)}</span><button class="mini" data-a="hireE" data-v="${u}" ${left > 0 && room > 0 && P.gold >= cost(u) ? "" : "disabled"}>Werbuj</button></div>`).join("")}</div></div>` : `<p class="bad">Kasztelan kręci głową: „Elita służy tylko wasalom korony albo przyjaciołom władcy” (relacja z ${ruler ? `${ruler.title} ${ruler.name}` : "władcą"}: ${ruler?.relation ?? "?"} / 20).</p>`}`,
+        acts: { hireE: (u) => { const c = cost(u); if (P.gold < c || ((P as any)[key] || 0) >= 4) return; P.gold -= c; (P as any)[key] = ((P as any)[key] || 0) + 1; addTroops(p.troops, u, 1); sfx.coin(); re(); } },
       };
     }
     case "rule": {
@@ -421,7 +433,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const orders = (((P as any).orders || []) as { sid: number; id: string; day: number }[]);
       const ready = orders.filter((o) => o.sid === s.id && o.day <= w.day), pending = orders.filter((o) => o.sid === s.id && o.day > w.day);
       const owned = [...P.items.map((id, i) => ({ id, i, eq: false })), ...Object.entries(P.equip).filter(([, id]) => id).map(([sl, id]) => ({ id: id as string, i: -1, eq: true, sl }))];
-      const upCost = (id: string) => { const it = ITEMS[baseOf(id)]; return Math.round(it.price * (qualOf(id) === 0 ? 0.35 : 0.7)); };
+      const upCost = (id: string) => { const it = ITEMS[baseOf(id)]; return Math.round(it.price * (qualOf(id) === 0 ? 0.35 : 0.7) * (1 - perk(P, "smithB"))); };
       return {
         html: `<p>Mistrz ${smithName} ociera pot z czoła. „Kupujesz, naprawiasz, czy zamawiasz coś porządnego?”</p>
           <div class="cols"><div><h2>Na sprzedaż</h2><table class="tbl">${forSale.map((id) => { const it = ITEMS[id]; const pr = itemPrice(it, true, P.skills.trade); return `<tr><td>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span> ${cmpEquip(it)}</td><td>${pr}</td><td><button class="mini" data-a="buyI" data-v="${id}" ${P.gold >= pr ? "" : "disabled"}>Kup</button><button class="mini" data-a="order" data-v="${id}" ${P.gold >= it.price * 3 ? "" : "disabled"} title="mistrzowska robota, 5 dni">Zamów ★ ${it.price * 3}</button></td></tr>`; }).join("")}
@@ -429,10 +441,11 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
           ${P.equip.bow ? `<tr><td>Kołczan strzał<br><span class="muted">uzupełnia do 40</span></td><td>25</td><td><button class="mini" data-a="ammo" ${P.gold >= 25 ? "" : "disabled"}>Kup</button></td></tr>` : ""}</table>
           ${s.prosperity > 70 ? `<h2>${ic("star")} Arcydzieło na zamówienie</h2><p class="tip">Za 10 sztab żelaza i sporo złota ${smithName} wykuje coś, o czym śpiewają bardowie (12 dni).</p>${UNIQUES.filter((u) => !P.items.includes(u) && !Object.values(P.equip).includes(u)).slice(0, 2).map((u) => `<div class="row"><span>${itemName(ITEMS[u])} · ${itemStat(ITEMS[u])}</span><button class="mini" data-a="epic" data-v="${u}" ${P.gold >= ITEMS[u].price && (P.goods.iron || 0) >= 10 ? "" : "disabled"}>${ITEMS[u].price} + 10 żelaza</button></div>`).join("")}` : ""}
           ${ready.length || pending.length ? `<h2>Twoje zamówienia</h2>${ready.map((o) => `<div class="row"><span class="gold">Gotowe: ${ITEMS[o.id]?.name}</span><button class="mini" data-a="collect" data-v="${o.id}">Odbierz</button></div>`).join("")}${pending.map((o) => `<p class="muted">${ITEMS[o.id]?.name}: za ${o.day - w.day} dni</p>`).join("")}` : ""}</div>
-          <div><h2>Twój dobytek</h2>${owned.length ? `<table class="tbl">${owned.map((o) => { const it = ITEMS[o.id]; if (!it) return ""; const q = qualOf(o.id), canUp = q < 2 && it.tier < 5; return `<tr><td>${itemName(it)}${o.eq ? " <span class='muted'>(na tobie)</span>" : ""}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span></td><td>${canUp ? `<button class="mini" data-a="up" data-v="${o.eq ? "e:" + (o as any).sl : "i:" + o.i}" ${P.gold >= upCost(o.id) ? "" : "disabled"}>${q === 0 ? "Napraw" : "Ulepsz"} (${upCost(o.id)})</button>` : ""}${o.eq ? "" : `<button class="mini" data-a="sellI" data-v="${o.i}">Sprzedaj ${itemPrice(it, false, P.skills.trade)}</button><button class="mini" data-a="smelt" data-v="${o.i}" title="przetop na żelazo">Przetop</button>`}</td></tr>`; }).join("")}</table>` : "<p class='muted'>Nic w jukach.</p>"}<p class="tip">Zardzewiałe łupy sprzedasz taniej. Naprawa zrobi z nich zwykły sprzęt, ulepszenie: dobry. Mistrzowski tylko na zamówienie.</p></div></div>`,
+          <div><h2>Twój dobytek</h2>${owned.length ? `<table class="tbl">${owned.map((o) => { const it = ITEMS[o.id]; if (!it) return ""; const q = qualOf(o.id), canUp = q < 2 && it.tier < 5; return `<tr><td>${itemName(it)}${o.eq ? " <span class='muted'>(na tobie)</span>" : ""}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span></td><td>${canUp ? `<button class="mini" data-a="up" data-v="${o.eq ? "e:" + (o as any).sl : "i:" + o.i}" ${P.gold >= upCost(o.id) ? "" : "disabled"}>${q === 0 ? "Napraw" : "Ulepsz"} (${upCost(o.id)})</button>` : ""}${o.eq && condOf(P, (o as any).sl) < 100 ? `<button class="mini" data-a="renew" data-v="${(o as any).sl}" ${P.gold >= renewCost(o.id, condOf(P, (o as any).sl)) ? "" : "disabled"}>Odnów ${condOf(P, (o as any).sl)}% (${renewCost(o.id, condOf(P, (o as any).sl))})</button>` : ""}${o.eq ? "" : `<button class="mini" data-a="sellI" data-v="${o.i}">Sprzedaj ${itemPrice(it, false, P.skills.trade)}</button><button class="mini" data-a="smelt" data-v="${o.i}" title="przetop na żelazo">Przetop</button>`}</td></tr>`; }).join("")}</table>` : "<p class='muted'>Nic w jukach.</p>"}<p class="tip">Zardzewiałe łupy sprzedasz taniej. Naprawa zrobi z nich zwykły sprzęt, ulepszenie: dobry. Mistrzowski tylko na zamówienie.</p></div></div>`,
         acts: {
           buyI: (v) => { const it = ITEMS[v]; const pr = itemPrice(it, true, P.skills.trade); if (P.gold < pr) return; P.gold -= pr; P.items.push(v); sfx.coin(); toast(`Kupiono: ${it.name}. Załóż w oknie Ekwipunek (I).`); re(); },
           sellI: (v) => { const i = Number(v), it = ITEMS[P.items[i]]; P.gold += itemPrice(it, false, P.skills.trade); P.items.splice(i, 1); sfx.coin(); re(); },
+          renew: (v) => { const sl = v as ESlot, id = P.equip[sl]; if (!id) return; const c = renewCost(id, condOf(P, sl)); if (P.gold < c) return; P.gold -= c; ((P as any).cond ||= {})[sl] = 100; sfx.hammer(); toast(`${smithName}: jak nowe.`, PAL.gold); re(); },
           smelt: (v) => { const i = Number(v), it = ITEMS[P.items[i]]; const n = Math.max(1, it.tier); P.items.splice(i, 1); P.goods.iron = (P.goods.iron || 0) + n; sfx.hammer(); toast(`Przetopione: +${n} żelaza.`); re(); },
           up: (v) => { const [kind, k] = v.split(":"); const id = kind === "e" ? P.equip[k as ESlot] : P.items[Number(k)]; const c = upCost(id); if (P.gold < c) return; const nid = qid(baseOf(id), qualOf(id) + 1); ensureItem(nid); P.gold -= c; if (kind === "e") P.equip[k as ESlot] = nid; else P.items[Number(k)] = nid; sfx.hammer(); toast(`${smithName}: gotowe. ${ITEMS[nid].name}.`, PAL.gold); re(); },
           order: (v) => { const it = ITEMS[v]; if (P.gold < it.price * 3) return; P.gold -= it.price * 3; const nid = qid(v, 3); ensureItem(nid); ((P as any).orders ||= []).push({ sid: s.id, id: nid, day: w.day + 5 }); sfx.hammer(); toast(`Zamówiono: ${ITEMS[nid].name}. Odbiór za 5 dni.`, PAL.gold); re(); },
@@ -449,7 +462,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
       const comps = s.companions.filter((id) => !P.companions.some((c) => c.id === id));
       const captiveLords = w.lords.filter((l) => l.captive === PLAYER_FACTION && l.alive);
       const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length);
-      const prisonerValue = (t: Troop) => Math.round(18 * Math.pow(UNITS[t.type].tier, 1.6));
+      const prisonerValue = (t: Troop) => Math.round(18 * Math.pow(UNITS[t.type].tier, 1.6) * (1 + perk(P, "prisB")));
       // kompania najemna: cały oddział do wynajęcia, raz na tydzień w mieście
       const wk = Math.floor(w.day / 7), ch = hashInt(s.seed * 3 + wk);
       const company = ch % 3 !== 0 && !(P as any)["comp" + s.id + "_" + wk] ? (() => { const nm = ["Czarne Wilki", "Kompania Szarej Róży", "Synowie Burzy", "Żelazna Kompania", "Kruki z Brodów"][ch % 5]; const tr: Troop[] = [{ type: "m_sword", n: 5 + (ch % 4), wounded: 0, xp: 0 }, { type: "m_xbow", n: 3 + (ch >>> 3) % 3, wounded: 0, xp: 0 }]; const elite = pick(["a_maa", "v_veteran", "d_ironguard", "o_blackfang"].filter((k) => UNITS[k])); tr.push({ type: elite, n: 2, wounded: 0, xp: 0 }); const price = Math.round(tr.reduce((a, t) => a + UNITS[t.type].cost * t.n, 0) * 1.1); return { name: nm, troops: tr, price }; })() : null;
@@ -535,8 +548,10 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
     }
     case "manage": {
       return {
-        html: `<div class="cols"><div><h2>Twoja armia</h2>${troopTable(p.troops, "toG")}</div><div><h2>Załoga</h2>${troopTable(s.garrison, "fromG")}</div></div><p class="tip">Załoga broni murów, gdy cię nie ma. Nie płacisz za nią żołdu z sakwy, utrzymuje ją lenno.</p>`,
+        html: `<div class="cols"><div><h2>Twoja armia</h2>${troopTable(p.troops, "toG")}</div><div><h2>Załoga</h2>${troopTable(s.garrison, "fromG")}</div></div><p class="tip">Załoga broni murów, gdy cię nie ma. Nie płacisz za nią żołdu z sakwy, utrzymuje ją lenno.</p>
+          <div class="row"><button class="mini" data-a="drill">Ćwiczenia na dziedzińcu (3 dni, doświadczenie dla wszystkich)</button></div>`,
         acts: {
+          drill: () => { closeScreen(); G.waitHours = 72; G.camping = true; p.state = "camp"; pendingAfterWait = () => { for (const t of p.troops) t.xp += 25 * Math.max(1, t.n - t.wounded) * (1 + perk(P, "trainB")); toast("Trzy dni musztry. Ludzie są lepiej wyszkoleni.", PAL.gold); enterSettlement(s); }; },
           toG: (v) => { const [k, n] = v.split(":"); const t = p.troops.find((x) => x.type === k); const m = Math.min(n === "all" ? t.n - t.wounded : 1, t.n - t.wounded); if (m > 0) { removeTroops(p.troops, k, m); addTroops(s.garrison, k, m); } re(); },
           fromG: (v) => { const [k, n] = v.split(":"); const t = s.garrison.find((x) => x.type === k); const room = partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length); const m = Math.min(n === "all" ? t.n : 1, t.n, Math.max(0, room)); if (m > 0) { removeTroops(s.garrison, k, m); addTroops(p.troops, k, m); } re(); },
         },
@@ -606,6 +621,7 @@ function unitBadge(k: string) { const d = UNITS[k]; const c = d.mount ? "cav" : 
 function abilityWord(a: string) { return ({ priest: "leczy, pali nieumarłych", mage: "kule ognia", shaman: "okrzyk krwi", necro: "wskrzesza", deathtouch: "dotyk śmierci" } as any)[a] || a; }
 function itemName(it: Item) { return `<b class="t${it.tier}">${it.name}</b>`; }
 // Porównanie z tym, co masz na sobie: zielone lepiej, czerwone gorzej.
+function renewCost(id: string, cond: number) { const it = ITEMS[id]; return Math.max(5, Math.round((it?.price || 50) * (100 - cond) / 100 * 0.3 * (1 - perk(WORLD.player, "smithB")))); }
 function cmpEquip(it: Item) {
   const P = WORLD.player, cur = P.equip[it.slot] ? ITEMS[P.equip[it.slot]] : null;
   if (!cur) return `<span class="gold">nowy slot</span>`;
@@ -885,7 +901,7 @@ function enterPlace(pl: SpecialPlace) {
 // ---------- Spotkanie z oddziałem ----------
 function say2(t: string) { const e = document.getElementById("bubble"); if (e) { e.dataset.full = t; typeBubble(); } }
 // Zmiana relacji z widocznym skutkiem.
-function rel(L: Lord, d: number) { L.relation += d; if (d) toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}`, d > 0 ? PAL.moss : PAL.redL); }
+function rel(L: Lord, d: number) { if (d > 0) d = Math.round(d * (1 + perk(WORLD.player, "relB"))); L.relation += d; if (d) toast(`${d > 0 ? "+" : ""}${d} relacji: ${L.title} ${L.name}`, d > 0 ? PAL.moss : PAL.redL); }
 function meetParty(o: Party, ambushed: boolean) {
   const w = WORLD, P = w.player, p = playerParty(w);
   p.path = [];
@@ -1157,7 +1173,7 @@ function showCaptivity() {
 function passDay() { const w = WORLD; for (let i = 0; i < 24; i++) worldTick(w, 1); }
 
 // ---------- Okna postaci ----------
-const CH = { tree: "", node: "" };
+const CH = { flash: "" as string, tree: "", node: "" };
 function showCharacter() {
   const w = WORLD, P = w.player;
   const portrait = drawPortrait(heroCfgFromPlayer(P).look, PAL.gold);
@@ -1172,22 +1188,27 @@ function showCharacter() {
   const nodes = NODES.filter((n) => n.tree === CH.tree);
   const lines = nodes.flatMap((n) => n.parents.map((pid) => { const p0 = NODE(pid); const lit = P.nodes.includes(pid) && P.nodes.includes(n.id); return `<line x1="${(p0.col + 0.5) * 100}" y1="${(p0.row + 0.5) * 100}" x2="${(n.col + 0.5) * 100}" y2="${(n.row + 0.5) * 100}" class="${lit ? "lit" : ""}"/>`; })).join("")
     + nodes.filter((n) => n.excl && n.tree === CH.tree && NODE(n.excl).tree === CH.tree && n.id < n.excl).map((n) => { const m = NODE(n.excl); return `<line x1="${(n.col + 0.5) * 100 + 30}" y1="${(n.row + 0.5) * 100}" x2="${(m.col + 0.5) * 100 - 30}" y2="${(m.row + 0.5) * 100}" class="excl"/>`; }).join("");
-  const nodeHtml = nodes.map((n) => { const st = nodeState(P, n); return `<button class="node ${st} ${CH.node === n.id ? "sel" : ""}" style="left:${((n.col + 0.5) / 3) * 100}%;top:${((n.row + 0.5) / 4) * 100}%" data-a="node" data-v="${n.id}" title="${esc(n.name)}">${ic(n.icon, "big")}<span>${n.name}</span>${n.ability ? `<i class="abmark">umiejętność</i>` : ""}</button>`; }).join("");
+  const nodeHtml = nodes.map((n) => { const st = nodeState(P, n); return `<button class="node ${st} ${CH.node === n.id ? "sel" : ""} ${CH.flash === n.id ? "flash" : ""}" style="left:${((n.col + 0.5) / 3) * 100}%;top:${((n.row + 0.5) / 7) * 100}%" data-a="node" data-v="${n.id}" title="${esc(n.name)}: ${esc(n.desc)} (${esc(nodeWhy(P, n))})">${ic(n.icon, "big")}<span>${n.name}</span>${n.ability ? `<i class="abmark">umiejętność</i>` : n.excl ? `<i class="exmark">wyklucza</i>` : ""}</button>`; }).join("");
+  CH.flash = "";
   const sel = CH.node ? NODE(CH.node) : null;
   const selHtml = sel ? (() => { const st = nodeState(P, sel); const A = sel.ability ? ABILITIES[sel.ability] : null; return `<div class="ninfo"><h2>${sel.name}</h2><p>${sel.desc}</p>${A ? `<p class="tip"><b>${A.name}:</b> ${A.desc} (${RES_NAME[A.res]} ${A.cost}, odnowienie ${A.cd} s${A.corrupt ? `, spaczenie +${A.corrupt}` : ""})</p>` : ""}<p class="${st === "open" ? "gold" : st === "have" ? "muted" : "bad"}">${nodeWhy(P, sel)}</p>${st === "open" ? `<button data-a="unlock" data-v="${sel.id}" ${P.skillPts > 0 ? "" : "disabled"}>Odblokuj (1 punkt)</button>` : ""}</div>`; })() : `<div class="ninfo"><p class="tip">${tree.desc}${tree.excl ? "" : ""} Kliknij węzeł, by zobaczyć szczegóły.</p></div>`;
   showScr(`<div class="card frame wide char">
     <div class="char-grid">
       <div class="char-left">
-        <div class="char-top">${pic(portrait, "portrait big")}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp}`)}</div></div>
+        <div class="char-top">${pic(portrait, "portrait big" + (P.corruption >= 40 ? " corrupt" : ""))}<div><h1>${esc(P.name)}</h1><p class="muted">${RACES[P.race].name} · ${O.name} · poziom ${P.level}</p>${barHtml(P.xp - prevXp, nextXp - prevXp, "xp", `${P.xp}/${nextXp}`)}</div></div>
         <p class="tip">Zdrowie ${Math.round(P.hp)}/${heroMaxHp(P)} · sława ${P.renown} · honor ${P.honor} · zabici ${P.kills}<br>Wiara ${Math.round(P.faith)} · mana ${Math.round(P.mana)} · <span class="${P.corruption > 50 ? "bad" : ""}">spaczenie ${Math.round(P.corruption)}</span></p>
+        <div class="traits">${heroTraits(P).map((t) => `<span class="trait ${t.bad ? "bad" : ""}" title="${esc(t.desc)}">${ic(t.icon)} ${t.name}</span>`).join("")}</div>
+        <details class="stats"><summary>${ic("scroll")} Pełne statystyki</summary>${heroStatsHtml(P)}</details>
+        <details class="stats"><summary>${ic("crown")} Sława i honor: progi</summary>${thresholdsHtml(P)}</details>
         <h2>Atrybuty ${P.attrPts ? `<span class="gold">+${P.attrPts}</span>` : ""}</h2>${attrs}
         <h2>Umiejętności aktywne</h2>${slots}
         ${learned ? `<div class="learned">${learned}</div>` : ""}
+        <div class="row"><button class="mini" data-a="respec" ${nearTown() && P.nodes.length > 1 && P.gold >= respecCost(P) ? "" : "disabled"} title="u mnicha lub maga w mieście">Zmień drzewka (${respecCost(P)} den., tylko w mieście)</button></div>
       </div>
       <div class="char-right">
         <div class="ttabs">${tabs}</div>
         <div class="thead"><b>${tree.name}</b> <span class="muted">(${ATTR_INFO[tree.attr].name})</span> ${treeExcluded(P, tree) ? `<span class="bad">zablokowane: wybrałeś ${STREES.find((t) => t.id === tree.excl).name}</span>` : tree.excl ? `<span class="muted">wyklucza: ${STREES.find((t) => t.id === tree.excl).name}</span>` : ""}<span class="pts">Punkty: <b class="gold">${P.skillPts}</b></span></div>
-        <div class="tview"><svg viewBox="0 0 300 400" preserveAspectRatio="none">${lines}</svg>${nodeHtml}</div>
+        <div class="tview t7"><svg viewBox="0 0 300 700" preserveAspectRatio="none">${lines}</svg>${nodeHtml}</div>
         ${selHtml}
       </div>
     </div>
@@ -1195,38 +1216,85 @@ function showCharacter() {
     attr: (k) => { if (P.attrPts <= 0) return; P.attr[k]++; P.attrPts--; P.hp = Math.min(heroMaxHp(P), P.hp + (k === "end" ? 7 : k === "str" ? 3 : 0)); showCharacter(); },
     tree: (v) => { CH.tree = v; CH.node = ""; showCharacter(); },
     node: (v) => { CH.node = v; showCharacter(); },
-    unlock: (v) => { const n = NODE(v); if (unlockNode(P, n)) { sfx.drum(0.8); toast(`Odblokowano: ${n.name}${n.ability ? ` (umiejętność: ${ABILITIES[n.ability].name})` : ""}`, PAL.gold); } showCharacter(); },
+    respec: () => { if (!nearTown() || P.gold < respecCost(P)) return; P.gold -= respecCost(P); const n = respecNodes(P); toast(`Mnich mruczy modlitwy nad tobą. Odzyskujesz ${n} punktów drzewek.`, PAL.gold); chron(w, `${P.name} zmienia swą ścieżkę.`); showCharacter(); },
+    unlock: (v) => { const n = NODE(v); if (unlockNode(P, n)) { CH.flash = n.id; sfx.drum(0.8); sfx.bell?.(); toast(`Odblokowano: ${n.name}${n.ability ? ` (umiejętność: ${ABILITIES[n.ability].name})` : ""}`, PAL.gold); } showCharacter(); },
     slot: (v) => { const [a, i] = v.split(":"); const idx = Number(i); const prev = P.abilities.indexOf(a); if (prev >= 0) P.abilities[prev] = P.abilities[idx] || ""; P.abilities[idx] = a; showCharacter(); },
     close: () => closeScreen(),
   }, "char-scr");
 }
 
 const SLOT_IC: Record<ESlot, string> = { head: "crown", body: "shield", hands: "hammer", feet: "wind", weapon: "sword", shield: "shield", bow: "bow", horse: "horse" };
+const INV = { dir: 0, filter: "all", sort: "tier", who: "hero" };
 function showInventory() {
   const w = WORLD, P = w.player;
   const H2 = heroCfgFromPlayer(P);
-  const portrait = drawPortrait(H2.look, PAL.gold);
-  const spr = spritesFor(H2.look, "inv:" + JSON.stringify(P.equip)).frames[0][0];
+  const comp = INV.who === "hero" ? null : P.companions.find((c) => c.id === INV.who) || null;
+  if (!comp) INV.who = "hero";
+  const look = comp ? comp.look : H2.look;
+  const portrait = drawPortrait(look, comp ? PAL.bone : PAL.gold);
+  const frames = spritesFor(look, (comp ? "invc:" + comp.id + JSON.stringify((comp as any).equip || {}) : "inv:" + JSON.stringify(P.equip)) + look.helm + look.body).frames;
+  const spr = frames[[0, 2, 1, 2][INV.dir % 4]][0];
+  const flip = INV.dir % 4 === 3;
   const slots: ESlot[] = ["head", "body", "hands", "feet", "weapon", "shield", "bow", "horse"];
+  const pos: Record<string, [number, number]> = { head: [50, 2], body: [18, 50], hands: [18, 72], feet: [50, 84], weapon: [18, 6], shield: [82, 28], bow: [82, 50], horse: [82, 72], weapon2: [18, 28] };
+  const cequip = comp ? ((comp as any).equip ||= {}) as Record<string, string> : null;
+  const cur = (s2: string) => comp ? cequip[s2] || null : s2 === "weapon2" ? (P as any).weapon2 || null : P.equip[s2 as ESlot];
+  const slotHtml = [...slots, ...(comp ? [] : ["weapon2"])].map((s2) => { const id = cur(s2); const it = id ? ensureItem(id) : null; const c = !comp && s2 !== "weapon2" ? condOf(P, s2 as ESlot) : 100; return `<div class="pslot ${it ? "full" : ""}" style="left:${pos[s2][0]}%;top:${pos[s2][1]}%" data-drop="on" draggable="${it ? "true" : "false"}" data-drag="off:${s2}" title="${it ? esc(`${it.name} · ${itemStat(it)}${itemWeight(it) ? ` · waga ${itemWeight(it)}` : ""}`) : ""}">${ic(SLOT_IC[s2 === "weapon2" ? "weapon" : s2 as ESlot])}<small>${s2 === "weapon2" ? "Druga broń" : SLOT_NAME[s2 as ESlot]}</small>${it ? `<b class="t${it.tier}">${it.name}</b>${c < 100 ? `<i class="cond ${c < 50 ? "bad" : ""}">${c}%</i>` : ""}<button class="mini" data-a="off" data-v="${s2}">×</button>` : "<span class='muted'>—</span>"}</div>`; }).join("");
+  let bag = P.items.map((id, i) => ({ id, i, it: ensureItem(id) })).filter((x) => x.it && (INV.filter === "all" || (INV.filter === "armor" ? ["head", "body", "hands", "feet"].includes(x.it.slot) : INV.filter === "weapon" ? ["weapon", "shield", "bow"].includes(x.it.slot) : x.it.slot === INV.filter)));
+  bag = bag.sort((a, b2) => INV.sort === "price" ? b2.it.price - a.it.price : INV.sort === "slot" ? a.it.slot.localeCompare(b2.it.slot) : b2.it.tier - a.it.tier);
+  const wpen = weightPenalty(P);
+  const hs = horseInfo(P);
+  const who = [["hero", P.name], ...P.companions.map((c) => [c.id, c.name.split(" ")[0]])].map(([k, n]) => `<button class="mini ${INV.who === k ? "on" : ""}" data-a="who" data-v="${k}">${esc(n)}</button>`).join("");
   showScr(`<div class="card frame wide">
-    <h1>Ekwipunek</h1>
-    <div class="inv">
-      <div class="doll">${pic(portrait, "portrait big")}${pic(spr, "sprite", 4)}
-        <p class="tip">Pancerz: ${Math.round(H2.armor * 100)} · Broń: ${WEAPONS[H2.weapon].name}${H2.bowDmg ? ` · Łuk ${H2.bowDmg}` : ""}${H2.mount ? ` · Koń ${Math.round(H2.mount.speed)}` : ""}</p></div>
-      <div class="slots">${slots.map((s) => { const id = P.equip[s]; const it = id ? ITEMS[id] : null; return `<div class="slot"><span class="muted">${ic(SLOT_IC[s])} ${SLOT_NAME[s]}</span><span>${it ? `${itemName(it)} <span class="muted">${itemStat(it)}</span>` : "<span class='muted'>—</span>"}</span>${it ? `<button class="mini" data-a="off" data-v="${s}">Zdejmij</button>` : ""}</div>`; }).join("")}</div>
-      <div class="bag"><h2>Juki</h2>${P.items.length ? P.items.map((id, i) => { const it = ITEMS[id]; return `<div class="slot"><span>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}</span></span><button class="mini" data-a="on" data-v="${i}">Załóż</button></div>`; }).join("") : "<p class='muted'>Puste.</p>"}
+    <h1>Ekwipunek</h1><div class="row">${who}</div>
+    <div class="inv2">
+      <div class="doll2">
+        <div class="pdoll">${slotHtml}<div class="pfig ${flip ? "flip" : ""}">${pic(spr, "sprite", 5)}</div></div>
+        <div class="row"><button class="mini" data-a="rot">↻ Obróć</button>${pic(portrait, "portrait")}</div>
+        ${comp ? `<p class="tip">${comp.name}: pancerz ${Math.round(comp.armor * 100)} · ${WEAPONS[comp.weapon]?.name || comp.weapon}${comp.bow ? ` · łuk ${comp.bow}` : ""}</p>` : `<p class="tip">Pancerz ${Math.round(H2.armor * 100)} · ${WEAPONS[H2.weapon].name}${H2.bowDmg ? ` · ${H2.xbow ? "kusza" : "łuk"} ${H2.bowDmg}` : ""}${H2.mount ? ` · koń ${Math.round(H2.mount.speed)}` : ""}</p>
+        <div class="wbar ${wpen > 0 ? "over" : ""}"><i style="width:${clamp(equipWeight(P) / Math.max(1, carryCap(P)) * 100, 0, 100)}%"></i><span>Waga ${equipWeight(P).toFixed(1)} / ${carryCap(P).toFixed(1)}${wpen > 0 ? " · przeciążenie: wolniej, krótszy oddech" : ""}</span></div>
+        ${hs ? `<p class="tip">${ic("horse")} Koń: <b>${hs.name}</b> · ${HORSE_TRAITS[hs.trait].name} · doświadczenie ${hs.xp} (poz. ${Math.min(5, Math.floor(hs.xp / 50))})</p>` : ""}`}
+      </div>
+      <div class="bag2" data-drop="off"><h2>Juki</h2>
+        <div class="row">${[["all", "Wszystko"], ["weapon", "Broń"], ["armor", "Zbroja"], ["horse", "Konie"]].map(([k, n]) => `<button class="mini ${INV.filter === k ? "on" : ""}" data-a="filt" data-v="${k}">${n}</button>`).join("")}<span class="muted">sortuj:</span>${[["tier", "jakość"], ["price", "cena"], ["slot", "rodzaj"]].map(([k, n]) => `<button class="mini ${INV.sort === k ? "on" : ""}" data-a="sort" data-v="${k}">${n}</button>`).join("")}</div>
+        ${bag.length ? bag.map(({ id, i, it }) => { const req = itemReq(it); const cmp = comp ? "" : cmpEquip(it); return `<div class="slot" draggable="true" data-drag="on:${i}">${ic(SLOT_IC[it.slot])}<span>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)}${itemWeight(it) ? ` · waga ${itemWeight(it)}` : ""}${req ? ` · <span class="${P.attr.str >= req ? "" : "bad"}">siła ${req}</span>` : ""}</span> ${cmp}</span><span><button class="mini" data-a="on" data-v="${i}">Załóż</button>${!comp && it.slot === "weapon" ? `<button class="mini" data-a="on2" data-v="${i}" title="druga broń: Tab w bitwie">2.</button>` : ""}</span></div>`; }).join("") : "<p class='muted'>Puste.</p>"}
         <h2>Towary</h2>${GOOD_KEYS.filter((k) => P.goods[k]).map((k) => `<div class="row"><span>${GOODS[k].name}</span><span>${P.goods[k]}</span></div>`).join("") || "<p class='muted'>Brak.</p>"}
-        <p>Opatrunki: ${P.bandages}${P.equip.bow ? ` · Strzały: ${P.ammo}` : ""}</p></div>
+        <p>Opatrunki: ${P.bandages}${P.equip.bow ? ` · Strzały: ${P.ammo}` : ""}</p>
+        <p class="tip">Przeciągaj przedmioty między jukami a postacią. Druga broń przełączana w bitwie klawiszem Tab.</p></div>
     </div>
     <div class="btns"><button data-a="close">Zamknij (I)</button></div></div>`, {
-    off: (s) => { const id = P.equip[s as ESlot]; if (!id) return; P.items.push(id); P.equip[s as ESlot] = null; showInventory(); },
-    on: (v) => { const i = Number(v), id = P.items[i], it = ITEMS[id]; if (it.slot === "horse" && P.skills.riding < it.tier - 1) { toast(`Za słaba jazda konna (potrzeba ${it.tier - 1}).`, PAL.redL); return; } const prev = P.equip[it.slot]; P.equip[it.slot] = id; P.items.splice(i, 1); if (prev) P.items.push(prev); if (it.slot === "weapon" && WEAPONS[it.weapon].twoHanded && P.equip.shield) { P.items.push(P.equip.shield); P.equip.shield = null; } if (it.slot === "shield" && P.equip.weapon && WEAPONS[ITEMS[P.equip.weapon].weapon].twoHanded) { toast("Broń dwuręczna: tarcza zostaje w jukach.", PAL.ash); P.items.push(id); P.equip.shield = null; } showInventory(); },
+    who: (v) => { INV.who = v; showInventory(); },
+    rot: () => { INV.dir++; showInventory(); },
+    filt: (v) => { INV.filter = v; showInventory(); },
+    sort: (v) => { INV.sort = v; showInventory(); },
+    off: (v) => { const s2 = v.split(":")[0]; if (comp) { const id = cequip[s2]; if (!id) return; P.items.push(id); delete cequip[s2]; refreshCompGear(comp); showInventory(); return; } if (s2 === "weapon2") { if ((P as any).weapon2) { P.items.push((P as any).weapon2); (P as any).weapon2 = null; } showInventory(); return; } const id = P.equip[s2 as ESlot]; if (!id) return; P.items.push(id); P.equip[s2 as ESlot] = null; showInventory(); },
+    on2: (v) => { const i = Number(v.split(":")[0]), id = P.items[i], it = ITEMS[id]; if (!it || it.slot !== "weapon") return; if (P.attr.str < itemReq(it)) { toast(`Za słaby: potrzeba siły ${itemReq(it)}.`, PAL.redL); return; } P.items.splice(i, 1); if ((P as any).weapon2) P.items.push((P as any).weapon2); (P as any).weapon2 = id; showInventory(); },
+    on: (v) => {
+      const i = Number(v.split(":")[0]), id = P.items[i], it = ITEMS[id]; if (!it) return;
+      if (comp) { if (!["weapon", "shield", "body", "head", "bow"].includes(it.slot)) { toast("Kompan tego nie założy.", PAL.ash); return; } const prev = cequip[it.slot]; cequip[it.slot] = id; P.items.splice(i, 1); if (prev) P.items.push(prev); refreshCompGear(comp); showInventory(); return; }
+      if (it.slot === "horse" && P.skills.riding < it.tier - 1) { toast(`Za słaba jazda konna (potrzeba ${it.tier - 1}).`, PAL.redL); return; }
+      if (P.attr.str < itemReq(it)) { toast(`Za słaby na ${it.name}: potrzeba siły ${itemReq(it)}.`, PAL.redL); return; }
+      const prev = P.equip[it.slot]; P.equip[it.slot] = id; P.items.splice(i, 1); if (prev) P.items.push(prev);
+      ((P as any).cond ||= {})[it.slot] = qualOf(id) === 0 ? 70 : 100;
+      if (it.slot === "weapon" && WEAPONS[it.weapon].twoHanded && P.equip.shield) { P.items.push(P.equip.shield); P.equip.shield = null; }
+      if (it.slot === "shield" && P.equip.weapon && WEAPONS[ITEMS[P.equip.weapon].weapon].twoHanded) { toast("Broń dwuręczna: tarcza zostaje w jukach.", PAL.ash); P.items.push(id); P.equip.shield = null; }
+      sfx.page?.(); showInventory();
+    },
     close: () => closeScreen(),
   }, "inv-scr");
 }
+// Kompan: przelicz broń, tarczę, pancerz i wygląd z jego przedmiotów.
+function refreshCompGear(c: CompanionState) {
+  const e = ((c as any).equip || {}) as Record<string, string>, base = COMPANIONS.find((x) => x.id === c.id);
+  const wp = e.weapon ? ITEMS[e.weapon] : null, sh = e.shield ? ITEMS[e.shield] : null, bd = e.body ? ITEMS[e.body] : null, hd = e.head ? ITEMS[e.head] : null, bw = e.bow ? ITEMS[e.bow] : null;
+  c.weapon = wp?.weapon || base.weapon; c.shield = sh ? true : wp && WEAPONS[wp.weapon]?.twoHanded ? false : base.shield;
+  c.armor = Math.min(0.6, (bd || hd) ? (bd?.armor || 0.06) + (hd?.armor || 0.02) + 0.04 : base.armor);
+  c.bow = bw?.bowDmg || base.bow;
+  c.look = { ...c.look, body: bd?.body || base.body, helm: hd?.helm || base.helm };
+}
 
-const PS = { sel: "", tab: "troops" };
-function upCost(from: string, to: string) { return Math.max(10, Math.round((UNITS[to].cost - UNITS[from].cost) * 0.5)); }
+const PS = { sel: "", tab: "troops", view: "list" };
+function upCost(from: string, to: string) { return Math.max(15, Math.round((UNITS[to].cost - UNITS[from].cost) * 0.85 * (1 - perk(WORLD.player, "upB")) + UNITS[to].tier * 8)); }   // awans droższy niż dawniej
 function showParty() {
   const w = WORLD, P = w.player, p = playerParty(w);
   const list = p.troops.slice().sort((a, b) => UNITS[b.type].tier - UNITS[a.type].tier);
@@ -1247,20 +1315,23 @@ function showParty() {
         ${d.up && d.up.length ? barHtml(t.xp % need, need, "xp", `doświadczenie ${t.xp % need}/${need}`) : "<p class='muted'>Najwyższy stopień.</p>"}</div></div>
       ${unitStats(t.type)}
       ${ups ? `<h2>Awans ${ready ? `<span class="gold">(${ready} gotowych)</span>` : ""}</h2><div class="ups">${ups}</div>` : ""}
-      <h2>Drzewko jednostki</h2>${unitTreeHtml(t.type, "sel")}
+      <h2>Oddział w bitwie</h2><div class="row">${[0, 1, 2, 3, 4, 5, 6, 7, 8].map((q) => `<button class="mini ${(((P as any).squadOf || {})[t.type] || 0) === q ? "on" : ""}" data-a="sqT" data-v="${t.type}:${q}">${q ? q : "auto"}</button>`).join("")}</div>
+      <h2>Drzewko jednostki</h2>${unitTreeHtml(t.type, "sel", (k) => { const from = Object.keys(UNITS).find((x) => UNITS[x].up?.includes(k)); return from ? `<i class="tcost">${ic("coin")}${upCost(from, k)}</i>` : ""; })}
       <button class="mini danger" data-a="dismiss" data-v="${t.type}">Zwolnij jednego</button>
     </div>`;
   }
   const tabs = [["troops", "Oddziały"], ["comp", `Kompani (${P.companions.length}/${companionMax(P)})`], ["pris", `Jeńcy (${troopCount(p.prisoners)})`]].map(([k, n]) => `<button class="tab ${PS.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("");
   let body = "";
-  if (PS.tab === "troops") body = `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`;
+  if (PS.tab === "troops") body = `<div class="row"><button class="mini ${PS.view !== "form" ? "on" : ""}" data-a="view" data-v="list">Lista</button><button class="mini ${PS.view === "form" ? "on" : ""}" data-a="view" data-v="form">Szyk</button></div>${moraleFactors()}` + (PS.view === "form" ? armyFormation() : `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`);
   else if (PS.tab === "comp") body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>${(c as any).away > w.day ? `<p class="gold">Na misji (${{ scout: "zwiad", trade: "handel", recruit: "werbunek" }[(c as any).mission] || "misja"}), wróci za ${(c as any).away - w.day} dni.</p>` : `Dowodzi: ${[1, 2, 3, 4, 5].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")}<br>Wyślij: <button class="mini" data-a="mis" data-v="${c.id}:scout">Zwiad (3 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:trade">Handel (5 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:recruit">Werbunek (4 dni)</button>`} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button>${COMP_TRAITS[c.id] ? `<p class="tip">Lubi: ${COMP_TRAITS[c.id].likes.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo szczególnie"} · nie znosi: ${COMP_TRAITS[c.id].hates.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo"}</p>` : ""}</div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
-  else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button>${(p as any).willing > 0 ? `<button class="mini" data-a="recP">Zwerbuj chętnych (${(p as any).willing})</button>` : `<span class="muted"> po 3 dniach w niewoli część jeńców zechce ci służyć</span>`}<p class="tip">Sprzedasz ich handlarzowi okupu w karczmie. Czasem sami przechodzą na twoją stronę.</p>` : "<p class='muted'>Nie masz jeńców.</p>";
+  else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button>${(p as any).willing > 0 ? `<button class="mini" data-a="recP">Zwerbuj chętnych (${(p as any).willing})</button>` : `<span class="muted"> po 3 dniach w niewoli część jeńców zechce ci służyć</span>`}<table class="tbl">${p.prisoners.map((t2) => `<tr><td>${t2.n}× ${UNITS[t2.type].name}</td><td>${ic("coin")} ${Math.round(18 * Math.pow(UNITS[t2.type].tier, 1.6) * (1 + perk(P, "prisB")))}/szt. u handlarza</td></tr>`).join("")}</table><p class="tip">Sprzedasz ich handlarzowi okupu w karczmie albo w zamku. Czasem sami przechodzą na twoją stronę.</p>` : "<p class='muted'>Nie masz jeńców.</p>";
   showScr(`<div class="card frame wide party">
     <div class="phead"><h1>Armia</h1><span>${ic("man")} ${troopCount(p.troops) + 1 + P.companions.length}/${partyLimit(w)}</span><span>${ic("coin")} żołd ${partyWages(w)}/dzień</span><span>${ic("heart")} morale ${Math.round(P.morale)}</span><span>${ic("horse")} szybkość ${partySpeed(w, p).toFixed(1)}</span></div>
     <div class="s-tabs">${tabs}</div>${body}
     <div class="btns"><button data-a="close">Zamknij (P)</button></div></div>`, {
     tab: (v) => { PS.tab = v; showParty(); },
+    view: (v) => { PS.view = v; showParty(); },
+    sqT: (v) => { const [k, q] = v.split(":"); ((P as any).squadOf ||= {})[k] = Number(q) || 0; showParty(); },
     sel: (v) => { if (p.troops.some((x) => x.type === v)) PS.sel = v; showParty(); },
     up: (v) => { const [from, to, n] = v.split(":"); const d = UNITS[from], tr = p.troops.find((x) => x.type === from); if (!tr) return; const need = d.xp || 100 * d.tier, c = upCost(from, to); let k = n === "all" ? 999 : 1, done = 0; while (k-- > 0 && tr.xp >= need && P.gold >= c && tr.n - tr.wounded > 0) { P.gold -= c; tr.xp -= need; removeTroops(p.troops, from, 1); addTroops(p.troops, to, 1); done++; if (!p.troops.includes(tr)) break; } if (done) { sfx.coin(); toast(`${done}× ${d.name} → ${UNITS[to].name}`, PAL.gold); PS.sel = to; } showParty(); },
     dismiss: (k) => { removeTroops(p.troops, k, 1); showParty(); },
@@ -1500,4 +1571,78 @@ function offerLordQuest(L: Lord, trust = false): Quest | null {
   if (!b) return null;
   b.quest = id;
   return { id, kind: "bandits", giver: home.id, giverLord: L.id, target: b.id, amount: 0, reward: 300 + troopCount(b.troops) * 18, days: 15, text: `Wytęp bandę „${b.name}”, która nęka ziemie ${L.name}.`, done: false, item: chance(0.4) ? qid(pick(baseItems().filter((it) => it.tier === 3 && it.slot !== "horse")).id, 2) : undefined };
+}
+
+// Cechy zdobywane czynami (opis i drobne skutki w innych miejscach gry).
+function heroTraits(P: PlayerState) {
+  const t: { name: string; desc: string; icon: string; bad?: boolean }[] = [];
+  if (P.honor >= 20) t.push({ name: "Honorowy", desc: "Honorowi lordowie i kompani ufają ci bardziej.", icon: "cross" });
+  if (P.honor <= -20) t.push({ name: "Okrutny", desc: "Bandyci się ciebie boją, honorowi się odwracają.", icon: "skull", bad: true });
+  if (P.kills >= 200) t.push({ name: "Rzeźnik", desc: "Ponad 200 zabitych własną ręką.", icon: "drop" });
+  else if (P.kills >= 50) t.push({ name: "Weteran", desc: "Ponad 50 zabitych własną ręką.", icon: "sword" });
+  if (P.renown >= 500) t.push({ name: "Sławny", desc: "Twoje imię znają w każdej karczmie.", icon: "star" });
+  if (P.corruption >= 60) t.push({ name: "Spaczony", desc: "Mrok cię toczy. Kapłanka może odejść.", icon: "eye", bad: true });
+  if ((P as any).spouse) t.push({ name: "Żonaty", desc: `Małżeństwo: ${(P as any).spouse}.`, icon: "heart" });
+  if (P.status === "król") t.push({ name: "Władca", desc: `Panujesz: ${P.kingdom}.`, icon: "crown" });
+  if (WORLD.chronicle.filter((c) => c.text.includes(P.name) && c.text.includes("turniej")).length) t.push({ name: "Zwycięzca turnieju", desc: "Wygrałeś turniej.", icon: "banner" });
+  if (WORLD.chronicle.some((c) => c.text.includes(P.name) && c.text.includes("pali"))) t.push({ name: "Podpalacz", desc: "Paliłeś osady.", icon: "fire", bad: true });
+  return t;
+}
+function heroStatsHtml(P: PlayerState) {
+  const H = heroCfgFromPlayer(P), wpn = WEAPONS[H.weapon];
+  const dmg = (1 + P.attr.str * 0.02 + P.skills.powerstrike * 0.06) * (1 + perk(P, "meleeDmg"));
+  const rows: [string, string][] = [
+    ["Zdrowie", `${heroMaxHp(P)}`], ["Pancerz", `${Math.round(H.armor * 100)}`], ["Obrażenia wręcz", `×${dmg.toFixed(2)} (${wpn.name}: ${wpn.dmg.L}/${wpn.dmg.O}/${wpn.dmg.T})`],
+    ["Szybkość w bitwie", `×${((1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.7, 1 - weightPenalty(P) * 0.012)).toFixed(2)}`],
+    ["Odnowa wytrzymałości", `×${((1 + (P.attr.end - 4) * 0.04 + perk(P, "stamina")) * Math.max(0.6, 1 - weightPenalty(P) * 0.015)).toFixed(2)}`],
+    ["Waga / udźwig", `${equipWeight(P).toFixed(1)} / ${carryCap(P).toFixed(1)}${weightPenalty(P) > 0 ? " (przeciążenie)" : ""}`],
+    ["Koszt bloku", `×${(1 + perk(P, "blockCost")).toFixed(2)}`], ["Okno idealnego bloku", `${Math.round((0.2 + perk(P, "parry")) * 1000)} ms`],
+    ["Łuk / kusza", H.bowDmg ? `${H.bowDmg} obr., ${H.ammo} pocisków` : "brak"], ["Koń", H.mount ? `szybkość ${Math.round(H.mount.speed)}, zdrowie ${H.mount.hp}` : "brak"],
+    ["Wielkość armii", `${partyLimit(WORLD)}`], ["Kompani", `${P.companions.length}/${companionMax(P)}`], ["Zasięg wzroku", `${Math.round(sightRadius(WORLD, playerParty(WORLD)))} pól`],
+    ["Żołd dzienny", `${partyWages(WORLD)}`], ["Handel", `${P.skills.trade}`], ["Medycyna", `${P.skills.medicine}`], ["Taktyka", `${P.skills.tactics}`], ["Tropienie", `${P.skills.tracking}`],
+  ];
+  return `<table class="tbl">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
+}
+function thresholdsHtml(P: PlayerState) {
+  const rows: [number, string, number][] = [[120, "sława: lordowie przyjmą przysięgę wasalną", P.renown], [250, "sława: małżeństwo z rodem lorda", P.renown], [500, "sława: cecha Sławny, bardowie śpiewają", P.renown], [20, "honor: cecha Honorowy", P.honor], [-10, "honor poniżej: Ilse odchodzi", P.honor], [-15, "honor poniżej: Teodor odchodzi", P.honor], [-20, "honor poniżej: cecha Okrutny", P.honor]];
+  return `<table class="tbl">${rows.map(([v, d, cur]) => `<tr><td class="${(v >= 0 ? cur >= v : cur <= v) ? "gold" : "muted"}">${v}</td><td>${d}</td></tr>`).join("")}</table>`;
+}
+function nearTown() { const w = WORLD, p = playerParty(w); return w.settlements.some((s) => s.kind === "town" && dist(p.x, p.y, s.cx * WCELL + 4, s.cy * WCELL + 4) < 20); }
+function respecCost(P: PlayerState) { return 300 + P.level * 80; }
+// Cofnięcie drzewek: zostaje tylko węzeł z pochodzenia, reszta punktów wraca.
+function respecNodes(P: PlayerState) {
+  const keep = ORIGINS[P.origin]?.node;
+  const gone = P.nodes.filter((id) => id !== keep);
+  for (const id of gone) { const n = NODE(id); if (!n) continue; if (n.skills) for (const k in n.skills) P.skills[k] = Math.max(0, (P.skills[k] || 0) - n.skills[k]); if (n.perks) for (const k in n.perks) P.perks[k] = (P.perks[k] || 0) - n.perks[k]; if (n.ability) { P.learned = P.learned.filter((a) => a !== n.ability || NODES.some((m) => m.ability === a && m.id === keep)); P.abilities = P.abilities.map((a) => P.learned.includes(a) ? a : ""); } if (n.smite2) P.abLevels.smite = 1; }
+  P.nodes = keep ? [keep] : [];
+  P.skillPts += gone.length;
+  P.hp = Math.min(P.hp, heroMaxHp(P));
+  return gone.length;
+}
+
+// Co wpływa na morale armii (do pokazania w oknie armii).
+function moraleFactors() {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  const kinds = FOOD_KEYS.filter((k) => (P.goods[k] || 0) > 0).length;
+  const races = new Set(p.troops.map((t) => UNITS[t.type]?.culture));
+  const f: [string, string, boolean][] = [
+    ["Jedzenie", kinds === 0 ? "brak jedzenia!" : kinds >= 2 ? `${kinds} rodzaje: +` : "jeden rodzaj", kinds >= 2],
+    ["Żołd", P.gold >= partyWages(w) * 3 ? "płacony na czas" : "skarbiec pustoszeje", P.gold >= partyWages(w) * 3],
+    ["Przywództwo", `+${P.skills.leadership * 2} na start bitwy`, true],
+    ["Zwycięstwa", `sława ${P.renown}`, P.renown > 50],
+    ["Rasy", (races.has("orc") && races.has("dwarf")) ? "orkowie i krasnoludy: bójki" : (races.has("undead") && races.size > 1) ? "żywi obok nieumarłych: strach" : "zgoda", !((races.has("orc") && races.has("dwarf")) || (races.has("undead") && races.size > 1))],
+    ["Kompani", P.companions.length ? `${P.companions.length} w drużynie` : "brak", P.companions.length > 0],
+  ];
+  return `<div class="mfac">${f.map(([a, b, ok]) => `<span class="${ok ? "" : "bad"}"><b>${a}:</b> ${b}</span>`).join("")}</div>`;
+}
+const ELITE: Record<string, string[]> = { aurelia: ["a_sergeant", "a_longbow"], varus: ["v_veteran", "v_hxbow"], dwarf: ["d_ironguard", "d_rune"], orc: ["o_blackfang", "o_raider"], undead: ["u_legion", "u_marksman"] };
+
+// Cała armia w szyku: rzędy według oddziałów, każdy żołnierz jako postać.
+function armyFormation() {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  const sqOf = (k: string) => ((P as any).squadOf || {})[k] || (UNITS[k].mount ? 3 : UNITS[k].bow ? 2 : 1);
+  const groups: Record<number, Troop[]> = {};
+  for (const t of p.troops) (groups[sqOf(t.type)] ||= []).push(t);
+  if (!p.troops.length) return `<p class="muted">Nie masz żadnych ludzi pod sztandarem. Zwerbuj ich w wioskach i miastach.</p>`;
+  return `<div class="formv">${Object.keys(groups).sort().map((g) => `<div class="frow"><b style="color:${SQUAD_COLORS[Number(g)] || "#ccc"}">${SQUAD_NAMES[Number(g)] || "Oddział " + g}</b><div class="fmen">${groups[Number(g)].flatMap((t) => Array.from({ length: Math.min(t.n, 40) }, (_, i) => `<span class="${i < t.wounded ? "wnd" : ""}" title="${UNITS[t.type].name}">${unitThumb(t.type)}</span>`)).join("")}</div></div>`).join("")}</div>`;
 }

@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.12";
+const BUILD = "Build 0.13";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -359,4 +359,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes };

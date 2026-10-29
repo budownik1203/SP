@@ -117,7 +117,7 @@ function useBandage(b: Battle) {
   if (h.hp >= h.maxHp) { b.say("Nie jesteś ranny."); return; }
   if (h.state !== "idle") return;
   H.bandages--;
-  h.hp = Math.min(h.maxHp, h.hp + 30 + H.medicine * 3);
+  h.hp = Math.min(h.maxHp, h.hp + (30 + H.medicine * 3) * (1 + b.P("bandageB")));
   b.stagger(h, 0.9);
   b.say(`Opatrunek. Zostało: ${H.bandages}`, PAL.bone);
   b.sfx.page();

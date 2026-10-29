@@ -140,7 +140,7 @@ button.choice.focus{outline:2px solid var(--gold);background:#3d352a}
 .comp{display:flex;gap:.6em;align-items:flex-start;margin:.4em 0}
 .abl{margin:.35em 0;padding:.25em 0;border-bottom:1px solid var(--edge2)}
 .char-top{display:flex;gap:1em;align-items:center}
-.char-top>div{flex:1}
+.char-top>div{flex:1;min-width:0}.char-left .char-top h1{font-size:1.2em;overflow-wrap:break-word;line-height:1.1}.char-grid>*{min-width:0}
 .inv{display:grid;grid-template-columns:auto 1fr 1fr;gap:1em}
 @media (max-width:720px){.inv{grid-template-columns:1fr}}
 .doll{display:grid;justify-items:center;gap:.4em;align-content:start}
@@ -232,7 +232,8 @@ button.ttab.on{border-color:var(--gold);background:#2a241d}
 button.ttab.blocked{opacity:.4}
 .thead{display:flex;gap:.6em;align-items:baseline;margin:.4em 0;flex-wrap:wrap}
 .thead .pts{margin-left:auto}
-.tview{position:relative;height:clamp(14em,46vh,24em);background:radial-gradient(#1f1a14,#0f0d0a);border:1px solid var(--edge2)}
+.tview{position:relative;height:clamp(14em,46vh,24em);}
+.tview.t7{height:clamp(18em,45vh,30em);background:radial-gradient(#1f1a14,#0f0d0a);border:1px solid var(--edge2)}
 .tview svg{position:absolute;inset:0;width:100%;height:100%}
 .tview line{stroke:#3d352a;stroke-width:3}.tview line.lit{stroke:#b8933a}.tview line.excl{stroke:#7a2a22;stroke-dasharray:6 5}
 button.node{all:unset;cursor:pointer;position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.1em;width:7em;text-align:center;font-size:.8em;line-height:1.1}
@@ -240,6 +241,12 @@ button.node .ic{padding:.25em;background:#16130f;border:2px solid #3d352a;box-sh
 button.node.have .ic{border-color:var(--gold);background:#3d352a}
 button.node.open .ic{border-color:#8b8b52;animation:pulse .9s infinite alternate}
 button.node.locked{opacity:.55}
+button.node .ic{width:1.9em;height:1.9em}button.node.flash .ic{animation:nflash .9s ease-out 1}@keyframes nflash{0%{box-shadow:0 0 0 0 #ffd75e;background:#ffd75e}100%{box-shadow:0 0 0 14px rgba(255,215,94,0)}}
+.exmark{font-style:normal;color:#d0503c;font-size:.75em}
+.traits{display:flex;flex-wrap:wrap;gap:.25em;margin:.2em 0}.trait{background:#2a2119;border:1px solid #6b5234;padding:.05em .35em;font-size:.85em}.trait.bad{border-color:#7a2a22;color:#e07060}
+details.stats{margin:.25em 0}details.stats summary{cursor:pointer;color:var(--gold)}
+.char-top .portrait.big canvas{width:calc(var(--s)*56px);height:calc(var(--s)*56px)}
+.portrait.corrupt canvas{filter:drop-shadow(0 0 4px #8a4fc0) saturate(.7)}
 button.node.blocked{opacity:.3;filter:grayscale(1)}
 button.node.sel .ic{outline:2px solid #ded7c6;outline-offset:2px}
 .abmark{font-style:normal;font-size:.75em;color:var(--purple)}
@@ -296,6 +303,15 @@ span.up{color:#7fbf5a}span.down{color:#d0503c}
 .dice{font-size:1.4em}
 #mh-quest{position:absolute;right:.5em;top:2.6em;max-width:16em;padding:.3em .5em;font-size:.85em;pointer-events:auto;cursor:pointer}
 .qtop{display:flex;gap:1em;font-size:.85em}
+.inv2{display:grid;grid-template-columns:1.1fr 1fr;gap:.8em}
+.pdoll{position:relative;height:clamp(18em,52vh,28em);background:radial-gradient(#2a2119,#0f0d0a);border:1px solid var(--edge2)}
+.pslot{position:absolute;transform:translate(-50%,0);width:7.4em;min-height:3.2em;background:rgba(15,12,9,.85);border:1px dashed #4a3d2c;padding:.15em .3em;font-size:.78em;display:flex;flex-direction:column;gap:.05em}
+.pslot.full{border-style:solid;border-color:#6b5234;cursor:grab}.pslot .mini{position:absolute;right:.1em;top:.1em;padding:0 .3em}
+.pslot i.cond{font-style:normal;color:var(--muted)}.pslot i.cond.bad{color:#d0503c}
+.pfig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}.pfig.flip canvas{transform:scaleX(-1)}
+.bag2 .slot{cursor:grab}.wbar{position:relative;height:1.2em;background:#1c1610;border:1px solid #3a2e22}.wbar i{position:absolute;inset:0 auto 0 0;background:#5d7a46}.wbar.over i{background:#a3463a}.wbar span{position:relative;font-size:.8em;padding-left:.3em}
+.mfac{display:flex;flex-wrap:wrap;gap:.2em .9em;font-size:.82em;margin:.2em 0}.tcost{font-style:normal;font-size:.75em;color:var(--gold)}
+.formv{display:grid;gap:.4em;max-height:60vh;overflow:auto}.frow{background:#1a140e;border:1px solid #3a2e22;padding:.3em}.fmen{display:flex;flex-wrap:wrap;gap:0}.fmen canvas{width:20px;height:auto}.fmen .wnd{opacity:.4}
 </style>
 
 <div id="wrap">

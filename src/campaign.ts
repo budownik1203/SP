@@ -200,20 +200,41 @@ function checkEncounters() {
 function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   const it = (s: ESlot) => (P.equip[s] ? ITEMS[P.equip[s]] : null);
   let armor = 0;
-  for (const s of ["head", "body", "hands", "feet"] as ESlot[]) armor += it(s)?.armor || 0;
+  for (const s of ["head", "body", "hands", "feet"] as ESlot[]) armor += (it(s)?.armor || 0) * condK(P, s);
   if (P.race === "undead") armor += 0.05;
-  armor = Math.min(0.62, armor);
-  const look: Look = { ...P.look, helm: it("head")?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon") };
+  armor = Math.min(0.66, armor + perk(P, "armorB"));
+  const hd = it("head");
+  const look: Look = { ...P.look, helm: hd?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon"), plume: hd && hd.tier >= 3 ? (P.status === "król" ? PAL.gold : PAL.redL) : undefined };
   const horse = it("horse");
   const bow = it("bow");
+  const hs = horseStats(P);
+  const w2 = (P as any).weapon2 ? ITEMS[(P as any).weapon2] : null;
   return {
     name: P.name, look, hp: Math.max(1, P.hp), maxHp: heroMaxHp(P), weapon: it("weapon")?.weapon || "dagger", shield: !!it("shield"),
-    bowDmg: bow ? Math.round(bow.bowDmg * (1 + P.skills.archery * 0.05)) : 0, ammo: bow ? P.ammo : 0,
-    armor, mount: horse ? { ...horse.mount, speed: horse.mount.speed * (1 + P.skills.riding * 0.02) } : null,
+    bowDmg: bow ? Math.round(bow.bowDmg * (1 + P.skills.archery * 0.05) * (1 + (bow.xbow ? perk(P, "xbowB") : perk(P, "bowB")) + perk(P, "pierce") / 2) * condK(P, "bow")) : 0, ammo: bow ? P.ammo + perk(P, "ammo") : 0,
+    xbow: !!bow?.xbow, weapon2: w2?.weapon,
+    armor, mount: horse ? { ...horse.mount, hp: Math.round(horse.mount.hp * hs.hp * (1 + perk(P, "horseB"))), speed: horse.mount.speed * (1 + P.skills.riding * 0.02 + perk(P, "horseSpd")) * hs.speed } : null,
     abilities: P.abilities.slice(), abLevels: { ...P.abLevels }, faith: P.faith, mana: P.mana, fury: 0, corruption: P.corruption, bandages: P.bandages,
     leadership: P.skills.leadership, medicine: P.skills.medicine,
   };
 }
+// Zużycie sprzętu: poniżej 50% gorzej chroni, poniżej 20% dużo gorzej.
+function condOf(P: PlayerState, s: ESlot) { return ((P as any).cond || {})[s] ?? 100; }
+function condK(P: PlayerState, s: ESlot) { const c = condOf(P, s); return c < 20 ? 0.75 : c < 50 ? 0.9 : 1; }
+// Koń z imieniem, cechą i doświadczeniem.
+const HORSE_TRAITS: Record<string, { name: string; speed: number; hp: number }> = { swift: { name: "Rączy", speed: 1.06, hp: 1 }, tough: { name: "Wytrzymały", speed: 1, hp: 1.15 }, war: { name: "Bojowy", speed: 1.02, hp: 1.06 }, wild: { name: "Narowisty", speed: 1.1, hp: 0.9 } };
+const HORSE_NAMES = ["Burza", "Węgielek", "Siwek", "Kasztan", "Wicher", "Popiół", "Kruk", "Iskra", "Grom", "Mgła"];
+function horseInfo(P: PlayerState) {
+  const id = P.equip.horse; if (!id) return null;
+  const H = (P as any).horse;
+  if (!H || H.id !== id) (P as any).horse = { id, name: pick(HORSE_NAMES), trait: pick(Object.keys(HORSE_TRAITS)), xp: 0 };
+  return (P as any).horse as { id: string; name: string; trait: string; xp: number };
+}
+function horseStats(P: PlayerState) { const h = horseInfo(P); if (!h) return { speed: 1, hp: 1 }; const T = HORSE_TRAITS[h.trait], lv = Math.min(5, Math.floor(h.xp / 50)); return { speed: T.speed * (1 + lv * 0.02), hp: T.hp * (1 + lv * 0.02) }; }
+// Waga: kara do szybkości i oddechu ponad udźwig (siła), łagodzona przez drzewko Ciężkiego pancerza.
+function equipWeight(P: PlayerState) { return (Object.values(P.equip) as (string | null)[]).reduce((a, id) => a + itemWeight(id ? ITEMS[id] : null), 0) + ((P as any).weapon2 ? itemWeight(ITEMS[(P as any).weapon2]) : 0); }
+function carryCap(P: PlayerState) { return 10 + P.attr.str * 1.4; }
+function weightPenalty(P: PlayerState) { return Math.max(0, equipWeight(P) - carryCap(P)) * (1 - Math.min(0.9, perk(P, "weightRes"))); }
 function companionCfgs(P: PlayerState): CompanionCfg[] {
   const AB: Record<string, string> = { "kapłanka": "priest", "medyk": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai", "zwiadowca": "whirlai", "czarodziejka": "mage", "inżynier": "rally", "kupcowa": "whirlai" };
   return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !((c as any).away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
@@ -259,7 +280,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
     terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog,
-    player: { name: P.name, faction: P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
+    player: { name: P.name, faction: P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
     enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
     maxPerSide: settings.battleSize,
@@ -289,8 +310,13 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
   b.fireMul = 1 + perk(P, "fireDmg");
   b.furyMul = 1 + perk(P, "fury");
-  b.heroSpeed = 1 + (P.attr.agi - 4) * 0.015;
-  for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2, 20, 100);
+  b.heroSpeed = (1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.7, 1 - weightPenalty(P) * 0.012);
+  b.heroStamina *= Math.max(0.6, 1 - weightPenalty(P) * 0.015);
+  b.heroDmg *= 1 + perk(P, "meleeDmg");
+  b.pk = { ...(P.perks || {}) };
+  if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
+  for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB"), 20, 100);
+  for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
   G.state = "battle";
   hideMapHud();
   showBattleHud();
@@ -373,6 +399,8 @@ function applyBattleResult(r: BattleResult, auto = false) {
   distributeLosses(enemyHolders, r.theirs, false);
   // doświadczenie oddziałów
   for (const k in r.xp) { const t = p.troops.find((x) => x.type === k); if (t) t.xp += Math.round(r.xp[k]); }
+  // zużycie sprzętu i doświadczenie konia
+  if (G.ctx?.kind !== "arena") { const cond = ((P as any).cond ||= {}) as Record<string, number>; for (const sl of Object.keys(P.equip)) if (P.equip[sl as ESlot] && sl !== "horse") cond[sl] = Math.max(5, (cond[sl] ?? 100) - Math.round(rr(2, 6) + (r.heroHp < heroMaxHp(P) * 0.4 ? 4 : 0))); const hz = horseInfo(P); if (hz) hz.xp += 10; }
   // doświadczenie bohatera
   const enemyPow = r.theirs.reduce((s, c) => s + unitPower(c.type) * (c.killed + c.wounded), 0);
   const heroXp = Math.round(enemyPow * 6 + r.heroKills * 12 + (r.win ? 40 : 10));
@@ -380,9 +408,10 @@ function applyBattleResult(r: BattleResult, auto = false) {
   if (r.win) {
     P.battlesWon++;
     const renown = Math.round(clamp(enemyPow * 0.6, 1, 60) * (ctx.kind === "siege" ? 2 : 1));
-    P.renown += renown;
+    P.renown += Math.round(renown * (1 + perk(P, "renownB")));
     P.morale = clamp(P.morale + 8, 0, 100);
-    lootGold = Math.round(ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03));
+    lootGold = Math.round((ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03)) * (1 + perk(P, "lootB")));
+    if (perk(P, "hunter") && ctx.enemies.some((e) => e.kind === "monster")) { P.goods.meat = (P.goods.meat || 0) + 3; lines.push("Myśliwy: oprawiasz bestie, +3 mięsa."); }
     { const pool = baseItems().filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) { const id = qid(pick(pool).id, chance(0.6) ? 0 : chance(0.9) ? 1 : 2); ensureItem(id); lootItems.push(id); } }   // łupy z pola: zwykle zardzewiałe
     if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); if (chance(0.15)) { const u = pick(UNIQUES.filter((x) => !WORLD.player.items.includes(x))); if (u) { lootItems.push(u); lines.push(`W krypcie leży coś niezwykłego: ${ITEMS[u].name}!`); } } else lootItems.push(pick(baseItems().filter((it) => it.tier >= 2 && it.tier <= 4 && it.slot !== "horse")).id); }
     P.gold += lootGold;
@@ -432,6 +461,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
 }
 
 function gainXp(P: PlayerState, xp: number, lines: string[]) {
+  xp = Math.round(xp * (1 + perk(P, "xpB")));
   P.xp += xp;
   lines.push(`Doświadczenie: +${xp}.`);
   while (P.xp >= xpForLevel(P.level + 1)) {
@@ -525,7 +555,7 @@ function strengthWord(ratio: number) { return ratio > 2 ? "przytłaczająca prze
 function fleeAttempt(o: Party) {
   const w = WORLD, p = playerParty(w);
   const mine = partySpeed(w, p) * (1 + w.player.skills.tactics * 0.05), theirs = partySpeed(w, o);
-  if (mine * rr(0.85, 1.25) > theirs) { o.wait = 2; o.state = "idle"; o.path = []; G.encounterCooldown = 3; closeScreen(); toast("Udało się zgubić pościg.", PAL.moss); return true; }
+  if (mine * rr(0.85, 1.25) * (1 + perk(w.player, "flee")) > theirs) { o.wait = 2; o.state = "idle"; o.path = []; G.encounterCooldown = 3; closeScreen(); toast("Udało się zgubić pościg.", PAL.moss); return true; }
   return false;
 }
 // Porzuć towary na drodze: zbóje rzucają się na łupy, a wy uciekacie.

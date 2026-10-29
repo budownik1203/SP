@@ -295,6 +295,7 @@ interface Item {
   bowDmg?: number;
   mount?: Mount;
   culture?: Culture;
+  xbow?: boolean;
 }
 const ITEMS: Record<string, Item> = {};
 function I(d: Item) { ITEMS[d.id] = d; }
@@ -361,6 +362,25 @@ function ensureItem(id: string): Item | null {
   if (b.mount) it.mount = { ...b.mount, hp: Math.round(b.mount.hp * Q.k), speed: Math.round(b.mount.speed * (0.92 + Q.k * 0.08)) };
   ITEMS[id] = it;
   return it;
+}
+I({ id: "x_light", name: "Kusza lekka", slot: "bow", price: 220, tier: 2, bowDmg: 56, xbow: true });
+I({ id: "x_heavy", name: "Kusza ciężka", slot: "bow", price: 640, tier: 3, bowDmg: 78, xbow: true });
+// Waga i wymagania przedmiotów
+function itemWeight(it: Item | null): number {
+  if (!it) return 0;
+  if (it.slot === "horse") return 0;
+  if (it.armor != null && (it.slot === "body" || it.slot === "head" || it.slot === "hands" || it.slot === "feet")) return +(it.armor * (it.slot === "body" ? 55 : it.slot === "head" ? 40 : 30)).toFixed(1);
+  if (it.weapon) return WEAPONS[it.weapon]?.twoHanded ? 5 : 3;
+  if (it.slot === "shield") return it.tier >= 2 ? 5 : 3;
+  if (it.slot === "bow") return it.xbow ? 5 : 2;
+  return 1;
+}
+function itemReq(it: Item | null): number {   // wymagana siła
+  if (!it) return 0;
+  if (it.slot === "body" && (it.armor || 0) >= 0.2) return 4 + Math.round((it.armor - 0.2) * 25);
+  if (it.weapon && WEAPONS[it.weapon]?.twoHanded && it.tier >= 2) return 5 + it.tier;
+  if (it.xbow && it.tier >= 3) return 6;
+  return 0;
 }
 const SLOT_NAME: Record<ESlot, string> = { head: "Hełm", body: "Zbroja", hands: "Rękawice", feet: "Buty", weapon: "Broń", shield: "Tarcza", bow: "Łuk", horse: "Koń" };
 

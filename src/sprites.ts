@@ -26,6 +26,7 @@ interface Look {
   dirt: number;               // 0..1 błoto na dole
   blood: number;              // 0..1 plamy krwi
   seed: number;
+  plume?: string;             // pióropusz na hełmie (kolor)
 }
 interface Rig { sy: number; sx: number; arm: number; sleeve: string; sleeveD: string; hand: string; }
 interface SpriteSet { frames: HTMLCanvasElement[][]; white: HTMLCanvasElement[][]; headless: HTMLCanvasElement[]; w: number; h: number; headY: number; bare?: HTMLCanvasElement[][]; bareWhite?: HTMLCanvasElement[][]; rig?: Rig; }
@@ -323,6 +324,10 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
       for (let x = x0 + inset; x <= x1 - inset; x++) P.p(x, y, x === x0 + inset ? hi : c);
     }
   };
+  if (L.plume && H !== "hood" && H !== "cap" && H !== "crest") {   // pióropusz
+    if (dir === 2) { P.r(cx - 3, fy0 - 5, 4, 2, L.plume); P.r(cx - 6, fy0 - 4, 3, 2, L.plume); P.p(cx - 7, fy0 - 3, PAL.ink); }
+    else { P.r(cx - 1, fy0 - 6, 2, 4, L.plume); P.p(cx - 2, fy0 - 5, L.plume); P.p(cx + 1, fy0 - 4, L.plume); }
+  }
   switch (H) {
     case "nasal": case "crest": {
       dome(fy0 - 2, fy0 + 2, fx0 - 1, fx1 + 1, PAL.steel, PAL.steelL);
