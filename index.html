@@ -251,6 +251,21 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
 .opt small{display:block;color:var(--muted);font-size:.8em}
 .opt input[type=range]{flex:1;max-width:12em}
 .quest{display:flex;gap:.6em;align-items:flex-start;padding:.4em;margin:.3em 0;background:#16130f;border-left:3px solid #e9c45e}
+.arow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 8px;border-bottom:1px solid #3a2e22}
+.arow:hover{background:#2a2119}
+.bracket{display:flex;gap:14px;align-items:stretch;margin:10px 0}
+.bcol{display:flex;flex-direction:column;justify-content:space-around;gap:6px;flex:1}
+.bk{border:1px solid #6b5234;background:#1c1610;padding:4px 8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk.you{border-color:#e9c45e;color:#e9c45e}.bk.out{opacity:.4;text-decoration:line-through}.bk.empty{color:#665;text-align:center}
+.advbar{height:.5em;background:#7a2a20;border:1px solid #000;position:relative}.advbar i{position:absolute;left:0;top:0;bottom:0;background:#5d9a46;transition:width .4s}
+#mini{display:block;margin-top:.3em;image-rendering:pixelated;border:1px solid #000;width:7.5em;margin-left:auto}
+#mini.big{position:fixed;left:50%;top:12%;transform:translateX(-50%);width:min(60vw,640px);z-index:4;opacity:.93;box-shadow:0 0 0 2px #6b5234}
+.grp .ic{width:1.1em;height:1.1em;vertical-align:-.15em;margin-right:.25em}
+#abil .ab{min-width:6.5em;min-height:3.4em}#abil .ab .ic{width:1.6em;height:1.6em;display:block;margin:0 auto .1em}
+.casl{display:grid;grid-template-columns:repeat(auto-fill,minmax(11em,1fr));gap:.3em}
+.cas{display:flex;gap:.4em;align-items:center;background:#1c1610;border:1px solid #3a2e22;padding:.2em .4em;font-size:.9em}.cas canvas{width:28px;height:auto}
+.cas.promo{border-color:#8a6d2a}
+.astats{display:flex;gap:.6em;margin:.4em 0 .6em}.astats>div{flex:1;background:#1c1610;border:1px solid #3a2e22;text-align:center;padding:.3em}.astats b{display:block;font-size:1.5em;color:var(--gold)}.astats span{color:var(--muted);font-size:.8em}.astats .ic{width:1.5em;height:1.5em}
 </style>
 
 <div id="wrap">
@@ -269,6 +284,8 @@ label.opt:has(input[type=checkbox]){justify-content:flex-start}
     <div class="hud frame" id="tr">
       <div><span class="ally">Twoi</span> <b id="ours">0</b></div>
       <div><span class="foe" id="foe-name">Wróg</span> <b id="foes">0</b></div>
+      <div class="advbar"><i id="adv" style="width:50%"></i></div><div class="muted" id="adv-t" style="font-size:.85em"></div>
+      <canvas id="mini" width="96" height="64"></canvas>
     </div>
     <div class="hud frame" id="bl"><div id="groups"></div></div>
     <div class="hud" id="abil"></div>

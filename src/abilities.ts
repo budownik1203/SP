@@ -188,10 +188,32 @@ function explodeFire(b: Battle, x: number, y: number, dmg: number, src: Unit) {
 function unitAbilityAI(b: Battle, u: Unit, dt: number) {
   u.abilityT -= dt;
   if (u.abilityT > 0) return;
-  const ab = u.def.ability;
+  const ab = u.compAb || u.def.ability;
   const foes = (r: number, x = u.x, y = u.y) => b.units.filter((e) => e.team !== u.team && e.active && !e.hidden && dist(e.x, e.y, x, y) < r);
   const friends = (r: number) => b.units.filter((e) => e.team === u.team && e.active && dist(e.x, e.y, u.x, u.y) < r);
   const s = b.vol(u.x);
+  if (ab === "rally") {   // kompan: okrzyk dla swojego oddziału
+    const mine = friends(100).filter((f) => f.squad === u.squad || f.hero);
+    if (foes(90).length >= 2 && mine.length) {
+      u.abilityT = rr(18, 24);
+      for (const f of mine) { f.morale = Math.min(100, f.morale + 25); f.buffT = 8; f.buffDmg = 1.15; }
+      b.sfx.battleCry(s.v); b.say(`${u.name}: „Trzymać szyk!”`, PAL.gold);
+      b.parts.push({ x: u.x, y: u.y, z: 8, vx: 7, vy: 0, vz: 0, life: 0.5, max: 0.5, col: PAL.gold, kind: "ring" });
+      return;
+    }
+    u.abilityT = 1.5; return;
+  }
+  if (ab === "whirlai") {  // kompan: wir ostrza, gdy otoczony
+    const near = foes(u.w.reach + 10);
+    if (near.length >= 2 && u.state === "idle") {
+      u.abilityT = rr(14, 18);
+      for (const e of near) b.damage(e, u.w.dmg.L * 0.9 * e.arm[u.w.type.L], u, false, u.w.type.L, true);
+      b.sfx.swing(s.v, s.pan, 1.6); b.say(`${u.name} tnie wokół siebie!`, PAL.gold);
+      for (let i = 0; i < 12; i++) b.sparks(u.x + Math.cos(i) * 12, u.y - 10 + Math.sin(i) * 8, 1, PAL.steelL);
+      return;
+    }
+    u.abilityT = 0.6; return;
+  }
   if (ab === "priest") {
     const hurt = friends(90).filter((f) => f.hp < f.maxHp * 0.7);
     const undead = foes(70).filter((e) => e.def.undead);

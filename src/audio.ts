@@ -377,6 +377,17 @@ class Sfx {
     const g = c.createGain(); this.env(g, 0.18 * v, 1.5, 0, 0.2);
     osc.connect(g); g.connect(o); osc.start(t); osc.stop(t + 1.6);
   }
+  horn(v = 1) {
+    if (!this.ok("horn", 500)) return;
+    const o = this.out(0, 0.9), c = this.ctx, t = c.currentTime;
+    for (const [f, d] of [[146.8, 0], [220, 0.02]]) {
+      const osc = c.createOscillator(); osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(f * 0.94, t + d); osc.frequency.linearRampToValueAtTime(f, t + d + 0.25);
+      const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * v, t + 0.2); g.gain.setValueAtTime(0.16 * v, t + 1.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+      osc.connect(lp); lp.connect(g); g.connect(o); osc.start(t); osc.stop(t + 1.7);
+    }
+  }
   coin() { if (!this.ok("coin", 60)) return; const o = this.out(0, 0.2); this.tone(o, 1800, 1700, 0.12, "square", 0.04); this.tone(o, 2400, 2300, 0.15, "square", 0.03, 0.06); }
   page() { if (!this.ok("page", 60)) return; const o = this.out(0, 0.1); this.noise(o, 0.12, 3000, 1500, 1, 0.08); }
   drum(v = 1) { if (!this.ok("drum", 120)) return; const o = this.out(0, 0.5); this.tone(o, 70, 40, 0.4, "sine", 0.7 * v); this.noise(o, 0.1, 300, 100, 1, 0.2 * v); }

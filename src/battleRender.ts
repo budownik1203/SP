@@ -60,9 +60,16 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
     g.globalAlpha = 1;
   } });
   for (const u of b.units) if (u.alive && vis(u.x, u.y) && !(u.hidden && u.team === 1)) list.push({ y: u.y, draw: () => drawUnit(b, g, u, sx, sy) });
+  for (const e of b.engines) if (e.x > -500 && vis(e.x, e.y, 80)) list.push({ y: e.y + 6, draw: () => drawEngine(g, e, sx, sy, b.real) });
   list.sort((a, c) => a.y - c.y);
   for (const d of list) d.draw();
 
+  // głazy z trebusza
+  for (const bo of b.boulders) {
+    const x = Math.round(bo.x - sx), y = Math.round(bo.y - sy), z = bo.t * 160, k = 1 - bo.t / 1.4;
+    g.globalAlpha = 0.3 + k * 0.4; g.fillStyle = PAL.ink; g.fillRect(x - 3 - Math.round(k * 3), y - 1, 7 + Math.round(k * 6), 3); g.globalAlpha = 1;
+    g.fillStyle = PAL.ink; g.fillRect(x - 3, Math.round(y - z) - 3, 7, 7); g.fillStyle = PAL.stone; g.fillRect(x - 2, Math.round(y - z) - 2, 5, 5); g.fillStyle = PAL.ash; g.fillRect(x - 2, Math.round(y - z) - 2, 2, 2);
+  }
   // pociski
   for (const ar of b.arrows) {
     if (!vis(ar.x, ar.y)) continue;
@@ -125,7 +132,7 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
   // mgła i popiół
   g.save();
   g.imageSmoothingEnabled = true;
-  const fogK = b.cfg.night ? 0.7 : b.cfg.terrain === "swamp" ? 1.8 : 1;
+  const fogK = b.fogged ? 4.5 : b.cfg.night ? 0.7 : b.cfg.terrain === "swamp" ? 1.8 : 1;
   for (const [alpha, spd, par, scl] of [[0.12, 5, 0.6, 1.5], [0.07, 11, 0.9, 2.2]]) {
     g.globalAlpha = alpha * fogK;
     const fw = W * scl, fh = H * scl;
@@ -244,8 +251,15 @@ function drawCrosshair(b: Battle, g: CanvasRenderingContext2D) {
     g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 3, 3); g.fillRect(x + dx - 1, y - 1, 3, 3); g.fillRect(x - 1, y + dy - 1, 3, 3);
     g.fillStyle = col; g.fillRect(x, y, 1, 1); g.fillRect(x + dx, y, 1, 1); g.fillRect(x, y + dy, 1, 1);
   };
-  c(mx - 4, my - 4, 1, 1); c(mx + 4, my - 4, -1, 1); c(mx - 4, my + 4, 1, -1); c(mx + 4, my + 4, -1, -1);
-  g.fillStyle = col; g.fillRect(mx, my, 1, 1);
+  // celownik zależny od broni: szerszy dla dwuręcznej, grot dla drzewcowej, krzyż dla kopii
+  const wk = h ? WEAPONS[h.weaponKey] : null, r = wk ? clamp(Math.round(wk.reach / 6), 3, 7) : 4;
+  if (h && !b.cmdOpen && wk && (h.weaponKey === "lance" || wk.reach >= 26)) {
+    g.fillStyle = PAL.ink; g.fillRect(mx - r - 1, my - 1, r * 2 + 3, 3); g.fillRect(mx - 1, my - r - 1, 3, r * 2 + 3);
+    g.fillStyle = h.couched ? PAL.redL : col; g.fillRect(mx - r, my, r * 2 + 1, 1); g.fillRect(mx, my - r, 1, r * 2 + 1);
+    return;
+  }
+  c(mx - r, my - r, 1, 1); c(mx + r, my - r, -1, 1); c(mx - r, my + r, 1, -1); c(mx + r, my + r, -1, -1);
+  g.fillStyle = h && h.stamina < 10 ? PAL.redL : col; g.fillRect(mx, my, 1, 1);
 }
 
 function drawCorpse(g: CanvasRenderingContext2D, c: Corpse, sx: number, sy: number) {
@@ -270,7 +284,9 @@ function drawCorpse(g: CanvasRenderingContext2D, c: Corpse, sx: number, sy: numb
 
 function weaponAngle(b: Battle, u: Unit): { a: number; ext: number } {
   const f = u.face, w = u.w;
-  const big = w.twoHanded && !w.staff && w.type.T !== "pierce" ? 1.18 : 1;   // broń dwuręczna: zamach zza barku
+  const big = w.twoHanded && !w.staff && w.type.T !== "pierce" ? 1.32 : 1;   // broń dwuręczna: zamach zza barku
+  if (u.couched) return { a: u.heading, ext: 4 };
+  const sv = u.swingVar || 0;
   const side = (d: Dir) => (d === "L" ? -1 : 1);
   const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
   const easeIn = (p: number) => p * p;
@@ -280,13 +296,13 @@ function weaponAngle(b: Battle, u: Unit): { a: number; ext: number } {
       const e = easeOut(clamp(u.t / full, 0, 1));
       if (u.dir === "O") return { a: f + angDiff(f, -Math.PI / 2 - (big > 1 ? 0.7 : 0.3) * Math.sign(Math.cos(f) || 1)) * e, ext: -2 * e };
       if (u.dir === "T") return { a: f, ext: -7 * e };
-      return { a: f + 0.9 + angDiff(f + 0.9, f + side(u.dir) * 2.3 * big) * e, ext: -1 * e };
+      return { a: f + 0.9 + angDiff(f + 0.9, f + side(u.dir) * 2.3 * big + sv) * e, ext: -1 * e };
     }
     case "strike": {
       const p = easeIn(clamp(u.t / w.strike, 0, 1));
       if (u.dir === "O") { const from = -Math.PI / 2 - 0.3 * Math.sign(Math.cos(f)); return { a: from + angDiff(from, f + 0.25) * p, ext: 3 * p }; }
       if (u.dir === "T") return { a: f, ext: lerp(-7, 9, p) };
-      return { a: f + side(u.dir) * lerp(2.3, -1.7, p), ext: 1 };
+      return { a: f + side(u.dir) * lerp(2.3 * big, -1.7 * big, p) + sv * (1 - p), ext: 1 };
     }
     case "recover": {
       const p = clamp(u.t / w.recover, 0, 1);
@@ -312,7 +328,8 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
   if (u.state === "windup") lean = -2; else if (u.state === "strike") lean = 2; else if (u.state === "recover") lean = u.t < 0.12 ? 1 : 0;
   const c = Math.cos(u.face), s = Math.sin(u.face);
   const bx = Math.round(u.x - sx), by = Math.round(u.y - sy);
-  const x = Math.round(u.x - sx + c * lean), y = Math.round(u.y - sy + s * lean * 0.6);
+  const rc = u.recoil > 0 ? -u.recoil * 2 : 0;   // odrzut po trafieniu
+  const x = Math.round(u.x - sx + c * (lean + rc)), y = Math.round(u.y - sy + s * (lean + rc) * 0.6);
 
   g.fillStyle = "rgba(10,9,8,0.5)";
   const sw = u.mounted ? 12 : u.spr.w > 24 ? 7 : 5;
@@ -619,6 +636,11 @@ function computePose(b: Battle, u: Unit, x: number, shY: number, dirI: number, w
     if (u.hasShield) shield = blocking ? add(chest, { x: fx, y: fy * 0.8 }, 6) : add(shO, { x: fx * 2 - rvx * 1, y: L * 0.55 + fy });
     off = shield ? shield : add(shO, { x: fx * 0.5, y: L * 0.85 + swing });
   }
+  // blok bronią (bez tarczy): ostrze w poprzek przed sobą
+  if (u.weaponBlock && (style === "one" || style === "two")) {
+    a = f - 1.35;
+    main = add(chest, { x: fx, y: fy * 0.8 }, 5); base = add(main, v(a, -2)); if (style === "two") off = add(main, v(a, -3));
+  }
   const mainBack = facingUp || (side && rvy < 0 && style === "one");
   const offBack = facingUp || (side && rvy > 0 && style === "one");
   return { style, main, off, shM, shO, base, a, len, mainBack, offBack, gearBack: facingUp, shield, blocking, pull };
@@ -628,8 +650,8 @@ function thick(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, 
   pxLine(g, x0, y0, x1, y1, col); pxLine(g, x0 + 1, y0, x1 + 1, y1, col);
 }
 function armLine(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, col: string) {
-  for (const [dx, dy] of [[-1, 0], [2, 0], [0, -1], [1, -1], [0, 1], [1, 1]]) pxLine(g, x0 + dx, y0 + dy, x1 + dx, y1 + dy, PAL.ink);   // obrys
-  pxLine(g, x0, y0, x1, y1, col); pxLine(g, x0 + 1, y0, x1 + 1, y1, col);
+  for (const [dx, dy] of [[-1, 0], [2, 0], [0, -1], [1, -1], [-1, 1], [2, 1], [0, 2], [1, 2]]) pxLine(g, x0 + dx, y0 + dy, x1 + dx, y1 + dy, PAL.ink);   // obrys
+  pxLine(g, x0, y0, x1, y1, col); pxLine(g, x0 + 1, y0, x1 + 1, y1, col); pxLine(g, x0, y0 + 1, x1, y1 + 1, col);
 }
 function drawArm(g: CanvasRenderingContext2D, R: Rig, sh: V, hand: V) {
   const mx = (sh.x + hand.x) / 2, my = (sh.y + hand.y) / 2;
@@ -736,4 +758,27 @@ function drawWeaponAt(b: Battle, g: CanvasRenderingContext2D, u: Unit, base: V, 
     g.fillRect(Math.round(bx + ex - ey), Math.round(by + ey + ex), 1, 1); g.fillRect(Math.round(bx + ex + ey), Math.round(by + ey - ex), 1, 1);
   }
   if (shaft && !w.axe && !w.head) { g.fillStyle = PAL.steelL; g.fillRect(Math.round(tipx), Math.round(tipy), 2, 1); g.fillRect(Math.round(tipx + ex), Math.round(tipy + ey), 1, 1); g.fillStyle = PAL.steel; g.fillRect(Math.round(tipx - ex), Math.round(tipy - ey), 1, 1); }
+}
+
+// Taran (dach z belką) i wieża oblężnicza.
+function drawEngine(g: CanvasRenderingContext2D, e: SiegeEngine, sx: number, sy: number, t: number) {
+  const x = Math.round(e.x - sx), y = Math.round(e.y - sy);
+  g.fillStyle = "rgba(10,9,8,0.5)"; g.fillRect(x - 18, y - 1, 36, 3);
+  if (e.kind === "ram") {
+    const swing = e.x >= e.tx - 1 ? Math.round(Math.sin(t * 3) * 2) : 0;
+    g.fillStyle = PAL.ink; g.fillRect(x - 17, y - 15, 34, 15);
+    for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? PAL.wood : PAL.woodD; g.fillRect(x - 16 + i * 2, y - 14 + i, 32 - i * 4, 1); }
+    g.fillStyle = PAL.dirtD; g.fillRect(x - 16, y - 8, 32, 7);
+    for (let i = -14; i < 16; i += 4) { g.fillStyle = PAL.dirt; g.fillRect(x + i, y - 8, 2, 7); }
+    g.fillStyle = PAL.ink; g.fillRect(x + 8 + swing, y - 6, 14, 4); g.fillStyle = PAL.wood; g.fillRect(x + 9 + swing, y - 5, 12, 2); g.fillStyle = PAL.steel; g.fillRect(x + 19 + swing, y - 6, 3, 4);
+    for (const wx of [-12, 10]) { g.fillStyle = PAL.ink; g.fillRect(x + wx - 1, y - 2, 5, 4); g.fillStyle = PAL.woodD; g.fillRect(x + wx, y - 1, 3, 2); }
+  } else {
+    g.fillStyle = PAL.ink; g.fillRect(x - 12, y - 62, 26, 62);
+    for (let yy = 0; yy < 60; yy++) { g.fillStyle = yy % 6 === 0 ? PAL.woodD : (yy % 12 < 6 ? PAL.wood : PAL.dirt); g.fillRect(x - 11, y - 61 + yy, 24, 1); }
+    g.fillStyle = PAL.woodD; for (let xx = -11; xx < 13; xx += 6) g.fillRect(x + xx, y - 61, 1, 60);
+    g.fillStyle = PAL.dirtL; g.fillRect(x - 13, y - 64, 28, 3); for (let xx = -13; xx < 15; xx += 5) g.fillRect(x + xx, y - 67, 3, 3);
+    if (e.done) { g.fillStyle = PAL.wood; g.fillRect(x + 12, y - 30, 12, 3); }
+    g.fillStyle = PAL.black; g.fillRect(x - 2, y - 40, 5, 6);
+  }
+  if (e.hp < e.max) { const k = clamp(e.hp / e.max, 0, 1); g.fillStyle = PAL.ink; g.fillRect(x - 11, y + 3, 22, 3); g.fillStyle = PAL.dirtL; g.fillRect(x - 10, y + 4, Math.ceil(20 * k), 1); }
 }

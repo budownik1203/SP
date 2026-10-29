@@ -43,6 +43,10 @@ const WEAPONS: Record<string, Weapon> = {
 };
 
 interface Mount { hp: number; speed: number; accel: number; turn: number; undead?: boolean; }
+// Kopia: długa, słaba w zwarciu; opuszczona w galopie zadaje ogromne obrażenia.
+WEAPONS.lance = { name: "Kopia", reach: 30, len: 20, dmg: { L: 14, R: 14, O: 16, T: 34 }, type: { L: "blunt", R: "blunt", O: "pierce", T: "pierce" }, windup: 0.6, strike: 0.2, recover: 0.55, blade: PAL.wood, hilt: PAL.woodD, twoHanded: false };
+// B8: wolniejsze, cięższe tempo walki (zamach, cios i powrót)
+for (const k in WEAPONS) { const w = WEAPONS[k]; w.windup *= 1.22; w.strike *= 1.12; w.recover *= 1.25; }
 const HORSE: Mount = { hp: 105, speed: 112, accel: 60, turn: 2.6 };
 const WARHORSE: Mount = { hp: 150, speed: 106, accel: 55, turn: 2.4 };
 const BONEHORSE: Mount = { hp: 95, speed: 110, accel: 62, turn: 2.6, undead: true };
@@ -171,7 +175,7 @@ TU("aurelia", "human", "a_archer", "Łucznik", 3, "archer", ["a_longbow"]);
 TU("aurelia", "human", "a_longbow", "Długi łucznik", 4, "archer", ["a_warbow"]);
 TU("aurelia", "human", "a_warbow", "Łucznik Królewski", 5, "archer");
 TU("aurelia", "human", "a_squire", "Giermek konny", 3, "cav", ["a_knight"]);
-TU("aurelia", "human", "a_knight", "Rycerz", 4, "cav", ["a_paladin"]);
+TU("aurelia", "human", "a_knight", "Rycerz", 4, "cav", ["a_paladin"], { weapon: "lance" });
 TU("aurelia", "human", "a_paladin", "Rycerz Zakonny", 5, "cav");
 U({ key: "a_priest", name: "Kapłan bojowy", culture: "aurelia", tier: 3, hp: 95, speed: 42, armor: ARM(0.75, 0.85, 0.85), weapon: "mace", shield: false, guard: 0.3, look: { race: "human", helms: ["mitre"], bodies: ["robe"], tabard: false, hood: [[PAL.bone, PAL.ash]] }, cost: 150, wage: 4, ability: "priest" });
 
@@ -186,7 +190,7 @@ TU("varus", "human", "v_xbow", "Kusznik", 3, "xbow", ["v_hxbow"]);
 TU("varus", "human", "v_hxbow", "Ciężki kusznik", 4, "xbow", ["v_arbalest"]);
 TU("varus", "human", "v_arbalest", "Arbaleciarz", 5, "xbow");
 TU("varus", "human", "v_rider", "Jeździec Legionu", 3, "cav", ["v_cata"]);
-TU("varus", "human", "v_cata", "Katafrakt", 4, "cav", ["v_clib"]);
+TU("varus", "human", "v_cata", "Katafrakt", 4, "cav", ["v_clib"], { weapon: "lance" });
 TU("varus", "human", "v_clib", "Klibanariusz", 5, "cav");
 U({ key: "v_mage", name: "Mag ognia", culture: "varus", tier: 3, hp: 75, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.redL, PAL.red]] }, cost: 170, wage: 5, ability: "mage" });
 
@@ -230,7 +234,7 @@ TU("undead", "skel", "u_archer", "Szkielet łucznik", 3, "archer", ["u_marksman"
 TU("undead", "skel", "u_marksman", "Kościany strzelec", 4, "archer", ["u_spectral"]);
 TU("undead", "skel", "u_spectral", "Widmowy łucznik", 5, "archer");
 TU("undead", "skel", "u_rider", "Upiorny jeździec", 3, "cav", ["u_blackrider"], { weapon: "rusty" });
-TU("undead", "skel", "u_blackrider", "Czarny jeździec", 4, "cav", ["u_doomrider"]);
+TU("undead", "skel", "u_blackrider", "Czarny jeździec", 4, "cav", ["u_doomrider"], { weapon: "lance" });
 TU("undead", "skel", "u_doomrider", "Jeździec Zguby", 5, "cav");
 U({ key: "u_ghoul", name: "Ghul", culture: "undead", tier: 2, hp: 95, speed: 60, armor: ARM(1, 0.9, 0.9), weapon: "claws", guard: 0.1, react: 0.4, undead: true, look: { race: "ghoul", helms: ["none"], bodies: ["rags"], tabard: false, skins: [[PAL.ash, PAL.stone], [PAL.moss, PAL.grassD], [PAL.stone, PAL.slate]] }, cost: 30, wage: 0 });
 U({ key: "u_necro", name: "Nekromanta", culture: "undead", tier: 3, hp: 80, speed: 42, armor: ARM(0.9, 0.9, 0.95), weapon: "staff", undead: false, look: { race: "human", helms: ["hood"], bodies: ["robe"], tabard: false, hood: [[PAL.purple, PAL.dusk]], skins: [[PAL.bone, PAL.ash]] }, cost: 160, wage: 5, ability: "necro" });
@@ -317,6 +321,7 @@ I({ id: "w_axe", name: "Topór", slot: "weapon", price: 90, tier: 1, weapon: "ax
 I({ id: "w_armsword", name: "Miecz zbrojnego", slot: "weapon", price: 120, tier: 1, weapon: "armsword" });
 I({ id: "w_sword", name: "Dobry miecz", slot: "weapon", price: 320, tier: 2, weapon: "sword" });
 I({ id: "w_mace", name: "Buława", slot: "weapon", price: 260, tier: 2, weapon: "mace" });
+I({ id: "w_lance", name: "Kopia", slot: "weapon", price: 220, tier: 2, weapon: "lance" });
 I({ id: "w_spear", name: "Włócznia", slot: "weapon", price: 140, tier: 2, weapon: "spear" });
 I({ id: "w_hammer", name: "Młot bojowy", slot: "weapon", price: 420, tier: 3, weapon: "warhammer" });
 I({ id: "w_longsword", name: "Miecz długi", slot: "weapon", price: 650, tier: 3, weapon: "longsword" });

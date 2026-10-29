@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.7";
+const BUILD = "Build 0.8";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -15,7 +15,7 @@ buildSprites();
 const settings: Settings = {
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: true, dirHint: true,
-  questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true,
+  questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -70,6 +70,33 @@ function setZoom(i: number) {
 }
 
 // ---------- HUD bitwy ----------
+const AB_ICON: Record<string, string> = { faith: "cross", mana: "eye", fury: "fire" };
+// Minimapa w rogu; w trybie rozkazów (Q) powiększona do mapy taktycznej z numerami oddziałów.
+let miniBig = false;
+function drawMini(b: Battle) {
+  const cv = $("mini") as HTMLCanvasElement; if (!cv) return;
+  if (settings.minimap === false && !b.cmdOpen) { cv.hidden = true; return; }
+  cv.hidden = false;
+  const big = b.cmdOpen;
+  if (big !== miniBig) { miniBig = big; cv.className = big ? "big" : ""; }
+  const M = b.map, Wc = big ? 240 : 96, Hc = Math.round(Wc * M.h / M.w);
+  if (cv.width !== Wc || cv.height !== Hc) { cv.width = Wc; cv.height = Hc; }
+  const g = cv.getContext("2d"), k = Wc / M.w;
+  g.fillStyle = "#1d2116"; g.fillRect(0, 0, Wc, Hc);
+  for (const o of M.obstacles || []) { g.fillStyle = (o as any).cover ? "#4a3d2c" : "#2c3b22"; g.fillRect(o.x * k - 1, o.y * k - 1, Math.max(2, ((o as any).r || 4) * k * 2), Math.max(2, ((o as any).r || 4) * k * 2)); }
+  if (M.wall) { g.fillStyle = "#8a8070"; g.fillRect(M.wall.x0 * k, 0, Math.max(2, (M.wall.x1 - M.wall.x0) * k), Hc); }
+  for (const u of b.units) {
+    if (!u.active || (u.team === 1 && (u.hidden || (b.hero && !b.isVisibleTo(u, b.hero))))) continue;
+    g.fillStyle = u.hero ? "#ffd75e" : u.team === 0 ? (u.squad >= 11 ? "#7fc4e8" : SQUAD_COLORS[u.squad] || "#8fd06a") : "#e0503c";
+    const s = u.hero ? 3 : big ? 2 : 1.5;
+    g.fillRect(u.x * k - s / 2, u.y * k - s / 2, s, s);
+  }
+  if (big) {
+    g.font = "bold 9px monospace"; g.textAlign = "center";
+    for (const sq of b.liveSquads()) { const L = b.squadUnits(sq); if (!L.length) continue; const cx = L.reduce((s, u) => s + u.x, 0) / L.length * k, cy = L.reduce((s, u) => s + u.y, 0) / L.length * k; g.fillStyle = "#000"; g.fillText(String(sq), cx + 1, cy - 4); g.fillStyle = SQUAD_COLORS[sq]; g.fillText(String(sq), cx, cy - 5); }
+  }
+  g.strokeStyle = "rgba(255,255,255,.5)"; g.strokeRect(b.cam.x * k + 0.5, b.cam.y * k + 0.5, W * k, H * k);
+}
 const MODE_NAME: Record<string, string> = { hold: "stoją", follow: "za tobą", charge: "szarża", flank: "oskrzydla", ambush: "zasadzka" };
 function showBattleHud() { $("bhud").hidden = false; endShown = false; endT = 0; }
 function hideBattleHud() { $("bhud").hidden = true; $("cmd").hidden = true; }
@@ -90,7 +117,8 @@ function battleHud(dt: number) {
     if (h.mounted) $("horse-fill").style.width = clamp(h.horseHp / h.horseMax, 0, 1) * 100 + "%";
     $("hero-name").textContent = h.name || "Bohater";
     $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
-    $("dir").textContent = !h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : settings.gesture ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`;
+    const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
+    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : settings.gesture ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint : "");
     // zasoby: tylko te, których używają umiejętności
     const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
     $("res").innerHTML = (["faith", "mana", "fury"] as Res[]).filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round((H2 as any)[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp((H2 as any)[r], 0, 100)}%"></i></div>`).join("")
@@ -100,11 +128,17 @@ function battleHud(dt: number) {
     $("abil").innerHTML = H2.abilities.map((a, i) => {
       if (!a) return `<div class="ab empty"><span class="key">${i + 1}</span><span class="muted">—</span></div>`;
       const A = ABILITIES[a], cd = b.cds[a] || 0, why = abilityReady(b, a);
-      return `<div class="ab ${why ? "off" : "ready"} res-${A.res}"><span class="key">${i + 1}</span><span class="an">${A.name}${a === "smite" && (H2.abLevels.smite || 1) > 1 ? " II" : ""}</span><span class="ac">${abilityCost(b, a)} ${RES_NAME[A.res].toLowerCase()}</span>${cd > 0 ? `<i class="cd" style="height:${(cd / A.cd) * 100}%"></i><b class="cdt">${Math.ceil(cd)}</b>` : ""}</div>`;
+      return `<div class="ab ${why ? "off" : "ready"} res-${A.res}" title="${why || ""}"><span class="key">${i + 1}</span>${ic(AB_ICON[A.res] || "star")}<span class="an">${A.name}${a === "smite" && (H2.abLevels.smite || 1) > 1 ? " II" : ""}</span><span class="ac">${abilityCost(b, a)} ${RES_NAME[A.res].toLowerCase()}</span>${cd > 0 ? `<i class="cd" style="height:${(cd / A.cd) * 100}%"></i><b class="cdt">${Math.ceil(cd)}</b>` : ""}</div>`;
     }).join("") + `<div class="ab ${H2.bandages > 0 ? "ready" : "off"}"><span class="key">4</span><span class="an">Opatrunek</span><span class="ac">zostało ${H2.bandages}</span></div>`;
   }
   const ours = b.units.filter((u) => u.team === 0 && u.active).length + b.reserves[0].length;
   const foes = b.units.filter((u) => u.team === 1 && u.active && !u.hidden).length;
+  // pasek przewagi: siła = suma hp żywych, ważona poziomem
+  const pw = (t: number) => b.units.reduce((s, u) => s + (u.team === t && u.active && !(t === 1 && u.hidden) ? u.hp * (1 + (UNITS[u.key]?.tier || 2) * 0.25) : 0), 0) + b.reserves[t].length * 60;
+  const p0 = pw(0), p1 = pw(1), adv = p0 + p1 > 0 ? p0 / (p0 + p1) : 0.5;
+  $("adv").style.width = Math.round(adv * 100) + "%";
+  $("adv-t").textContent = adv > 0.65 ? "Przewaga" : adv < 0.35 ? "W opałach" : "Wyrównana";
+  drawMini(b);
   $("ours").textContent = String(ours) + (b.reserves[0].length ? ` (+${b.reserves[0].length})` : "");
   $("foes").textContent = String(foes) + (b.reserves[1].length ? ` (+${b.reserves[1].length})` : "");
   $("foe-name").textContent = b.cfg.enemy.name;
@@ -114,7 +148,9 @@ function battleHud(dt: number) {
     const sel = b.selected.includes(sq) ? " sel" : "";
     const offU = b.units.find((u) => u.team === 0 && u.squad === sq && u.officer && u.active);
     const off = offU ? (offU.companion ? ` · ${offU.name}` : " ⚑") : "";
-    return `<div class="grp${sel}"><span class="key">${sq}</span><span class="gname" style="color:${SQUAD_COLORS[sq]}">${SQUAD_NAMES[sq]}${off}</span> <b>${n}</b> · ${MODE_NAME[o.mode]} · ${FORMATION_NAME[o.formation]}<span class="mbar" title="Morale ${m}%"><i style="width:${m}%" class="${m < 25 ? "bad" : m < 45 ? "warn" : ""}"></i></span></div>`;
+    const su = b.squadUnits(sq)[0];
+    const sic = !su ? "man" : su.mounted ? "horse" : su.bowDmg > 0 ? "bow" : su.hasShield ? "shield" : "sword";
+    return `<div class="grp${sel}"><span class="key">${sq}</span>${ic(sic)}<span class="gname" style="color:${SQUAD_COLORS[sq]}">${SQUAD_NAMES[sq]}${off}</span> <b>${n}</b> · ${MODE_NAME[o.mode]} · ${FORMATION_NAME[o.formation]}<span class="mbar" title="Morale ${m}%"><i style="width:${m}%" class="${m < 25 ? "bad" : m < 45 ? "warn" : ""}"></i></span></div>`;
   }).join("");
   $("log").innerHTML = b.log.map((l) => `<div class="${l.big ? "big" : ""}" style="opacity:${clamp(l.t, 0, 1)};${l.col ? `color:${l.col}` : ""}">${l.text}${l.n > 1 ? ` <span class="cnt">×${l.n}</span>` : ""}</div>`).join("");
   if (b.banner) { $("banner").textContent = b.banner.text; $("banner").style.color = b.banner.col; $("banner").hidden = false; $("banner").style.opacity = String(clamp(b.banner.t * 2, 0, 1)); }
@@ -272,4 +308,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty };

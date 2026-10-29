@@ -1,12 +1,12 @@
 // Mapa bitwy: teren według miejsca starcia (równina, las, wzgórza, bagno, rzeka, wybrzeże, ruiny), oblężenie i arena.
 // Siatka komórek 8 px: 0 zwykła, 1 wolna (bagno, bród), 2 zablokowana (głęboka woda, mur), 5 drabina, 6 brama.
 
-type Terrain = "plains" | "forest" | "hills" | "swamp" | "river" | "coast" | "ruins" | "arena" | "siege";
-const TERRAIN_NAME: Record<Terrain, string> = { plains: "Równina", forest: "Las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie" };
+type Terrain = "plains" | "forest" | "hills" | "swamp" | "river" | "coast" | "ruins" | "arena" | "siege" | "village" | "bridge" | "ravine";
+const TERRAIN_NAME: Record<Terrain, string> = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz" };
 const CELL = 8;
 
 interface Area { x: number; y: number; r: number; }
-interface Obstacle { x: number; y: number; r: number; img: HTMLCanvasElement; tall?: boolean; }
+interface Obstacle { x: number; y: number; r: number; img: HTMLCanvasElement; tall?: boolean; cover?: boolean; }
 interface Barrier { x0: number; x1: number; crossings: { y: number; h: number; gate?: boolean }[]; }
 interface Light { x: number; y: number; r: number; flicker: number; }
 
@@ -32,23 +32,26 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
 
   // ---- układ terenu ----
   if (t === "hills") M.hills = [{ x: 560, y: 330, r: 150 }, { x: 1060, y: 680, r: 160 }, { x: 820, y: 220, r: 110 }, { x: 300, y: 760, r: 110 }];
-  else if (t !== "arena" && t !== "siege") M.hills = [{ x: rr(500, 1100), y: chance(0.5) ? 260 : 760, r: rr(90, 130) }];
-  if (t === "forest") M.forests = [{ x: 800, y: 500, r: 260 }, { x: 300, y: 200, r: 160 }, { x: 1300, y: 820, r: 170 }];
-  else if (t === "plains" || t === "hills" || t === "ruins") M.forests = [{ x: rr(600, 1000), y: chance(0.5) ? 860 : 150, r: rr(90, 130) }];
+  else if (t !== "arena" && t !== "siege" && t !== "ravine") M.hills = [{ x: rr(500, 1100), y: chance(0.5) ? 260 : 760, r: rr(90, 130) }];
+  if (t === "forest") M.forests = [{ x: 800, y: 500, r: 300 }, { x: 330, y: 230, r: 220 }, { x: 1270, y: 780, r: 230 }, { x: 1250, y: 220, r: 170 }, { x: 330, y: 800, r: 170 }];
+  else if (t === "plains" || t === "hills" || t === "ruins" || t === "village") M.forests = [{ x: rr(600, 1000), y: chance(0.5) ? 860 : 150, r: rr(90, 130) }];
   else if (t === "swamp") M.forests = [{ x: 800, y: 180, r: 140 }];
+  const clearings: Area[] = t === "forest" ? [{ x: 800, y: 500, r: 90 }, { x: rr(450, 650), y: rr(300, 700), r: 60 }, { x: rr(950, 1150), y: rr(300, 700), r: 60 }] : [];
 
   // woda
   const riverX = (y: number) => 800 + Math.sin(y / 140) * 40;
-  if (t === "river") {
-    const fords = [rr(160, 330), rr(680, 860)], bridge = rr(420, 580);
+  if (t === "river" || t === "bridge") {
+    const fords = t === "bridge" ? [] : [rr(160, 330), rr(680, 860)], bridge = rr(420, 580);
     for (let y = 0; y < h; y += CELL) for (let x = 0; x < w; x += CELL) {
       if (Math.abs(x - riverX(y)) < 30) {
         const ford = fords.some((f) => Math.abs(y - f) < 30), br = Math.abs(y - bridge) < 18;
         setCell(x, y, br ? 0 : ford ? 1 : 2);
       }
     }
-    M.barrier = { x0: 770, x1: 830, crossings: [...fords.map((f) => ({ y: f, h: 26 })), { y: bridge, h: 14 }] };
+    M.barrier = { x0: 770, x1: 830, crossings: [...fords.map((f) => ({ y: f, h: 26 })), { y: bridge, h: t === "bridge" ? 12 : 14 }] };
   }
+  // wąwóz: strome zbocza z góry i z dołu, przejście środkiem
+  if (t === "ravine") for (let y = 0; y < h; y += CELL) for (let x = 0; x < w; x += CELL) { const top = 250 + Math.sin(x / 170) * 50 + vnoise(x, 0, 60) * 40, bot = 750 + Math.sin(x / 150 + 2) * 50 - vnoise(x, 9, 60) * 40; if (y < top || y > bot) setCell(x, y, 2); }
   if (t === "coast") for (let y = 0; y < h; y += CELL) for (let x = 0; x < w; x += CELL) { const sea = 150 + Math.sin(x / 90) * 20; if (y < sea) setCell(x, y, 2); else if (y < sea + 20) setCell(x, y, 1); }
   if (t === "swamp") for (let i = 0; i < 26; i++) {
     const px = rr(200, 1400), py = rr(100, 900), r = rr(20, 55);
@@ -95,13 +98,14 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
       if (r > M.arenaR + 14) col = stone[clamp(Math.floor(n * 2 + th - 0.5), 0, 1)];
       else if (r > M.arenaR) col = (Math.floor(x / 6) + Math.floor(y / 4)) % 2 ? stone[1] : stone[0];
       else col = sand[clamp(Math.floor(n * 1.6 + (th - 0.5) * 0.8), 0, 2) === 1 ? 0 : 2];
-    } else if (cell === 2 && t !== "siege") col = water[(n + th * 0.3) > 0.62 ? 1 : 0];
+    } else if (cell === 2 && t === "ravine") { const edge = cellAt(x, y - 10) !== 2 || cellAt(x, y + 10) !== 2; col = edge ? stone[th > 0.5 ? 0 : 1] : stone[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)]; if (edge && th < 0.3) col = [10, 9, 8]; }
+    else if (cell === 2 && t !== "siege") col = water[(n + th * 0.3) > 0.62 ? 1 : 0];
     else if (cell === 1 && (t === "swamp" || t === "river" || t === "coast")) col = (n + th * 0.5) > 0.7 ? water[1] : (n > 0.45 ? water[0] : dirt[0]);
     else {
       const hgt = heightAt(x, y);
       const sl = hgt > 0 ? (heightAt(x - 3, y - 3) - heightAt(x + 3, y + 3)) * 6 : 0;
       const forest = M.forests.some((f) => dist(x, y, f.x, f.y) < f.r + vnoise(x, y, 20) * 20);
-      const rd = t === "siege" || t === "river" ? 999 : Math.abs(y - roadAt(x)) - 14 - vnoise(x, y, 14) * 9;
+      const rd = t === "siege" || t === "river" || t === "bridge" ? 999 : Math.abs(y - roadAt(x)) - 14 - vnoise(x, y, 14) * 9;
       if (t === "siege" && x > 1064) col = (Math.floor(x / 5) + Math.floor(y / 4) * 3) % 4 === 0 ? stone[0] : (n > 0.5 ? stone[1] : dirt[1]);
       else if (rd < 0) { col = dirt[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.9), 0, 2)]; if (Math.abs(Math.abs(y - roadAt(x)) - 6) < 1.2 && hashN(x >> 2, 7) > 0.2) col = dirt[0]; }
       else if (rd < 3) col = th < 0.5 ? dirt[0] : grass[0];
@@ -125,8 +129,8 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
     for (const f of M.forests) for (let i = 0; i < f.r * 5; i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r; gc.fillStyle = pick([PAL.woodD, PAL.dirtD, PAL.grassD]); gc.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + Math.sin(a) * r) | 0, 1, 1); }
   }
   // most
-  if (t === "river" && M.barrier) {
-    const by = M.barrier.crossings[2].y;
+  if ((t === "river" || t === "bridge") && M.barrier) {
+    const by = M.barrier.crossings[M.barrier.crossings.length - 1].y;
     for (let x = 750; x < 850; x++) for (let y = by - 14; y < by + 14; y++) { gc.fillStyle = (x % 6 === 0) ? PAL.woodD : (y === by - 14 || y === by + 13) ? PAL.woodD : PAL.wood; gc.fillRect(x, y, 1, 1); }
   }
   // mury
@@ -140,7 +144,7 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
     M.obstacles.push({ x, y, r, img, tall }); return true;
   };
   if (t !== "arena") {
-    for (const f of M.forests) for (let i = 0; i < f.r * 0.5; i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r; tryPlace(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 6, t === "swamp" ? pick(DEADTREES) : pick([TREES[0], TREES[1], TREES[2], TREES[2], DEADTREES[0]]), 10); }
+    for (const f of M.forests) for (let i = 0; i < f.r * (t === "forest" ? 0.9 : 0.5); i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r; if (clearings.some((c) => dist(c.x, c.y, f.x + Math.cos(a) * r, f.y + Math.sin(a) * r) < c.r)) continue; tryPlace(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 6, t === "swamp" ? pick(DEADTREES) : pick([TREES[0], TREES[1], TREES[2], TREES[2], DEADTREES[0]]), 10); }
     const centerFree = (x: number, y: number) => y > 300 && y < 700 && x > 250 && x < 1350;
     for (let i = 0; i < 90; i++) {
       const x = rr(20, w - 20), y = rr(20, h - 15);
@@ -148,7 +152,16 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
       if (t === "siege" && x > 900) continue;
       tryPlace(x, y, 6, chance(0.75) ? (t === "swamp" || chance(0.3) ? pick(DEADTREES) : pick(TREES)) : pick(ROCKS), 18);
     }
-    if (t === "ruins") for (let i = 0; i < 26; i++) tryPlace(rr(300, 1300), rr(150, 850), 7, pick(ROCKS), 12);
+    if (t === "ruins") {
+      for (let i = 0; i < 18; i++) tryPlace(rr(300, 1300), rr(150, 850), 7, pick(ROCKS), 12);
+      // murki: osłona przed strzałami
+      for (let i = 0; i < 26; i++) { const x = rr(420, 1180), y = rr(200, 800); if (tryPlace(x, y, 9, lowWall(i), 6)) M.obstacles[M.obstacles.length - 1].cover = true; }
+    }
+    if (t === "village") {
+      for (let i = 0; i < 16; i++) tryPlace(rr(560, 1040) + (i % 2 ? 0 : rr(-40, 40)), rr(260, 740), 13, PROPS.house, 20);
+      for (let i = 0; i < 14; i++) { const x = rr(520, 1080), y = rr(240, 760); if (tryPlace(x, y, 8, fence(i), 4)) M.obstacles[M.obstacles.length - 1].cover = true; }
+    }
+    if (t === "ravine") for (let i = 0; i < 40; i++) { const x = rr(40, w - 40), y = chance(0.5) ? rr(240, 330) : rr(670, 760); tryPlace(x, y, 8, pick(ROCKS), 10); }
     if (t === "ruins" || t === "swamp" || chance(0.4)) for (let i = 0; i < 10; i++) tryPlace(rr(200, 1400), rr(100, 900), 0, PROPS.grave, 4, false);
     // makabra przy drodze: pale z czaszkami, szubienica
     for (let i = 0; i < 5; i++) { const x = rr(150, 1450); tryPlace(x, roadAt(x) + (chance(0.5) ? -26 : 26), 0, PROPS.pike, 6, false); }
@@ -164,6 +177,18 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
     if (M.wall) for (let y = 100; y < h; y += 160) M.lights.push({ x: M.wall.x0 + 12, y, r: 60, flicker: rnd() * 6 });
   }
   return M;
+}
+
+// Niski murek z kamieni (ruiny) i płot (wioska): osłaniają przed strzałami.
+const LOWWALL: HTMLCanvasElement[] = [];
+function lowWall(i: number) {
+  if (!LOWWALL[i % 4]) { const P = new Pix(22, 10); for (let y = 2; y < 10; y++) for (let x = 0; x < 22; x++) if (y > 2 + ((x * 7 + i) % 3) && !(y < 5 && (x + i) % 9 === 0)) P.p(x, y, ((x >> 2) + y) % 3 === 0 ? PAL.slate : (x + y) % 5 === 0 ? PAL.ash : PAL.stone); P.r(0, 9, 22, 1, PAL.slate); LOWWALL[i % 4] = P.toCanvas(); }
+  return LOWWALL[i % 4];
+}
+const FENCES: HTMLCanvasElement[] = [];
+function fence(i: number) {
+  if (!FENCES[i % 3]) { const P = new Pix(20, 10); for (let x = 0; x < 20; x += 4) P.r(x, 1 + (x % 8 === 0 ? 0 : 1), 1, 9, PAL.woodD); P.r(0, 3, 20, 1, PAL.wood); P.r(0, 6, 20, 1, PAL.wood); FENCES[i % 3] = P.toCanvas(); }
+  return FENCES[i % 3];
 }
 
 function drawWalls(gc: CanvasRenderingContext2D, M: BattleMap) {

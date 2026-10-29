@@ -5,11 +5,12 @@ interface BattleCtx {
   kind: "field" | "siege" | "arena" | "place" | "custom";
   enemies: Party[]; allies: Party[];
   settlement?: Settlement; place?: SpecialPlace;
-  arena?: { tournament: boolean; round: number; bet: number; team: boolean };
+  arena?: { tournament: boolean; round: number; bet: number; team: boolean; mode?: string; foe?: string };
   enemyTroops?: Troop[];               // gdy wrogiem jest załoga lub miejsce
   garrisonAlly?: Troop[];
   title: string;
   onWin?: (lines: string[]) => void;
+  defend?: boolean;
 }
 const G = {
   state: "title" as GState,
@@ -204,14 +205,19 @@ function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   };
 }
 function companionCfgs(P: PlayerState): CompanionCfg[] {
-  return P.companions.filter((c) => c.hp > c.maxHp * 0.25).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null }));
+  const AB: Record<string, string> = { "kapłanka": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai" };
+  return P.companions.filter((c) => c.hp > c.maxHp * 0.25).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
 }
 function healthyTroops(list: Troop[]) { return list.map((t) => ({ type: t.type, n: t.n - t.wounded })).filter((t) => t.n > 0); }
 function battleTerrainAt(w: World, x: number, y: number): Terrain {
   const cx = Math.floor(x / WCELL), cy = Math.floor(y / WCELL);
-  let river = 0, sea = 0;
-  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const t = terrAt(w, cx + dx, cy + dy); if (t === T_RIVER) river++; if (t === T_SEA) sea++; }
+  let river = 0, sea = 0, mount = 0, bridge = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const t = terrAt(w, cx + dx, cy + dy); if (t === T_RIVER) river++; if (t === T_SEA) sea++; if (t === T_MOUNT) mount++; const i = cidx(clamp(cx + dx, 0, WGW - 1), clamp(cy + dy, 0, WGH - 1)); if (w.road[i] === 2) bridge++; }
+  const vil = w.settlements.find((s) => s.kind === "village" && dist(s.cx, s.cy, cx, cy) < 3.5);
+  if (vil) return "village";
+  if (bridge) return "bridge";
   if (river >= 2) return "river";
+  if (mount >= 4) return "ravine";
   if (sea >= 3) return "coast";
   const t = terrAt(w, cx, cy);
   if (t === T_FOREST) return "forest";
@@ -242,15 +248,23 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
-    terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain,
+    terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog,
     player: { name: P.name, faction: P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
-    enemy: { name: ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
+    enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
     maxPerSide: settings.battleSize,
     title: ctx.title,
     ...cfgExtra,
   };
-  if (ctx.kind === "arena") { cfg.arena = { kind: ctx.arena.team ? "team" : "duel" }; cfg.maxPerSide = 20; if (ctx.arena.team) cfg.player.troops = [{ type: pick(["m_sword", "a_maa", "v_legion"]), n: 2 }]; }
+  if (ctx.kind === "arena") {
+    const A = ctx.arena, mode = A.mode || (A.team ? "team3" : "duel");
+    cfg.arena = { kind: mode.startsWith("team") ? "team" : "duel", lethal: mode === "death" };
+    cfg.maxPerSide = mode === "waves" ? 3 : 20;
+    if (mode === "team3") cfg.player.troops = [{ type: pick(["m_sword", "a_maa", "v_legion"]), n: 2 }];
+    if (mode === "team5") cfg.player.troops = [{ type: pick(["m_sword", "a_maa"]), n: 2 }, { type: pick(["v_legion", "o_warrior", "d_shield"]), n: 2 }];
+    if (mode === "joust") cfg.player.hero = { ...cfg.player.hero, weapon: "lance", shield: true, mount: cfg.player.hero.mount || { hp: 130, speed: 118, accel: 66, turn: 2.8 } };
+    if (mode === "death") cfg.night = true;
+  }
   G.ctx = ctx;
   const tb = document.getElementById("toasts"); if (tb) tb.innerHTML = "";
   G.battle = new Battle(cfg, input, sfx, settings);
@@ -268,7 +282,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   hideMapHud();
   showBattleHud();
   b.phase = "fight";
-  const intro = ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
+  const intro = ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
   b.say(intro, PAL.bone, true);
   b.shout(ctx.title, PAL.gold);
   sfx.battleCry(1);
@@ -291,9 +305,34 @@ function distributeLosses(parties: { troops: Troop[] }[], cas: Casualty[], wound
   }
 }
 
-function battleFinished() {
-  const b = G.battle, ctx = G.ctx, w = WORLD, P = w.player, p = playerParty(w);
-  const r = b.result;
+function battleFinished() { applyBattleResult(G.battle.result); }
+// Rozstrzygnięcie bez walki: siła obu stron, taktyka i dowodzenie, losowość. Bohater nie walczy osobiście.
+function autoResolve(ctx: BattleCtx) {
+  const w = WORLD, P = w.player, p = playerParty(w);
+  closeScreen();
+  G.ctx = ctx;
+  const mine = troopPower(p.troops) + ctx.allies.reduce((s, a) => s + troopPower(a.troops), 0) + P.companions.length * 1.5;
+  const theirs = ctx.enemies.reduce((s, e) => s + troopPower(e.troops), 0) + (ctx.enemyTroops ? troopPower(ctx.enemyTroops) : 0);
+  const k = 1 + P.skills.tactics * 0.08 + P.skills.leadership * 0.03;
+  const pm = mine * k * rr(0.8, 1.2), pt = theirs * rr(0.8, 1.2) * (ctx.kind === "siege" ? 1.8 : 1);
+  const win = pm > pt;
+  const ratio = Math.min(pm, pt) / Math.max(pm, pt, 0.01);
+  const lose = (list: Troop[], frac: number, woundShare: number): Casualty[] => list.map((t) => { const n = Math.min(t.n - t.wounded, Math.round((t.n - t.wounded) * frac * rr(0.7, 1.3))); const wd = Math.round(n * woundShare); return { type: t.type, killed: n - wd, wounded: wd }; }).filter((c) => c.killed + c.wounded > 0);
+  const ourFrac = win ? clamp(ratio * 0.5, 0.03, 0.7) : clamp(0.5 + ratio * 0.3, 0.4, 1);
+  const theirFrac = win ? clamp(0.7 + (1 - ratio) * 0.3, 0.6, 1) : clamp(ratio * 0.45, 0.05, 0.6);
+  const enemyAll: Troop[] = []; for (const e of ctx.enemies) for (const t of e.troops) addTroops(enemyAll, t.type, t.n - t.wounded); if (ctx.enemyTroops) for (const t of ctx.enemyTroops) addTroops(enemyAll, t.type, t.n - (t.wounded || 0));
+  const allyAll: Troop[] = []; for (const a of ctx.allies) for (const t of a.troops) addTroops(allyAll, t.type, t.n - t.wounded);
+  const ours = lose(p.troops, ourFrac, 0.5 + P.skills.medicine * 0.03), theirsC = lose(enemyAll, theirFrac, 0.3);
+  const xp: Record<string, number> = {};
+  for (const t of p.troops) xp[t.type] = (t.n - t.wounded) * (win ? 10 : 4);
+  const prisoners = win ? theirsC.filter((c) => !UNITS[c.type].undead && UNITS[c.type].culture !== "monster").map((c) => ({ type: c.type, n: Math.round(c.wounded * 0.8) })).filter((x) => x.n > 0) : [];
+  const r: BattleResult = { win, heroKO: false, heroHp: P.hp, heroKills: 0, faith: P.faith, mana: P.mana, fury: 0, corruption: P.corruption, bandages: P.bandages, ammo: P.ammo,
+    ours, theirs: theirsC, allies: lose(allyAll, ourFrac, 0.4), xp, prisoners, companionsKO: [], companionHp: {}, enemyKilled: theirsC.reduce((s, c) => s + c.killed, 0), time: 0, retreated: !win };
+  G.battle = null;
+  applyBattleResult(r, true);
+}
+function applyBattleResult(r: BattleResult, auto = false) {
+  const ctx = G.ctx, w = WORLD, P = w ? w.player : null, p = w ? playerParty(w) : null;
   hideBattleHud();
   if (!w || ctx.kind === "custom") { G.state = "title"; G.battle = null; showTitle(); return; }
   // stan bohatera
@@ -348,12 +387,14 @@ function battleFinished() {
       for (const q of P.quests) if (!q.done && q.kind === "wolves" && q.target === ctx.place.id) completeQuest(q, lines);
       if (ctx.place.kind === "camp" || ctx.place.kind === "cemetery") { lootGold += 150; P.gold += 150; P.renown += 10; }
     }
-    if (ctx.kind === "siege" && ctx.settlement) siegeWon(ctx.settlement, lines);
+    if (ctx.kind === "siege" && ctx.settlement && ctx.defend) { const s = ctx.settlement; s.siegeBy = []; s.siegeDays = 0; s.relation += 15; P.renown += 30; lines.push(`Oblężenie ${s.name} przełamane!`); chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold); }
+    else if (ctx.kind === "siege" && ctx.settlement) siegeWon(ctx.settlement, lines);
     if (ctx.onWin) ctx.onWin(lines);
   } else {
     P.morale = clamp(P.morale - 15, 0, 100);
     // przegrana: wróg zachowuje resztę; bohater w niewoli, jeśli armia rozbita
-    if (!r.retreated || healthyCount(p.troops) === 0) {
+    if (auto && healthyCount(p.troops) > 0) lines.push("Wycofujesz resztę armii z pola.");
+    else if (!r.retreated || healthyCount(p.troops) === 0) {
       const captor = ctx.enemies[0];
       if (captor && captor.kind !== "monster" && captor.kind !== "undead") captivity(captor.faction, lines);
       else if (ctx.settlement) captivity(ctx.settlement.faction, lines);
@@ -362,9 +403,11 @@ function battleFinished() {
         p.troops = p.troops.filter(() => chance(0.15));
       }
     } else lines.push("Wycofujesz się z pola. Część ludzi nie zdążyła uciec.");
+    if (ctx.kind === "siege" && ctx.settlement && ctx.defend && ctx.enemies[0]) { const e0 = ctx.enemies[0]; captureSettlement(w, ctx.settlement, e0.faction, e0.lord ?? -1); ctx.settlement.siegeBy = []; ctx.settlement.siegeDays = 0; }
     if (ctx.kind === "siege" && ctx.settlement) { ctx.settlement.siegeBy = ctx.settlement.siegeBy.filter((id) => id !== p.id); p.siege = undefined; }
   }
   // bitwy z lordami zmieniają nastawienie frakcji
+  if (auto) lines.unshift(r.win ? "Rozstrzygnięcie bez walki: twoi ludzie zwyciężają." : "Rozstrzygnięcie bez walki: bitwa przegrana.");
   showAftermath(r, lootGold, lootItems, lines);
   G.battle = null;
 }

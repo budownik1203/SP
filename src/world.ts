@@ -91,7 +91,7 @@ interface PlayerState {
 interface CompanionState { id: string; name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; armor: number; bow: number; horse: boolean; role: string; wage: number; bio: string; level: number; squad: number; }
 
 interface World {
-  seed: number; day: number; hour: number; rain: boolean;
+  seed: number; day: number; hour: number; rain: boolean; fog?: boolean;
   terr: Uint8Array; road: Uint8Array; nearest: Int16Array; explored: Uint8Array; blight: Uint8Array;
   settlements: Settlement[]; parties: Party[]; lords: Lord[]; places: SpecialPlace[];
   factions: Record<number, FactionState>;
@@ -602,6 +602,7 @@ function goTo(w: World, p: Party, x: number, y: number) {
 function dailyTick(w: World) {
   w.day++;
   w.rain = chance(0.22);
+  w.fog = !w.rain && chance(0.14);
   // dyplomacja
   const F = [1, 2, 3, 4];
   for (const a of F) for (const b of F) if (a < b && w.factions[a].alive && w.factions[b].alive) {
