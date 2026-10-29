@@ -270,6 +270,7 @@ function drawCorpse(g: CanvasRenderingContext2D, c: Corpse, sx: number, sy: numb
 
 function weaponAngle(b: Battle, u: Unit): { a: number; ext: number } {
   const f = u.face, w = u.w;
+  const big = w.twoHanded && !w.staff && w.type.T !== "pierce" ? 1.18 : 1;   // broń dwuręczna: zamach zza barku
   const side = (d: Dir) => (d === "L" ? -1 : 1);
   const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
   const easeIn = (p: number) => p * p;
@@ -277,9 +278,9 @@ function weaponAngle(b: Battle, u: Unit): { a: number; ext: number } {
     case "windup": {
       const full = u.hero ? w.windup * 0.8 : w.windup;
       const e = easeOut(clamp(u.t / full, 0, 1));
-      if (u.dir === "O") return { a: f + angDiff(f, -Math.PI / 2 - 0.3 * Math.sign(Math.cos(f))) * e, ext: -2 * e };
+      if (u.dir === "O") return { a: f + angDiff(f, -Math.PI / 2 - (big > 1 ? 0.7 : 0.3) * Math.sign(Math.cos(f) || 1)) * e, ext: -2 * e };
       if (u.dir === "T") return { a: f, ext: -7 * e };
-      return { a: f + 0.9 + angDiff(f + 0.9, f + side(u.dir) * 2.3) * e, ext: -1 * e };
+      return { a: f + 0.9 + angDiff(f + 0.9, f + side(u.dir) * 2.3 * big) * e, ext: -1 * e };
     }
     case "strike": {
       const p = easeIn(clamp(u.t / w.strike, 0, 1));
@@ -306,7 +307,7 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
   const [dirI, flip] = b.dirIndex(u.face);
   const moving = Math.hypot(u.vx, u.vy) > 8;
   const frame = moving && !u.mounted ? [1, 2, 3, 2][Math.floor(u.anim) % 4] : 0;
-  const img = u.spr.frames[dirI][frame];
+  const img = (u.spr.bare || u.spr.frames)[dirI][frame];
   let lean = 0;
   if (u.state === "windup") lean = -2; else if (u.state === "strike") lean = 2; else if (u.state === "recover") lean = u.t < 0.12 ? 1 : 0;
   const c = Math.cos(u.face), s = Math.sin(u.face);
@@ -333,9 +334,18 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
   const handY = u.spr.h > 32 ? -16 : -13;
   const hand = { x: x + c * 4, y: y + handY + s * 2 + riderY + (frame === 2 ? -1 : 0) };
   const wa = weaponAngle(b, u);
-  if (dirI === 1) drawGear(b, g, u, hand, wa);
+  const rigged = !!(u.spr.rig && u.spr.bare);
   const off = u.state === "stagger" ? Math.round(Math.sin(u.t * 50)) : 0;
-  const ix = x - Math.floor(img.width / 2) + off, iy = y - img.height + 2 + riderY;
+  // ruch ciała: zamach z góry unosi, cios opuszcza; cięcia skręcają tułów
+  let bodyDy = 0, bodyDx = 0;
+  if (rigged) {
+    if (u.dir === "O") bodyDy = u.state === "windup" ? -1 : u.state === "strike" ? 1 : 0;
+    if ((u.dir === "L" || u.dir === "R") && (u.state === "windup" || u.state === "strike") && dirI !== 2) bodyDx = (u.dir === "L" ? -1 : 1) * (u.state === "windup" ? 1 : -1);
+  }
+  const ix = x - Math.floor(img.width / 2) + off + bodyDx, iy = y - img.height + 2 + riderY + bodyDy;
+  const pose = rigged ? computePose(b, u, x + off + bodyDx, iy + u.spr.rig.sy + (frame === 2 ? -1 : 0), dirI, wa, moving) : null;
+  if (pose) drawPoseLayer(b, g, u, pose, true);
+  else if (dirI === 1) drawGear(b, g, u, hand, wa);
   const srcH = u.mounted ? Math.round(img.height * 0.66) : img.height;    // jeździec: górna część postaci
   const draw = (im: HTMLCanvasElement) => {
     if (flip) { g.save(); g.translate(ix + im.width, iy); g.scale(-1, 1); g.drawImage(im, 0, 0, im.width, srcH, 0, 0, im.width, srcH); g.restore(); }
@@ -347,12 +357,13 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     g.fillStyle = PAL.blood;
     for (let i = 0; i < n; i++) { const hs = hashInt(u.id * 13 + i); g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >>> 4) % 8), 1, (hs >>> 8) % 3 === 0 ? 2 : 1); }
   }
-  if (u.flash > 0) { g.globalAlpha = alpha * clamp(u.flash / 0.08, 0, 1) * 0.8; draw(u.spr.white[dirI][frame]); g.globalAlpha = alpha; }
+  if (u.flash > 0) { g.globalAlpha = alpha * clamp(u.flash / 0.08, 0, 1) * 0.8; draw((u.spr.bareWhite || u.spr.white)[dirI][frame]); g.globalAlpha = alpha; }
   if (u.decay || u.cursedT > 0) { g.globalAlpha = 0.22 + Math.sin(b.real * 6 + u.id) * 0.08; g.fillStyle = PAL.purple; g.fillRect(ix + 7, iy + 4, img.width - 14, srcH - 6); g.globalAlpha = alpha; }
   if (u.burnT > 0 && chance(0.5)) { g.fillStyle = pick([PAL.gold, PAL.redL]); g.fillRect(ix + 8 + Math.floor(rnd() * 8), iy + 6 + Math.floor(rnd() * 14), 1, 2); }
   if (u.bloodRiteT > 0) { g.globalAlpha = 0.25; g.fillStyle = PAL.bloodL; g.fillRect(ix + 7, iy + 4, img.width - 14, srcH - 6); g.globalAlpha = alpha; }
-  if (u.smiteT > 0) { g.fillStyle = PAL.gold; g.fillRect(Math.round(hand.x + rr(-3, 3)), Math.round(hand.y + rr(-6, 0)), 1, 1); }
-  if (dirI !== 1) drawGear(b, g, u, hand, wa);
+  if (pose) drawPoseLayer(b, g, u, pose, false);
+  else if (dirI !== 1) drawGear(b, g, u, hand, wa);
+  if (u.smiteT > 0) { const hp = pose ? pose.main : hand; g.fillStyle = PAL.gold; g.fillRect(Math.round(hp.x + rr(-3, 3)), Math.round(hp.y + rr(-6, 0)), 1, 1); }
   // pochodnia
   if (u.torch && !u.mounted) {
     const tx = Math.round(x - c * 3 + (flip ? 3 : -3)), ty = y - 20 + riderY;
@@ -543,3 +554,185 @@ function pxText(g: CanvasRenderingContext2D, t: string, x: number, y: number, co
   }
 }
 function pxSmall(g: CanvasRenderingContext2D, t: string, cx: number, y: number, col: string) { pxText(g, t, Math.round(cx - textW(t) / 2), y - 5, col); }
+
+
+// ---------- Ramiona i broń zgodne z ruchem ----------
+// Dłoń porusza się po łuku wokół barku, broń wychodzi z dłoni. Styl zależy od broni:
+// jednoręczna (dłoń i tarcza), dwuręczna (obie dłonie na rękojeści), drzewcowa (dwa chwyty na drzewcu),
+// łuk (ręka wyciągnięta, druga naciąga cięciwę), kusza (przy piersi).
+type WStyle = "one" | "two" | "pole" | "bow" | "xbow";
+interface Pose { style: WStyle; main: V; off: V; shM: V; shO: V; base: V; a: number; len: number; mainBack: boolean; offBack: boolean; gearBack: boolean; shield: V | null; blocking: boolean; pull: number; }
+
+function bowVisible(b: Battle, u: Unit) {
+  const meleeOnly = u.team === 0 && b.orders[u.squad]?.meleeOnly;
+  return u.usingBow && u.bowDmg > 0 && (u.hero || (u.state === "idle" && u.ammo > 0 && !meleeOnly && !!u.target && dist(u.x, u.y, u.target.x, u.target.y) > 30));
+}
+function weaponStyle(b: Battle, u: Unit): WStyle {
+  if (bowVisible(b, u) && !u.def.bow?.axe) return u.def.bow?.bolt ? "xbow" : "bow";
+  const w = u.w;
+  if (w.staff || (w.len >= 14 && w.type.T === "pierce" && !w.axe)) return "pole";
+  if (w.twoHanded) return "two";
+  return "one";
+}
+function computePose(b: Battle, u: Unit, x: number, shY: number, dirI: number, wa: { a: number; ext: number }, moving: boolean): Pose {
+  const R = u.spr.rig, f = u.face;
+  const fx = Math.cos(f), fy = Math.sin(f);
+  const rvx = Math.cos(f + Math.PI / 2), rvy = Math.sin(f + Math.PI / 2);
+  const side = dirI === 2;
+  const sw = R.sx * (side ? 0.35 : 1);
+  const fwd = side ? 2 : 0;   // z boku bark jest z przodu tułowia, żeby ramię było widać
+  const shM = { x: x + rvx * sw + fx * fwd, y: shY + rvy * sw * 0.5 }, shO = { x: x - rvx * sw - fx * 1, y: shY - rvy * sw * 0.5 };
+  const chest = { x: x + fx * 1, y: shY + 2 + fy * 1 };
+  const style = weaponStyle(b, u);
+  const L = R.arm;
+  const v = (a: number, k: number) => ({ x: Math.cos(a) * k, y: Math.sin(a) * k * 0.8 });
+  const add = (p: V, q: V, k = 1) => ({ x: p.x + q.x * k, y: p.y + q.y * k });
+  const swing = moving && u.state === "idle" ? Math.sin(u.anim * Math.PI) * 1.5 : 0;
+  const facingUp = fy < -0.3;
+  const blocking = u.hero ? u.blocking : u.state === "idle" && u.guardT > 0;
+  const len = u.w.len + 2;
+  let main: V, off: V, base: V, a = wa.a, pull = 0, shield: V | null = null;
+  if (style === "bow") {
+    pull = u.hero ? u.drawT : clamp(1 - u.reload / 1.2, 0, 1);
+    off = add(chest, { x: fx, y: fy * 0.8 }, L * 0.95);
+    main = add(off, { x: -fx, y: -fy * 0.8 }, 2 + pull * 5);
+    base = off; a = f;
+  } else if (style === "xbow") {
+    main = add(chest, { x: fx, y: fy * 0.8 }, 3); off = add(main, { x: fx, y: fy * 0.8 }, 3);
+    base = main; a = f;
+  } else if (style === "pole") {
+    const strikeO = u.dir === "O" && (u.state === "windup" || u.state === "strike");
+    a = strikeO ? wa.a : f + angDiff(f, wa.a) * (u.state === "idle" ? 0.3 : 0.45);
+    const push = wa.ext * 0.8;
+    off = add(add(chest, v(a, 1)), { x: fx, y: fy * 0.8 }, push);
+    main = add(off, v(a, 5));
+    base = add(off, v(a, -6));
+  } else if (style === "two") {
+    const mid = { x: (shM.x + shO.x) / 2, y: (shM.y + shO.y) / 2 };
+    main = add(add(mid, v(a, L * 0.75)), { x: fx, y: fy * 0.8 }, wa.ext * 0.6);
+    off = add(main, v(a, -3));
+    base = add(off, v(a, -1));
+  } else {
+    main = add(add(shM, v(a, L * 0.95)), { x: fx, y: fy * 0.8 }, wa.ext * 0.7);
+    base = main;
+    if (u.hasShield) shield = blocking ? add(chest, { x: fx, y: fy * 0.8 }, 6) : add(shO, { x: fx * 2 - rvx * 1, y: L * 0.55 + fy });
+    off = shield ? shield : add(shO, { x: fx * 0.5, y: L * 0.85 + swing });
+  }
+  const mainBack = facingUp || (side && rvy < 0 && style === "one");
+  const offBack = facingUp || (side && rvy > 0 && style === "one");
+  return { style, main, off, shM, shO, base, a, len, mainBack, offBack, gearBack: facingUp, shield, blocking, pull };
+}
+function thick(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, col: string, ink = true) {
+  if (ink) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) pxLine(g, x0 + dx, y0 + dy, x1 + dx, y1 + dy, PAL.ink);
+  pxLine(g, x0, y0, x1, y1, col); pxLine(g, x0 + 1, y0, x1 + 1, y1, col);
+}
+function armLine(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, col: string) {
+  for (const [dx, dy] of [[-1, 0], [2, 0], [0, -1], [1, -1], [0, 1], [1, 1]]) pxLine(g, x0 + dx, y0 + dy, x1 + dx, y1 + dy, PAL.ink);   // obrys
+  pxLine(g, x0, y0, x1, y1, col); pxLine(g, x0 + 1, y0, x1 + 1, y1, col);
+}
+function drawArm(g: CanvasRenderingContext2D, R: Rig, sh: V, hand: V) {
+  const mx = (sh.x + hand.x) / 2, my = (sh.y + hand.y) / 2;
+  const d = dist(sh.x, sh.y, hand.x, hand.y);
+  const bend = Math.max(0, R.arm - d) * 0.6;          // im bliżej dłoń, tym mocniej zgięty łokieć
+  const ex = mx + (hand.x > sh.x ? 0.5 : -0.5) * bend, ey = my + bend * 0.8 + 0.5;
+  armLine(g, sh.x, sh.y, ex, ey, R.sleeve);
+  armLine(g, ex, ey, hand.x, hand.y, R.sleeve);
+  g.fillStyle = R.sleeveD; g.fillRect(Math.round(ex), Math.round(ey), 2, 1);   // łokieć
+  g.fillStyle = PAL.ink; g.fillRect(Math.round(hand.x) - 1, Math.round(hand.y), 4, 3);
+  g.fillStyle = R.hand; g.fillRect(Math.round(hand.x), Math.round(hand.y) - 1, 2, 3);
+}
+function drawPoseLayer(b: Battle, g: CanvasRenderingContext2D, u: Unit, P: Pose, back: boolean) {
+  const R = u.spr.rig;
+  const gearHere = P.gearBack === back;
+  // ręka bez broni (tarcza lub swobodna)
+  if (P.offBack === back) {
+    if (P.style === "one") drawArm(g, R, P.shO, P.off);
+    if (P.shield && !(P.blocking && back)) drawShieldAt(g, u, P.shield, P.blocking, u.face);
+  }
+  if (P.shield && P.blocking && !back && P.offBack) drawShieldAt(g, u, P.shield, true, u.face);
+  // broń
+  if (gearHere) {
+    if (P.style === "bow") drawBowAt(g, u, P.off, P.main, P.pull);
+    else if (P.style === "xbow") drawXbowAt(g, u, P.main);
+    else drawWeaponAt(b, g, u, P.base, P.a, P.len + (P.style === "pole" ? 6 : P.style === "two" ? 2 : 0));
+  }
+  // ręce trzymające broń
+  if (P.mainBack === back) {
+    drawArm(g, R, P.shM, P.main);
+    if (P.style !== "one") drawArm(g, R, P.shO, P.off);
+  }
+}
+function drawShieldAt(g: CanvasRenderingContext2D, u: Unit, p: V, blocking: boolean, face: number) {
+  const sxp = Math.round(p.x), syp = Math.round(p.y);
+  const main = u.look.tabard ? u.look.tabard.main : u.team === 0 ? PAL.red : PAL.dusk;
+  const trim = u.look.tabard ? u.look.tabard.trim : PAL.bone;
+  const big = blocking ? 1 : 0;
+  g.fillStyle = PAL.ink; g.fillRect(sxp - 4 - big, syp - 5 - big, 9 + big * 2, 10 + big * 2); g.fillRect(sxp - 3, syp + 5 + big, 7, 1);
+  g.fillStyle = main; g.fillRect(sxp - 3 - big, syp - 4 - big, 7 + big * 2, 8 + big * 2); g.fillRect(sxp - 2, syp + 4 + big, 5, 1);
+  g.fillStyle = PAL.steel; g.fillRect(sxp - 3 - big, syp - 4 - big, 7 + big * 2, 1);
+  g.fillStyle = trim; g.fillRect(sxp, syp - 3, 1, 6); g.fillRect(sxp - 2, syp - 1, 5, 1);
+  g.fillStyle = PAL.steelL; g.fillRect(sxp, syp - 1, 1, 1);
+  if (hashInt(u.id) % 3 === 0) { g.fillStyle = PAL.dirtD; g.fillRect(sxp - 3, syp + 2, 2, 2); }
+  void face;
+}
+function drawBowAt(g: CanvasRenderingContext2D, u: Unit, front: V, back: V, pull: number) {
+  const a = u.face, px = -Math.sin(a), py = Math.cos(a);
+  const bx = front.x, by = front.y;
+  for (let i = -6; i <= 6; i++) {
+    const bend = (1 - (i * i) / 36) * (2 + pull * 1.5);
+    g.fillStyle = Math.abs(i) > 4 ? PAL.woodD : PAL.wood;
+    g.fillRect(Math.round(bx + px * i + Math.cos(a) * bend), Math.round(by + py * i + Math.sin(a) * bend), 1, 1);
+  }
+  pxLine(g, bx + px * 6, by + py * 6, back.x, back.y, PAL.bone);
+  pxLine(g, bx - px * 6, by - py * 6, back.x, back.y, PAL.bone);
+  if (pull > 0.15) { pxLine(g, back.x, back.y, bx + Math.cos(a) * 6, by + Math.sin(a) * 6, PAL.wood); g.fillStyle = PAL.steelL; g.fillRect(Math.round(bx + Math.cos(a) * 6), Math.round(by + Math.sin(a) * 6), 1, 1); }
+}
+function drawXbowAt(g: CanvasRenderingContext2D, u: Unit, p: V) {
+  const a = u.face, c = Math.cos(a), s2 = Math.sin(a), px = -s2, py = c;
+  thick(g, p.x - c * 2, p.y - s2 * 2, p.x + c * 7, p.y + s2 * 7, PAL.woodD);
+  pxLine(g, p.x + c * 6 + px * 5, p.y + s2 * 6 + py * 5, p.x + c * 6 - px * 5, p.y + s2 * 6 - py * 5, PAL.steel);
+  pxLine(g, p.x + c * 6 + px * 5, p.y + s2 * 6 + py * 5, p.x + c * 2, p.y + s2 * 2, PAL.bone);
+  pxLine(g, p.x + c * 6 - px * 5, p.y + s2 * 6 - py * 5, p.x + c * 2, p.y + s2 * 2, PAL.bone);
+}
+function drawWeaponAt(b: Battle, g: CanvasRenderingContext2D, u: Unit, base: V, a: number, len: number) {
+  const w = u.w;
+  if (w.claws) return;
+  const ex = Math.cos(a), ey = Math.sin(a);
+  const bx = base.x, by = base.y;
+  const tipx = bx + ex * len, tipy = by + ey * len;
+  if (u.state === "strike" && u.dir !== "T") {
+    u.trail.push(a);
+    if (u.trail.length > 6) u.trail.shift();
+    g.globalAlpha = 0.4;
+    g.fillStyle = u.smiteT > 0 ? PAL.gold : u.hero ? PAL.white : PAL.boneHi;
+    for (let i = 1; i < u.trail.length; i++) {
+      const a0 = u.trail[i - 1], a1 = u.trail[i];
+      for (let k = 0; k <= 4; k++) { const aa = a0 + angDiff(a0, a1) * (k / 4); for (let r = len * 0.45; r <= len + 1; r += 1) g.fillRect(Math.round(bx + Math.cos(aa) * r), Math.round(by + Math.sin(aa) * r), 1, 1); }
+    }
+    g.globalAlpha = 1;
+  } else if (u.state !== "strike") u.trail.length = 0;
+  if (w.staff) {
+    thick(g, bx, by, tipx, tipy, PAL.woodD, true);
+    g.fillStyle = u.def.ability === "necro" ? PAL.purpleL : u.def.ability === "mage" ? PAL.redL : PAL.bone;
+    g.fillRect(Math.round(tipx) - 1, Math.round(tipy) - 1, 3, 3);
+    return;
+  }
+  const shaft = w.blade === PAL.wood || w.blade === PAL.woodD;
+  pxLine(g, bx + 0.6, by + 0.6, tipx + 0.6, tipy + 0.6, PAL.black);
+  pxLine(g, bx, by, tipx, tipy, w.blade);
+  if (!shaft && w.len >= 9 && !w.axe && !w.head) pxLine(g, bx + ex * 3 + 0.5, by + ey * 3 + 0.5, bx + ex * (len - 2) + 0.5, by + ey * (len - 2) + 0.5, w.blade === PAL.steelL ? PAL.steel : PAL.steelD);
+  if (u.bloodT > 0) { g.fillStyle = PAL.blood; for (let i = 0; i < 4; i++) g.fillRect(Math.round(bx + ex * (len - i * 2 - 1)), Math.round(by + ey * (len - i * 2 - 1)), 1, 1); }
+  if (w.head) {
+    g.fillStyle = PAL.ink; g.fillRect(Math.round(tipx) - 2, Math.round(tipy) - 2, 5, 5);
+    g.fillStyle = w.head; g.fillRect(Math.round(tipx) - 1, Math.round(tipy) - 1, 3, 3);
+    g.fillStyle = PAL.steelL; g.fillRect(Math.round(tipx) - 1, Math.round(tipy) - 1, 1, 1);
+  }
+  if (w.axe) { const px = -ey, py = ex; for (let i = 0; i < 4; i++) pxLine(g, tipx - ex * i, tipy - ey * i, tipx - ex * i + px * (w.twoHanded ? 5 : 4), tipy - ey * i + py * (w.twoHanded ? 5 : 4), i === 0 ? PAL.steelL : PAL.steel); }
+  if (!shaft && !w.axe && !w.head) {   // jelec
+    g.fillStyle = w.hilt;
+    g.fillRect(Math.round(bx + ex * 1 - ey * 2), Math.round(by + ey * 1 + ex * 2), 1, 1);
+    g.fillRect(Math.round(bx + ex * 1 + ey * 2), Math.round(by + ey * 1 - ex * 2), 1, 1);
+    g.fillRect(Math.round(bx + ex - ey), Math.round(by + ey + ex), 1, 1); g.fillRect(Math.round(bx + ex + ey), Math.round(by + ey - ex), 1, 1);
+  }
+  if (shaft && !w.axe && !w.head) { g.fillStyle = PAL.steelL; g.fillRect(Math.round(tipx), Math.round(tipy), 2, 1); g.fillRect(Math.round(tipx + ex), Math.round(tipy + ey), 1, 1); g.fillStyle = PAL.steel; g.fillRect(Math.round(tipx - ex), Math.round(tipy - ey), 1, 1); }
+}

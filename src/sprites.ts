@@ -27,7 +27,8 @@ interface Look {
   blood: number;              // 0..1 plamy krwi
   seed: number;
 }
-interface SpriteSet { frames: HTMLCanvasElement[][]; white: HTMLCanvasElement[][]; headless: HTMLCanvasElement[]; w: number; h: number; headY: number; }
+interface Rig { sy: number; sx: number; arm: number; sleeve: string; sleeveD: string; hand: string; }
+interface SpriteSet { frames: HTMLCanvasElement[][]; white: HTMLCanvasElement[][]; headless: HTMLCanvasElement[]; w: number; h: number; headY: number; bare?: HTMLCanvasElement[][]; bareWhite?: HTMLCanvasElement[][]; rig?: Rig; }
 
 function mkCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
@@ -124,7 +125,7 @@ function matColor(L: Look, x: number, y: number, top: number, shadeRight = false
 }
 
 // ---------- Ludzie, krasnoludy, orkowie ----------
-function drawMan(L: Look, dir: number, frame: number, headless = false): HTMLCanvasElement {
+function drawMan(L: Look, dir: number, frame: number, headless = false, noArms = false): HTMLCanvasElement {
   const P = new Pix(24, 32);
   const F = frameOf(L);
   const { cx, top, bot, hw } = F;
@@ -216,7 +217,8 @@ function drawMan(L: Look, dir: number, frame: number, headless = false): HTMLCan
   const sleeve = (x: number, y: number) => L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, x, y, tp);
   const glove = L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
   const armLen = dwarf ? 7 : orc ? 10 : 8;
-  if (dir === 2) {
+  if (noArms) { /* ręce rysuje bitwa, zgodnie z ruchem broni */ }
+  else if (dir === 2) {
     // ręka z przodu
     for (let y = tp + 1; y < tp + 1 + armLen; y++) P.r(cx - 1, y, 2, 1, sleeve(cx, y));
     P.r(cx - 1, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
@@ -398,7 +400,7 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
 }
 
 // ---------- Nieumarli ----------
-function drawSkeleton(L: Look, dir: number, frame: number, headless = false): HTMLCanvasElement {
+function drawSkeleton(L: Look, dir: number, frame: number, headless = false, noArms = false): HTMLCanvasElement {
   const P = new Pix(24, 32);
   const cx = 12, bob = frame === 2 ? -1 : 0;
   const top = 11 + bob, B = PAL.bone, BH = PAL.boneHi, BD = PAL.ash;
@@ -437,7 +439,8 @@ function drawSkeleton(L: Look, dir: number, frame: number, headless = false): HT
   if (L.body === "leather") for (let y = top + 1; y < top + 9; y++) for (let x = cx - 4; x <= cx + 3; x++) if (vrand(L.seed, x * 5 + y) < 0.75) P.p(x, y, (y - top) % 4 === 3 ? PAL.woodD : PAL.dirt);
   for (let y = top + 6; y < 26; y++) for (let x = cx - 4; x <= cx + 3; x++) if (vrand(L.seed, x * 31 + y * 7) < 0.35 - (y - top) * 0.012) P.p(x, y, rag);
   // ręce
-  if (dir === 2) { P.r(cx, top + 1, 1, 5, B); P.p(cx, top + 6, BH); P.r(cx + 1, top + 7, 1, 3, B); P.r(cx + 1, top + 10, 2, 1, BH); }
+  if (noArms) { /* ręce w bitwie */ }
+  else if (dir === 2) { P.r(cx, top + 1, 1, 5, B); P.p(cx, top + 6, BH); P.r(cx + 1, top + 7, 1, 3, B); P.r(cx + 1, top + 10, 2, 1, BH); }
   else { for (const x of [cx - 6, cx + 5]) { P.r(x, top + 1, 1, 5, B); P.p(x, top + 6, BH); P.r(x, top + 7, 1, 3, B); P.r(x - 1, top + 10, 2, 1, BH); } }
   // czaszka
   if (!headless) {
@@ -560,6 +563,19 @@ function spritesFor(L: Look, key: string): SpriteSet {
   const frames = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => draw(d, f)));
   const headless = [0, 1, 2].map((d) => draw(d, 0, true));
   s = { frames, white: frames.map((r) => r.map(whiteOf)), headless, w: frames[0][0].width, h: frames[0][0].height, headY: L.race === "dwarf" ? 12 : L.race === "dk" ? 8 : 6 };
+  // wersja bez rąk i „szkielet” ramion: bitwa rysuje ręce tak, by naprawdę trzymały i wymachiwały bronią
+  if (L.race === "skel") {
+    s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawSkeleton(L, d, f, false, true)));
+    s.rig = { sy: 12, sx: 5, arm: 9, sleeve: PAL.bone, sleeveD: PAL.ash, hand: PAL.boneHi };
+  } else if (L.race === "human" || L.race === "dwarf" || L.race === "orc" || L.race === "necro") {
+    s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawMan(L, d, f, false, true)));
+    const F = frameOf(L);
+    const sl = L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, 12, F.top + 2, F.top);
+    const sd = L.body === "robe" ? (L.hood ? L.hood[1] : PAL.ink) : L.body === "plate" || L.body === "mail" ? PAL.steelD : L.body === "leather" ? PAL.woodD : L.body === "gambeson" ? PAL.ash : PAL.dirtD;
+    const glove = L.race === "orc" ? L.skin[0] : L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
+    s.rig = { sy: F.top + 1, sx: F.hw + 1, arm: L.race === "dwarf" ? 7 : L.race === "orc" ? 10 : 8, sleeve: sl, sleeveD: sd, hand: glove };
+  }
+  if (s.bare) s.bareWhite = s.bare.map((r) => r.map(whiteOf));
   SPRITE_CACHE.set(key, s);
   return s;
 }
