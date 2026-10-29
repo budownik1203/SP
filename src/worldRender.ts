@@ -10,18 +10,51 @@ const PICON = new Map<string, HTMLCanvasElement>();
 
 function rgbOf(c: string) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
 
+// Kolor mapy: paleta zależna od terenu i regionu, cieniowanie rzeźby (światło z północnego zachodu), głębia wody.
+function mapElev(w: World) {
+  const E = new Float32Array(WGW * WGH);
+  const ev = [0, 0.22, 0.27, 0.55, 1, 0.16, 0.12, 0.1];
+  for (let i = 0; i < E.length; i++) E[i] = ev[w.terr[i]] + (w.terr[i] === T_MOUNT ? vnoise(i % WGW, Math.floor(i / WGW), 3) * 0.5 : 0);
+  for (let pass = 0; pass < 4; pass++) {
+    const T = E.slice();
+    for (let y = 1; y < WGH - 1; y++) for (let x = 1; x < WGW - 1; x++) { const i = cidx(x, y); E[i] = (T[i] * 4 + T[i - 1] + T[i + 1] + T[i - WGW] + T[i + WGW]) / 8; }
+  }
+  return E;
+}
+function seaDist(w: World) {
+  const D = new Uint8Array(WGW * WGH).fill(255);
+  const q: number[] = [];
+  for (let i = 0; i < D.length; i++) if (w.terr[i] !== T_SEA) { D[i] = 0; q.push(i); }
+  for (let h = 0; h < q.length; h++) { const i = q[h], x = i % WGW, y = Math.floor(i / WGW); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= WGW || Y >= WGH) continue; const n = cidx(X, Y); if (D[n] > D[i] + 1) { D[n] = D[i] + 1; q.push(n); } } }
+  return D;
+}
 function renderWorldMap(w: World) {
   const PW = WGW * WCELL, PH = WGH * WCELL;
   const [cv, g] = mkCanvas(PW, PH);
   const im = g.createImageData(PW, PH);
   const C = (c: string) => rgbOf(c);
   const grass = [C(PAL.grass), C(PAL.grassL), C(PAL.moss), C("#5c5a36")];
+  const lush = [C("#22301a"), C("#2f3d20"), C("#46502c"), C("#5d6634")];
+  const north = [C("#212a20"), C("#2d3828"), C("#404a35"), C("#545c43")];
+  const steppe = [C("#3a3320"), C("#4f4429"), C("#655634"), C("#7a6a40")];
   const ashG = [C(PAL.dusk), C(PAL.slate), C(PAL.stone), C(PAL.ash)];
   const dirt = [C(PAL.dirtD), C(PAL.dirt), C(PAL.dirtL)];
-  const water = [C(PAL.ink), C(PAL.water), C(PAL.waterL)];
+  const deepW = [C("#0e1418"), C("#141d22"), C("#1b2a2f")], shallowW = [C("#22383a"), C("#2c4746"), C("#3c5a55")];
+  const riverW = [C("#2a4444"), C("#355452"), C("#4b6e66")];
   const stone = [C(PAL.slate), C(PAL.stone), C(PAL.ash), C(PAL.bone)];
-  const sand = [C(PAL.dirtL), C(PAL.bone), C(PAL.dirt)];
+  const sand = [C("#5b4a32"), C("#6f5c3d"), C("#867049")];
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const E = mapElev(w), SD = seaDist(w);
+  const elev = (px: number, py: number) => {
+    const fx = px / WCELL - 0.5, fy = py / WCELL - 0.5, x0 = clamp(Math.floor(fx), 0, WGW - 2), y0 = clamp(Math.floor(fy), 0, WGH - 2), ax = clamp(fx - x0, 0, 1), ay = clamp(fy - y0, 0, 1);
+    const i = cidx(x0, y0);
+    return lerp(lerp(E[i], E[i + 1], ax), lerp(E[i + WGW], E[i + WGW + 1], ax), ay) + vnoise(px, py, 6) * 0.05 + vnoise(px + 70, py, 17) * 0.06;
+  };
+  // granice regionów poszarpane szumem i ditheringiem, bez prostych linii
+  const regionPal = (cx: number, cy: number, x = 0, y = 0, th = 0.5) => {
+    const jx = cx + (vnoise(cx * 1.3, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3, jy = cy + (vnoise(cx * 1.3 + 77, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3;
+    return steppeAt(jx, jy) ? steppe : jx < 76 * MS && jy > 40 * MS ? lush : jy < 40 * MS && jx < 160 * MS ? north : grass;
+  };
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
     const cx = x >> 3, cy = y >> 3, i = cidx(cx, cy);
     const t = w.terr[i];
@@ -30,19 +63,73 @@ function renderWorldMap(w: World) {
     const bl = w.blight[i];
     let col: number[];
     switch (t) {
-      case T_SEA: { const deep = vnoise(x * 0.5, y * 0.5, 30); col = water[deep + th * 0.3 > 0.75 ? 0 : (n + th * 0.4 > 0.95 ? 2 : 1)]; if (deep < 0.35) col = water[1]; break; }
-      case T_RIVER: col = water[(n + th * 0.5) > 0.9 ? 2 : 1]; break;
+      case T_SEA: {
+        const d = SD[i] + vnoise(x, y, 10) * 1.5 - 0.6;
+        const pal = d < 2.2 ? shallowW : deepW;
+        col = pal[clamp(Math.floor((d < 2.2 ? 2.2 - d : 1.2 + vnoise(x * 0.5, y * 0.5, 30) - (d - 2.2) * 0.12) + th * 0.6 - 0.3), 0, 2)];
+        if (d < 1.1 && n + th * 0.3 > 0.95) col = C(PAL.bone);    // piana przy brzegu
+        break;
+      }
+      case T_RIVER: {
+        // koryto: wąski kanał przez środek komórki, łączony z sąsiednią wodą; reszta to brzeg
+        const lx = x & 7, ly = y & 7;
+        const wat = (dx: number, dy: number) => { const tt = terrAt(w, cx + dx, cy + dy); return tt === T_RIVER || tt === T_SEA; };
+        const m = 1.6 + (vnoise(x, y, 5) - 0.5) * 1.2;
+        let inW = Math.abs(lx - 3.5) < m + 0.6 && Math.abs(ly - 3.5) < m + 0.6;
+        if (!inW && Math.abs(ly - 3.5) < m && ((lx > 3 && wat(1, 0)) || (lx < 4 && wat(-1, 0)))) inW = true;
+        if (!inW && Math.abs(lx - 3.5) < m && ((ly > 3 && wat(0, 1)) || (ly < 4 && wat(0, -1)))) inW = true;
+        if (!inW && wat(1, 1) && wat(1, 0) && wat(0, 1) && lx > 3 && ly > 3) inW = true;
+        if (inW) col = riverW[clamp(Math.floor(n * 1.8 + th * 0.9 - 0.2), 0, 2)];
+        else { const pal = bl ? ashG : regionPal(cx, cy, x, y, th); col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8) + 1, 0, 3)]; (col as any).bank = 1; }
+        break;
+      }
       case T_BEACH: col = sand[clamp(Math.floor(n * 2 + th - 0.5), 0, 2)]; break;
-      case T_MOUNT: col = stone[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)]; break;
-      case T_HILL: { const pal = bl ? ashG : grass; col = pal[clamp(Math.floor(n * 2.6 + th - 0.4), 0, 3)]; break; }
-      case T_SWAMP: col = (n + th * 0.5) > 0.8 ? water[1] : (n > 0.5 ? (bl ? ashG[0] : grass[0]) : dirt[0]); break;
-      case T_FOREST: col = (bl ? ashG : grass)[clamp(Math.floor(n * 1.8 + th - 0.6), 0, 1)]; break;
-      default: { const pal = bl ? ashG : grass; col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8), 0, 2)]; if (vnoise(x + 400, y, 30) > 0.72 && th > 0.4) col = dirt[n > 0.55 ? 1 : 0]; }
+      case T_MOUNT: col = (bl ? ashG : stone)[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)]; break;
+      case T_HILL: { const pal = bl ? ashG : regionPal(cx, cy, x, y, th); col = pal[clamp(Math.floor(n * 2.4 + th - 0.2), 0, 3)]; break; }
+      case T_SWAMP: col = (n + th * 0.5) > 0.82 ? riverW[0] : (n > 0.5 ? (bl ? ashG[0] : grass[0]) : dirt[0]); break;
+      case T_FOREST: col = (bl ? ashG : regionPal(cx, cy, x, y, th))[clamp(Math.floor(n * 1.8 + th - 0.6), 0, 1)]; break;
+      default: {
+        const pal = bl ? ashG : regionPal(cx, cy, x, y, th);
+        col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8), 0, 2)];
+        if (vnoise(x + 400, y, 30) > (steppeAt(cx, cy) ? 0.6 : 0.74) && th > 0.4) col = dirt[n > 0.55 ? 1 : 0];
+      }
+    }
+    // cieniowanie rzeźby
+    if (t !== T_SEA && t !== T_RIVER) {
+      const sh = (elev(x, y) - elev(x - 3, y - 3)) * (t === T_MOUNT ? 5 : 7);
+      const k2 = clamp(1 + sh + (th - 0.5) * 0.04, 0.62, 1.4);
+      col = [Math.min(255, col[0] * k2), Math.min(255, col[1] * k2), Math.min(255, col[2] * k2)];
+    } else if (t === T_RIVER && !(col as any).bank) {
+      if (((x + y * 3 + Math.floor(n * 10)) % 23) === 0) col = C("#6f8f84");   // połysk
     }
     const k = (y * PW + x) * 4;
     im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255;
   }
+  // ciemna linia brzegu wokół koryt rzecznych
+  const D2 = im.data, isW = (px: number, py: number) => { if (px < 0 || py < 0 || px >= PW || py >= PH) return false; const t2 = w.terr[cidx(px >> 3, py >> 3)]; if (t2 === T_SEA) return true; if (t2 !== T_RIVER) return false; const k3 = (py * PW + px) * 4; return D2[k3 + 2] > D2[k3] + 8; };
+  const ink = C(PAL.ink);
+  for (let cy = 0; cy < WGH; cy++) for (let cx = 0; cx < WGW; cx++) {
+    if (w.terr[cidx(cx, cy)] !== T_RIVER) continue;
+    for (let py = cy * 8 - 1; py <= cy * 8 + 8; py++) for (let px = cx * 8 - 1; px <= cx * 8 + 8; px++) {
+      if (px < 0 || py < 0 || px >= PW || py >= PH || isW(px, py)) continue;
+      if (isW(px + 1, py) || isW(px - 1, py) || isW(px, py + 1) || isW(px, py - 1)) { const k3 = (py * PW + px) * 4; D2[k3] = ink[0]; D2[k3 + 1] = ink[1]; D2[k3 + 2] = ink[2]; }
+    }
+  }
   g.putImageData(im, 0, 0);
+  // pola uprawne wokół wiosek i miast żywych
+  for (const st of w.settlements) {
+    if (st.culture === "undead" || st.kind === "castle") continue;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+      const cx = st.cx + dx, cy = st.cy + dy; if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) continue;
+      const i = cidx(clamp(cx, 0, WGW - 1), clamp(cy, 0, WGH - 1)); if (w.terr[i] !== T_PLAIN || w.road[i]) continue;
+      const h = hashInt(i * 31 + 7); if (h % 3 === 0) continue;
+      const x = cx * WCELL, y = cy * WCELL, orc = st.culture === "orc";
+      const base = orc ? (h % 2 ? "#4a3b24" : "#3d3221") : h % 4 === 0 ? "#6a5a2e" : h % 4 === 1 ? "#4b4a26" : h % 4 === 2 ? "#3d3a1e" : "#57502a";
+      g.fillStyle = base; g.fillRect(x, y, WCELL, WCELL);
+      g.fillStyle = "rgba(10,9,8,0.28)"; for (let r = 1; r < WCELL; r += 2) g.fillRect(x, y + r, WCELL, 1);   // bruzdy
+      g.fillStyle = "rgba(10,9,8,0.45)"; g.fillRect(x, y, WCELL, 1); g.fillRect(x, y, 1, WCELL);             // miedze
+    }
+  }
   // drogi
   for (let i = 0; i < w.road.length; i++) {
     if (w.road[i] !== 1 && w.road[i] !== 2) continue;
@@ -53,8 +140,11 @@ function renderWorldMap(w: World) {
       if (w.road[j] === 1 || w.road[j] === 2) {
         if (dx && dy && (w.road[cidx(cx + dx, cy)] || w.road[cidx(cx, cy + dy)])) continue;
         const bridge = w.road[i] === 2 || w.road[j] === 2;
-        pxLine(g, x, y, x + dx * WCELL, y + dy * WCELL, bridge ? PAL.wood : PAL.dirtL);
-        pxLine(g, x + 1, y, x + 1 + dx * WCELL, y + dy * WCELL, bridge ? PAL.woodD : PAL.dirt);
+        pxLine(g, x, y + 1, x + dx * WCELL, y + 1 + dy * WCELL, "#1a1610");
+        pxLine(g, x + 1, y + 1, x + 1 + dx * WCELL, y + 1 + dy * WCELL, "#1a1610");
+        pxLine(g, x, y, x + dx * WCELL, y + dy * WCELL, bridge ? PAL.wood : "#7a6648");
+        pxLine(g, x + 1, y, x + 1 + dx * WCELL, y + dy * WCELL, bridge ? PAL.woodD : PAL.dirtL);
+        if (bridge) { g.fillStyle = PAL.woodD; g.fillRect(x - 1, y - 1, 1, 3); g.fillRect(x + 2, y - 1, 1, 3); }
       }
     }
   }
@@ -81,15 +171,18 @@ function renderWorldMap(w: World) {
       if ((h >>> 8) % 3 > 0) tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
       if ((h >>> 11) % 2 === 0) tree(x + 1 + ((h >>> 13) % 5), y + 9 + ((h >>> 15) % 2), bl && (h >>> 5) % 2 > 0, (h >>> 9) % 2 === 0);
     } else if (t === T_MOUNT) {
-      {
-        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 11 + (h % 7);
+      const hiE = E[i] > 0.62 && h % 4 !== 0;
+      if (!hiE && h % 5 < 2) { g.fillStyle = PAL.ash; g.fillRect(x + 2, y + 5, 4, 1); g.fillRect(x + 3, y + 4, 2, 1); g.fillStyle = PAL.slate; g.fillRect(x + 4, y + 5, 2, 1); }
+      else {
+        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = (hiE ? 12 : 8) + (h % (hiE ? 8 : 4));
         g.fillStyle = "rgba(10,9,8,0.35)"; for (let k = 0; k < 6; k++) g.fillRect(px + 2 + k, py - 2 + Math.floor(k / 2), 4, 1);   // cień na wschód
         for (let k = 0; k < hh; k++) {
           const half = Math.floor((k * 7) / hh);
           g.fillStyle = PAL.ash; g.fillRect(px - half, py - hh + k, half, 1);
           g.fillStyle = PAL.slate; g.fillRect(px, py - hh + k, half + 1, 1);
         }
-        g.fillStyle = PAL.bone; g.fillRect(px - 1, py - hh, 2, 2); g.fillRect(px - 2, py - hh + 2, 1, 1);
+        if (hiE) { g.fillStyle = PAL.boneHi; g.fillRect(px - 1, py - hh, 2, 2); g.fillStyle = PAL.bone; g.fillRect(px - 2, py - hh + 2, 2, 1); g.fillRect(px, py - hh + 2, 2, 1); g.fillRect(px - 3, py - hh + 3, 1, 1); }
+        else { g.fillStyle = PAL.ash; g.fillRect(px - 1, py - hh, 2, 1); }
         g.fillStyle = PAL.ink; g.fillRect(px - 7, py, 15, 1);
       }
     } else if (t === T_HILL && h % 4 === 0) {
@@ -303,6 +396,9 @@ function renderOverview(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   for (let i = 0; i < WGW * WGH; i++) { fim.data[i * 4 + 3] = w.explored[i] ? 0 : 235; }
   fg.putImageData(fim, 0, 0); g.drawImage(WFOG, 0, 0, WGW, WGH, ox, oy, PW * k, PH * k);
   g.imageSmoothingEnabled = false;
+  g.globalAlpha = 0.55;
+  for (const [nm, rx, ry] of MAP_REGIONS) if (w.explored[cidx(rx, ry)]) wText(g, nm, Math.round(ox + rx * WCELL * k - nm.length * 2), Math.round(oy + ry * WCELL * k), /Morze|Zatoka|Jezioro/.test(nm) ? "#8fb0a8" : PAL.bone);
+  g.globalAlpha = 1;
   for (const s of w.settlements) {
     if (!w.explored[cidx(s.cx, s.cy)]) continue;
     const x = Math.round(ox + (s.cx * WCELL + 4) * k), y = Math.round(oy + (s.cy * WCELL + 4) * k);
@@ -343,6 +439,17 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     if (w.terr[i] !== T_SEA) continue;
     const ph = (t * 0.6 + k * 0.37) % 1;
     if (ph < 0.5) g.fillRect(hx + Math.round(ph * 6), hy, 2, 1);
+  }
+  // nazwy krain przy oddaleniu
+  if (W >= 700) {
+    const al = clamp((W - 700) / 300, 0.25, 0.6);
+    g.globalAlpha = al;
+    for (const [nm, rx, ry] of MAP_REGIONS) {
+      const x = rx * WCELL - sx, y = ry * WCELL - sy;
+      if (x < -120 || x > W + 120 || y < -20 || y > H + 20 || !w.explored[cidx(rx, ry)]) continue;
+      wTextBig(g, nm.toUpperCase().split("").join(" "), Math.round(x), Math.round(y), /Morze|Zatoka|Jezioro/.test(nm) ? "#8fb0a8" : PAL.boneHi, 2);
+    }
+    g.globalAlpha = 1;
   }
   type D = { y: number; draw: () => void };
   const list: D[] = [];

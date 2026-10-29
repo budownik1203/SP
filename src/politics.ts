@@ -253,7 +253,13 @@ function plagueDaily(w: World) {
 // Martwa ziemia: komórki, których najbliższą osadą jest osada Morvatha.
 function recomputeBlight(w: World) {
   const N = WGW * WGH;
-  for (let i = 0; i < N; i++) { const s = w.settlements[w.nearest[i]]; w.blight[i] = s && (s.faction === 5 || (s.culture === "undead" && s.faction === 5)) ? 1 : 0; }
+  // granica martwej ziemi poszarpana: próbka najbliższej osady z przesuniętej komórki
+  for (let i = 0; i < N; i++) {
+    const x = i % WGW, y = Math.floor(i / WGW);
+    const jx = clamp(Math.round(x + (vnoise(x, y, 7) - 0.5) * 12), 0, WGW - 1), jy = clamp(Math.round(y + (vnoise(x + 40, y, 7) - 0.5) * 12), 0, WGH - 1);
+    const s = w.settlements[w.nearest[cidx(jx, jy)]];
+    w.blight[i] = s && s.faction === 5 && w.terr[i] !== T_SEA ? 1 : 0;
+  }
   WMAP = null;
 }
 

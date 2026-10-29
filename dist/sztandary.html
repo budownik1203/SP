@@ -9918,7 +9918,7 @@ function silhouette(img, col) {
 "use strict";
 // Świat: generowanie mapy (teren, rzeki, drogi), osady, frakcje, lordowie, oddziały, ekonomia, wojny, kronika.
 const WCELL = 8;
-const WGW = 240, WGH = 150; // komórki mapy świata (1920×1200 px)
+const WGW = 320, WGH = 200; // komórki mapy świata (2560×1600 px)
 const T_SEA = 0, T_PLAIN = 1, T_FOREST = 2, T_HILL = 3, T_MOUNT = 4, T_SWAMP = 5, T_RIVER = 6, T_BEACH = 7;
 const TERR_NAME = ["Morze", "Równina", "Las", "Wzgórza", "Góry", "Bagno", "Rzeka", "Wybrzeże"];
 const HOURS_PER_SEC = 0.8; // 1 dzień = 30 s przy normalnej prędkości
@@ -10029,7 +10029,7 @@ function factionCol(id) { if (id === PLAYER_FACTION) {
 } const F = FACTIONS[id]; return F ? [F.col, F.shade, F.trim] : [PAL.dirt, PAL.dirtD, PAL.bone]; }
 // ---------- A* ----------
 let AS_G = null, AS_CAME = null, AS_STAMP = null, AS_CLOSED = null, AS_GEN = 0;
-function findPath(w, from, to, maxIter = 40000, allowMountains = false) {
+function findPath(w, from, to, maxIter = 90000, allowMountains = false) {
     if (from === to)
         return [to];
     const N = WGW * WGH;
@@ -10129,19 +10129,65 @@ function findPath(w, from, to, maxIter = 40000, allowMountains = false) {
     return path.reverse();
 }
 // ---------- Generowanie świata ----------
+// ---------- Projekt mapy (zawsze ta sama kraina, szczegóły z szumu) ----------
+// Projekt w siatce 240×150, skalowany do rozmiaru mapy (MS).
+const MS = WGW / 240;
+const sc2 = (a) => a.map(([x, y]) => [x * MS, y * MS]);
+const sc3 = (a) => a.map(([x, y, r]) => [x * MS, y * MS, r * MS]);
+// Współrzędne w komórkach (240×150). Wybrzeże, pasma gór, rzeki, lasy, bagna i osady są rozplanowane ręcznie.
+const MAP_COAST = sc2([[18, 10], [44, 7], [70, 9], [96, 5], [124, 8], [150, 4], [176, 6], [204, 5], [228, 10], [235, 34], [229, 52], [236, 74], [231, 98], [236, 118], [224, 136], [198, 142], [176, 139], [154, 144], [128, 141], [106, 145], [86, 139], [72, 131], [60, 136], [42, 133], [28, 124], [20, 108], [9, 96], [14, 80], [7, 62], [13, 46], [8, 30]]);
+const MAP_GULFS = sc3([[50, 121, 11], [9, 56, 4], [232, 64, 4], [120, 144, 5], [182, 141, 4]]); // zatoki
+const MAP_ISLES = sc3([[5, 40, 3], [28, 140, 3], [215, 145, 2], [240, 88, 3]]);
+const MAP_LAKES = sc3([[121, 76, 5], [176, 32, 3]]);
+const MAP_RANGES = [
+    { pts: [[198, 28], [206, 46], [203, 64], [210, 82], [205, 102], [212, 122]], w: 15 }, // Góry Khazgrim
+    { pts: [[146, 40], [158, 30], [170, 26], [182, 30]], w: 6 }, // Kły Popiołu
+    { pts: [[118, 118], [132, 111], [146, 114], [158, 110]], w: 5 }, // Grań Kości
+    { pts: [[96, 48], [101, 52]], w: 4 }, // Samotna Turnia
+    { pts: [[226, 40], [230, 56]], w: 4 },
+].map((r) => ({ pts: sc2(r.pts), w: r.w * MS }));
+const MAP_HILLS = [
+    { pts: [[42, 52], [46, 66], [40, 80]], w: 7 }, // Wzgórza Aureliańskie
+    { pts: [[78, 22], [96, 18], [112, 22]], w: 6 }, // pogórze Legionu
+    { pts: [[184, 70], [188, 96], [186, 118]], w: 7 }, // przedgórze Khazgrim
+    { pts: [[140, 52], [152, 58]], w: 5 },
+].map((r) => ({ pts: sc2(r.pts), w: r.w * MS }));
+const MAP_RIVERS = [
+    { name: "Srebrna", pts: [[196, 62], [180, 66], [160, 70], [140, 73], [126, 76], [116, 76], [100, 73], [84, 71], [66, 69], [50, 68], [34, 66], [18, 64], [10, 64]], wide: 1 },
+    { name: "Szara", pts: [[160, 38], [150, 48], [140, 58], [130, 66], [122, 72]] },
+    { name: "Krwawa", pts: [[202, 108], [190, 114], [176, 120], [160, 126], [146, 132], [134, 142]] },
+    { name: "Popielna", pts: [[192, 24], [186, 16], [182, 8], [182, 4]] },
+    { name: "Dębnica", pts: [[66, 34], [52, 38], [38, 34], [24, 30], [12, 28]] },
+    { name: "Wilcza", pts: [[96, 104], [104, 96], [112, 88], [118, 80]] },
+    { name: "Zimny Potok", pts: [[220, 70], [226, 72], [234, 74]] },
+].map((r) => ({ ...r, pts: sc2(r.pts) }));
+const MAP_FORESTS = sc3([[62, 42, 14], [30, 46, 7], [128, 38, 11], [90, 98, 12], [160, 84, 9], [74, 112, 8], [214, 132, 8], [186, 52, 6], [116, 60, 6], [50, 96, 6]]);
+const MAP_SWAMPS = sc3([[170, 38, 8], [210, 22, 6], [60, 116, 6], [138, 96, 4]]);
+const MAP_REGIONS = [["Korona Aurelii", 38, 84], ["Dolina Srebrna", 96, 66], ["Ziemie Legionu", 106, 30], ["Puszcza Dębowa", 60, 44], ["Góry Khazgrim", 210, 74], ["Step Ghrakka", 150, 124], ["Pustkowia Morvath", 196, 20], ["Kły Popiołu", 162, 34], ["Wilczy Las", 90, 102], ["Morze Zachodnie", 4, 112], ["Zatoka Mgieł", 50, 124], ["Jezioro Lustrzane", 121, 82], ["Grań Kości", 138, 108]].map(([n, x, y]) => [n, Math.round(x * MS), Math.round(y * MS)]);
+function inPoly(x, y, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [xi, yi] = P[i], [xj, yj] = P[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+        c = !c;
+} return c; }
+function segD(px, py, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1; const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / L, 0, 1); return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t); }
+function lineD(px, py, P) { let d = 1e9; for (let k = 0; k < P.length - 1; k++)
+    d = Math.min(d, segD(px, py, P[k], P[k + 1])); return P.length === 1 ? Math.hypot(px - P[0][0], py - P[0][1]) : d; }
+function steppeAt(cx, cy) { cx /= MS; cy /= MS; return cx > 100 && cx < 200 && cy > 94 + (cx > 180 ? 10 : 0); }
+// Osady: stolice i część twierdz w stałych miejscach, reszta rozstawiona w krainie frakcji w dużych odstępach.
+// Na frakcję: 3 miasta, 4 zamki, 10 wiosek (każda wioska należy do swojego miasta lub zamku).
 const SETTLEMENT_PLAN = [
-    { f: 1, cx: 0.26, cy: 0.56, list: [["town", "Aurelion"], ["town", "Valmora"], ["castle", "Strażnica Świtu"], ["village", "Dębniki"], ["village", "Złota Łąka"]] },
-    { f: 2, cx: 0.47, cy: 0.27, list: [["town", "Varusgrad"], ["town", "Kassia"], ["castle", "Żelazna Wieża"], ["village", "Obozowo"], ["village", "Kamionka"]] },
-    { f: 3, cx: 0.8, cy: 0.5, list: [["town", "Khazgrim"], ["town", "Durnhold"], ["castle", "Brama Gromu"], ["village", "Miedziana Dolina"], ["village", "Kowalnia"]] },
-    { f: 4, cx: 0.57, cy: 0.8, list: [["town", "Ghrakkar"], ["town", "Krwawy Bród"], ["castle", "Kościany Gród"], ["village", "Obóz Wilków"], ["village", "Czarne Namioty"]] },
-    { f: 5, cx: 0.82, cy: 0.16, list: [["town", "Morvath"], ["town", "Popielisko"], ["castle", "Wieża Lamentu"], ["village", "Grobowo"], ["village", "Szare Mogiły"]] },
+    { f: 1, cx: 40, cy: 82, rx: 36, ry: 38, fixed: [["town", "Aurelion", 40, 74], ["town", "Valmora", 30, 104], ["castle", "Strażnica Świtu", 62, 90], ["castle", "Wieża Mew", 22, 48]], towns: ["Solmira"], castles: ["Zamek Lilii", "Twierdza Brzegowa"], villages: ["Dębniki", "Złota Łąka", "Rybaki", "Winnice", "Makowo", "Pszeniczna", "Jabłonka", "Owcza Dolina", "Młyńsko", "Białe Brzegi"] },
+    { f: 2, cx: 106, cy: 28, rx: 44, ry: 22, fixed: [["town", "Varusgrad", 92, 30], ["town", "Kassia", 128, 22], ["castle", "Żelazna Wieża", 110, 52], ["castle", "Orli Szaniec", 72, 16]], towns: ["Novium"], castles: ["Kamienny Obóz", "Strażnica Legatów"], villages: ["Obozowo", "Kamionka", "Brzozy", "Wilcze Pole", "Żołnierska Wola", "Zbrojnica", "Kopacze", "Kolonia", "Smolna", "Cyprysy"] },
+    { f: 3, cx: 206, cy: 84, rx: 26, ry: 44, fixed: [["town", "Khazgrim", 204, 70], ["town", "Durnhold", 214, 104], ["castle", "Brama Gromu", 190, 88], ["castle", "Kamienna Straż", 200, 44]], towns: ["Karak Druun"], castles: ["Kuźnia Przodków", "Strażnica Runów"], villages: ["Miedziana Dolina", "Kowalnia", "Głęboka Sztolnia", "Rudna", "Węglowo", "Srebrna Żyła", "Kamieniołom", "Grota Piwna", "Mszysta Hala", "Kopalnia Gromu"] },
+    { f: 4, cx: 148, cy: 120, rx: 50, ry: 24, fixed: [["town", "Ghrakkar", 150, 122], ["town", "Krwawy Bród", 176, 128], ["castle", "Kościany Gród", 124, 104], ["castle", "Czaszkowa Skała", 108, 130]], towns: ["Ugrakh"], castles: ["Kieł Stepu", "Krwawe Ostrogi"], villages: ["Obóz Wilków", "Czarne Namioty", "Błotne Szałasy", "Dymiące Ogniska", "Kościste Koło", "Stado Bawołów", "Pasterski Kurhan", "Suche Studnie", "Popielne Pastwiska", "Wronie Gniazdo"] },
+    { f: 5, cx: 196, cy: 24, rx: 36, ry: 20, fixed: [["town", "Morvath", 202, 20], ["town", "Popielisko", 168, 16], ["castle", "Wieża Lamentu", 184, 40], ["castle", "Czarna Cytadela", 224, 28]], towns: ["Nekropol"], castles: ["Kostnica", "Mglista Wieża"], villages: ["Grobowo", "Szare Mogiły", "Zgniła Grobla", "Wronie Pole", "Kurhany", "Trumniki", "Popielnik", "Zimne Krzyże", "Martwy Młyn", "Cicha Dolina"] },
 ];
 const LORD_PLAN = {
-    1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow"], title: "Sir" },
-    2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn"], title: "Legat" },
-    3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień"], title: "Than" },
-    4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki"], title: "Wódz" },
-    5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej"], title: "Upiór" },
+    1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow", "Ida Solmir", "Konrad Brzeg"], title: "Sir" },
+    2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn", "Tiber Ostra", "Livia Grank"], title: "Legat" },
+    3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień", "Dvalgar Runiczny", "Thora Miedziana"], title: "Than" },
+    4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki", "Brakka Stepowa", "Muzg Kościożerca"], title: "Wódz" },
+    5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej", "Grawen Bezoki", "Ilsa Szronowa"], title: "Upiór" },
 };
 const PERSONALITIES = ["honorowy", "chciwy", "okrutny", "ostrożny"];
 function generateWorld(seed, player) {
@@ -10152,82 +10198,111 @@ function generateWorld(seed, player) {
         terr: new Uint8Array(N), road: new Uint8Array(N), nearest: new Int16Array(N), explored: new Uint8Array(N), blight: new Uint8Array(N),
         settlements: [], parties: [], lords: [], places: [], factions: {}, chronicle: [], player, pid: 0, nextId: 1, questId: 1, ownerVersion: 0,
     };
-    const so = seed % 10000;
-    // wysokość i wilgotność
-    const height = new Float32Array(N), moist = new Float32Array(N);
+    // teren z projektu: ląd z wielokąta wybrzeża (poszarpany szumem), góry i wzgórza wzdłuż pasm, lasy, bagna, jeziora
     for (let y = 0; y < WGH; y++)
         for (let x = 0; x < WGW; x++) {
             const i = cidx(x, y);
-            let h = vnoise(x + so, y, 40) * 0.5 + vnoise(x, y + so, 18) * 0.3 + vnoise(x + 77 + so, y + 31, 7) * 0.2;
-            const nx = x / WGW, ny = y / WGH;
-            // morze na zachodzie i południowym zachodzie
-            const coast = 0.1 + Math.sin(ny * 6 + so) * 0.03 + (ny > 0.75 ? (ny - 0.75) * 0.9 : 0);
-            if (nx < coast)
-                h -= (coast - nx) * 6;
-            if (nx > 0.97 || ny < 0.02 || ny > 0.97)
-                h -= 0.25;
-            // pasmo gór na wschodzie (Khazgrim) i grzbiet środkowy
-            const ridge = 1 - Math.abs(vnoise(x + 200 + so, y + 50, 26) * 2 - 1);
-            const east = Math.exp(-(((nx - 0.86) / 0.07) ** 2)) * (ny > 0.25 && ny < 0.78 ? 1 : 0.3);
-            const mid = Math.exp(-(((nx - 0.6 - (ny - 0.5) * 0.25) / 0.03) ** 2)) * (ny > 0.38 && ny < 0.66 ? 1 : 0);
-            h += ridge * 0.22 + east * 0.38 + mid * 0.3;
-            height[i] = h;
-            moist[i] = vnoise(x + 500 + so, y + 300, 22) * 0.7 + vnoise(x, y + 900, 9) * 0.3;
+            const jx = (vnoise(x, y, 14) - 0.5) * 14 + (vnoise(x + 300, y, 5) - 0.5) * 5, jy = (vnoise(x + 50, y + 50, 14) - 0.5) * 14 + (vnoise(x, y + 300, 5) - 0.5) * 5;
+            let land = inPoly(x + jx, y + jy, MAP_COAST);
+            for (const [gx, gy, r] of MAP_GULFS)
+                if (Math.hypot(x - gx, y - gy) < r + (vnoise(x * 2, y * 2, 6) - 0.5) * 4)
+                    land = false;
+            for (const [ix, iy, r] of MAP_ISLES)
+                if (Math.hypot(x - ix, y - iy) < r + (vnoise(x * 3, y * 3, 4) - 0.5) * 2)
+                    land = true;
+            for (const [lx, ly, r] of MAP_LAKES)
+                if (Math.hypot(x - lx, (y - ly) * 1.3) < r + (vnoise(x * 3, y * 3, 5) - 0.5) * 2)
+                    land = false;
+            if (x < 1 || y < 1 || x >= WGW - 1 || y >= WGH - 1)
+                land = false;
+            if (!land) {
+                w.terr[i] = T_SEA;
+                continue;
+            }
+            let t = T_PLAIN;
+            const n1 = vnoise(x, y, 6), n2 = vnoise(x + 900, y + 400, 14);
+            let ridge = 0;
+            for (const R of MAP_RANGES)
+                ridge = Math.max(ridge, 1 - lineD(x, y, R.pts) / (R.w * (0.65 + n2 * 0.7)));
+            let hill = 0;
+            for (const R of MAP_HILLS)
+                hill = Math.max(hill, 1 - lineD(x, y, R.pts) / (R.w * (0.6 + n2 * 0.8)));
+            if (ridge > 0.42 + n1 * 0.18)
+                t = T_MOUNT;
+            else if (ridge > 0.12 || (hill > 0.2 && n1 > 0.35) || vnoise(x + 11, y + 77, 8) > 0.82)
+                t = T_HILL;
+            else {
+                let forest = false, swamp = false;
+                for (const [fx, fy, r] of MAP_FORESTS)
+                    if (Math.hypot(x - fx, (y - fy) * 1.15) < r * (0.7 + vnoise(x * 2 + fx, y * 2, 7) * 0.6))
+                        forest = true;
+                if (!forest && !steppeAt(x, y) && vnoise(x + 500, y + 300, 10) > 0.76)
+                    forest = true; // zagajniki
+                if (steppeAt(x, y) && forest && n1 < 0.5)
+                    forest = false; // step: mało lasu
+                for (const [sx2, sy2, r] of MAP_SWAMPS)
+                    if (Math.hypot(x - sx2, y - sy2) < r * (0.6 + vnoise(x * 2, y * 2 + sx2, 6) * 0.7))
+                        swamp = true;
+                t = swamp ? T_SWAMP : forest ? T_FOREST : T_PLAIN;
+            }
+            w.terr[i] = t;
         }
-    for (let i = 0; i < N; i++) {
-        const h = height[i], m = moist[i];
-        let t = T_PLAIN;
-        if (h < 0.28)
-            t = T_SEA;
-        else if (h > 0.86)
-            t = T_MOUNT;
-        else if (h > 0.7)
-            t = T_HILL;
-        else if (m > 0.62)
-            t = T_FOREST;
-        else if (h < 0.37 && m > 0.5)
-            t = T_SWAMP;
-        w.terr[i] = t;
-    }
-    // rzeki z gór do morza
-    const sources = [];
-    for (let k = 0; k < 400 && sources.length < 6; k++) {
-        const x = Math.floor(rr(WGW * 0.3, WGW * 0.92)), y = Math.floor(rr(8, WGH - 8)), i = cidx(x, y);
-        if (height[i] > 0.72 && height[i] < 0.86 && sources.every((s) => dist(s % WGW, Math.floor(s / WGW), x, y) > 30))
-            sources.push(i);
-    }
-    for (const s of sources) {
-        let c = s, steps = 0, prevDir = -1;
-        const seen = new Set();
-        while (steps++ < 400) {
-            seen.add(c);
-            if (w.terr[c] === T_SEA)
+    // rzeki według projektu, z meandrami; w górach drążą dolinę
+    const riverCells = (R) => {
+        const out = [];
+        const ph = R.name.length * 1.7;
+        for (let k = 0; k < R.pts.length - 1; k++) {
+            const [ax, ay] = R.pts[k], [bx, by] = R.pts[k + 1];
+            const L = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / (L || 1), ny = (bx - ax) / (L || 1);
+            for (let s2 = 0; s2 <= L; s2 += 0.25) {
+                const u = s2 / (L || 1), gt = k * 10 + s2;
+                const m = Math.sin(gt * 0.45 + ph) * 1.4 + (vnoise(gt * 3, ph * 10, 6) - 0.5) * 2.2;
+                const x = Math.round(ax + (bx - ax) * u + nx * m), y = Math.round(ay + (by - ay) * u + ny * m);
+                if (x < 0 || y < 0 || x >= WGW || y >= WGH)
+                    continue;
+                const c = cidx(x, y);
+                if (out[out.length - 1] !== c)
+                    out.push(c);
+            }
+        }
+        return out;
+    };
+    for (const R of MAP_RIVERS) {
+        const cells = riverCells(R);
+        let prev = -1;
+        for (const c of cells) {
+            if (w.terr[c] === T_SEA) {
+                const cx3 = c % WGW, cy3 = Math.floor(c / WGW);
+                if (MAP_LAKES.some(([lx, ly, r]) => Math.hypot(cx3 - lx, cy3 - ly) < r + 3)) {
+                    prev = -1;
+                    continue;
+                }
                 break;
-            if (w.terr[c] !== T_MOUNT)
-                w.terr[c] = T_RIVER;
-            const cx = c % WGW, cy = Math.floor(c / WGW);
-            let best = -1, bh = 1e9;
-            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-            for (let d = 0; d < 4; d++) {
-                const nx = cx + dirs[d][0], ny = cy + dirs[d][1];
-                if (nx < 0 || ny < 0 || nx >= WGW || ny >= WGH)
-                    continue;
-                const n = cidx(nx, ny);
-                if (seen.has(n))
-                    continue;
-                // ciągnij lekko na zachód (do morza), z meandrami
-                const v = height[n] + (d === 1 ? -0.012 : 0) + (d === prevDir ? -0.004 : 0) + vnoise(nx * 3, ny * 3, 5) * 0.02;
-                if (v < bh) {
-                    bh = v;
-                    best = n;
-                    prevDir = d;
+            }
+            // ciągłość 4-sąsiedzka (żeby nie dało się przejść po skosie)
+            if (prev >= 0) {
+                const px = prev % WGW, py = Math.floor(prev / WGW), cx2 = c % WGW, cy2 = Math.floor(c / WGW);
+                if (px !== cx2 && py !== cy2) {
+                    const mid = cidx(cx2, py);
+                    if (w.terr[mid] !== T_SEA)
+                        w.terr[mid] = T_RIVER;
                 }
             }
-            if (best < 0)
-                break;
-            if (w.terr[best] === T_RIVER && steps > 4)
-                break; // dopływ
-            c = best;
+            w.terr[c] = T_RIVER;
+            if (R.wide && (c % WGW) < 70 * MS) {
+                const b = c + WGW;
+                if (b < N && w.terr[b] !== T_SEA)
+                    w.terr[b] = T_RIVER;
+            }
+            // dolina: wokół rzeki w górach wzgórza
+            const cx2 = c % WGW, cy2 = Math.floor(c / WGW);
+            for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++) {
+                    const n = cidx(clamp(cx2 + dx, 0, WGW - 1), clamp(cy2 + dy, 0, WGH - 1));
+                    if (w.terr[n] === T_MOUNT)
+                        w.terr[n] = T_HILL;
+                }
+            prev = c;
         }
     }
     // wybrzeże
@@ -10241,64 +10316,107 @@ function generateWorld(seed, player) {
                 for (let dx = -1; dx <= 1; dx++)
                     if (terrAt(w, x + dx, y + dy) === T_SEA)
                         sea = true;
-            if (sea)
+            if (sea && w.terr[i] !== T_MOUNT)
                 w.terr[i] = T_BEACH;
         }
-    // osady
+    // osady: stałe miejsca (z korektą terenu), potem losowo w krainie frakcji z dużymi odstępami, wioski wokół swoich panów
     const okSite = (x, y) => { const t = terrAt(w, x, y); if (t !== T_PLAIN && t !== T_HILL && t !== T_FOREST && t !== T_BEACH)
-        return false; for (let dy = -2; dy <= 2; dy++)
-        for (let dx = -2; dx <= 2; dx++) {
+        return false; for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
             const tt = terrAt(w, x + dx, y + dy);
             if (tt === T_SEA || tt === T_MOUNT || tt === T_RIVER)
                 return false;
         } return true; };
-    for (const plan of SETTLEMENT_PLAN) {
-        const culture = FACTIONS[plan.f].culture;
-        let first = null;
-        for (const [kind, name] of plan.list) {
-            let px = 0, py = 0, ok = false;
-            for (let tries = 0; tries < 900 && !ok; tries++) {
-                const r = (first ? rr(9, 24) : rr(0, 6)) * (tries > 400 ? 1.6 : 1), a = rr(0, 6.28);
-                const bx = first ? first.cx : plan.cx * WGW, by = first ? first.cy : plan.cy * WGH;
-                px = Math.round(bx + Math.cos(a) * r);
-                py = Math.round(by + Math.sin(a) * r * 0.8);
-                if (px < 4 || py < 4 || px >= WGW - 4 || py >= WGH - 4)
-                    continue;
-                if (!okSite(px, py))
-                    continue;
-                if (w.settlements.some((s) => dist(s.cx, s.cy, px, py) < (kind === "village" ? 8 : 11)))
-                    continue;
-                ok = true;
-            }
-            if (!ok) { // wymuś miejsce: osusz teren
-                px = Math.round(plan.cx * WGW + rr(-12, 12));
-                py = Math.round(plan.cy * WGH + rr(-10, 10));
-                for (let dy = -2; dy <= 2; dy++)
-                    for (let dx = -2; dx <= 2; dx++)
-                        w.terr[cidx(px + dx, py + dy)] = T_PLAIN;
-            }
-            const s = {
-                id: w.settlements.length, name, kind, cx: px, cy: py, faction: plan.f, culture, owner: -1,
-                prosperity: kind === "village" ? 40 : 60, garrison: [], stock: {}, recruits: kind === "village" ? 8 : 12, recruitDay: 0, bound: -1,
-                siegeBy: [], siegeDays: 0, raided: 0, companions: [], relation: 0, tournament: 0, seed: Math.floor(rnd() * 1e6), capital: !first,
-            };
-            for (const k of GOOD_KEYS)
-                s.stock[k] = 30 * (CULTURE_PROD[culture]?.[k] || 1);
-            w.settlements.push(s);
-            if (!first)
-                first = s;
-            // ogródek wokół osady: równina
-            for (let dy = -1; dy <= 1; dy++)
-                for (let dx = -1; dx <= 1; dx++) {
-                    const i = cidx(px + dx, py + dy);
-                    if (w.terr[i] === T_FOREST || w.terr[i] === T_SWAMP)
-                        w.terr[i] = T_PLAIN;
-                }
+    const ownRegion = (x, y, f) => { let best = -1, bd = 1e9; for (const P of SETTLEMENT_PLAN) {
+        const d = Math.hypot((x - P.cx * MS) / (P.rx * MS), (y - P.cy * MS) / (P.ry * MS));
+        if (d < bd) {
+            bd = d;
+            best = P.f;
         }
+    } return best === f && bd < 1; };
+    const addS = (kind, name, px, py, f, first, bound = -1) => {
+        const culture = FACTIONS[f].culture;
+        const st = {
+            id: w.settlements.length, name, kind, cx: px, cy: py, faction: f, culture, owner: -1,
+            prosperity: kind === "village" ? 40 : 60, garrison: [], stock: {}, recruits: kind === "village" ? 8 : 12, recruitDay: 0, bound,
+            siegeBy: [], siegeDays: 0, raided: 0, companions: [], relation: 0, tournament: 0, seed: Math.floor(rnd() * 1e6), capital: first,
+        };
+        for (const k of GOOD_KEYS)
+            st.stock[k] = 30 * (CULTURE_PROD[culture]?.[k] || 1);
+        w.settlements.push(st);
+        for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+                const c = cidx(clamp(px + dx, 0, WGW - 1), clamp(py + dy, 0, WGH - 1));
+                if (w.terr[c] === T_FOREST || w.terr[c] === T_SWAMP || w.terr[c] === T_MOUNT)
+                    w.terr[c] = T_PLAIN;
+            }
+        return st;
+    };
+    const nearAny = (x, y, dF, dV) => w.settlements.some((o) => Math.hypot(o.cx - x, o.cy - y) < (o.kind === "village" ? dV : dF));
+    const forts = [];
+    for (const plan of SETTLEMENT_PLAN) {
+        const mine = [];
+        plan.fixed.forEach(([kind, name, bx0, by0], k) => {
+            const bx = Math.round(bx0 * MS), by = Math.round(by0 * MS);
+            let px = bx, py = by, ok = okSite(bx, by);
+            for (let r = 1; r <= 6 && !ok; r++)
+                for (let dy = -r; dy <= r && !ok; dy++)
+                    for (let dx = -r; dx <= r && !ok; dx++)
+                        if (okSite(bx + dx, by + dy)) {
+                            px = bx + dx;
+                            py = by + dy;
+                            ok = true;
+                        }
+            if (!ok)
+                for (let dy = -1; dy <= 1; dy++)
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const c = cidx(bx + dx, by + dy);
+                        if (w.terr[c] !== T_SEA && w.terr[c] !== T_RIVER)
+                            w.terr[c] = T_PLAIN;
+                    }
+            mine.push(addS(kind, name, px, py, plan.f, k === 0));
+        });
+        forts.push(mine);
     }
+    // dodatkowe miasta i zamki w krainie frakcji
+    SETTLEMENT_PLAN.forEach((plan, pi) => {
+        const extra = [...plan.towns.map((n) => ["town", n]), ...plan.castles.map((n) => ["castle", n])];
+        for (const [kind, name] of extra) {
+            let placed = false;
+            for (let tries = 0; tries < 3000 && !placed; tries++) {
+                const a = rr(0, Math.PI * 2), r = Math.sqrt(rnd());
+                const x = Math.round((plan.cx + Math.cos(a) * plan.rx * r) * MS), y = Math.round((plan.cy + Math.sin(a) * plan.ry * r) * MS);
+                if (x < 6 || y < 6 || x >= WGW - 6 || y >= WGH - 6 || !okSite(x, y) || !ownRegion(x, y, plan.f))
+                    continue;
+                if (nearAny(x, y, tries < 2000 ? 22 : 16, 9))
+                    continue;
+                forts[pi].push(addS(kind, name, x, y, plan.f, false));
+                placed = true;
+            }
+        }
+    });
+    // wioski wokół miast (po 2) i zamków (po 1); zostałe przy najbliższym panu
+    SETTLEMENT_PLAN.forEach((plan, pi) => {
+        const names = plan.villages.slice();
+        const lords2 = [...forts[pi].filter((x) => x.kind === "town"), ...forts[pi].filter((x) => x.kind === "town"), ...forts[pi].filter((x) => x.kind === "castle")];
+        while (names.length && lords2.length) {
+            const par = lords2.shift(), name = names.shift();
+            let placed = false;
+            for (let tries = 0; tries < 2500 && !placed; tries++) {
+                const a = rr(0, Math.PI * 2), r = rr(8, tries < 1500 ? 15 : 22);
+                const x = Math.round(par.cx + Math.cos(a) * r), y = Math.round(par.cy + Math.sin(a) * r * 0.85);
+                if (x < 4 || y < 4 || x >= WGW - 4 || y >= WGH - 4 || !okSite(x, y))
+                    continue;
+                if (nearAny(x, y, 8, 8))
+                    continue;
+                addS("village", name, x, y, plan.f, false, par.id);
+                placed = true;
+            }
+        }
+    });
     // wioski przypisane do najbliższego miasta lub zamku tej samej frakcji
     for (const v of w.settlements)
-        if (v.kind === "village") {
+        if (v.kind === "village" && v.bound < 0) {
             let best = -1, bd = 1e9;
             for (const s of w.settlements)
                 if (s.kind !== "village" && s.faction === v.faction && w.settlements.filter((x) => x.bound === s.id).length < 2) {
@@ -10317,7 +10435,7 @@ function generateWorld(seed, player) {
         if (linked.has(key))
             return;
         linked.add(key);
-        const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 60000, true);
+        const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 120000, true);
         for (const c of path) {
             if (w.terr[c] === T_MOUNT)
                 w.terr[c] = T_HILL;
@@ -10329,18 +10447,29 @@ function generateWorld(seed, player) {
                 w.road[c] = 1;
         }
     };
-    for (const a of w.settlements) {
-        const others = w.settlements.filter((b) => b !== a).sort((p, q) => dist(a.cx, a.cy, p.cx, p.cy) - dist(a.cx, a.cy, q.cx, q.cy));
-        for (const b of others.slice(0, a.kind === "village" ? 1 : 2))
+    // trakty: miasta z dwoma najbliższymi miastami; zamki zwykle z miastem; wioski tylko czasem mają drogę do pana
+    const towns0 = w.settlements.filter((x) => x.kind === "town");
+    for (const a of towns0)
+        for (const b of towns0.filter((b) => b !== a).sort((p, q) => dist(a.cx, a.cy, p.cx, p.cy) - dist(a.cx, a.cy, q.cx, q.cy)).slice(0, 2))
             roadBetween(a, b);
+    for (const a of w.settlements.filter((x) => x.kind === "castle"))
+        if (hashN(a.id, 17) < 0.75) {
+            const b = towns0.slice().sort((p, q) => dist(a.cx, a.cy, p.cx, p.cy) - dist(a.cx, a.cy, q.cx, q.cy))[0];
+            roadBetween(a, b);
+        }
+    for (const v of w.settlements.filter((x) => x.kind === "village"))
+        if (v.bound >= 0 && hashN(v.id, 29) < 0.35)
+            roadBetween(v, w.settlements[v.bound]);
+    // wielkie trakty między stolicami i przez przełęcze
+    const byName = (n) => w.settlements.find((x) => x.name === n);
+    for (const [a2, b2] of [["Aurelion", "Varusgrad"], ["Aurelion", "Kościany Gród"], ["Varusgrad", "Kassia"], ["Kassia", "Popielisko"], ["Żelazna Wieża", "Brama Gromu"], ["Brama Gromu", "Khazgrim"], ["Ghrakkar", "Krwawy Bród"], ["Krwawy Bród", "Durnhold"], ["Kościany Gród", "Żelazna Wieża"], ["Morvath", "Kamienna Straż"], ["Strażnica Świtu", "Czaszkowa Skała"], ["Valmora", "Aurelion"]]) {
+        const A = byName(a2), B = byName(b2);
+        if (A && B)
+            roadBetween(A, B);
     }
-    // spójność: każde miasto połączone ze stolicą Aurelii
-    for (const s of w.settlements)
-        if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 60000).length === 0)
-            roadBetween(s, w.settlements[0]);
     // brody na rzekach
     for (let i = 0; i < N; i++)
-        if (w.terr[i] === T_RIVER && w.road[i] === 0 && hashN(i, seed) < 0.035) {
+        if (w.terr[i] === T_RIVER && w.road[i] === 0 && hashN(i, 7) < 0.05) {
             w.road[i] = 3;
             // rozszerz bród na sąsiednie komórki rzeki (przejście w poprzek)
             const x = i % WGW, y = Math.floor(i / WGW);
@@ -10350,24 +10479,43 @@ function generateWorld(seed, player) {
                     w.road[n] = 3;
             }
         }
+    // spójność: każde miasto połączone ze stolicą Aurelii
+    for (const s of w.settlements)
+        if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 120000).length === 0)
+            roadBetween(s, w.settlements[0]);
     // najbliższa osada każdej komórki (terytoria)
     computeNearest(w);
     // martwa ziemia wokół Morvath
-    for (let i = 0; i < N; i++) {
-        const s = w.settlements[w.nearest[i]];
-        if (s && s.culture === "undead")
-            w.blight[i] = 1;
-    }
+    recomputeBlight(w);
     // miejsca specjalne
-    const placeKinds = ["ruins", "ruins", "ruins", "lair", "lair", "lair", "shrine", "shrine", "shrine", "camp", "camp", "camp", "camp", "cemetery", "cemetery", "cemetery"];
+    const placeKinds = ["ruins", "ruins", "ruins", "ruins", "ruins", "lair", "lair", "lair", "lair", "shrine", "shrine", "shrine", "shrine", "camp", "camp", "camp", "camp", "camp", "camp", "cemetery", "cemetery", "cemetery", "cemetery"];
     const placeNames = {
-        ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża"],
-        lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii"],
-        shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu"],
-        camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników"],
-        cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości"],
+        ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża", "Zatopiona Kaplica"],
+        lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii", "Nora Dzików"],
+        shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu", "Studnia Pielgrzymów"],
+        camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników", "Stepowy Obóz Rabusiów", "Spalony Młyn"],
+        cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości", "Stare Kurhany"],
     };
     const usedNames = new Set();
+    // obszar osiągalny ze stolicy (zalewanie), żeby miejsca nie trafiały na odcięte wyspy
+    const reach = new Uint8Array(N);
+    {
+        const q = [cidx(w.settlements[0].cx, w.settlements[0].cy)];
+        reach[q[0]] = 1;
+        for (let h = 0; h < q.length; h++) {
+            const c = q[h], x = c % WGW, y = Math.floor(c / WGW);
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const X = x + dx, Y = y + dy;
+                if (X < 0 || Y < 0 || X >= WGW || Y >= WGH)
+                    continue;
+                const n = cidx(X, Y);
+                if (!reach[n] && passableCell(w, n)) {
+                    reach[n] = 1;
+                    q.push(n);
+                }
+            }
+        }
+    }
     for (const kind of placeKinds) {
         for (let tries = 0; tries < 400; tries++) {
             const x = Math.floor(rr(6, WGW - 6)), y = Math.floor(rr(6, WGH - 6));
@@ -10375,9 +10523,9 @@ function generateWorld(seed, player) {
                 continue;
             if (w.settlements.some((s) => dist(s.cx, s.cy, x, y) < 9))
                 continue;
-            if (w.places.some((p) => dist(p.cx, p.cy, x, y) < 10))
+            if (w.places.some((p) => dist(p.cx, p.cy, x, y) < 14))
                 continue;
-            if (findPath(w, cidx(x, y), cidx(w.settlements[0].cx, w.settlements[0].cy), 60000).length === 0)
+            if (!reach[cidx(x, y)])
                 continue;
             if (kind === "cemetery" && chance(0.5) && w.blight[cidx(x, y)] === 0)
                 continue;
@@ -10417,7 +10565,7 @@ function generateWorld(seed, player) {
         spawnLordParty(w, L);
     // załogi
     for (const s of w.settlements)
-        fillGarrison(w, s, s.kind === "town" ? 34 : s.kind === "castle" ? 26 : 0);
+        fillGarrison(w, s, (s.kind === "town" ? 34 : s.kind === "castle" ? 26 : 0) + (s.faction === 3 && s.kind !== "village" ? 12 : 0));
     // towarzysze w karczmach
     const towns = w.settlements.filter((s) => s.kind === "town");
     COMPANIONS.forEach((c, i) => towns[(i * 3 + 1) % towns.length].companions.push(c.id));
@@ -10868,16 +11016,14 @@ function dailyTick(w) {
         }
     // bandyci, bestie, karawany
     const count = (k) => w.parties.filter((p) => p.kind === k).length;
-    if (count("bandit") < 10 && chance(0.6))
-        spawnFromPlace(w, "camp");
-    if (count("monster") < 4 && chance(0.25))
+    for (let k = 0; k < 3; k++)
+        if (count("bandit") < 16 && chance(0.6))
+            spawnFromPlace(w, "camp");
+    if (count("monster") < 6 && chance(0.3))
         spawnFromPlace(w, "lair");
-    if (count("undead") < 5 && chance(0.3))
+    if (count("undead") < 7 && chance(0.3))
         spawnFromPlace(w, "cemetery");
-    if (count("caravan") < 6 && chance(0.5))
-        spawnCaravan(w);
-    if (count("villagers") < 5 && chance(0.4))
-        spawnVillagers(w);
+    livingWorldDaily(w);
     for (const p of w.places)
         if (p.cleared > 0)
             p.cleared--;
@@ -10908,45 +11054,128 @@ function dailyTick(w) {
         }
     playerDaily(w);
 }
-function spawnCaravan(w) {
-    const towns = w.settlements.filter((s) => s.kind === "town");
-    const a = pick(towns), b = pick(towns.filter((t) => t !== a && !atWar(w, t.faction, a.faction)));
-    if (!b)
-        return;
-    const p = newParty(w, "caravan", `Karawana z ${a.name}`, a.faction, a.cx * WCELL + 4, a.cy * WCELL + 12);
-    addTroops(p.troops, "m_sword", Math.round(rr(4, 9)));
-    addTroops(p.troops, "m_xbow", Math.round(rr(2, 5)));
-    p.dest = b.id;
-    p.home = a.id;
-    p.gold = Math.round(rr(300, 700));
-    p.goods = {};
-    // zabiera z miasta to, czego ma najwięcej
-    const sorted = GOOD_KEYS.slice().sort((x, y) => a.stock[y] - a.stock[x]);
-    for (const k of sorted.slice(0, 2)) {
-        const n = Math.floor(a.stock[k] * 0.3);
-        a.stock[k] -= n;
-        p.goods[k] = n;
+// ---------- Życie świata: chłopi wożą nadwyżki do miasta i wracają, każde miasto ma swoją karawanę ----------
+function livingWorldDaily(w) {
+    const alive = new Set(w.parties.map((p) => p.id));
+    for (const s of w.settlements) {
+        const S = s;
+        if (s.kind === "village") {
+            if (s.raided > 0 || s.siegeBy.length || (S.trip || 0) > w.day || (S.vparty && alive.has(S.vparty)))
+                continue;
+            const food = FOOD_KEYS.reduce((a, k) => a + Math.max(0, s.stock[k] - 12), 0);
+            if (food < 6) {
+                S.trip = w.day + 2;
+                continue;
+            }
+            const p = spawnVillagers(w, s);
+            S.trip = w.day + Math.round(rr(1, 3));
+            if (p)
+                S.vparty = p.id;
+        }
+        else if (s.kind === "town") {
+            if ((S.car && alive.has(S.car)) || (S.carDay || 0) > w.day || s.siegeBy.length)
+                continue;
+            const p = spawnCaravan(w, s);
+            if (p)
+                S.car = p.id;
+            else
+                S.carDay = w.day + 3;
+        }
     }
-    goTo(w, p, b.cx * WCELL + 4, b.cy * WCELL + 4);
 }
-function spawnVillagers(w) {
-    const v = pick(w.settlements.filter((s) => s.kind === "village" && s.bound >= 0 && s.raided === 0));
-    if (!v)
-        return;
-    const t = w.settlements[v.bound];
-    if (!t || t.faction !== v.faction)
-        return;
-    const p = newParty(w, "villagers", `Chłopi z ${v.name}`, v.faction, v.cx * WCELL + 4, v.cy * WCELL + 10);
-    addTroops(p.troops, FACTIONS[v.faction]?.culture === "undead" ? "u_skel" : (RECRUITS[v.culture]?.village[0] || "b_bandit"), Math.round(rr(4, 10)));
+// Miasto docelowe chłopów: miasto pana wioski albo najbliższe miasto tej samej (lub niewrogiej) frakcji.
+function villageMarket(w, v) {
+    const b = v.bound >= 0 ? w.settlements[v.bound] : null;
+    if (b && b.kind === "town" && !atWar(w, b.faction, v.faction))
+        return b;
+    let best = null, bd = 1e9;
+    for (const t of w.settlements)
+        if (t.kind === "town" && !atWar(w, t.faction, v.faction) && !t.siegeBy.length) {
+            const d = dist(t.cx, t.cy, v.cx, v.cy) * (t.faction === v.faction ? 1 : 1.6);
+            if (d < bd) {
+                bd = d;
+                best = t;
+            }
+        }
+    return best;
+}
+function spawnVillagers(w, v) {
+    const t = villageMarket(w, v);
+    if (!t)
+        return null;
+    const und = v.faction === 5 || v.culture === "undead";
+    const p = newParty(w, "villagers", und ? `Truposze z ${v.name}` : `Chłopi z ${v.name}`, v.faction, v.cx * WCELL + 4, v.cy * WCELL + 10);
+    addTroops(p.troops, und ? "u_skel" : (RECRUITS[v.culture]?.village[0] || "b_bandit"), Math.round(rr(4, 9)));
     p.dest = t.id;
     p.home = v.id;
-    p.goods = { grain: 20 };
-    goTo(w, p, t.cx * WCELL + 4, t.cy * WCELL + 4);
+    p.goods = {};
+    // nadwyżka jedzenia i to, czego wioska ma najwięcej
+    for (const k of FOOD_KEYS) {
+        const n = Math.max(0, Math.floor((v.stock[k] - 12) * 0.7));
+        if (n > 0) {
+            p.goods[k] = Math.min(30, n);
+            v.stock[k] -= p.goods[k];
+        }
+    }
+    const top = GOOD_KEYS.filter((k) => !GOODS[k].food).sort((a, b) => v.stock[b] - v.stock[a])[0];
+    if (top && v.stock[top] > 20) {
+        const n = Math.floor((v.stock[top] - 15) * 0.5);
+        p.goods[top] = n;
+        v.stock[top] -= n;
+    }
+    if (!goTo(w, p, t.cx * WCELL + 4, t.cy * WCELL + 4)) {
+        removeParty(w, p);
+        return null;
+    }
+    p.state = "travel";
+    return p;
+}
+// Karawana: kupuje to, co w jej mieście tanie, i wiezie tam, gdzie drogie; potem szuka następnego interesu.
+function caravanPlan(w, p, at) {
+    let best = null;
+    for (const t of w.settlements) {
+        if (t.kind !== "town" || t === at || t.siegeBy.length || atWar(w, t.faction, p.faction))
+            continue;
+        const d = dist(t.cx, t.cy, at.cx, at.cy);
+        if (d > 110)
+            continue;
+        for (const k of GOOD_KEYS) {
+            const gain = (price(w, t, k) - price(w, at, k)) * Math.min(30, at.stock[k] * 0.3) / (20 + d);
+            if (!best || gain > best.gain)
+                best = { t, k, gain };
+        }
+    }
+    return best;
+}
+function spawnCaravan(w, home) {
+    const p = newParty(w, "caravan", `Karawana z ${home.name}`, home.faction, home.cx * WCELL + 4, home.cy * WCELL + 12);
+    addTroops(p.troops, "m_sword", Math.round(rr(5, 10)));
+    addTroops(p.troops, "m_xbow", Math.round(rr(2, 5)));
+    p.home = home.id;
+    p.gold = Math.round(rr(500, 900));
+    p.goods = {};
+    if (!caravanNext(w, p, home)) {
+        removeParty(w, p);
+        return null;
+    }
+    return p;
+}
+function caravanNext(w, p, at) {
+    const plan = caravanPlan(w, p, at);
+    if (!plan)
+        return false;
+    const n = Math.max(4, Math.floor(Math.min(30, at.stock[plan.k] * 0.3)));
+    at.stock[plan.k] = Math.max(1, at.stock[plan.k] - n);
+    p.goods = { [plan.k]: n };
+    p.gold -= Math.round(price(w, at, plan.k) * n * 0.5);
+    p.dest = plan.t.id;
+    p.state = "travel";
+    return goTo(w, p, plan.t.cx * WCELL + 4, plan.t.cy * WCELL + 4);
 }
 function aiAssault(w, s) {
     const att = s.siegeBy.map((id) => partyById(w, id)).filter(Boolean);
     const ap = att.reduce((sum, p) => sum + partyPower(w, p), 0);
-    const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.35 : 1); // martwi nie głodują, krasnoludzkie twierdze w skale
+    const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.7 : 1); // martwi nie głodują, krasnoludzkie twierdze w skale
     const win = ap * rr(0.75, 1.25) > dp;
     const lossA = clamp((dp / Math.max(1, ap)) * 0.45, 0.05, 0.9), lossD = clamp((ap / Math.max(1, dp)) * 0.5, 0.1, 1);
     for (const p of att)
@@ -11034,7 +11263,7 @@ function aiBattle(w, a, b) {
         chron(w, `${win.name} rozgromił: ${lose.name}.`);
     else if (lose.kind === "caravan" && win.kind === "bandit")
         chron(w, `Zbóje złupili karawanę w pobliżu ${nearestSettlement(w, lose.x, lose.y).name}.`, PAL.ash);
-    else if (lose.kind === "villagers")
+    else if (lose.kind === "villagers" && chance(0.35))
         chron(w, `${win.name}: napad na chłopów z ${w.settlements[lose.home]?.name || "wioski"}.`, PAL.ash);
     if (survivors > 0 && lose.kind === "lord") { /* rozproszeni */ }
     removeParty(w, lose);
@@ -11089,7 +11318,7 @@ function partyAI(w, p, hours) {
                 td = d;
                 threat = o;
             }
-            else if (op < myPow * 0.9 && d < pd && (p.kind !== "caravan" && p.kind !== "villagers")) {
+            else if (op < myPow * 0.9 && d < pd && (p.kind !== "caravan" && p.kind !== "villagers") && !(p.kind === "lord" && (o.kind === "bandit" || o.kind === "monster") && hashN(p.id, o.id) < 0.65)) {
                 pd = d;
                 prey = o;
             }
@@ -11202,13 +11431,53 @@ function chooseGoal(w, p) {
 function arrive(w, p) {
     if ((p.kind === "caravan" || p.kind === "villagers") && p.dest !== undefined) {
         const d = w.settlements[p.dest];
-        if (d && dist(p.x, p.y, d.cx * WCELL + 4, d.cy * WCELL + 4) < 14) {
-            for (const k in p.goods || {})
-                d.stock[k] = Math.min(160, d.stock[k] + p.goods[k]);
-            d.prosperity = Math.min(100, d.prosperity + (p.kind === "caravan" ? 2 : 1));
-            if (p.home !== undefined)
-                w.settlements[p.home].prosperity = Math.min(100, w.settlements[p.home].prosperity + 1);
+        if (!d) {
             removeParty(w, p);
+            return;
+        }
+        if (dist(p.x, p.y, d.cx * WCELL + 4, d.cy * WCELL + 4) < 14) {
+            let value = 0;
+            for (const k in p.goods || {}) {
+                value += price(w, d, k) * p.goods[k];
+                d.stock[k] = Math.min(160, d.stock[k] + p.goods[k]);
+            }
+            p.goods = {};
+            if (p.kind === "villagers") {
+                if (p.state === "return") {
+                    d.prosperity = Math.min(100, d.prosperity + 0.6);
+                    removeParty(w, p);
+                    return;
+                } // w domu
+                d.prosperity = Math.min(100, d.prosperity + 0.2);
+                // za utarg kupują w mieście sól i sukno, potem wracają do wioski
+                const home = w.settlements[p.home];
+                if (!home) {
+                    removeParty(w, p);
+                    return;
+                }
+                for (const k of ["salt", "cloth"]) {
+                    const n = Math.min(3, Math.floor(d.stock[k] * 0.1));
+                    if (n > 0) {
+                        d.stock[k] -= n;
+                        p.goods[k] = n;
+                    }
+                }
+                p.gold = Math.round(value * 0.4);
+                p.dest = home.id;
+                p.state = "return";
+                p.wait = 6;
+                if (!goTo(w, p, home.cx * WCELL + 4, home.cy * WCELL + 4))
+                    removeParty(w, p);
+                return;
+            }
+            // karawana: sprzedaje, płaci cło miastu, kupuje dalej
+            p.gold += Math.round(value * 0.6);
+            d.prosperity = Math.min(100, d.prosperity + 0.25);
+            if (p.home !== undefined && w.settlements[p.home])
+                w.settlements[p.home].prosperity = Math.min(100, w.settlements[p.home].prosperity + 0.15);
+            p.wait = 4;
+            if (!caravanNext(w, p, d))
+                removeParty(w, p);
         }
         return;
     }
@@ -11980,9 +12249,12 @@ function plagueDaily(w) {
 // Martwa ziemia: komórki, których najbliższą osadą jest osada Morvatha.
 function recomputeBlight(w) {
     const N = WGW * WGH;
+    // granica martwej ziemi poszarpana: próbka najbliższej osady z przesuniętej komórki
     for (let i = 0; i < N; i++) {
-        const s = w.settlements[w.nearest[i]];
-        w.blight[i] = s && (s.faction === 5 || (s.culture === "undead" && s.faction === 5)) ? 1 : 0;
+        const x = i % WGW, y = Math.floor(i / WGW);
+        const jx = clamp(Math.round(x + (vnoise(x, y, 7) - 0.5) * 12), 0, WGW - 1), jy = clamp(Math.round(y + (vnoise(x + 40, y, 7) - 0.5) * 12), 0, WGH - 1);
+        const s = w.settlements[w.nearest[cidx(jx, jy)]];
+        w.blight[i] = s && s.faction === 5 && w.terr[i] !== T_SEA ? 1 : 0;
     }
     WMAP = null;
 }
@@ -12503,18 +12775,72 @@ let QM = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map();
 const PICON = new Map();
 function rgbOf(c) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
+// Kolor mapy: paleta zależna od terenu i regionu, cieniowanie rzeźby (światło z północnego zachodu), głębia wody.
+function mapElev(w) {
+    const E = new Float32Array(WGW * WGH);
+    const ev = [0, 0.22, 0.27, 0.55, 1, 0.16, 0.12, 0.1];
+    for (let i = 0; i < E.length; i++)
+        E[i] = ev[w.terr[i]] + (w.terr[i] === T_MOUNT ? vnoise(i % WGW, Math.floor(i / WGW), 3) * 0.5 : 0);
+    for (let pass = 0; pass < 4; pass++) {
+        const T = E.slice();
+        for (let y = 1; y < WGH - 1; y++)
+            for (let x = 1; x < WGW - 1; x++) {
+                const i = cidx(x, y);
+                E[i] = (T[i] * 4 + T[i - 1] + T[i + 1] + T[i - WGW] + T[i + WGW]) / 8;
+            }
+    }
+    return E;
+}
+function seaDist(w) {
+    const D = new Uint8Array(WGW * WGH).fill(255);
+    const q = [];
+    for (let i = 0; i < D.length; i++)
+        if (w.terr[i] !== T_SEA) {
+            D[i] = 0;
+            q.push(i);
+        }
+    for (let h = 0; h < q.length; h++) {
+        const i = q[h], x = i % WGW, y = Math.floor(i / WGW);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const X = x + dx, Y = y + dy;
+            if (X < 0 || Y < 0 || X >= WGW || Y >= WGH)
+                continue;
+            const n = cidx(X, Y);
+            if (D[n] > D[i] + 1) {
+                D[n] = D[i] + 1;
+                q.push(n);
+            }
+        }
+    }
+    return D;
+}
 function renderWorldMap(w) {
     const PW = WGW * WCELL, PH = WGH * WCELL;
     const [cv, g] = mkCanvas(PW, PH);
     const im = g.createImageData(PW, PH);
     const C = (c) => rgbOf(c);
     const grass = [C(PAL.grass), C(PAL.grassL), C(PAL.moss), C("#5c5a36")];
+    const lush = [C("#22301a"), C("#2f3d20"), C("#46502c"), C("#5d6634")];
+    const north = [C("#212a20"), C("#2d3828"), C("#404a35"), C("#545c43")];
+    const steppe = [C("#3a3320"), C("#4f4429"), C("#655634"), C("#7a6a40")];
     const ashG = [C(PAL.dusk), C(PAL.slate), C(PAL.stone), C(PAL.ash)];
     const dirt = [C(PAL.dirtD), C(PAL.dirt), C(PAL.dirtL)];
-    const water = [C(PAL.ink), C(PAL.water), C(PAL.waterL)];
+    const deepW = [C("#0e1418"), C("#141d22"), C("#1b2a2f")], shallowW = [C("#22383a"), C("#2c4746"), C("#3c5a55")];
+    const riverW = [C("#2a4444"), C("#355452"), C("#4b6e66")];
     const stone = [C(PAL.slate), C(PAL.stone), C(PAL.ash), C(PAL.bone)];
-    const sand = [C(PAL.dirtL), C(PAL.bone), C(PAL.dirt)];
+    const sand = [C("#5b4a32"), C("#6f5c3d"), C("#867049")];
     const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    const E = mapElev(w), SD = seaDist(w);
+    const elev = (px, py) => {
+        const fx = px / WCELL - 0.5, fy = py / WCELL - 0.5, x0 = clamp(Math.floor(fx), 0, WGW - 2), y0 = clamp(Math.floor(fy), 0, WGH - 2), ax = clamp(fx - x0, 0, 1), ay = clamp(fy - y0, 0, 1);
+        const i = cidx(x0, y0);
+        return lerp(lerp(E[i], E[i + 1], ax), lerp(E[i + WGW], E[i + WGW + 1], ax), ay) + vnoise(px, py, 6) * 0.05 + vnoise(px + 70, py, 17) * 0.06;
+    };
+    // granice regionów poszarpane szumem i ditheringiem, bez prostych linii
+    const regionPal = (cx, cy, x = 0, y = 0, th = 0.5) => {
+        const jx = cx + (vnoise(cx * 1.3, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3, jy = cy + (vnoise(cx * 1.3 + 77, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3;
+        return steppeAt(jx, jy) ? steppe : jx < 76 * MS && jy > 40 * MS ? lush : jy < 40 * MS && jx < 160 * MS ? north : grass;
+    };
     for (let y = 0; y < PH; y++)
         for (let x = 0; x < PW; x++) {
             const cx = x >> 3, cy = y >> 3, i = cidx(cx, cy);
@@ -12525,38 +12851,67 @@ function renderWorldMap(w) {
             let col;
             switch (t) {
                 case T_SEA: {
-                    const deep = vnoise(x * 0.5, y * 0.5, 30);
-                    col = water[deep + th * 0.3 > 0.75 ? 0 : (n + th * 0.4 > 0.95 ? 2 : 1)];
-                    if (deep < 0.35)
-                        col = water[1];
+                    const d = SD[i] + vnoise(x, y, 10) * 1.5 - 0.6;
+                    const pal = d < 2.2 ? shallowW : deepW;
+                    col = pal[clamp(Math.floor((d < 2.2 ? 2.2 - d : 1.2 + vnoise(x * 0.5, y * 0.5, 30) - (d - 2.2) * 0.12) + th * 0.6 - 0.3), 0, 2)];
+                    if (d < 1.1 && n + th * 0.3 > 0.95)
+                        col = C(PAL.bone); // piana przy brzegu
                     break;
                 }
-                case T_RIVER:
-                    col = water[(n + th * 0.5) > 0.9 ? 2 : 1];
+                case T_RIVER: {
+                    // koryto: wąski kanał przez środek komórki, łączony z sąsiednią wodą; reszta to brzeg
+                    const lx = x & 7, ly = y & 7;
+                    const wat = (dx, dy) => { const tt = terrAt(w, cx + dx, cy + dy); return tt === T_RIVER || tt === T_SEA; };
+                    const m = 1.6 + (vnoise(x, y, 5) - 0.5) * 1.2;
+                    let inW = Math.abs(lx - 3.5) < m + 0.6 && Math.abs(ly - 3.5) < m + 0.6;
+                    if (!inW && Math.abs(ly - 3.5) < m && ((lx > 3 && wat(1, 0)) || (lx < 4 && wat(-1, 0))))
+                        inW = true;
+                    if (!inW && Math.abs(lx - 3.5) < m && ((ly > 3 && wat(0, 1)) || (ly < 4 && wat(0, -1))))
+                        inW = true;
+                    if (!inW && wat(1, 1) && wat(1, 0) && wat(0, 1) && lx > 3 && ly > 3)
+                        inW = true;
+                    if (inW)
+                        col = riverW[clamp(Math.floor(n * 1.8 + th * 0.9 - 0.2), 0, 2)];
+                    else {
+                        const pal = bl ? ashG : regionPal(cx, cy, x, y, th);
+                        col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8) + 1, 0, 3)];
+                        col.bank = 1;
+                    }
                     break;
+                }
                 case T_BEACH:
                     col = sand[clamp(Math.floor(n * 2 + th - 0.5), 0, 2)];
                     break;
                 case T_MOUNT:
-                    col = stone[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)];
+                    col = (bl ? ashG : stone)[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)];
                     break;
                 case T_HILL: {
-                    const pal = bl ? ashG : grass;
-                    col = pal[clamp(Math.floor(n * 2.6 + th - 0.4), 0, 3)];
+                    const pal = bl ? ashG : regionPal(cx, cy, x, y, th);
+                    col = pal[clamp(Math.floor(n * 2.4 + th - 0.2), 0, 3)];
                     break;
                 }
                 case T_SWAMP:
-                    col = (n + th * 0.5) > 0.8 ? water[1] : (n > 0.5 ? (bl ? ashG[0] : grass[0]) : dirt[0]);
+                    col = (n + th * 0.5) > 0.82 ? riverW[0] : (n > 0.5 ? (bl ? ashG[0] : grass[0]) : dirt[0]);
                     break;
                 case T_FOREST:
-                    col = (bl ? ashG : grass)[clamp(Math.floor(n * 1.8 + th - 0.6), 0, 1)];
+                    col = (bl ? ashG : regionPal(cx, cy, x, y, th))[clamp(Math.floor(n * 1.8 + th - 0.6), 0, 1)];
                     break;
                 default: {
-                    const pal = bl ? ashG : grass;
+                    const pal = bl ? ashG : regionPal(cx, cy, x, y, th);
                     col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8), 0, 2)];
-                    if (vnoise(x + 400, y, 30) > 0.72 && th > 0.4)
+                    if (vnoise(x + 400, y, 30) > (steppeAt(cx, cy) ? 0.6 : 0.74) && th > 0.4)
                         col = dirt[n > 0.55 ? 1 : 0];
                 }
+            }
+            // cieniowanie rzeźby
+            if (t !== T_SEA && t !== T_RIVER) {
+                const sh = (elev(x, y) - elev(x - 3, y - 3)) * (t === T_MOUNT ? 5 : 7);
+                const k2 = clamp(1 + sh + (th - 0.5) * 0.04, 0.62, 1.4);
+                col = [Math.min(255, col[0] * k2), Math.min(255, col[1] * k2), Math.min(255, col[2] * k2)];
+            }
+            else if (t === T_RIVER && !col.bank) {
+                if (((x + y * 3 + Math.floor(n * 10)) % 23) === 0)
+                    col = C("#6f8f84"); // połysk
             }
             const k = (y * PW + x) * 4;
             im.data[k] = col[0];
@@ -12564,7 +12919,56 @@ function renderWorldMap(w) {
             im.data[k + 2] = col[2];
             im.data[k + 3] = 255;
         }
+    // ciemna linia brzegu wokół koryt rzecznych
+    const D2 = im.data, isW = (px, py) => { if (px < 0 || py < 0 || px >= PW || py >= PH)
+        return false; const t2 = w.terr[cidx(px >> 3, py >> 3)]; if (t2 === T_SEA)
+        return true; if (t2 !== T_RIVER)
+        return false; const k3 = (py * PW + px) * 4; return D2[k3 + 2] > D2[k3] + 8; };
+    const ink = C(PAL.ink);
+    for (let cy = 0; cy < WGH; cy++)
+        for (let cx = 0; cx < WGW; cx++) {
+            if (w.terr[cidx(cx, cy)] !== T_RIVER)
+                continue;
+            for (let py = cy * 8 - 1; py <= cy * 8 + 8; py++)
+                for (let px = cx * 8 - 1; px <= cx * 8 + 8; px++) {
+                    if (px < 0 || py < 0 || px >= PW || py >= PH || isW(px, py))
+                        continue;
+                    if (isW(px + 1, py) || isW(px - 1, py) || isW(px, py + 1) || isW(px, py - 1)) {
+                        const k3 = (py * PW + px) * 4;
+                        D2[k3] = ink[0];
+                        D2[k3 + 1] = ink[1];
+                        D2[k3 + 2] = ink[2];
+                    }
+                }
+        }
     g.putImageData(im, 0, 0);
+    // pola uprawne wokół wiosek i miast żywych
+    for (const st of w.settlements) {
+        if (st.culture === "undead" || st.kind === "castle")
+            continue;
+        for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+                const cx = st.cx + dx, cy = st.cy + dy;
+                if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1)
+                    continue;
+                const i = cidx(clamp(cx, 0, WGW - 1), clamp(cy, 0, WGH - 1));
+                if (w.terr[i] !== T_PLAIN || w.road[i])
+                    continue;
+                const h = hashInt(i * 31 + 7);
+                if (h % 3 === 0)
+                    continue;
+                const x = cx * WCELL, y = cy * WCELL, orc = st.culture === "orc";
+                const base = orc ? (h % 2 ? "#4a3b24" : "#3d3221") : h % 4 === 0 ? "#6a5a2e" : h % 4 === 1 ? "#4b4a26" : h % 4 === 2 ? "#3d3a1e" : "#57502a";
+                g.fillStyle = base;
+                g.fillRect(x, y, WCELL, WCELL);
+                g.fillStyle = "rgba(10,9,8,0.28)";
+                for (let r = 1; r < WCELL; r += 2)
+                    g.fillRect(x, y + r, WCELL, 1); // bruzdy
+                g.fillStyle = "rgba(10,9,8,0.45)";
+                g.fillRect(x, y, WCELL, 1);
+                g.fillRect(x, y, 1, WCELL); // miedze
+            }
+    }
     // drogi
     for (let i = 0; i < w.road.length; i++) {
         if (w.road[i] !== 1 && w.road[i] !== 2)
@@ -12578,8 +12982,15 @@ function renderWorldMap(w) {
                 if (dx && dy && (w.road[cidx(cx + dx, cy)] || w.road[cidx(cx, cy + dy)]))
                     continue;
                 const bridge = w.road[i] === 2 || w.road[j] === 2;
-                pxLine(g, x, y, x + dx * WCELL, y + dy * WCELL, bridge ? PAL.wood : PAL.dirtL);
-                pxLine(g, x + 1, y, x + 1 + dx * WCELL, y + dy * WCELL, bridge ? PAL.woodD : PAL.dirt);
+                pxLine(g, x, y + 1, x + dx * WCELL, y + 1 + dy * WCELL, "#1a1610");
+                pxLine(g, x + 1, y + 1, x + 1 + dx * WCELL, y + 1 + dy * WCELL, "#1a1610");
+                pxLine(g, x, y, x + dx * WCELL, y + dy * WCELL, bridge ? PAL.wood : "#7a6648");
+                pxLine(g, x + 1, y, x + 1 + dx * WCELL, y + dy * WCELL, bridge ? PAL.woodD : PAL.dirtL);
+                if (bridge) {
+                    g.fillStyle = PAL.woodD;
+                    g.fillRect(x - 1, y - 1, 1, 3);
+                    g.fillRect(x + 2, y - 1, 1, 3);
+                }
             }
         }
     }
@@ -12631,8 +13042,16 @@ function renderWorldMap(w) {
                     tree(x + 1 + ((h >>> 13) % 5), y + 9 + ((h >>> 15) % 2), bl && (h >>> 5) % 2 > 0, (h >>> 9) % 2 === 0);
             }
             else if (t === T_MOUNT) {
-                {
-                    const px = x + 4 + (h % 3) - 1, py = y + 7, hh = 11 + (h % 7);
+                const hiE = E[i] > 0.62 && h % 4 !== 0;
+                if (!hiE && h % 5 < 2) {
+                    g.fillStyle = PAL.ash;
+                    g.fillRect(x + 2, y + 5, 4, 1);
+                    g.fillRect(x + 3, y + 4, 2, 1);
+                    g.fillStyle = PAL.slate;
+                    g.fillRect(x + 4, y + 5, 2, 1);
+                }
+                else {
+                    const px = x + 4 + (h % 3) - 1, py = y + 7, hh = (hiE ? 12 : 8) + (h % (hiE ? 8 : 4));
                     g.fillStyle = "rgba(10,9,8,0.35)";
                     for (let k = 0; k < 6; k++)
                         g.fillRect(px + 2 + k, py - 2 + Math.floor(k / 2), 4, 1); // cień na wschód
@@ -12643,9 +13062,18 @@ function renderWorldMap(w) {
                         g.fillStyle = PAL.slate;
                         g.fillRect(px, py - hh + k, half + 1, 1);
                     }
-                    g.fillStyle = PAL.bone;
-                    g.fillRect(px - 1, py - hh, 2, 2);
-                    g.fillRect(px - 2, py - hh + 2, 1, 1);
+                    if (hiE) {
+                        g.fillStyle = PAL.boneHi;
+                        g.fillRect(px - 1, py - hh, 2, 2);
+                        g.fillStyle = PAL.bone;
+                        g.fillRect(px - 2, py - hh + 2, 2, 1);
+                        g.fillRect(px, py - hh + 2, 2, 1);
+                        g.fillRect(px - 3, py - hh + 3, 1, 1);
+                    }
+                    else {
+                        g.fillStyle = PAL.ash;
+                        g.fillRect(px - 1, py - hh, 2, 1);
+                    }
                     g.fillStyle = PAL.ink;
                     g.fillRect(px - 7, py, 15, 1);
                 }
@@ -13039,6 +13467,11 @@ function renderOverview(w, v, g) {
     fg.putImageData(fim, 0, 0);
     g.drawImage(WFOG, 0, 0, WGW, WGH, ox, oy, PW * k, PH * k);
     g.imageSmoothingEnabled = false;
+    g.globalAlpha = 0.55;
+    for (const [nm, rx, ry] of MAP_REGIONS)
+        if (w.explored[cidx(rx, ry)])
+            wText(g, nm, Math.round(ox + rx * WCELL * k - nm.length * 2), Math.round(oy + ry * WCELL * k), /Morze|Zatoka|Jezioro/.test(nm) ? "#8fb0a8" : PAL.bone);
+    g.globalAlpha = 1;
     for (const s of w.settlements) {
         if (!w.explored[cidx(s.cx, s.cy)])
             continue;
@@ -13103,6 +13536,18 @@ function renderWorld(w, v, g) {
         const ph = (t * 0.6 + k * 0.37) % 1;
         if (ph < 0.5)
             g.fillRect(hx + Math.round(ph * 6), hy, 2, 1);
+    }
+    // nazwy krain przy oddaleniu
+    if (W >= 700) {
+        const al = clamp((W - 700) / 300, 0.25, 0.6);
+        g.globalAlpha = al;
+        for (const [nm, rx, ry] of MAP_REGIONS) {
+            const x = rx * WCELL - sx, y = ry * WCELL - sy;
+            if (x < -120 || x > W + 120 || y < -20 || y > H + 20 || !w.explored[cidx(rx, ry)])
+                continue;
+            wTextBig(g, nm.toUpperCase().split("").join(" "), Math.round(x), Math.round(y), /Morze|Zatoka|Jezioro/.test(nm) ? "#8fb0a8" : PAL.boneHi, 2);
+        }
+        g.globalAlpha = 1;
     }
     const list = [];
     // miejsca specjalne
@@ -15553,12 +15998,15 @@ function serializeWorld(w) {
         ex += String.fromCharCode(b);
     }
     o.explored = btoa(ex);
-    o.version = 4;
+    o.version = MAP_VERSION;
     o.parties = w.parties.map((p) => { const c = { ...p }; delete c.trail; delete c.trailD; return c; });
     return JSON.stringify(o);
 }
+const MAP_VERSION = 5; // 5: ręcznie zaprojektowana kraina (B15)
 function deserializeWorld(json) {
     const o = JSON.parse(json);
+    if ((o.version || 0) < MAP_VERSION)
+        throw new Error("oldmap");
     const savedSeed = _seed;
     const base = generateWorld(o.seed, o.player);
     _seed = savedSeed;
@@ -15696,7 +16144,7 @@ function loadSaveNow(k) {
     }
     catch (e) {
         console.error(e);
-        toast("Zapis jest uszkodzony.", PAL.redL);
+        toast(e.message === "oldmap" ? "Ten zapis pochodzi ze starej mapy i nie pasuje do nowej krainy. Zacznij nową grę." : "Zapis jest uszkodzony.", PAL.redL);
     }
 }
 // ---------- Tytuł ----------
@@ -16048,7 +16496,9 @@ function tipExtraParty(o) {
     const top = o.troops.slice().sort((a, b) => b.n - a.n).slice(0, 3).map((t) => `${t.n}× ${UNITS[t.type]?.name || t.type}`).join(", ");
     const sp = partySpeed(w, o) / Math.max(0.1, partySpeed(w, p));
     const L = o.lord !== undefined ? lordById(w, o.lord) : null;
-    return `<span class="tt-s">${top}${o.prisoners.length ? ` · jeńcy ${troopCount(o.prisoners)}` : ""}</span><span class="tt-s">${sp > 1.08 ? "szybszy od ciebie" : sp < 0.92 ? "wolniejszy od ciebie" : "tak szybki jak ty"} · ${tipDays(o.x, o.y)}${L ? ` · relacja z tobą ${L.relation >= 0 ? "+" : ""}${L.relation} (${L.personality})` : ""}</span>`;
+    const goods = o.goods ? Object.keys(o.goods).filter((k) => o.goods[k] > 0).map((k) => `${GOODS[k].name} ${o.goods[k]}`).join(", ") : "";
+    const trip = (o.kind === "villagers" || o.kind === "caravan") && o.dest !== undefined && w.settlements[o.dest] ? `<span class="tt-s">${o.state === "return" ? "wraca do" : o.kind === "caravan" ? "handluje, jedzie do" : "wiezie towar do"} ${w.settlements[o.dest].name}${goods ? `: ${goods}` : ""}</span>` : "";
+    return `${trip}<span class="tt-s">${top}${o.prisoners.length ? ` · jeńcy ${troopCount(o.prisoners)}` : ""}</span><span class="tt-s">${sp > 1.08 ? "szybszy od ciebie" : sp < 0.92 ? "wolniejszy od ciebie" : "tak szybki jak ty"} · ${tipDays(o.x, o.y)}${L ? ` · relacja z tobą ${L.relation >= 0 ? "+" : ""}${L.relation} (${L.personality})` : ""}</span>`;
 }
 function tipExtraSet(s) {
     const w = WORLD;
@@ -18583,7 +19033,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.14";
+const BUILD = "Build 0.15";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -18649,7 +19099,9 @@ addEventListener("keydown", (e) => {
 }, true);
 addLogMsg = (t, c) => { if (G.state === "map")
     toast(t, c); };
-onChronicle = (t, c) => { if (G.state === "map" && WORLD && settings.toastsOn) {
+// drobne starcia (napady na chłopów, karawany, zbójów) zostają w kronice, ale nie zalewają ekranu
+const MINOR_EV = /napad na chłopów|złupili karawanę|rozgromił:|odbudowuje się|wraca z niewoli|ogłoszono turniej/;
+onChronicle = (t, c) => { if (G.state === "map" && WORLD && settings.toastsOn && !(MINOR_EV.test(t) && !t.includes(WORLD.player.name))) {
     const p = playerParty(WORLD);
     if (p)
         toast(t, c || PAL.bone);
@@ -19232,6 +19684,18 @@ requestAnimationFrame(frame);
 window.__game = () => ({ G, WORLD, battle: G.battle });
 window.__battle = () => G.battle;
 window.__meet = (o) => meetParty(o, false);
-window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard };
+window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, mapImage: () => { if (!WMAP)
+        renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER)
+        g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) {
+        g.fillStyle = "#000";
+        g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12);
+        g.fillStyle = factionCol(s.faction)[0];
+        g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8);
+        g.fillStyle = "#fff";
+        g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8);
+    } for (const p of WORLD.places) {
+        g.fillStyle = "#f0f";
+        g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6);
+    } return c.toDataURL(); } };
 
 })();</script>

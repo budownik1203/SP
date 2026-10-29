@@ -8,12 +8,14 @@ function serializeWorld(w: World) {
   delete o.terr; delete o.road; delete o.nearest; delete o.blight;
   let ex = ""; for (let i = 0; i < w.explored.length; i += 8) { let b = 0; for (let k = 0; k < 8; k++) if (w.explored[i + k]) b |= 1 << k; ex += String.fromCharCode(b); }
   o.explored = btoa(ex);
-  o.version = 4;
+  o.version = MAP_VERSION;
   o.parties = w.parties.map((p) => { const c: any = { ...p }; delete c.trail; delete c.trailD; return c; });
   return JSON.stringify(o);
 }
+const MAP_VERSION = 5;   // 5: ręcznie zaprojektowana kraina (B15)
 function deserializeWorld(json: string): World {
   const o = JSON.parse(json);
+  if ((o.version || 0) < MAP_VERSION) throw new Error("oldmap");
   const savedSeed = _seed;
   const base = generateWorld(o.seed, o.player);
   _seed = savedSeed;
@@ -90,7 +92,7 @@ function loadSaveNow(k: string) {
     closeScreen(); hideBattleHud(); showMapHud(); refreshMapHud();
     if (WORLD.player.captive) showCaptivity();
     toast("Wczytano grę. Dzień " + WORLD.day + ".", PAL.gold);
-  } catch (e) { console.error(e); toast("Zapis jest uszkodzony.", PAL.redL); }
+  } catch (e) { console.error(e); toast((e as Error).message === "oldmap" ? "Ten zapis pochodzi ze starej mapy i nie pasuje do nowej krainy. Zacznij nową grę." : "Zapis jest uszkodzony.", PAL.redL); }
 }
 
 // ---------- Tytuł ----------
@@ -378,7 +380,9 @@ function tipExtraParty(o: Party) {
   const top = o.troops.slice().sort((a, b) => b.n - a.n).slice(0, 3).map((t) => `${t.n}× ${UNITS[t.type]?.name || t.type}`).join(", ");
   const sp = partySpeed(w, o) / Math.max(0.1, partySpeed(w, p));
   const L = o.lord !== undefined ? lordById(w, o.lord) : null;
-  return `<span class="tt-s">${top}${o.prisoners.length ? ` · jeńcy ${troopCount(o.prisoners)}` : ""}</span><span class="tt-s">${sp > 1.08 ? "szybszy od ciebie" : sp < 0.92 ? "wolniejszy od ciebie" : "tak szybki jak ty"} · ${tipDays(o.x, o.y)}${L ? ` · relacja z tobą ${L.relation >= 0 ? "+" : ""}${L.relation} (${L.personality})` : ""}</span>`;
+  const goods = o.goods ? Object.keys(o.goods).filter((k) => o.goods[k] > 0).map((k) => `${GOODS[k].name} ${o.goods[k]}`).join(", ") : "";
+  const trip = (o.kind === "villagers" || o.kind === "caravan") && o.dest !== undefined && w.settlements[o.dest] ? `<span class="tt-s">${o.state === "return" ? "wraca do" : o.kind === "caravan" ? "handluje, jedzie do" : "wiezie towar do"} ${w.settlements[o.dest].name}${goods ? `: ${goods}` : ""}</span>` : "";
+  return `${trip}<span class="tt-s">${top}${o.prisoners.length ? ` · jeńcy ${troopCount(o.prisoners)}` : ""}</span><span class="tt-s">${sp > 1.08 ? "szybszy od ciebie" : sp < 0.92 ? "wolniejszy od ciebie" : "tak szybki jak ty"} · ${tipDays(o.x, o.y)}${L ? ` · relacja z tobą ${L.relation >= 0 ? "+" : ""}${L.relation} (${L.personality})` : ""}</span>`;
 }
 function tipExtraSet(s: Settlement) {
   const w = WORLD;
