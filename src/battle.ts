@@ -19,7 +19,7 @@ const KEYDEF: [string, string, string, string][] = [
   ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
   ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Opuść kopię (konno)", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
-  ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
+  ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["special", "Digit5", "Ruch specjalny broni", "Bitwa"], ["throw", "Digit6", "Rzut bronią", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
 function KB(id: string): string { return (settings.keys && settings.keys[id]) || KEYDEF_MAP[id]; }
@@ -1079,7 +1079,7 @@ class Battle {
     if (I.held("KeyA")) mx -= 1; if (I.held("KeyD")) mx += 1;
     const ml = Math.hypot(mx, my) || 1;
     const sprint = I.held("ShiftLeft") || I.held("ShiftRight");
-    const rite = h.bloodRiteT > 0 ? 1.2 : 1;
+    const rite = (h.bloodRiteT > 0 ? 1.2 : 1) * (raging(this, h) ? 1.2 : 1);
     if (h.mounted) {
       const gallop = sprint && h.stamina > 1;
       if (this.settings.horseMode === "tank") {
@@ -1122,6 +1122,8 @@ class Battle {
     // umiejętności: 1–3, opatrunek: 4
     for (let i = 0; i < 3; i++) if (I.hit("Digit" + (i + 1))) castHeroAbility(this, i);
     if (I.hit(KB("band"))) useBandage(this);
+    if (I.hit(KB("special"))) weaponSpecial(this);
+    if (I.hit(KB("throw"))) heroThrow(this);
     if (h.usingBow) { this.heroBow(dt, wx, wy); return; }
 
     const earlyWind = h.state === "windup" && h.t < h.w.windup * 0.33;   // pierwsza połowa zamachu: można przerwać
@@ -1286,7 +1288,7 @@ class Battle {
     const w = u.w;
     switch (u.state) {
       case "windup": {
-        const minT = u.hero ? w.windup * 0.66 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
+        const minT = u.hero ? w.windup * 0.66 * (1 - masteryK(this, u) * 0.15) * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
         if (u.t >= minT && (!u.hero || u.released || u.hold > 1.6)) {
           u.state = "strike"; u.t = 0; u.hitDone = false;
           const s = this.vol(u.x);
@@ -1308,6 +1310,7 @@ class Battle {
 
   stagger(u: Unit, time: number) {
     if (!u.active) return;
+    if (u.hero && raging(this, u)) return;   // w szale nic cię nie zatrzyma
     u.state = "stagger"; u.t = 0; u.hold = time; u.guard = null; u.guardT = 0; u.pendingGuard = null; u.blocking = false; u.drawT = 0;
   }
   inFormation(u: Unit) {
@@ -1358,7 +1361,7 @@ class Battle {
     }
   }
 
-  parryWindow() { return 0.2 + this.P("parry"); }
+  parryWindow() { return 0.2 + this.P("parry") + (this.hero ? masteryK(this, this.hero) * 0.08 : 0); }
   // Tarcza zbiera ciosy; zniszczona pęka w drzazgi.
   shieldWear(d: Unit, dmg: number) {
     d.shieldHp -= dmg;
@@ -1486,7 +1489,7 @@ class Battle {
     if (d.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8 * this.furyMul);
     this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
     if (endFx) endFx();
-    if (a.hero) breakPosture(this, d, charged ? 30 : heavy ? 16 : 10);
+    if (a.hero) { breakPosture(this, d, charged ? 30 : heavy ? 16 : 10); if (!a.mounted) masteryHit(this, a); }
     if (heroInvolved) {
       const killed = d.hp <= 0;
       this.hitstop = Math.max(this.hitstop, (head ? 0.19 : heavy ? 0.16 : 0.11) + (killed ? 0.07 : 0));
@@ -2349,7 +2352,7 @@ class Battle {
       if (u.mounted) this.lanceCheck(u);
       if (!u.hero && u.active) this.updateAI(u, dt);
     }
-    updateFire(this, dt); updateWeather(this, dt); updateTraps(this, dt); braceTick(this, dt); postureTick(this, dt);
+    updateFire(this, dt); updateWeather(this, dt); updateTraps(this, dt); braceTick(this, dt); postureTick(this, dt); throwTick(this);
     const h = this.hero;
     for (const u of this.units) {
       if (!u.active) continue;

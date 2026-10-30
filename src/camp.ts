@@ -102,7 +102,7 @@ function campWork(w: World, hours: number) {
     if (t === "hunt" && !night) { const k = gameAt(w, p.x, p.y) * (0.32 + P.skills.tracking * 0.06); add("meatF", k * hours); }
     if (t === "forage" && !night) { const k = forageAt(w, p.x, p.y); add("herbF", k * 0.22 * hours); add("grainF", k * 0.2 * hours); }
     if (t === "train") { for (const tr of p.troops) tr.xp += 2.5 * Math.max(1, tr.n - tr.wounded) * hours * (1 + perk(P, "trainB")); add("trainH", hours); }
-    if (t === "practice") add("xpF", hours * (4 + P.level));
+    if (t === "practice") { add("xpF", hours * (4 + P.level)); addMastery(P, wclass(WEAPONS[ITEMS[P.equip.weapon || "w_dagger"]?.weapon || "dagger"]), hours * 3); }
     if (t === "heal") {
       for (const tr of p.troops) if (tr.wounded) { const h = Math.min(tr.wounded, Math.floor(rr(0, 1) + 0.08 * hours * tr.wounded + 0.04 * hours)); tr.wounded -= h; add("healed", h); }
       for (const s of sickList(P)) { const k = Math.min(s.n, Math.floor(rr(0, 1) + hours * 0.06 * (1 + ((P as any).herbs > 0 ? 1 : 0)) * Math.max(1, s.n))); if (k > 0) { s.n -= k; add("cured", k); if ((P as any).herbs > 0 && chance(0.3)) (P as any).herbs--; } }

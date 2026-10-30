@@ -38,6 +38,7 @@ function castHeroAbility(b: Battle, slot: number) {
   b.parts.push({ x: h.x, y: h.y, z: 2, vx: 11, vy: 0, vz: 0, life: 0.55, max: 0.55, col: fcol, kind: "ring" });
   b.shout(A.name, A.res === "faith" ? PAL.gold : A.res === "mana" ? PAL.purpleL : PAL.redL);
   switch (id) {
+    case "rage": castRage(b); break;
     case "smite": {
       if ((H.abLevels.smite || 1) >= 2) {
         // poziom 2: słup świętego światła przy kursorze

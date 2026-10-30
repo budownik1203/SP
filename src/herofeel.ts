@@ -20,7 +20,7 @@ const SERIES_CUT: Record<WClass, Dir[]> = { sword: ["R", "L", "O"], dagger: ["R"
 const SERIES_THRUST: Partial<Record<WClass, Dir[]>> = { sword: ["T", "T", "R"], dagger: ["T", "T", "T", "T"], spear: ["T", "T", "T"], two: ["T", "R", "T"] };
 function seriesOf(b: Battle, h: Unit): Dir[] {
   const c = wclass(h.w);
-  return (b.thrustMode && SERIES_THRUST[c]) || SERIES_CUT[c];
+  return seriesWithMastery(b, h, (b.thrustMode && SERIES_THRUST[c]) || SERIES_CUT[c]);
 }
 function hx(h: Unit): any { return h as any; }
 // kierunek następnego ciosu w serii (seria wygasa po chwili bez ataku)
@@ -245,4 +245,116 @@ function critRoll(b: Battle, a: Unit, d: Unit, angFromD: number): number {
   if (!chance(c)) return 1;
   b.floater(d.x, d.y - 48, "KRYTYK", PAL.gold, true); b.sparks(d.x, d.y - 14, 12, PAL.gold); b.sfx.clang(1, 0); b.hitstop = Math.max(b.hitstop, 0.1);
   return 1.5;
+}
+
+// ---------- B31: mistrzostwo broni, ruch specjalny broni, broń rzucana, szał ----------
+// Mistrzostwo: poziom 0–5 dla każdej klasy broni, rośnie od trafień, ćwiczeń w obozie i nauczycieli.
+function masteryXp(P: PlayerState): Record<string, number> { return ((P as any).mastery ||= {}); }
+function masteryLevel(P: PlayerState, c: string) { return Math.min(5, Math.floor(Math.sqrt((masteryXp(P)[c] || 0) / 60))); }
+function addMastery(P: PlayerState, c: string, v: number, lines?: string[]) {
+  const before = masteryLevel(P, c); masteryXp(P)[c] = (masteryXp(P)[c] || 0) + v; const after = masteryLevel(P, c);
+  if (after > before && lines) lines.push(`Mistrzostwo (${WCLASS_NAME[c as WClass] || c}): poziom ${after}.${after === 2 ? " Odblokowany ruch specjalny broni (klawisz 5)." : after === 4 ? " Seria dłuższa o jeden cios." : ""}`);
+}
+// wpięcie do bitwy: perki mastery_<klasa> = poziom/5 (używane przez seriesCooldown, zamach, parowanie)
+function masteryPk(P: PlayerState, pk: Record<string, number>) { for (const c of Object.keys(WCLASS_NAME)) pk["mastery_" + c] = masteryLevel(P, c) / 5; }
+function masteryHit(b: Battle, h: Unit) { const B = b as any; const c = wclass(h.w); (B.mastHits ||= {})[c] = (B.mastHits[c] || 0) + 1; }
+// dłuższa seria od poziomu 4 (powtarza pierwszy cios)
+function seriesWithMastery(b: Battle, h: Unit, s: Dir[]) { return masteryK(b, h) >= 0.8 ? [...s, s[0]] : s; }
+
+// Ruch specjalny klasy broni (umiejętność pod klawiszem 5, od 2. poziomu mistrzostwa)
+const SPECIALS: Record<string, { name: string; cost: number; cd: number; desc: string }> = {
+  sword: { name: "Wypad", cost: 18, cd: 9, desc: "Długie pchnięcie z wypadu: dwa razy dalszy zasięg, przebija część pancerza." },
+  dagger: { name: "Cios w plecy", cost: 16, cd: 10, desc: "Doskok za plecy najbliższego wroga i pewne trafienie krytyczne." },
+  axe: { name: "Rozłupanie", cost: 18, cd: 10, desc: "Rąbnięcie, które rozbija tarczę i ogłusza." },
+  blunt: { name: "Cios w hełm", cost: 18, cd: 10, desc: "Ogłusza na 2 s i mocno łamie postawę." },
+  spear: { name: "Podcięcie", cost: 16, cd: 9, desc: "Zamach drzewcem po nogach: przewraca wrogów przed tobą." },
+  two: { name: "Młyniec", cost: 24, cd: 12, desc: "Obrót z bronią: trafia wszystkich dookoła." },
+  claws: { name: "Rozdarcie", cost: 12, cd: 8, desc: "Seria pazurów." }, staff: { name: "Zamiatanie", cost: 12, cd: 8, desc: "Odrzuca wrogów kosturem." }, lance: { name: "—", cost: 99, cd: 99, desc: "" },
+};
+function hitArc(b: Battle, h: Unit, arc: number, reach: number, fn: (u: Unit) => void, max = 9) {
+  const list = b.units.filter((u) => u.active && u.team !== h.team && dist(h.x, h.y, u.x, u.y) <= reach + u.radius && Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) <= arc).sort((p, q) => dist(h.x, h.y, p.x, p.y) - dist(h.x, h.y, q.x, q.y)).slice(0, max);
+  for (const u of list) fn(u);
+  return list.length;
+}
+function weaponSpecial(b: Battle) {
+  const h = b.hero, H = b.heroCfg; if (!h || !h.active || !H || h.mounted || h.usingBow) return;
+  const c = wclass(h.w), lv = Math.round(masteryK(b, h) * 5), S = SPECIALS[c];
+  if (lv < 2) { b.say(`Ruch specjalny (${WCLASS_NAME[c]}) odblokujesz na 2. poziomie mistrzostwa tej broni.`, PAL.ash); return; }
+  if ((b.cds["sp_" + c] || 0) > 0) { b.say(`${S.name}: jeszcze ${Math.ceil(b.cds["sp_" + c])} s`, PAL.ash); return; }
+  if (h.stamina < S.cost) { b.say("Za mało tchu", PAL.ash); return; }
+  if (h.state !== "idle" && h.state !== "recover") return;
+  h.stamina -= S.cost; h.staminaWait = 0.8; b.cds["sp_" + c] = S.cd;
+  const w = h.w, base = (w.dmg.L + w.dmg.T) / 2 * b.heroDmg;
+  b.shout(S.name, PAL.gold); const s = b.vol(h.x); b.sfx.swing(s.v, s.pan, 1.4);
+  h.state = "recover"; h.t = 0;
+  switch (c) {
+    case "sword": h.vx += Math.cos(h.face) * 110; h.vy += Math.sin(h.face) * 110; hitArc(b, h, 0.35, w.reach * 2, (u) => b.damage(u, base * 1.5 * Math.pow(Math.max(0.2, u.arm.pierce), -0.3) * u.arm.pierce, h, false, "pierce", true), 2); break;
+    case "dagger": { const t = b.units.filter((u) => u.active && u.team !== h.team && dist(h.x, h.y, u.x, u.y) < 60).sort((p, q) => dist(h.x, h.y, p.x, p.y) - dist(h.x, h.y, q.x, q.y))[0]; if (!t) break; h.x = t.x - Math.cos(t.face) * 12; h.y = t.y - Math.sin(t.face) * 10; h.face = h.wantFace = Math.atan2(t.y - h.y, t.x - h.x); b.dust(h.x, h.y, 5); b.floater(t.x, t.y - 48, "KRYTYK", PAL.gold, true); b.damage(t, base * 2.4 * t.arm.pierce, h, false, "pierce", true); break; }
+    case "axe": hitArc(b, h, 0.7, w.reach + 4, (u) => { if (u.hasShield) { b.shieldWear(u, 999); } b.damage(u, base * 1.3 * u.arm.cut, h, false, "cut", true); if (u.active) b.stagger(u, 1.0); }, 1); break;
+    case "blunt": hitArc(b, h, 0.7, w.reach + 4, (u) => { b.damage(u, base * 1.2 * u.arm.blunt, h, true, "blunt", true); if (u.active) { b.stagger(u, 2); breakPosture(b, u, 60); } }, 1); break;
+    case "spear": hitArc(b, h, 1.0, w.reach + 2, (u) => { if (u.mounted) return; b.damage(u, base * 0.6 * u.arm.blunt, h, false, "blunt", false); if (u.active) { b.stagger(u, 1.3); u.legT = 4; b.floater(u.x, u.y - 34, "PODCIĘTY", PAL.gold, true); } }, 4); break;
+    case "two": case "staff": case "claws": hitArc(b, h, 3.2, w.reach + 4, (u) => { b.damage(u, base * (c === "two" ? 1.1 : 0.7) * u.arm.cut, h, false, "cut", true); if (u.active) b.push(u, h.x, h.y, 90); }, 8); b.parts.push({ x: h.x, y: h.y, z: 10, vx: 9, vy: 0, vz: 0, life: 0.4, max: 0.4, col: PAL.steelL, kind: "ring" }); break;
+  }
+  b.hitstop = Math.max(b.hitstop, 0.08); b.kickCam(Math.cos(h.face), Math.sin(h.face), 1.3);
+}
+
+// Broń rzucana zamiast drugiej broni: noże, toporki, oszczepy. Zapas na bitwę + podnoszenie z ziemi.
+const THROWN: Record<string, { name: string; n: number; dmg: number; kind: Arrow["kind"]; speed: number; range: number }> = {
+  knives: { name: "Noże do rzucania", n: 5, dmg: 28, kind: "arrow", speed: 300, range: 150 },
+  axes: { name: "Toporki do rzucania", n: 3, dmg: 46, kind: "axe", speed: 240, range: 130 },
+  javelins: { name: "Oszczepy", n: 2, dmg: 64, kind: "bolt", speed: 270, range: 190 },
+};
+I({ id: "t_knives", name: "Noże do rzucania", slot: "weapon", price: 90, tier: 1, weapon: "dagger" } as any); (ITEMS.t_knives as any).thrown = "knives";
+I({ id: "t_axes", name: "Toporki do rzucania", slot: "weapon", price: 160, tier: 2, weapon: "axe" } as any); (ITEMS.t_axes as any).thrown = "axes";
+I({ id: "t_javelins", name: "Oszczepy", slot: "weapon", price: 140, tier: 2, weapon: "spear" } as any); (ITEMS.t_javelins as any).thrown = "javelins";
+function thrownOf(P: PlayerState): string | null { const id = (P as any).weapon2; const it = id ? ITEMS[id] : null; return it ? (it as any).thrown || null : null; }
+function heroThrow(b: Battle) {
+  const h = b.hero, B = b as any; if (!h || !h.active || h.usingBow || h.mounted && !B.thr) return;
+  const T = B.thr as { k: string; n: number; max: number } | undefined;
+  if (!T) { b.say("Brak broni do rzucania (załóż ją zamiast drugiej broni).", PAL.ash); return; }
+  if (T.n <= 0) { b.say("Nie masz już czym rzucić. Podnieś z ziemi.", PAL.ash); return; }
+  if ((B.thrCd || 0) > b.time || (h.state !== "idle" && h.state !== "recover")) return;
+  const D = THROWN[T.k]; T.n--; B.thrCd = b.time + 0.7; h.stamina -= 8; h.staminaWait = 0.5;
+  const wx = b.cam.x + b.input.mx, wy = b.cam.y + b.input.my;
+  const a = Math.atan2(wy - (h.y - 12), wx - h.x);
+  b.fire(h, a + rr(-0.04, 0.04), D.speed, D.dmg * b.heroDmg, Math.min(D.range, dist(h.x, h.y, wx, wy) + 20), D.kind);
+  (b.arrows[b.arrows.length - 1] as any).thrown = T.k;
+  h.state = "recover"; h.t = 0.15;
+  b.floater(h.x, h.y - 40, `${D.name}: ${T.n}`, PAL.bone, true);
+}
+// rzucone, które spadły na ziemię, można podnieść (także toporki wrogich miotaczy, gdy rzucasz toporkami)
+function throwTick(b: Battle) {
+  const B = b as any, h = b.hero, T = B.thr as { k: string; n: number; max: number } | undefined;
+  if (!T || !h) return;
+  const G = (B.gThrown ||= []) as { x: number; y: number }[];
+  for (const ar of b.arrows) { const A = ar as any; if (!ar.done || A.gtDone) continue; A.gtDone = 1; if (A.thrown === T.k || (T.k === "axes" && ar.kind === "axe" && ar.team !== 0)) G.push({ x: ar.x, y: ar.y + 12 }); }
+  if (T.n >= T.max + 3) return;
+  for (let i = G.length - 1; i >= 0; i--) if (Math.abs(G[i].x - h.x) < 10 && Math.abs(G[i].y - h.y) < 10) { G.splice(i, 1); T.n++; b.floater(h.x, h.y - 30, `+1 ${THROWN[T.k].name.toLowerCase()}`, PAL.bone, true); break; }
+}
+
+// Szał jako umiejętność (uczą go mistrzowie broni)
+ABILITIES.rage = { id: "rage", name: "Szał", res: "fury", cost: 50, cd: 40, source: "mistrz broni", desc: "6 s zawziętości: szybciej i mocniej, bez ogłuszeń; twoi w pobliżu wpadają w szał, wrogowie tracą ducha." } as any;
+function castRage(b: Battle) {
+  const h = b.hero; if (!h) return;
+  (h as any).rageT = b.time + 6; h.buffT = 6; h.buffDmg = 1.25;
+  b.sfx.battleCry(1); b.shake(3);
+  for (const u of b.units) { if (!u.active) continue; const d = dist(u.x, u.y, h.x, h.y); if (u.team === 0 && !u.hero && d < 120) { u.morale = Math.min(100, u.morale + 15); u.buffT = 6; u.buffDmg = 1.15; } if (u.team !== 0 && d < 90 && !u.def.undead) u.morale -= 12; }
+}
+function raging(b: Battle, h: Unit) { return ((h as any).rageT || 0) > b.time; }
+
+// Mistrz broni w mieście lub zamku: lekcje (mistrzostwo za złoto) i nauka szału
+function masterHtml(w: World, s: Settlement) {
+  const P = w.player, c = wclass(WEAPONS[ITEMS[P.equip.weapon || "w_dagger"]?.weapon || "dagger"]);
+  const lv = masteryLevel(P, c), cost = 120 + lv * 140;
+  const rows = Object.keys(SPECIALS).filter((k) => !["claws", "staff", "lance"].includes(k)).map((k) => `${WCLASS_NAME[k as WClass]} ${masteryLevel(P, k)}`).join(" · ");
+  return `<h2>${ic("sword")} Mistrz broni</h2><p class="tip">Mistrzostwo: ${rows}. Twoja broń: ${WCLASS_NAME[c]} (poziom ${lv}/5).</p>
+    <div class="row"><span>Lekcja szermierki (${WCLASS_NAME[c]})</span><button class="mini" data-a="mLesson" ${lv < 5 && P.gold >= cost ? "" : "disabled"}>Ćwicz z mistrzem (${cost}, 1 dzień)</button></div>
+    ${P.learned.includes("rage") ? "" : `<div class="row"><span>Szał: ${ABILITIES.rage.desc}</span><button class="mini" data-a="mRage" ${P.gold >= 600 ? "" : "disabled"}>Naucz się (600)</button></div>`}`;
+}
+function masterActs(w: World, s: Settlement, re: () => void): Acts {
+  const P = w.player;
+  return {
+    mLesson: () => { const c = wclass(WEAPONS[ITEMS[P.equip.weapon || "w_dagger"]?.weapon || "dagger"]); const cost = 120 + masteryLevel(P, c) * 140; if (P.gold < cost) return; P.gold -= cost; const lines: string[] = []; addMastery(P, c, 150, lines); passDay(); toast(lines[0] || `Cały dzień z mistrzem. ${WCLASS_NAME[c]}: postęp.`, PAL.gold); re(); },
+    mRage: () => { if (P.gold < 600) return; P.gold -= 600; P.learned.push("rage"); const free = P.abilities.indexOf(""); if (free >= 0) P.abilities[free] = "rage"; toast("Mistrz uczy cię wpadać w szał. Umiejętność Szał (przypisz ją w oknie postaci).", PAL.gold); re(); },
+  };
 }

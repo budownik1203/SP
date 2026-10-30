@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.30** (30 października 2026).
+Stan na **Build 0.31** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -87,7 +87,7 @@ renown, retinue, main.
 | `audio.ts` | `Sfx`: efekty, instrumenty, nastroje muzyki (`MoodDef`, `MOTIF` frakcji), ambient |
 | `battleMap.ts` | generowanie pól bitwy: teren, sezon, region, uliczki miasta, palisada obozu, mury |
 | `battle.ts` | klasa `Battle` i `Unit`: symulacja, AI, rozkazy (`cmdMenu`, `cmdChoose`), oblężenia, `KEYDEF` (wszystkie klawisze), `resolveHit`, `damage`, `kill`, wynik |
-| `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany); B30: koniec serii (`isSeriesEnd`, `seriesEndMods`), ciężki zamach przez kilku (`cleaveCount`, `cleaveK`), uderzenie tarczą (`shieldBash`), zaparta drzewcowa (`braceTick`), postawa elit (`hasPosture`, `breakPosture`, `drawPosture`), idealny unik (`perfectDodge`), ciosy nie do zablokowania (`rollUnblockable`), zapowiedzi (`drawTelegraphs`), odbijanie strzał (`deflectArrow`), uderzenie o przeszkodę (`slamCheck`), egzekucje (`tryExecute`, klawisz kopniaka F), seria zabójstw (`heroKillStreak`), krytyki (`critRoll`) |
+| `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany); B30: koniec serii (`isSeriesEnd`, `seriesEndMods`), ciężki zamach przez kilku (`cleaveCount`, `cleaveK`), uderzenie tarczą (`shieldBash`), zaparta drzewcowa (`braceTick`), postawa elit (`hasPosture`, `breakPosture`, `drawPosture`), idealny unik (`perfectDodge`), ciosy nie do zablokowania (`rollUnblockable`), zapowiedzi (`drawTelegraphs`), odbijanie strzał (`deflectArrow`), uderzenie o przeszkodę (`slamCheck`), egzekucje (`tryExecute`, klawisz kopniaka F), seria zabójstw (`heroKillStreak`), krytyki (`critRoll`); B31: mistrzostwo broni (`masteryXp`, `masteryLevel`, `addMastery`, `masteryPk`, trafienia liczone w `b.mastHits`), ruchy specjalne klas (`SPECIALS`, `weaponSpecial`, klawisz 5), broń rzucana (`THROWN`, przedmioty `t_knives`/`t_axes`/`t_javelins` w slocie drugiej broni, `heroThrow` klawisz 6, `throwTick` podnoszenie), szał (`ABILITIES.rage`, `castRage`, `raging`), mistrz broni w mieście i zamku (`masterHtml`, `masterActs`) |
 | `abilities.ts` | umiejętności bohatera (1–3), kule ognia (`explodeFire`) |
 | `battleRender.ts` | rysowanie bitwy, noc, deszcz, mgła, tonowanie, celownik |
 | `world.ts` | `World`, generowanie świata, A* (`findPath`), AI oddziałów (`partyAI`), `dailyTick`, ekonomia, `BUILDINGS`, `COMPANIONS`, `partyLimit`, `heroMaxHp` |
@@ -125,7 +125,8 @@ renown, retinue, main.
   (cięcie `^1.3`, obuch słabiej).
 - **Klawisze** są tylko w `KEYDEF` (`battle.ts`), odczyt przez `KB("id")`. Gracz może je przemapować
   (`settings.keys`). W bitwie: LPM = seria ciosów (przytrzymanie = mocny cios), PPM = blok i parowanie,
-  ŚPM = szybkie pchnięcie, PPM przytrzymany + LPM = uderzenie tarczą, Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry,
+  ŚPM = szybkie pchnięcie, PPM przytrzymany + LPM = uderzenie tarczą, 1–3 = umiejętności, 4 = opatrunek,
+  5 = ruch specjalny broni, 6 = rzut bronią, F = kopniak albo egzekucja ogłuszonego, Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry,
   R = tryb pchnięcia albo cięcia (zmienia serię broni kłutych), V = opuść kopię (konno), Q = rozkazy, Z/X/C/V/B = szybkie rozkazy, T/G = trebusz/okrzyk (w rozstawieniu obrony:
   pale/rów). Na mapie: U = Królestwo, C I P F K J L = okna, Spacja = obóz.
 - **Teksty:** po polsku, krótko, w klimacie, bez myślników (używaj dwukropka, kropki, „·”). Zdania jak od
@@ -173,7 +174,10 @@ B29 mniej ociężałości: serie ciosów zamiast kierunków, bufor, przerwanie z
 miękkie przyciąganie, rozpęd, pękanie gardy, kara za otoczenie, lżejszy pancerz, kamera auto ·
 B30 koniec serii zależny od broni, ciężki zamach przez 2–3 wrogów, uderzenie tarczą, zaparta włócznia
 zrzuca jeźdźców, pasek postawy elit, oficerów i lordów, idealny unik, zapowiedzi i ciosy nie do zablokowania,
-odbijanie strzał parowaniem, uderzenie o przeszkodę, egzekucje (F), seria zabójstw, krytyki, więcej ćwiartowania.
+odbijanie strzał parowaniem, uderzenie o przeszkodę, egzekucje (F), seria zabójstw, krytyki, więcej ćwiartowania ·
+B31 mistrzostwo broni (poziomy 0–5: krótszy zamach, szersze parowanie, krótsza przerwa po serii, dłuższa
+seria od 4), ruch specjalny każdej klasy broni (od 2. poziomu), broń rzucana zamiast drugiej broni, szał
+jako umiejętność, mistrz broni (lekcje, nauka szału), ćwiczenia w obozie podnoszą mistrzostwo.
 Szczegóły każdego buildu są w GDD.
 
 ## 8. Co dalej (backlog z ankiet, kolejność według priorytetów użytkownika)
@@ -191,14 +195,11 @@ c. **Czucie trafienia:** ~~odrzut na przeszkodę, egzekucje, seria zabójstw, kr
 d. **Obrona:** ~~pasek postawy elit, oficerów i lordów~~ (B30: tier 5+, dowódcy, jednostki z umiejętnością);
    ~~idealny unik, zapowiedzi, ciosy nie do zablokowania, odbijanie strzał~~ (B30). Zostało: mistrzowskie
    uderzenie jako ulepszenie z mistrzostwa.
-e. **Umiejętności:** 5 slotów (3 z drzewek, 1 z broni, 1 rzutka); źródła: drzewka, mistrzostwo broni,
-   runy wkute w kuźni, dary świętych, starych bogów i duchów przodków, Morvath przy spaczeniu, z ukrytymi
-   parami-synergiami; płatność: odnowienie, wytrzymałość, wiara lub mana. Rzutki zamiast drugiej broni,
-   1 + 3 podniesione z ziemi. Szał jako umiejętność (szybciej i mocniej, bez ogłuszeń, okrzyk).
-   Ruch specjalny każdej klasy broni. Cios z odskoku i łańcuch odskoków z drzewek. Cios obrotowy tylko
-   dwuręczną.
-f. **Mistrzostwo broni:** rośnie od trafień i z ćwiczeń (obóz, arena); daje ruch specjalny, krótszy
-   zamach, szersze okno parowania, dłuższą serię; nauczyciele w miastach i zamkach.
+e. **Umiejętności:** sloty 1–3 (drzewka i nauczone), 5 (ruch broni) i 6 (rzutki) są od B31, szał też.
+   Zostało: dary świętych, starych bogów i duchów przodków oraz Morvatha przy spaczeniu jako umiejętności
+   z ukrytymi parami-synergiami; runy wkuwane w broń w kuźni (zatrucie, krwawienie, ogłuszenie); cios
+   z odskoku i łańcuch odskoków jako węzły drzewek.
+f. ~~Mistrzostwo broni~~ (B31). Zostało: mistrzowskie uderzenie jako ulepszenie z mistrzostwa, nauka na arenie.
 g. **Lordowie** o 10–15% więksi, z gwardią i chorążym; cechy w bitwie (odważny, ostrożny, okrutny,
    honorowy i kilka innych); bestie z wzorcami ataków (wilk olbrzym, troll i ogr, upiór, abominacja).
 h. **Konno:** szarża przewraca piechotę poza tarczownikami w szyku, broń drzewcowa zrzuca jeźdźca, cięcie

@@ -1,0 +1,31 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => { errs.push(e.message); console.log('ERR', e.message); });
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html'); await p.waitForTimeout(800);
+  await p.click('text=Nowa gra'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300);
+  await p.click('#ftip button').catch(() => {});
+  const w0 = await p.evaluate(() => { const w = window.__game().WORLD, P = w.player, T = window.__T3; P.gold = 5000; P.weapon2 = 't_knives'; const c = 'axe'; T.addMastery(P, 'axe', 300); T.addMastery(P, 'sword', 300); T.addMastery(P, 'dagger', 300); return { wpn: P.equip.weapon, lv: T.masteryLevel(P, 'axe') }; });
+  console.log('setup', JSON.stringify(w0));
+  // mistrz broni w mieście
+  await p.evaluate(() => { const w = window.__game().WORLD; const s = w.settlements.find(x => x.kind === 'town' && x.faction === 1); window.__T.enterSettlement(s); });
+  await p.waitForTimeout(400); await p.click('#ftip button').catch(() => {});
+  await p.click('#ui button[data-a="tab"][data-v="main"]').catch(() => {}); await p.waitForTimeout(200);
+  await p.click('#ui [data-a="mRage"]').catch(() => console.log('no rage btn'));
+  await p.waitForTimeout(200);
+  console.log('rage learned', await p.evaluate(() => window.__game().WORLD.player.learned.includes('rage') + ' ' + window.__game().WORLD.player.abilities.join(',')));
+  await p.click('#ui [data-a="leave"]').catch(() => {}); await p.evaluate(() => { document.querySelector('#ui [data-a="tab"][data-v="leave"]')?.click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { const w = window.__game().WORLD; const P0 = w.parties.find(x => x.id === w.pid); w.player.wars.push(2); const o = w.parties.find(x => x.kind === 'lord' && x.faction === 2); o.x = P0.x + 6; o.y = P0.y; o.troops = [{ type: 'v_legion', n: 10, wounded: 0, xp: 0 }]; window.__T3.meetParty(o, false); });
+  await p.waitForTimeout(400); await p.click('#ui [data-a="fight"]'); await p.waitForTimeout(1200); await p.click('#ftip button').catch(() => {});
+  await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+  const before = await p.evaluate(() => { const b = window.__battle(); const h = b.hero; h.hp = h.maxHp = 9999; h.stamina = 100; const e = b.units.find(u => u.team === 1 && u.active); e.x = h.x + 16; e.y = h.y; return JSON.stringify({ thr: b.thr, cls: h.w.name }); });
+  console.log('battle', before);
+  await p.keyboard.press('Digit5'); await p.waitForTimeout(200);
+  await p.keyboard.press('Digit6'); await p.waitForTimeout(900);
+  await p.keyboard.press('Digit6'); await p.waitForTimeout(300);
+  await p.keyboard.press('Digit1'); await p.waitForTimeout(300);
+  console.log('after', await p.evaluate(() => { const b = window.__battle(); return JSON.stringify({ cds: b.cds, thr: b.thr, rage: (b.hero.rageT || 0) > b.time, abil: document.getElementById('abil').textContent.slice(0, 200) }); }));
+  await p.screenshot({ path: '/tmp/claude-0/t/b31.png' });
+  console.log('errors', errs.length); await b.close();
+})();

@@ -249,7 +249,7 @@ function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   return {
     name: P.name, look, hp: Math.max(1, P.hp), maxHp: heroMaxHp(P), weapon: it("weapon")?.weapon || "dagger", shield: !!it("shield"),
     bowDmg: bow ? Math.round(bow.bowDmg * (1 + P.skills.archery * 0.05) * (1 + (bow.xbow ? perk(P, "xbowB") : perk(P, "bowB")) + perk(P, "pierce") / 2 + perk(P, "bowDmg")) * condK(P, "bow")) : 0, ammo: bow ? P.ammo + perk(P, "ammo") : 0,
-    xbow: !!bow?.xbow, weapon2: w2?.weapon,
+    xbow: !!bow?.xbow, weapon2: w2 && !(w2 as any).thrown ? w2.weapon : undefined,
     armor, mount: horse ? { ...horse.mount, hp: Math.round(horse.mount.hp * hs.hp * (1 + perk(P, "horseB"))), speed: horse.mount.speed * (1 + P.skills.riding * 0.02 + perk(P, "horseSpd")) * hs.speed } : null,
     abilities: P.abilities.slice(), abLevels: { ...P.abLevels }, faith: P.faith, mana: P.mana, fury: 0, corruption: P.corruption, bandages: P.bandages,
     leadership: P.skills.leadership, medicine: P.skills.medicine,
@@ -356,6 +356,8 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   for (const id of Object.values(P.equip)) { const fx = id && ITEMS[id] && (ITEMS[id] as any).fx; if (fx) for (const k in fx) b.pk[k] = (b.pk[k] || 0) + fx[k]; }
   b.pk.moraleB = (b.pk.moraleB || 0) + trophyBonus(P);
   for (const k of ["parry", "beastB", "undeadDmg", "bspeed", "stamina", "blockCost"]) b.pk[k] = (b.pk[k] || 0) + traitFx(P, k);
+  masteryPk(P, b.pk);
+  { const tk = thrownOf(P); if (tk) (b as any).thr = { k: tk, n: THROWN[tk].n, max: THROWN[tk].n }; }
   if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
   for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100);   // zmęczenie osłabia ducha
   for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
@@ -430,6 +432,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   P.kills += r.heroKills;
   const lines: string[] = [];
   if (ctx.kind !== "arena" && ctx.kind !== "escape") {
+    { const mh = (G.battle as any)?.mastHits || {}; for (const c of Object.keys(mh)) addMastery(P, c, mh[c] * 2, lines); }
     for (const c of r.theirs) { const d = UNITS[c.type]; if (!d) continue; if (d.undead) addDeed(P, "undead", c.killed); else if (d.culture === "monster") addDeed(P, "beasts", c.killed); }
     if (r.heroKO) maybeWound(P, lines);
     if (r.retreated) addDeed(P, "fled");
