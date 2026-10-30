@@ -834,9 +834,6 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     g.fillStyle = "rgba(235,240,245,0.75)";
     for (let i = 0; i < 90; i++) { const s2 = hashInt(i * 11 + 5); const x = ((s2 % 997) * 3 + Math.sin(t + i) * 8 - t * 8) % W, y = (((s2 >>> 10) % 400) + t * 22) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 1); }
   } else if (sea === 2) { g.globalAlpha = 0.06; g.fillStyle = "#8a5a20"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
-  // mgła: wolno płynące pasy
-  const morningMist = !w.fog && w.hour >= 5 && w.hour < 8.5;   // poranna mgła snuje się po dolinach
-  if (w.fog || morningMist) for (let k = 0; k < 7; k++) { const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20; g.globalAlpha = morningMist ? 0.09 * Math.sin(((w.hour - 5) / 3.5) * Math.PI) + 0.02 : 0.16; g.fillStyle = "#c9ccc8"; g.beginPath(); g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   // burza: błyskawice
   if ((w as any).storm) { const fl = Math.sin(t * 0.7) > 0.995 || (Math.floor(t * 10) % 97 === 0); if (fl) { g.globalAlpha = 0.35; g.fillStyle = "#e8ecff"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; if (!(w as any).thunderT || t - (w as any).thunderT > 2) { (w as any).thunderT = t; sfx.explode?.(0.35, rr(-0.5, 0.5)); } } }
   // deszcz
@@ -845,11 +842,6 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     for (let i = 0; i < 110; i++) { const s = hashInt(i * 7 + 1); const x = ((s % 997) * 3 - t * 40) % W, y = (((s >>> 10) % 400) + t * 200) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3); }
   }
   if (settings.questMarkers && settings.questArrows) questArrows(w, g, sx, sy, t);
-  oldMapOverlay(g);
-  // chmury cienia
-  g.globalAlpha = 0.08;
-  g.fillStyle = PAL.ink;
-  for (let k = 0; k < 5; k++) { const cx = ((hashInt(k * 77) % (PW + 400)) + t * 6) % (PW + 400) - 200 - sx, cy = (hashInt(k * 191) % PH) - sy; g.beginPath(); g.ellipse(cx, cy, 90, 40, 0, 0, Math.PI * 2); g.fill(); }
   g.globalAlpha = 1;
 }
 

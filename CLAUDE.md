@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.27** (30 października 2026).
+Stan na **Build 0.28** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -153,7 +153,7 @@ B1–B18: rdzeń walki, kampania, frakcje, lordowie, oblężenia, arena, turniej
 kompani, ekonomia, główny wątek, mapa ręcznie projektowana i powiększona o 1/3 (B18).
 B19 podróż i obóz · B20 ekwipunek i rzemiosło · B21 muzyka · B22 oblężenia ·
 B23 nowe mechaniki bitwy · B24 królestwo · B25 dyplomacja i wywiad · B26 reputacja i kompani ·
-B27 strojenie (blok jako okno czasowe, łuk, pancerz, morale, jeńcy). Szczegóły każdego buildu są w GDD.
+B27 strojenie (blok jako okno czasowe, łuk, pancerz, morale, jeńcy) · B28 mapa świata bez winiety starej mapy, mgły i cieni chmur (na życzenie użytkownika: nie przywracać). Szczegóły każdego buildu są w GDD.
 
 ## 8. Co dalej (backlog z ankiet, kolejność według priorytetów użytkownika)
 

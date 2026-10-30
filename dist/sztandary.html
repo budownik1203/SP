@@ -15953,18 +15953,6 @@ function renderWorld(w, v, g) {
         g.fillRect(0, 0, W, H);
         g.globalAlpha = 1;
     }
-    // mgła: wolno płynące pasy
-    const morningMist = !w.fog && w.hour >= 5 && w.hour < 8.5; // poranna mgła snuje się po dolinach
-    if (w.fog || morningMist)
-        for (let k = 0; k < 7; k++) {
-            const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20;
-            g.globalAlpha = morningMist ? 0.09 * Math.sin(((w.hour - 5) / 3.5) * Math.PI) + 0.02 : 0.16;
-            g.fillStyle = "#c9ccc8";
-            g.beginPath();
-            g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2);
-            g.fill();
-            g.globalAlpha = 1;
-        }
     // burza: błyskawice
     if (w.storm) {
         const fl = Math.sin(t * 0.7) > 0.995 || (Math.floor(t * 10) % 97 === 0);
@@ -15990,16 +15978,6 @@ function renderWorld(w, v, g) {
     }
     if (settings.questMarkers && settings.questArrows)
         questArrows(w, g, sx, sy, t);
-    oldMapOverlay(g);
-    // chmury cienia
-    g.globalAlpha = 0.08;
-    g.fillStyle = PAL.ink;
-    for (let k = 0; k < 5; k++) {
-        const cx = ((hashInt(k * 77) % (PW + 400)) + t * 6) % (PW + 400) - 200 - sx, cy = (hashInt(k * 191) % PH) - sy;
-        g.beginPath();
-        g.ellipse(cx, cy, 90, 40, 0, 0, Math.PI * 2);
-        g.fill();
-    }
     g.globalAlpha = 1;
 }
 function drawPartyFig(w, g, p, sx, sy, t, hover) {
@@ -24917,7 +24895,7 @@ function companionExtraActs(w, re) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.27";
+const BUILD = "Build 0.28";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;

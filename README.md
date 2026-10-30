@@ -3,7 +3,7 @@
 Pixel-artowa wojenna piaskownica dark fantasy: Mount & Blade połączone z globalną strategią.
 
 ## Stan
-Build 0.27. Pełny opis projektu, kodu, procedur i planów: zobacz `CLAUDE.md`.
+Build 0.28. Pełny opis projektu, kodu, procedur i planów: zobacz `CLAUDE.md`.
 
 ## Budowanie
 Wymaga TypeScript (`tsc`) i Pythona 3.
