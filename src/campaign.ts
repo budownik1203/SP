@@ -358,6 +358,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
   for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100);   // zmęczenie osłabia ducha
   for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
+  if ((P as any).crowned === "bone") for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= 8;   // korona z kości przodków budzi postrach
   const dm = (G as any).duelMod; if (dm) { (G as any).duelMod = null; for (const u of b.units) if (!u.hero && !u.def.undead) u.morale = clamp(u.morale + (u.team === 0 ? dm.team0 || 0 : dm.team1 || 0), 5, 100); }
   G.state = "battle";
   hideMapHud();

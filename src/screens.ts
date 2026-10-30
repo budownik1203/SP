@@ -28,6 +28,7 @@ function deserializeWorld(json: string): World {
   for (const c of COMPANIONS) if (!known.has(c.id) && towns.length) towns[hashInt(c.id.length * 7 + c.name.length) % towns.length].companions.push(c.id);
   // przedmioty z jakością odtwarzamy z identyfikatorów
   for (const id of w.player.items) ensureItem(id);
+  restoreWorks(w);
   for (const id of Object.values(w.player.equip)) if (id) ensureItem(id as string);
   restoreRebels(w);
   restoreCrafted(w);
@@ -1329,7 +1330,7 @@ function showLordTalk(L: Lord, back: () => void) {
   if (P.status === "król" && !L.ruler && L.faction !== PLAYER_FACTION && L.faction !== 5) {
     opts.push(`<button class="alt" data-a="defect">Przyłącz się do mojego królestwa</button>`);
     acts.defect = () => {
-      const chanceOk = (L.relation - 20) / 60 + (L.personality === "chciwy" ? 0.2 : L.personality === "honorowy" ? -0.3 : 0) + P.renown / 2000;
+      const chanceOk = (L.relation - 20) / 60 + (L.personality === "chciwy" ? 0.2 : L.personality === "honorowy" ? -0.3 : 0) + P.renown / 2000 + ((P as any).crowned ? 0.15 : 0) + (45 - lordLoyal(L)) / 200;
       if (L.relation < 20 || !chance(clamp(chanceOk, 0.05, 0.85))) { say("„Nie zdradzę swego władcy.”"); rel(L, -3, "namawiałeś go do zdrady"); return; }
       const old = L.faction;
       L.faction = PLAYER_FACTION;

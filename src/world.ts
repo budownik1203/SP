@@ -693,7 +693,7 @@ function fiefIncome(w: World, s: Settlement) {
   const S = s as any, b = S.build || {};
   const base = (s.kind === "town" ? 60 : s.kind === "castle" ? 30 : 15) * (0.5 + s.prosperity / 100) * (s.raided ? 0.2 : 1);
   const mul = (1 + (b.mlyn ? 0.1 : 0) + (b.targ ? 0.2 : 0) + (S.tax === 2 ? 0.35 : S.tax === 0 ? -0.3 : 0) + (S.steward ? 0.1 : 0) + perk(w.player, "fiefB")) * (w.diff?.gold ?? 1);
-  return Math.round(base * mul);
+  return Math.round(base * mul * rankIncomeMul(w.player) * (s.kind === "town" && (w.player as any).crowned === "gold" ? 1.15 : 1));
 }
 function smithItems(s: Settlement): string[] {
   const all = baseItems().filter((it) => !it.culture || it.culture === s.culture);
@@ -765,7 +765,7 @@ function dailyTick(w: World) {
   // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
   dailyPolitics(w);
   campDaily(w);
-  craftDaily(w);
+  craftDaily(w); kingdomDaily(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
   // osady
   for (const s of w.settlements) {
@@ -1143,7 +1143,7 @@ function partyWages(w: World) {
   for (const c of w.player.companions) s += c.wage;
   return Math.round(s * (1 - perk(w.player, "wageB")));
 }
-function partyLimit(w: World) { const P = w.player; return 20 + P.skills.leadership * 5 + Math.floor(P.attr.cha * 1.5) + Math.floor(P.renown / 25); }
+function partyLimit(w: World) { const P = w.player; return 20 + P.skills.leadership * 5 + Math.floor(P.attr.cha * 1.5) + Math.floor(P.renown / 25) + rankLimitBonus(P); }
 function foodTotal(w: World) { return FOOD_KEYS.reduce((s, k) => s + (w.player.goods[k] || 0), 0); }
 function playerDaily(w: World) {
   const P = w.player, p = playerParty(w);

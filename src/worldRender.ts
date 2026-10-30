@@ -639,7 +639,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
   if (season(w) === 3) { if (!WSNOW) buildSnow(w); g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H); }
   if (settings.borders !== false) g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
-  drawScars(w, g, sx, sy, v.time);
+  drawScars(w, g, sx, sy, v.time); drawWorks(w, g, sx, sy, v.time);
   const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
   const t = v.time;
   // fale morza (animacja)

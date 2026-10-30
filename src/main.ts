@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.23";
+const BUILD = "Build 0.24";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -291,10 +291,10 @@ function openWin(k: string) {
   if (!WORLD || WORLD.player.captive) return;
   const cur = SCREEN ? SCREEN.el.className.replace(" fresh", "") : "";
   const map: Record<string, [string, () => void]> = { char: ["char-scr", showCharacter], inv: ["inv-scr", showInventory], party: ["party-scr", showParty], fac: ["fac-scr", showFactions], chron: ["chron-scr", showChronicle], quest: ["quest-scr", showQuests] };
-  map.log = ["log-scr", showLog]; map.help = ["help-scr", showHelp];
+  map.log = ["log-scr", showLog]; map.kingdom = ["kingdom-scr", showKingdom]; map.help = ["help-scr", showHelp];
   const [cls, fn] = map[k];
   if (cur === "win " + cls) { closeScreen(); return; }
-  if (SCREEN && !["char-scr", "inv-scr", "party-scr", "fac-scr", "chron-scr", "quest-scr", "log-scr", "help-scr"].some((c) => cur === "win " + c)) return;   // nie przerywaj osady ani rozmowy
+  if (SCREEN && !["char-scr", "inv-scr", "party-scr", "fac-scr", "chron-scr", "quest-scr", "log-scr", "help-scr", "kingdom-scr"].some((c) => cur === "win " + c)) return;   // nie przerywaj osady ani rozmowy
   sfx.open();
   fn();
 }
@@ -350,7 +350,7 @@ function frameInner(now: number) {
     }
     if (!screenOpen() || /char-scr|inv-scr|party-scr|fac-scr|chron-scr|quest-scr|log-scr|help-scr/.test(SCREEN.el.className)) {
       if (input.hit(KB("char"))) openWin("char"); if (input.hit(KB("inv"))) openWin("inv"); if (input.hit(KB("party"))) openWin("party");
-      if (input.hit(KB("fac"))) openWin("fac"); if (input.hit(KB("chron"))) openWin("chron"); if (input.hit(KB("quest"))) openWin("quest"); if (input.hit(KB("log"))) openWin("log");
+      if (input.hit(KB("fac"))) openWin("fac"); if (input.hit(KB("chron"))) openWin("chron"); if (input.hit(KB("quest"))) openWin("quest"); if (input.hit(KB("log"))) openWin("log"); if (input.hit(KB("kingdom"))) openWin("kingdom");
     }
     if (input.wheel && !screenOpen()) mapZT = clamp(mapZT + input.wheel * 3, 0, MAPZ.length - 1);
     if (mapZ !== mapZT) mapZ += Math.sign(mapZT - mapZ);
@@ -452,5 +452,5 @@ function spriteSheet(keys: string[], scale = 3): string {
   const [o, g2] = mkCanvas(c.width * scale, c.height * scale); g2.drawImage(c, 0, 0, o.width, o.height); return o.toDataURL();
 }
 (window as any).__T2 = { launchStreets, mineAssault, sallyAgainstPlayer, showCapitulation, playerSiegeDay };
-(window as any).__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed };
+(window as any).__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed, siegeWon, showKingdom, kingdomDaily, planRoad, planBridge, works, partyLimit, serializeWorld, deserializeWorld, KG };
 (window as any).__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP) renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER) g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) { g.fillStyle = "#000"; g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12); g.fillStyle = factionCol(s.faction)[0]; g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8); g.fillStyle = "#fff"; g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8); } for (const p of WORLD.places) { g.fillStyle = "#f0f"; g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6); } return c.toDataURL(); } };

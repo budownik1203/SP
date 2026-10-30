@@ -16,7 +16,7 @@ let UNIT_PAINT: Record<number, { main: string; trim: string; charge: string }> |
 const KEYDEF: [string, string, string, string][] = [
   ["char", "KeyC", "Okno postaci", "Mapa"], ["inv", "KeyI", "Ekwipunek", "Mapa"], ["party", "KeyP", "Armia", "Mapa"], ["fac", "KeyF", "Frakcje", "Mapa"],
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
-  ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"],
+  ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
   ["dodge", "AltLeft", "Odskok", "Bitwa"], ["tpause", "Space", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
   ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],

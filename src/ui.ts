@@ -428,6 +428,11 @@ function animateScene(cv: HTMLCanvasElement, base: HTMLCanvasElement) {
 // ---------- Ikony pikselowe (9×9) ----------
 const ICON_URL = new Map<string, string>();
 const ICON_ART: Record<string, [string, string[]]> = {
+  road: [PAL.dirtL, ["...x.x...", "...x.x...", "..x...x..", "..x.x.x..", "..x...x..", ".x..x..x.", ".x.....x.", "x...x...x", "x.......x"]],
+  bridge: [PAL.wood, [".........", ".x.....x.", "xxxxxxxxx", "x.x.x.x.x", "xxxxxxxxx", "x.......x", ".........", ".x.x.x.x.", "x.x.x.x.x"]],
+  tower: [PAL.ash, ["x.x.x.x..", "xxxxxxx..", ".xxxxx...", ".xx.xx...", ".xxxxx...", ".xx.xx...", ".xxxxx...", ".xxxxx...", "xxxxxxx.."]],
+  town: [PAL.bone, ["....x....", "...xxx...", "..x.x.x..", "x.xxxxx.x", "xxxxxxxxx", "x.x.x.x.x", "xxxxxxxxx", "xx.xxx.xx", "xxxxxxxxx"]],
+  home: [PAL.dirtL, ["....x....", "...xxx...", "..xxxxx..", ".xxxxxxx.", "xxxxxxxxx", ".x.....x.", ".x.xx..x.", ".x.xx..x.", ".xxxxxxx."]],
   coin: [PAL.gold, ["..xxxxx..", ".xx...xx.", "xx.xxx.xx", "x.x.x.x.x", "x.xx..x.x", "x..xx.x.x", "xx.xxx.xx", ".xx...xx.", "..xxxxx.."]],
   man: [PAL.boneHi, ["...xxx...", "...xxx...", "....x....", ".xxxxxxx.", "x..xxx..x", "...xxx...", "...x.x...", "..xx.xx..", "..x...x.."]],
   food: [PAL.dirtL, ["....xx...", "...xxxx..", "..xxxxxx.", ".xx.xx.xx", ".xxxxxxxx", "xxxxxxxxx", "x.xx.xx.x", ".xxxxxxx.", "..xxxxx.."]],
