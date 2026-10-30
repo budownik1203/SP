@@ -473,7 +473,12 @@ class Sfx {
   private beatN = 0;
   private chordAt = 0;
   private M: MoodDef = MOODS.title;
-  private amb = { birdT: 3, stepT: 0, riverGain: null as GainNode | null };
+  private amb = { birdT: 3, stepT: 0, bellT: 10, wolfT: 15, riverGain: null as GainNode | null };
+  private windGain: GainNode | null = null;
+  // dzwon z odległego miasta: głęboki, z pogłosem
+  private townBell() { const o = this.out(rr(-0.6, 0.6), 0.25); const n = 2 + Math.floor(rnd() * 3); for (let i = 0; i < n; i++) for (const [r, g2] of [[1, 0.12], [2.4, 0.05], [0.5, 0.06]]) this.tone(o, 196 * r, 196 * r * 0.998, 2.4, "sine", g2, i * 1.3); }
+  // Pieśń barda: prosta melodia na lutni, nuta po nucie (stopnie skali).
+  bardTune(notes: number[], beat = 0.32) { if (!this.ctx) return; const c = this.ctx, root = 196, mode = MODES.mixo; notes.forEach((n, i) => { const oct = Math.floor(n / 7), d = ((n % 7) + 7) % 7; const hz = root * Math.pow(2, oct + mode[d] / 12); this.pluck(hz, c.currentTime + 0.1 + i * beat, 0.25, 0); if (i % 4 === 0) this.pluck(hz / 2, c.currentTime + 0.1 + i * beat + 0.01, 0.12, 0); }); }
   setMood(m: string) {
     if (!MOODS[m]) m = "map_wild";
     if (m === this.mood && !this.moodNext) return;
@@ -482,9 +487,9 @@ class Sfx {
     if (!this.ctx) { this.mood = m; this.M = MOODS[m]; this.moodNext = ""; return; }
     const c = this.ctx;
     // przed bitwą: szybkie wyciszenie (cisza), poza tym łagodne przejście
-    const fast = m === "silence" || this.mood === "silence";
-    this.moodGain.gain.setTargetAtTime(0, c.currentTime, fast ? 0.15 : 0.5);
-    this.moodAt = c.currentTime + (fast ? 0.4 : 1.4);
+    const fast = m === "silence" || this.mood === "silence", slow = MOODS[m].slow || MOODS[this.mood]?.slow || !MOODS[m].battle;
+    this.moodGain.gain.setTargetAtTime(0, c.currentTime, fast ? 0.15 : slow ? 1.1 : 0.5);   // płynne przejścia: na mapie wolno, w bitwie szybciej
+    this.moodAt = c.currentTime + (fast ? 0.4 : slow ? 3.2 : 1.4);
   }
   private applyMood() {
     const c = this.ctx, M = MOODS[this.moodNext];
@@ -493,7 +498,8 @@ class Sfx {
     [r, r * 1.5, r * 1.003].forEach((hz, i) => this.drone[i].frequency.setTargetAtTime(hz, c.currentTime, 0.3));
     this.droneGain.gain.setTargetAtTime(M.drone, c.currentTime, 0.5);
     this.choirGain.gain.setTargetAtTime(M.choir * 0.05, c.currentTime, 0.8);
-    this.moodGain.gain.setTargetAtTime(M.silent ? 0 : 1, c.currentTime, 0.6);
+    this.moodGain.gain.setTargetAtTime(M.silent ? 0 : 0.72, c.currentTime, M.slow ? 1.5 : 0.6);   // muzyka cicho w tle
+    if (this.organGain) this.organGain.gain.setTargetAtTime(0, c.currentTime, 0.4);
     this.chordAt = 0; this.phrase = []; this.noteStep = 0; this.nextNote = Math.max(this.nextNote, c.currentTime + 0.3);
   }
   private startMusic() {
@@ -570,9 +576,59 @@ class Sfx {
     o.connect(g); g.connect(this.moodGain); o.start(at); o.stop(at + 0.6);
     if (heavy) { const s = c.createBufferSource(); s.buffer = this.noiseBuf; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400; const g2 = c.createGain(); g2.gain.setValueAtTime(0.0001, at); g2.gain.exponentialRampToValueAtTime(0.2 * v, at + 0.005); g2.gain.exponentialRampToValueAtTime(0.0001, at + 0.2); s.connect(f); f.connect(g2); g2.connect(this.moodGain); s.start(at, Math.random()); s.stop(at + 0.25); }
   }
+  // ---- Instrumenty frakcji ----
+  private organGain: GainNode | null = null;
+  private bellNote(hz: number, at: number, v: number) {
+    const c = this.ctx;
+    for (const [r, g0, d] of [[1, 0.09, 2.2], [2.76, 0.04, 1.4], [5.4, 0.02, 0.8], [0.5, 0.05, 2.6]] as [number, number, number][]) {
+      const o = c.createOscillator(); o.type = "sine"; o.frequency.value = hz * r;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(g0 * v, at + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, at + d);
+      o.connect(g); g.connect(this.moodGain); const s = c.createGain(); s.gain.value = 0.4; g.connect(s); s.connect(this.rev); o.start(at); o.stop(at + d + 0.1);
+    }
+  }
+  private hornNote(hz: number, at: number, dur: number, v: number) {
+    const c = this.ctx;
+    for (const det of [0, 6]) {
+      const o = c.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(hz * 0.97, at); o.frequency.linearRampToValueAtTime(hz, at + 0.12); o.detune.value = det;
+      const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.setValueAtTime(300, at); lp.frequency.linearRampToValueAtTime(700 + this.M.bright * 500, at + 0.25);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.05 * v, at + 0.22); g.gain.setValueAtTime(0.05 * v, at + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(lp); lp.connect(g); g.connect(this.moodGain); o.start(at); o.stop(at + dur + 0.05);
+    }
+  }
+  private organChord(hzs: number[], at: number, dur: number, v: number) {
+    const c = this.ctx;
+    if (!this.organGain) { this.organGain = c.createGain(); this.organGain.connect(this.moodGain); const s = c.createGain(); s.gain.value = 0.6; this.organGain.connect(s); s.connect(this.rev); }
+    this.organGain.gain.setTargetAtTime(1, at, 0.05);
+    for (const hz of hzs) for (const [h, g0] of [[1, 0.025], [2, 0.012], [3, 0.006], [0.5, 0.015]] as [number, number][]) {
+      const o = c.createOscillator(); o.type = "sine"; o.frequency.value = hz * h;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(g0 * v, at + 0.35); g.gain.setValueAtTime(g0 * v, at + dur - 0.4); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(g); g.connect(this.organGain); o.start(at); o.stop(at + dur + 0.05);
+    }
+  }
+  private throatHum(hz: number, at: number, dur: number, v: number) {   // gardłowe głosy orków
+    const c = this.ctx;
+    const o = c.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(hz, at); o.frequency.linearRampToValueAtTime(hz * 0.94, at + dur);
+    const mix = c.createGain(); mix.gain.value = 1; o.connect(mix);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.06 * v, at + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    for (const fq of [400, 900]) { const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = fq; bp.Q.value = 6; mix.connect(bp); bp.connect(g); }
+    g.connect(this.moodGain); o.start(at); o.stop(at + dur + 0.05);
+  }
+  private whisperAt(at: number, v: number) {   // szepty Morvatha
+    const c = this.ctx;
+    const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 9; bp.frequency.setValueAtTime(rr(1800, 2600), at); bp.frequency.linearRampToValueAtTime(rr(900, 1500), at + 0.9);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); for (let i = 0; i < 5; i++) { g.gain.exponentialRampToValueAtTime(0.03 * v * rr(0.5, 1), at + 0.1 + i * 0.18); g.gain.exponentialRampToValueAtTime(0.002, at + 0.18 + i * 0.18); }
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
+    const p = c.createStereoPanner(); p.pan.value = rr(-0.9, 0.9);
+    s.connect(bp); bp.connect(g); g.connect(p); p.connect(this.moodGain); const r = c.createGain(); r.gain.value = 0.7; g.connect(r); r.connect(this.rev);
+    s.start(at, Math.random() * 2); s.stop(at + 1.2);
+  }
   private scaleHz(i: number) { const M = this.M, n = M.mode.length; const oct = Math.floor(i / n), deg = ((i % n) + n) % n; return M.root * Math.pow(2, oct + M.mode[deg] / 12); }
   private makePhrase() {
     const n = 8, top = this.M.mode.length * 2 - 1;
+    if (this.M.motif && chance(0.45)) {   // motyw frakcji, czasem przesunięty o tercję albo z wariacją
+      const sh = pick([0, 0, 2, 4]); return this.M.motif.map((d, i) => i > 0 && i < 7 && chance(0.15) ? clamp(d + sh + pick([-1, 1]), 0, top) : clamp(d + sh, 0, top));
+    }
     const out: number[] = [];
     let idx = pick([0, 2, 4]);
     for (let i = 0; i < n; i++) {
@@ -590,7 +646,7 @@ class Sfx {
   }
 
   setVolume(v: number) { this.volume = v; if (this.ctx) this.master.gain.setTargetAtTime(0.8 * v, this.ctx.currentTime, 0.1); }
-  tick(dt: number, intensity: number, rain = false, amb?: { day?: boolean; water?: number; moving?: boolean; mounted?: boolean; winter?: boolean }) {
+  tick(dt: number, intensity: number, rain = false, amb?: { day?: boolean; water?: number; moving?: boolean; mounted?: boolean; winter?: boolean; wind?: number; bell?: boolean; wolves?: boolean; crows?: boolean }) {
     if (!this.ctx) return;
     const c = this.ctx;
     if (this.moodNext && c.currentTime >= this.moodAt) this.applyMood();
@@ -601,7 +657,17 @@ class Sfx {
     if (this.crowT <= 0) { this.crowT = rr(9, 22); if (this.intensity < 0.4 && (!amb || !amb.day || chance(0.4))) this.crow(); }
     // tło mapy: ptaki za dnia, rzeka w pobliżu wody, kroki maszerującej drużyny
     if (this.amb.riverGain) this.amb.riverGain.gain.setTargetAtTime(amb ? clamp(amb.water || 0, 0, 1) * 0.06 : 0, c.currentTime, 0.6);
+    if (this.ctx && !this.windGain) {   // wiatr: szum z wolno falującym filtrem
+      const wn = c.createBufferSource(); wn.buffer = this.noiseBuf; wn.loop = true; wn.playbackRate.value = 0.35;
+      const wf = c.createBiquadFilter(); wf.type = "bandpass"; wf.frequency.value = 420; wf.Q.value = 0.7;
+      this.windGain = c.createGain(); this.windGain.gain.value = 0; wn.connect(wf); wf.connect(this.windGain); this.windGain.connect(this.master); wn.start();
+      const wl = c.createOscillator(); wl.frequency.value = 0.11; const wlg = c.createGain(); wlg.gain.value = 260; wl.connect(wlg); wlg.connect(wf.frequency); wl.start();
+    }
+    if (this.windGain) this.windGain.gain.setTargetAtTime(amb ? (amb.wind || 0) * 0.05 : 0, c.currentTime, 1.2);
     if (amb) {
+      this.amb.bellT -= dt; if (amb.bell && this.amb.bellT <= 0) { this.amb.bellT = rr(35, 80); this.townBell(); }
+      this.amb.wolfT -= dt; if (amb.wolves && this.amb.wolfT <= 0) { this.amb.wolfT = rr(20, 50); this.howl(0.25, rr(-0.8, 0.8)); }
+      if (amb.crows && this.crowT > 5) this.crowT = rr(2, 5);
       this.amb.birdT -= dt;
       if (this.amb.birdT <= 0) { this.amb.birdT = rr(2.5, 7); if (amb.day && !rain && !amb.winter) this.bird(); }
       if (amb.moving) { this.amb.stepT -= dt; if (this.amb.stepT <= 0) { this.amb.stepT = amb.mounted ? 0.32 : 0.45; if (amb.mounted) this.hoof(0.25, rr(-0.2, 0.2)); else this.step(0.45, rr(0.9, 1.1)); } }
@@ -623,6 +689,12 @@ class Sfx {
         if (M.battle && this.intensity > 0.75 && b % 2 === 1) this.mdrum(at + beat / 2, false, dv * 0.4, true);
       }
       if (M.choir > 0 && (this.beatN % 8 === 0 || !this.chordAt)) { this.setChord(at); this.chordAt = at; }
+      if (this.beatN % 8 === 0) {   // instrumenty frakcji na początku taktu
+        if (M.horn && chance(M.horn)) { this.hornNote(this.scaleHz(0) / 2, at, beat * 3.5, 1); if (chance(0.5)) this.hornNote(this.scaleHz(4) / 2, at + beat * 4, beat * 3, 0.8); }
+        if (M.organ && chance(M.organ)) { const d = pick([0, 3, 4, 5]); this.organChord([this.scaleHz(d) / 2, this.scaleHz(d + 2) / 2, this.scaleHz(d + 4) / 2], at, beat * 8, 1); }
+        if (M.whisper && chance(M.whisper)) this.whisperAt(at + beat * rr(0, 4), 1);
+      }
+      if (M.throat && M.heavy && this.beatN % 4 === 0 && chance(M.throat)) this.throatHum(this.scaleHz(0) / 2, at, beat * 1.6, 1);
       this.beatN++;
       if (this.noteStep >= this.phrase.length) {
         this.phrase = this.makePhrase(); this.noteStep = 0;
@@ -630,6 +702,7 @@ class Sfx {
       }
       const n = this.phrase[this.noteStep++];
       const long = this.noteStep === this.phrase.length;
+      if (n >= 0 && M.bell && (this.noteStep === 1 || long) && chance(M.bell)) this.bellNote(this.scaleHz(n) * 2, at, 1);
       if (n >= 0 && chance(M.lute)) {
         this.pluck(this.scaleHz(n), at, 0.22 * M.luteVol);
         if (long || chance(0.18)) this.pluck(this.scaleHz(n - 4) / (n >= 4 ? 1 : 2), at + 0.012, 0.13 * M.luteVol);
@@ -646,24 +719,36 @@ class Sfx {
 
 }
 
-interface MoodDef { root: number; mode: number[]; beat: number; lute: number; luteVol: number; rest: number; drum: number; heavy?: boolean; choir: number; drone: number; bright: number; battle?: boolean; tavern?: boolean; silent?: boolean; }
+interface MoodDef { root: number; mode: number[]; beat: number; lute: number; luteVol: number; rest: number; drum: number; heavy?: boolean; choir: number; drone: number; bright: number; battle?: boolean; tavern?: boolean; silent?: boolean;
+  motif?: number[]; bell?: number; horn?: number; organ?: number; throat?: number; whisper?: number; slow?: boolean; }
 const MODES = { dorian: [0, 2, 3, 5, 7, 9, 10], phryg: [0, 1, 3, 5, 7, 8, 10], aeol: [0, 2, 3, 5, 7, 8, 10], mixo: [0, 2, 4, 5, 7, 9, 10], harm: [0, 2, 3, 5, 7, 8, 11], penta: [0, 3, 5, 7, 10] };
+// Motywy frakcji (stopnie skali): wracają w melodii na mapie i w bitwie.
+const MOTIF = { aurelia: [0, 2, 4, 5, 4, 2, 3, 0], varus: [0, 0, 4, 4, 3, 2, 1, 0], dwarf: [0, 4, 3, 2, 0, -1, 0, 0], orc: [0, 0, 2, 0, 3, 2, 0, 0], undead: [0, 1, 0, -1, 0, 3, 1, 0] };
 const MOODS: Record<string, MoodDef> = {
-  title: { root: 146.83, mode: MODES.dorian, beat: 0.42, lute: 0.9, luteVol: 1, rest: 0.25, drum: 0, choir: 0.35, drone: 0.05, bright: 0.3 },
-  map_aurelia: { root: 146.83, mode: MODES.dorian, beat: 0.34, lute: 1, luteVol: 1, rest: 0.22, drum: 0, choir: 0.12, drone: 0.05, bright: 0.5 },
-  map_varus: { root: 110, mode: MODES.aeol, beat: 0.32, lute: 0.85, luteVol: 1, rest: 0.2, drum: 0.18, choir: 0.08, drone: 0.05, bright: 0.4 },
-  map_dwarf: { root: 98, mode: MODES.aeol, beat: 0.4, lute: 0.6, luteVol: 1.1, rest: 0.3, drum: 0.28, heavy: true, choir: 0.3, drone: 0.06, bright: 0.2 },
-  map_orc: { root: 82.4, mode: MODES.penta, beat: 0.3, lute: 0.45, luteVol: 1.2, rest: 0.35, drum: 0.5, heavy: true, choir: 0, drone: 0.06, bright: 0.2 },
-  map_undead: { root: 82.4, mode: MODES.phryg, beat: 0.55, lute: 0.35, luteVol: 1, rest: 0.45, drum: 0.1, heavy: true, choir: 0.55, drone: 0.08, bright: 0 },
+  title: { root: 146.83, mode: MODES.dorian, beat: 0.42, lute: 0.9, luteVol: 1, rest: 0.25, drum: 0, choir: 0.35, drone: 0.05, bright: 0.3, bell: 0.15 },
+  // Aurelia: dzwony i chór; Legion: bębny i rogi; krasnoludy: niskie rogi; orkowie: bębny i gardłowe głosy; Morvath: organy i szepty
+  map_aurelia: { root: 146.83, mode: MODES.dorian, beat: 0.34, lute: 1, luteVol: 1, rest: 0.22, drum: 0, choir: 0.22, drone: 0.05, bright: 0.5, motif: MOTIF.aurelia, bell: 0.35 },
+  map_varus: { root: 110, mode: MODES.aeol, beat: 0.32, lute: 0.8, luteVol: 1, rest: 0.2, drum: 0.24, choir: 0.06, drone: 0.05, bright: 0.4, motif: MOTIF.varus, horn: 0.35 },
+  map_dwarf: { root: 98, mode: MODES.aeol, beat: 0.4, lute: 0.55, luteVol: 1.1, rest: 0.3, drum: 0.28, heavy: true, choir: 0.3, drone: 0.06, bright: 0.2, motif: MOTIF.dwarf, horn: 0.45 },
+  map_orc: { root: 82.4, mode: MODES.penta, beat: 0.3, lute: 0.4, luteVol: 1.2, rest: 0.35, drum: 0.55, heavy: true, choir: 0, drone: 0.06, bright: 0.2, motif: MOTIF.orc, throat: 0.5 },
+  map_undead: { root: 82.4, mode: MODES.phryg, beat: 0.55, lute: 0.25, luteVol: 1, rest: 0.45, drum: 0.08, heavy: true, choir: 0.4, drone: 0.08, bright: 0, motif: MOTIF.undead, organ: 0.7, whisper: 0.4 },
   map_wild: { root: 146.83, mode: MODES.aeol, beat: 0.36, lute: 0.8, luteVol: 1, rest: 0.3, drum: 0, choir: 0.05, drone: 0.05, bright: 0.3 },
-  night: { root: 110, mode: MODES.aeol, beat: 0.6, lute: 0.4, luteVol: 0.8, rest: 0.5, drum: 0, choir: 0.25, drone: 0.04, bright: 0 },
+  night: { root: 110, mode: MODES.aeol, beat: 0.62, lute: 0.35, luteVol: 0.7, rest: 0.55, drum: 0, choir: 0.2, drone: 0.04, bright: 0, slow: true },
   tavern: { root: 196, mode: MODES.mixo, beat: 0.22, lute: 1, luteVol: 1, rest: 0.1, drum: 0.35, choir: 0, drone: 0.02, bright: 0.8, tavern: true },
-  market: { root: 146.83, mode: MODES.mixo, beat: 0.28, lute: 0.9, luteVol: 1, rest: 0.18, drum: 0.2, choir: 0, drone: 0.03, bright: 0.7 },
-  castle: { root: 146.83, mode: MODES.dorian, beat: 0.5, lute: 0.4, luteVol: 0.8, rest: 0.3, drum: 0.1, heavy: true, choir: 0.55, drone: 0.07, bright: 0.3 },
+  market: { root: 146.83, mode: MODES.mixo, beat: 0.28, lute: 0.9, luteVol: 1, rest: 0.18, drum: 0.2, choir: 0, drone: 0.03, bright: 0.7, bell: 0.12 },
+  castle: { root: 146.83, mode: MODES.dorian, beat: 0.5, lute: 0.35, luteVol: 0.8, rest: 0.3, drum: 0.1, heavy: true, choir: 0.5, drone: 0.07, bright: 0.3, horn: 0.25, organ: 0.25 },
   battle_human: { root: 146.83, mode: MODES.aeol, beat: 0.28, lute: 0.5, luteVol: 1, rest: 0.25, drum: 0.6, choir: 0.2, drone: 0.05, bright: 0.4, battle: true },
-  battle_orc: { root: 82.4, mode: MODES.penta, beat: 0.26, lute: 0.3, luteVol: 1, rest: 0.3, drum: 0.85, heavy: true, choir: 0, drone: 0.07, bright: 0.2, battle: true },
-  battle_undead: { root: 82.4, mode: MODES.phryg, beat: 0.34, lute: 0.2, luteVol: 1, rest: 0.4, drum: 0.55, heavy: true, choir: 0.7, drone: 0.08, bright: 0, battle: true },
-  battle_dwarf: { root: 98, mode: MODES.aeol, beat: 0.3, lute: 0.4, luteVol: 1, rest: 0.25, drum: 0.7, heavy: true, choir: 0.35, drone: 0.06, bright: 0.2, battle: true },
+  battle_aurelia: { root: 146.83, mode: MODES.dorian, beat: 0.28, lute: 0.5, luteVol: 1, rest: 0.25, drum: 0.55, choir: 0.35, drone: 0.05, bright: 0.45, battle: true, motif: MOTIF.aurelia, bell: 0.25 },
+  battle_varus: { root: 110, mode: MODES.aeol, beat: 0.27, lute: 0.4, luteVol: 1, rest: 0.22, drum: 0.75, choir: 0.15, drone: 0.05, bright: 0.35, battle: true, motif: MOTIF.varus, horn: 0.45 },
+  battle_orc: { root: 82.4, mode: MODES.penta, beat: 0.26, lute: 0.3, luteVol: 1, rest: 0.3, drum: 0.85, heavy: true, choir: 0, drone: 0.07, bright: 0.2, battle: true, motif: MOTIF.orc, throat: 0.6 },
+  battle_undead: { root: 82.4, mode: MODES.phryg, beat: 0.34, lute: 0.2, luteVol: 1, rest: 0.4, drum: 0.55, heavy: true, choir: 0.6, drone: 0.08, bright: 0, battle: true, motif: MOTIF.undead, organ: 0.6, whisper: 0.5 },
+  battle_dwarf: { root: 98, mode: MODES.aeol, beat: 0.3, lute: 0.4, luteVol: 1, rest: 0.25, drum: 0.7, heavy: true, choir: 0.35, drone: 0.06, bright: 0.2, battle: true, motif: MOTIF.dwarf, horn: 0.5 },
   battle_beast: { root: 110, mode: MODES.harm, beat: 0.27, lute: 0.45, luteVol: 1, rest: 0.3, drum: 0.65, choir: 0.1, drone: 0.06, bright: 0.3, battle: true },
+  // sytuacje na mapie
+  chase: { root: 110, mode: MODES.harm, beat: 0.22, lute: 0.6, luteVol: 0.9, rest: 0.2, drum: 0.6, choir: 0.05, drone: 0.06, bright: 0.3, horn: 0.2 },
+  siege: { root: 98, mode: MODES.aeol, beat: 0.46, lute: 0.3, luteVol: 0.8, rest: 0.35, drum: 0.45, heavy: true, choir: 0.35, drone: 0.08, bright: 0.1, horn: 0.3 },
+  lament: { root: 110, mode: MODES.phryg, beat: 0.7, lute: 0.6, luteVol: 0.8, rest: 0.45, drum: 0, choir: 0.45, drone: 0.05, bright: 0, slow: true },
+  victory: { root: 146.83, mode: MODES.mixo, beat: 0.3, lute: 0.9, luteVol: 1, rest: 0.15, drum: 0.35, choir: 0.3, drone: 0.04, bright: 0.7, bell: 0.3, horn: 0.3 },
+  pause: { root: 73.4, mode: MODES.aeol, beat: 1, lute: 0, luteVol: 0, rest: 1, drum: 0, choir: 0, drone: 0, bright: 0, silent: true, slow: true },
   silence: { root: 73.4, mode: MODES.aeol, beat: 1, lute: 0, luteVol: 0, rest: 1, drum: 0, choir: 0, drone: 0, bright: 0, silent: true },
 };

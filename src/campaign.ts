@@ -494,7 +494,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
       if (ctx.place.kind === "camp" || ctx.place.kind === "cemetery") { lootGold += 150; P.gold += 150; P.renown += 10; }
     }
     if (ctx.kind === "siege" && ctx.settlement && ctx.defend) { const s = ctx.settlement; s.siegeBy = []; s.siegeDays = 0; s.relation += 15; P.renown += 30; lines.push(`Oblężenie ${s.name} przełamane!`); chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold); }
-    else if (ctx.kind === "siege" && ctx.settlement) { siegeWon(ctx.settlement, lines); if (ctx.settlement.kind !== "village") sackNext = () => showSack(ctx.settlement); }
+    else if (ctx.kind === "siege" && ctx.settlement) { siegeWon(ctx.settlement, lines); setTimeout(() => sfx.fanfare(), 1800); if (ctx.settlement.kind !== "village") sackNext = () => showSack(ctx.settlement); }
     if ((ctx as any).sally && ctx.settlement) { const s = ctx.settlement; for (const e of ctx.enemies) { e.siege = undefined; } s.siegeBy = []; s.siegeDays = 0; lines.push(`Nocny wypad rozbił obóz oblegających. ${s.name} wolne!`); P.renown += 25; chron(w, `${P.name} rozbija nocnym wypadem oblężenie ${s.name}.`, PAL.gold); }
     if (ctx.onWin) ctx.onWin(lines);
   } else {
@@ -516,6 +516,8 @@ function applyBattleResult(r: BattleResult, auto = false) {
   // bitwy z lordami zmieniają nastawienie frakcji
   if (auto) lines.unshift(r.win ? "Rozstrzygnięcie bez walki: twoi ludzie zwyciężają." : "Rozstrzygnięcie bez walki: bitwa przegrana.");
   plotCheckKing(w, lines);
+  // muzyka po bitwie: fanfara i krótki motyw zwycięstwa albo lament po klęsce
+  { if (r.win) { sfx.fanfare(); MOOD_HOLD.m = "victory"; MOOD_HOLD.until = performance.now() + 22000; } else { MOOD_HOLD.m = "lament"; MOOD_HOLD.until = performance.now() + 45000; } }
   showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
   G.battle = null;
 }
@@ -640,7 +642,7 @@ function siegeWon(s: Settlement, lines: string[]) {
       for (const f of [1, 2, 3, 4, 5]) { w.factions[PLAYER_FACTION].relation[f] = -10; w.factions[f].relation[PLAYER_FACTION] = -10; }
       w.factions[PLAYER_FACTION].war[5] = true; w.factions[5].war[PLAYER_FACTION] = true;
       for (const f of P.wars) w.factions[f].war[PLAYER_FACTION] = true;
-      P.status = "król"; P.liege = 0;
+      P.status = "król"; P.liege = 0; setTimeout(() => { sfx.fanfare(); sfx.bell(); }, 600);   // koronacja
       lines.push(`Powstaje ${P.kingdom}! Jesteś władcą.`);
       chron(w, `${P.name} ogłasza się władcą. Powstaje ${P.kingdom}.`, PAL.gold);
     }

@@ -2192,12 +2192,28 @@ class Battle {
   }
   private bmood = "";
   // Muzyka bitwy zależy od rasy przeciwnika.
+  // Warstwy bitwy: rozkazy wykrzykiwane w szeregach, rżenie koni, sygnały rogów przy szarży.
+  layerT = 2; chargeN = 0;
+  battleLayers(dt: number) {
+    this.layerT -= dt;
+    const ch = Object.values(this.orders).filter((o: any) => o && o.mode === "charge").length;
+    if (ch > this.chargeN) this.sfx.horn?.(0.6);
+    this.chargeN = ch;
+    if (this.layerT > 0) return;
+    this.layerT = rr(1.5, 4);
+    const act = this.units.filter((u) => u.active);
+    const h = this.hero;
+    const near = h ? act.filter((u) => dist(u.x, u.y, h.x, h.y) < 260) : act;
+    if (near.some((u) => u.mounted) && chance(0.5)) { const m = pick(near.filter((u) => u.mounted)); const s = this.vol(m.x); this.sfx.neigh(s.v * 0.6, s.pan); }
+    if (near.length > 12 && chance(0.6)) this.sfx.shout(0.25 + Math.min(0.4, near.length / 120));
+    if (chance(0.12)) this.sfx.drum(0.25);
+  }
   battleMood() {
     if (this.bmood) return this.bmood;
     const cnt: Record<string, number> = {};
     for (const u of this.units) if (u.team === 1) cnt[u.def.culture] = (cnt[u.def.culture] || 0) + 1;
     const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || "aurelia";
-    this.bmood = top === "orc" ? "battle_orc" : top === "undead" ? "battle_undead" : top === "dwarf" ? "battle_dwarf" : top === "monster" ? "battle_beast" : "battle_human";
+    this.bmood = top === "orc" ? "battle_orc" : top === "undead" ? "battle_undead" : top === "dwarf" ? "battle_dwarf" : top === "monster" ? "battle_beast" : top === "aurelia" ? "battle_aurelia" : top === "varus" ? "battle_varus" : "battle_human";
     return this.bmood;
   }
   update(realDt: number) {
@@ -2218,6 +2234,7 @@ class Battle {
     for (const u of this.units) if (u.active && (u.state === "windup" || u.state === "strike")) fighting++;
     this.intensity = this.phase === "fight" ? clamp(fighting / 14, 0, 1) : 0;
     this.sfx.setMood(this.phase === "deploy" ? "silence" : this.battleMood());
+    if (this.phase === "fight") this.battleLayers(realDt);
     this.tutorialTick(realDt);
     this.sfx.tick(realDt, this.intensity, this.cfg.rain);
     if (this.phase === "deploy" && !this.paused) {

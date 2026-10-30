@@ -375,3 +375,28 @@ function dueEcho(): TEvent | null {
   ] };
   return null;
 }
+
+// ---------- Pieśń barda: krótka melodia i zwrotki o czynach gracza ----------
+function bardSong(s: Settlement) {
+  const w = WORLD, P = w.player;
+  const mine = w.chronicle.filter((c) => c.text.includes(P.name)).slice(-6).map((c) => c.text.replace(P.name, "").replace(/^[\s,:]+/, "").split(/[.!]/)[0]);
+  const nm = P.name;
+  const epi = P.renown > 500 ? "sławny" : P.honor < -15 ? "okrutny" : P.honor > 20 ? "prawy" : P.battlesWon > 20 ? "niezwyciężony" : P.kills > 100 ? "krwawy" : "dzielny";
+  const lines: string[] = [];
+  if (!mine.length && P.renown < 60) {
+    lines.push("O dawnych królach, co w popiele śpią,", "o mieczach, które rdza już dawno zjadła,", "śpiewam wam, ludzie, póki kufle pełne,", "bo o nowych bohaterach nikt jeszcze nie słyszał.");
+  } else {
+    lines.push(`Słuchajcie, ludzie: ${nm}, ${epi} wojak,`);
+    lines.push(mine.length ? `co ${pick(mine).toLowerCase()},` : `co ${P.battlesWon} bitew wygrał na rozstajach,`);
+    lines.push(P.kills > 30 ? `${P.kills} trupów zostawił wronom na żer,` : season(w) === 3 ? "przez śniegi szedł, gdy inni grzali się w izbach," : "przez błota szedł, gdzie inni stawiali krzyże,");
+    lines.push(P.status === "król" ? `a dziś korona ciąży mu na skroni.` : P.status === "wasal" ? `a dziś z ręki pana trzyma ziemię.` : `i dalej idzie, póki starczy mu tchu.`);
+  }
+  const tune = [0, 2, 4, 2, 3, 4, 5, 4, 2, 1, 0, 2, 4, 5, 7, 4, 3, 2, 1, 0];
+  sfx.bardTune(tune);
+  const wk = Math.floor(w.day / 7);
+  if (mine.length && !(P as any)["bard" + s.id + "_" + wk]) { (P as any)["bard" + s.id + "_" + wk] = 1; P.renown += 2; s.relation += 1; }
+  showScr(`<div class="dialog frame bard"><div class="scene">${pic(drawScene("tavern", s.seed, s.culture, isNight(w)), "scene-img")}</div><h1>${ic("mug")} Pieśń barda</h1>
+    <div class="verse">${lines.map((l, i) => `<p style="animation-delay:${i * 1.6}s">${esc(l)}</p>`).join("")}</div>
+    <p class="muted">${mine.length ? "Ludzie stukają kuflami i powtarzają twoje imię." : "O tobie jeszcze nikt nie śpiewa."}</p>
+    <div class="btns"><button data-a="ok">Rzuć mu monetę i wróć</button></div></div>`, { ok: () => { closeScreen(); enterSettlement(s); SET.tab = "tavern"; renderSettlement(); } }, "dialog-scr");
+}

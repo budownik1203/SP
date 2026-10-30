@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.20";
+const BUILD = "Build 0.21";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -12,6 +12,7 @@ input.attach(canvas);
 const sfx = new Sfx();
 buildSprites();
 
+const MOOD_HOLD = { m: "", until: 0 };
 const settings: Settings = { autoCamp: true,
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
@@ -372,7 +373,8 @@ function frameInner(now: number) {
 }
 
 // Dźwięk mapy: nastrój zależy od regionu, pory dnia i miejsca w osadzie; tło: ptaki, rzeka, kroki.
-let ambWater = 0, ambT = 0;
+let ambWater = 0, ambT = 0, ambWind = 0, ambBell = false, ambWolves = false;
+const MUSIC_CYCLE = { t: 150, on: true };
 function mapSound(dt: number) {
   const w = WORLD, p = playerParty(w);
   ambT -= dt;
@@ -382,6 +384,11 @@ function mapSound(dt: number) {
     let n = 0;
     for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const t = terrAt(w, cx + dx, cy + dy); if (t === T_RIVER || t === T_SEA || t === T_BEACH) n++; }
     ambWater = clamp(n / 18, 0, 1);
+    // wiatr: góry, północ, zima, pustkowia; dzwony z bliskich miast; wilki nocą w lasach
+    let hi = 0, fo = 0; for (let dy = -5; dy <= 5; dy += 2) for (let dx = -5; dx <= 5; dx += 2) { const t = terrAt(w, cx + dx, cy + dy); if (t === T_MOUNT || t === T_HILL) hi++; if (t === T_FOREST) fo++; }
+    ambWind = clamp(hi / 18 + (cy < WGH * 0.3 ? 0.25 : 0) + (season(w) === 3 ? 0.3 : 0) + (w.blight[cellOf(p.x, p.y)] ? 0.3 : 0) + ((w as any).storm ? 0.4 : 0), 0, 1);
+    ambBell = !isNight(w) && w.settlements.some((s) => s.kind !== "village" && dist(s.cx * WCELL, s.cy * WCELL, p.x, p.y) < 70);
+    ambWolves = isNight(w) && fo > 6;
   }
   let mood = "";
   const cls = SCREEN ? SCREEN.el.className : "";
@@ -389,6 +396,15 @@ function mapSound(dt: number) {
     const s = w.settlements[SET.id];
     mood = SET.tab === "tavern" ? "tavern" : SET.tab === "market" || SET.tab === "smith" ? "market" : s && s.kind !== "village" && (SET.tab === "main" || SET.tab === "throne" || SET.tab === "rule" || SET.tab === "dungeon") && s.kind === "castle" ? "castle" : SET.tab === "throne" ? "castle" : "";
   }
+  // sytuacje: pościg, oblężenie, zwycięstwo i lament po bitwie, cisza we mgle i na pobojowisku, przerwy w muzyce
+  const now = performance.now();
+  if (!mood && MOOD_HOLD.until > now) mood = MOOD_HOLD.m;
+  if (!mood && /settle-scr/.test(cls) && SET.tab === "siege") mood = "siege";
+  if (!mood && (p.state === "siege" || w.settlements.some((s) => s.siegeBy.includes(p.id)))) mood = "siege";
+  if (!mood && w.parties.some((o) => o.state === "chase" && o.target === p.id && dist(o.x, o.y, p.x, p.y) < 150 && hostile(w, p, o))) mood = "chase";
+  const nearField = ((w as any).scars || []).some((sc: any) => sc.kind === "battle" && w.day - sc.day < 3 && dist(sc.x, sc.y, p.x, p.y) < 60);
+  if (!mood && (w.fog || nearField)) mood = "pause";
+  if (!mood) { MUSIC_CYCLE.t -= dt; if (MUSIC_CYCLE.t <= 0) { MUSIC_CYCLE.on = !MUSIC_CYCLE.on; MUSIC_CYCLE.t = MUSIC_CYCLE.on ? rr(110, 180) : rr(30, 60); } if (!MUSIC_CYCLE.on) mood = "pause"; }
   if (!mood) {
     if (isNight(w)) mood = "night";
     else {
@@ -400,7 +416,7 @@ function mapSound(dt: number) {
   }
   sfx.setMood(mood);
   const day = !isNight(w);
-  sfx.tick(dt, 0, w.rain, { day, water: /settle-scr/.test(cls) ? 0 : ambWater, moving: !screenOpen() && p.path.length > 0 && !G.camping, mounted: !!w.player.equip.horse, winter: season(w) === 3 });
+  sfx.tick(dt, 0, w.rain, { day, water: /settle-scr/.test(cls) ? 0 : ambWater, moving: !screenOpen() && p.path.length > 0 && !G.camping, mounted: !!w.player.equip.horse, winter: season(w) === 3, wind: /settle-scr/.test(cls) ? ambWind * 0.3 : ambWind, bell: ambBell, wolves: ambWolves, crows: nearField });
 }
 
 // Tło ekranu tytułowego: płonący horyzont, sztandary i popiół.
