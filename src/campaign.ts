@@ -305,7 +305,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
     terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog,
-    player: { name: P.name, faction: P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
+    player: { name: P.name, faction: (P as any).crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
     enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
     maxPerSide: settings.battleSize,
@@ -451,6 +451,19 @@ function applyBattleResult(r: BattleResult, auto = false) {
         if (chance(0.5)) { L.captive = PLAYER_FACTION; lines.push(`${L.title} ${L.name} jest twoim jeńcem.`); chron(w, `${P.name} pojmał: ${L.title} ${L.name}.`, PAL.gold); lordRel(w, L, -10, "wziąłeś go do niewoli"); }
         else chron(w, `${P.name} rozbija armię: ${e.name}.`, PAL.gold);
       } else if (e.kind === "bandit" || e.kind === "undead" || e.kind === "monster") chron(w, `${P.name} rozbija: ${e.name} w pobliżu ${nearestSettlement(w, e.x, e.y).name}.`);
+      if (e.kind === "caravan" || e.kind === "villagers") {
+        const home = e.home !== undefined ? w.settlements[e.home] : null;
+        if (home) home.relation -= e.kind === "caravan" ? 15 : 10;
+        for (const L of w.lords) if (L.alive && L.faction === e.faction) lordRel(w, L, -4, e.kind === "caravan" ? "napadłeś na kupców jego frakcji" : "napadłeś na chłopów jego frakcji");
+        const W2 = ((P as any).wanted ||= {}); W2[e.faction] = w.day + 30;
+        lines.push(`${factionName(e.faction)} wystawia za tobą list gończy (30 dni). Miasta tej frakcji nie dadzą ci zleceń.`);
+        chron(w, `List gończy: ${P.name} napadł na ${e.kind === "caravan" ? "karawanę" : "chłopów"} z ${home ? home.name : "okolicy"}.`, PAL.redL, "player");
+      }
+      if (e.kind === "bandit" && (e as any).captVillage !== undefined) {
+        const v = w.settlements[(e as any).captVillage];
+        if (v) { v.relation += 12; v.prosperity = Math.min(100, v.prosperity + 3); lines.push(`Uwalniasz porwanych chłopów z ${v.name}. Wracają do domu z błogosławieństwami.`); P.honor += 1; }
+        (e as any).captVillage = undefined; e.prisoners = [];
+      }
       removeParty(w, e);
       // zadania na bandytów
       for (const q of P.quests) if (!q.done && (q.kind === "bandits" || q.kind === "defend") && q.target === e.id) completeQuest(q, lines);
@@ -458,7 +471,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
     for (const a of ctx.allies) { const L = lordById(w, a.lord); if (L) { lordRel(w, L, 4, "pomogłeś mu w bitwie"); lines.push(`${L.title} ${L.name} docenia twoją pomoc (+4).`); } }
     if (ctx.place) {
       ctx.place.cleared = 20;
-      for (const q of P.quests) if (!q.done && q.kind === "wolves" && q.target === ctx.place.id) completeQuest(q, lines);
+      for (const q of P.quests) if (!q.done && (q.kind === "wolves" || q.kind === "relic") && q.target === ctx.place.id) completeQuest(q, lines);
       if (ctx.place.kind === "camp" || ctx.place.kind === "cemetery") { lootGold += 150; P.gold += 150; P.renown += 10; }
     }
     if (ctx.kind === "siege" && ctx.settlement && ctx.defend) { const s = ctx.settlement; s.siegeBy = []; s.siegeDays = 0; s.relation += 15; P.renown += 30; lines.push(`Oblężenie ${s.name} przełamane!`); chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold); }

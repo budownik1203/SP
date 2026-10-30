@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.15.2";
+const BUILD = "Build 0.16";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -17,7 +17,7 @@ const settings: Settings = {
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
   atkMode: "mouse", horseMode: "dir", deploy: true, borders: true, typeText: true, voices: true, gore: true, dmgHeroOnly: true, outline: true,
-  fxVol: 1, voiceVol: 1, uiVol: 0.8, keys: {}, seenTips: [], loadScreens: true,
+  fxVol: 1, voiceVol: 1, uiVol: 0.8, keys: {}, seenTips: [], loadScreens: true, mapText: 1, density: 1,
 };
 try {
   const s = JSON.parse(localStorage.getItem("sztandary-settings") || "null");
@@ -425,4 +425,4 @@ requestAnimationFrame(frame);
 (window as any).__game = () => ({ G, WORLD, battle: G.battle });
 (window as any).__battle = () => G.battle;
 (window as any).__meet = (o: Party) => meetParty(o, false);
-(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, mapImage: () => { if (!WMAP) renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER) g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) { g.fillStyle = "#000"; g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12); g.fillStyle = factionCol(s.faction)[0]; g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8); g.fillStyle = "#fff"; g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8); } for (const p of WORLD.places) { g.fillStyle = "#f0f"; g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6); } return c.toDataURL(); } };
+(window as any).__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP) renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER) g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) { g.fillStyle = "#000"; g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12); g.fillStyle = factionCol(s.faction)[0]; g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8); g.fillStyle = "#fff"; g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8); } for (const p of WORLD.places) { g.fillStyle = "#f0f"; g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6); } return c.toDataURL(); } };

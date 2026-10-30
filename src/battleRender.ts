@@ -434,9 +434,18 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     g.fillStyle = PAL.wood; g.fillRect(px, py, 1, 16);
     const fx = px + (flip ? -8 : 1);
     g.fillStyle = PAL.ink; g.fillRect(fx - 1, py - 1, 10, 8);
-    g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
-    g.fillRect(fx, py, 8, 6); g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
-    if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
+    const crestFlag = u.team === 0 && u.bearer && !u.officer && b.cfg.player.faction === PLAYER_FACTION;
+    if (crestFlag) {   // chorąży niesie herb gracza z godłem
+      const [fc, fd, ft] = factionCol(PLAYER_FACTION);
+      g.fillStyle = PAL.ink; g.fillRect(fx - 1, py - 1, 10, 9);
+      g.fillStyle = fc; g.fillRect(fx, py, 8, 7); g.fillStyle = fd; g.fillRect(fx + 6, py, 2, 7);
+      drawCharge(g, playerCharge(), fx + 1 + (flip ? 1 : 0), py + 1, ft || PAL.bone);
+      g.fillStyle = SQUAD_COLORS[u.squad] || PAL.bone; g.fillRect(fx, py + 7, 8, 1);
+    } else {
+      g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
+      g.fillRect(fx, py, 8, 6); g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
+      if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
+    }
   }
   if (u.carry >= 0) {   // drabina niesiona na ramieniu
     g.fillStyle = PAL.ink; g.fillRect(ix + 2, iy + 4, 22, 3);

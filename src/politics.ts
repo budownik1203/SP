@@ -2,7 +2,7 @@
 // lojalność i zdrady lordów, zaraza Morvatha, historia siły frakcji i zdarzenia czekające na decyzję gracza.
 
 interface FCampaign { marshal: number; target: number; gather: number; stage: "gather" | "march"; start: number; until: number; }
-interface PendingEv { kind: "vote" | "summon" | "marshalOffer" | "ransomOffer" | "envoyBack" | "peaceOffer"; f: number; s?: number; cands?: number[]; lord?: number; gold?: number; text?: string; ok?: boolean; day: number; }
+interface PendingEv { kind: "vote" | "summon" | "marshalOffer" | "ransomOffer" | "envoyBack" | "peaceOffer" | "rumor" | "rebellion" | "plotChoice"; f: number; s?: number; cands?: number[]; lord?: number; gold?: number; text?: string; ok?: boolean; day: number; }
 interface Envoy { to: number; kind: "peace" | "alliance" | "tribute" | "marriage" | "nonaggr"; arrive: number; gold: number; }
 
 const MAJOR = [1, 2, 3, 4];
@@ -74,6 +74,9 @@ function dailyPolitics(w: World) {
   }
   // sojusznicy dołączają do trwających wojen
   for (const a of MAJOR) for (const b of MAJOR) if (a !== b && isAlly(w, a, b)) for (const x of MAJOR) if (x !== a && x !== b && fst(w, b).war[x] && !fst(w, a).war[x] && (fst(w, a).truce[x] || 0) <= 0 && chance(0.02)) { setWar(w, a, x, true, true); chron(w, `${factionName(a)} wspiera sojusznika (${factionShort(b)}) i wypowiada wojnę: ${factionName(x)}.`, PAL.redL, "war"); }
+  coalitionDaily(w);
+  wearinessDaily(w);
+  rebelsDaily(w);
   campaignsDaily(w);
   loyaltyDaily(w);
   plagueDaily(w);
@@ -189,10 +192,22 @@ function loyaltyDaily(w: World) {
     if (!L.alive || L.ruler || L.captive >= 0) continue;
     const hasFief = w.settlements.some((s) => s.owner === L.id && s.kind !== "village");
     const ownPow = factionPower(w, L.faction);
-    const losing = MAJOR.some((x) => atWar(w, L.faction, x) && factionPower(w, x) > ownPow * 1.4);
-    addLoyal(L, (hasFief ? 0.05 : -0.15) + (losing ? (L.personality === "chciwy" ? -0.3 : -0.15) : 0.03) + (L.personality === "honorowy" ? 0.06 : 0));
+    const losing = MAJOR.some((x) => atWar(w, L.faction, x) && factionPower(w, x) > ownPow * 1.2);
+    // urazy na dworze: pominięcie, kłótnia z władcą, spór o ziemię
+    if (chance(0.004)) { addLoyal(L, -rr(10, 20)); if (chance(0.5)) chron(w, `${L.title} ${L.name} kłóci się z władcą ${factionShort(L.faction)} ${pick(["o nadanie ziemi", "o łupy z wojny", "o obrazę przy uczcie", "o swoje prawa do zamku"])}.`, PAL.ash, "lord"); }
+    addLoyal(L, (hasFief ? 0.05 : -0.25) + (losing ? (L.personality === "chciwy" ? -0.45 : -0.25) : 0.03) + (L.personality === "honorowy" ? 0.06 : 0) - weariness(w, L.faction) * 0.15);
     const lo = lordLoyal(L);
-    if (lo >= 15 || !chance(0.012)) continue;
+    // plotki o niezadowoleniu: gracz może zareagować, zanim lord zdradzi
+    const A = L as any;
+    if (lo < 25 && !A.rumor) {
+      A.rumor = w.day;
+      chron(w, `Plotki: ${L.title} ${L.name} (${factionShort(L.faction)}) jest niezadowolony i szuka nowego pana.`, PAL.ash, "lord");
+      if (L.faction === PLAYER_FACTION || (L.faction === P.liege && P.status !== "król")) pending(w).push({ kind: "rumor" as any, f: L.faction, lord: L.id, day: w.day });
+    }
+    if (lo >= 30) A.rumor = 0;
+    if (lo >= 15 || !chance(0.02) || (A.rumor && w.day - A.rumor < 6)) continue;
+    // bunt: lord z lennem przy bardzo niskiej lojalności podnosi własny sztandar
+    if (lo < 10 && L.faction !== PLAYER_FACTION && MAJOR.includes(L.faction) && w.settlements.some((x) => x.owner === L.id && x.kind !== "village") && !rebelOf(w, L.faction)) { startRebellion(w, L); continue; }
     // zdrada: do gracza-króla, jeśli go lubi, inaczej do najsilniejszego wroga swojej korony
     let to = -1;
     if (P.status === "król" && fst(w, PLAYER_FACTION) && L.relation >= 25 && L.faction !== PLAYER_FACTION) to = PLAYER_FACTION;
@@ -325,7 +340,7 @@ function plotStart(w: World) {
   if (!shrine) return;
   w.plot.hermit = shrine.id; shrine.seen = true;
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const cx = shrine.cx + dx, cy = shrine.cy + dy; if (cx >= 0 && cy >= 0 && cx < WGW && cy < WGH) w.explored[cy * WGW + cx] = 1; }
-  P.quests.push({ id: w.questId++, kind: "plot" as any, giver: 0, target: shrine.id, amount: 0, reward: 0, day: w.day, days: 9999, text: `Popiół Morvatha: we śnie widziałeś starca przy kapliczce ${shrine.name}. Odszukaj go.`, done: false } as any);
+  P.quests.push({ id: w.questId++, kind: "plot" as any, giver: -1, target: shrine.id, amount: 0, reward: 0, day: w.day, days: 9999, text: `Popiół Morvatha: we śnie widziałeś starca przy kapliczce ${shrine.name}. Odszukaj go.`, done: false } as any);
   chron(w, `${P.name} śni o płonącym niebie i starcu przy kapliczce. Coś się zaczyna.`, PAL.purpleL, "player");
 }
 function plotQuest(w: World) { return w.player.quests.find((q) => (q.kind as string) === "plot" && !q.done); }
@@ -344,7 +359,13 @@ function plotRef(w: World): { kind: "party" | "place" | "settlement"; id: number
     const r = w.places.filter((pl) => pl.kind === "ruins" && pl.cleared <= 0 && !((w.plot as any).done_ruins || []).includes(pl.id)).sort((a, b) => dist(a.cx * WCELL, a.cy * WCELL, p.x, p.y) - dist(b.cx * WCELL, b.cy * WCELL, p.x, p.y))[0];
     return r ? { kind: "place", id: r.id } : null;
   }
-  if (P.stage === 2) {
+  if (P.stage === 3) {
+    const A = P as any;
+    if (A.path === "crusade") { const cap = w.settlements.find((s) => s.faction === A.f && s.kind === "town" && s.capital) || w.settlements.find((s) => s.faction === A.f && s.kind === "town"); return cap ? { kind: "settlement", id: cap.id } : null; }
+    if (A.path === "dark" && A.ritual !== undefined) return { kind: "place", id: A.ritual };
+    return null;
+  }
+  if (P.stage === 2 || P.stage === 4) {
     const K = w.lords.find((l) => l.faction === 5 && l.ruler && l.alive);
     if (K && K.party >= 0 && partyById(w, K.party)) return { kind: "party", id: K.party };
     const cap = w.settlements.find((s) => s.faction === 5 && s.kind === "town") || w.settlements.find((s) => s.faction === 5 && s.kind === "castle");
@@ -366,13 +387,60 @@ function plotRuins(w: World, pl: SpecialPlace, lines: string[]) {
   done.push(pl.id); w.plot.relics++;
   lines.push(`Wśród kości leży relikwia Świtu: ${["Popękany kielich", "Spalona księga", "Złoty gwóźdź"][w.plot.relics - 1] || "relikwia"} (${w.plot.relics}/3).`);
   if (w.plot.relics >= 3) {
-    plotAdvance(w, 2, "Popiół Morvatha: z relikwiami możesz zranić Upiornego Króla. Rozbij jego armię albo zdobądź stolicę Morvath.");
-    w.player.perks.undeadB = (w.player.perks.undeadB || 0) + 0.25;
-    lines.push("Relikwie płoną w twoich rękach. Od dziś bijesz nieumarłych mocniej (+25%).");
+    plotAdvance(w, 2, "Popiół Morvatha: trzy relikwie szepczą w jukach. Musisz zdecydować, komu je oddać.");
+    lines.push("Trzecia relikwia. Kiedy kładziesz ją obok dwóch pozostałych, słyszysz szept. Coś chce, żebyś wybrał.");
+    pending(w).push({ kind: "plotChoice" as any, f: 0, day: w.day });
   } else { const q = plotQuest(w); if (q) q.text = `Popiół Morvatha: oczyść ruiny i odnajdź relikwie Świtu (${w.plot.relics}/3).`; }
 }
+// Wybór po trzech relikwiach: krucjata z jedną z koron albo pakt z mrokiem.
+const CRUSADE: Record<number, { who: string; scene: string; text: string; reward: string }> = {
+  1: { who: "Królowa Ilvena i arcybiskup Aurelionu", scene: "town", text: "W katedrze Aurelionu arcybiskup namaszcza relikwie olejem i światłem. Królowa ogłasza świętą wojnę: dzwony biją w każdej wsi Korony.", reward: "Wiara wraca do pełna, dostajesz 20 zbrojnych kapłanów Zakonu i błogosławieństwo (+15% obrażeń przeciw nieumarłym)." },
+  2: { who: "Uzurpator Kassian Varus", scene: "castle", text: "Varus ogląda relikwie jak mapę bitwy. „Wiara to dobra flaga. Legion ruszy, ale pod moim dowództwem.” Na naradzie legatów rozkłada mapę Morvath.", reward: "30 weteranów Legionu dołącza do ciebie, a Legion wyrusza na Morvath." },
+  3: { who: "Król Durgan Kamienna Brew", scene: "smith", text: "W runicznej kuźni krasnoludzcy mistrzowie przetapiają gwóźdź i kielich w ostrze. Księga zostaje w archiwum klanu. „Kamień pamięta. My też.”", reward: "Dostajesz runiczny miecz wykuty z relikwii, a Khazgrim wyrusza na Morvath." },
+  4: { who: "Wódz Ghrakk Krwawy Kieł", scene: "camp", text: "Szamani Hordy palą księgę w ognisku i mieszają popiół z krwią. Ghrakk śmieje się: „Martwi nie krzyczą. To nudne. Zabijemy ich drugi raz.”", reward: "30 orkowych wojowników dołącza do ciebie, a Horda wyrusza na Morvath." },
+};
+function plotChoose(w: World, path: "crusade" | "dark", f = 0) {
+  const A = w.plot as any; A.path = path; A.f = f;
+  if (path === "crusade") {
+    const cap = w.settlements.find((s) => s.faction === f && s.kind === "town" && s.capital) || w.settlements.find((s) => s.faction === f && s.kind === "town");
+    plotAdvance(w, 3, `Popiół Morvatha: zanieś relikwie do ${cap ? cap.name : "stolicy"} (${factionShort(f)}). ${CRUSADE[f].who} czeka.`, cap ? cap.id : -1);
+  } else {
+    const p = playerParty(w);
+    const cem = w.places.filter((x) => x.kind === "cemetery").sort((a, b) => dist(a.cx * WCELL, a.cy * WCELL, p.x, p.y) - dist(b.cx * WCELL, b.cy * WCELL, p.x, p.y))[0];
+    A.ritual = cem ? cem.id : undefined; if (cem) cem.seen = true;
+    plotAdvance(w, 3, `Popiół Morvatha: szept prowadzi cię na ${cem ? cem.name : "cmentarz"}. Tam, o północy, możesz związać moc relikwii ze sobą.`, cem ? cem.id : -1);
+  }
+}
+// Scena w stolicy (krucjata) albo na cmentarzu (pakt); zwraca tekst sceny albo null.
+function plotScene(w: World, at: { settlement?: number; place?: number }): { title: string; text: string; scene: string; culture: string } | null {
+  const A = w.plot as any; if (!A || A.stage !== 3) return null;
+  const P = w.player, p = playerParty(w);
+  if (A.path === "crusade" && at.settlement !== undefined) {
+    const s = w.settlements[at.settlement]; if (!s || s.faction !== A.f || s.kind !== "town") return null;
+    const C = CRUSADE[A.f];
+    if (A.f === 1) { P.faith = 100; P.perks.undeadB = (P.perks.undeadB || 0) + 0.15; addTroops(p.troops, Object.keys(UNITS).find((k) => /priest|zakon|templar/i.test(k) && UNITS[k].culture === "aurelia") || "a_footman", 20); }
+    if (A.f === 2) addTroops(p.troops, Object.keys(UNITS).filter((k) => UNITS[k].culture === "varus" && UNITS[k].tier === 3)[0] || "v_legionary", 30);
+    if (A.f === 3) { const it = qid("w_sword", 3); ensureItem(it); P.items.push(it); P.perks.undeadB = (P.perks.undeadB || 0) + 0.1; }
+    if (A.f === 4) addTroops(p.troops, Object.keys(UNITS).filter((k) => UNITS[k].culture === "orc" && UNITS[k].tier === 3)[0] || "o_warrior", 30);
+    P.perks.undeadB = (P.perks.undeadB || 0) + 0.25;
+    if (w.factions[A.f] && !w.factions[A.f].war[5]) setWar(w, A.f, 5, true, true);
+    const F = fst(w, A.f); const mor = w.settlements.filter((x) => x.faction === 5 && x.kind !== "village");
+    const L = w.lords.filter((l) => l.faction === A.f && l.alive && l.captive < 0 && partyById(w, l.party)).sort((a, b) => b.renown - a.renown)[0];
+    if (F && L && mor.length) { F.camp = { marshal: L.id, target: mor[0].id, gather: s.id, stage: "gather", start: w.day, until: w.day + 40 }; chron(w, `${factionName(A.f)} ogłasza krucjatę przeciw Morvath. Marszałkiem zostaje ${L.title} ${L.name}.`, PAL.gold, "war"); }
+    plotAdvance(w, 4, "Popiół Morvatha: krucjata ruszyła. Rozbij armię Upiornego Króla albo zdobądź jego stolicę.");
+    return { title: "Krucjata", text: `${C.text}<br><br><b>${C.reward}</b> Relikwie są teraz błogosławione: bijesz nieumarłych mocniej.`, scene: C.scene, culture: FACTIONS[A.f].culture };
+  }
+  if (A.path === "dark" && at.place !== undefined && at.place === A.ritual) {
+    P.corruption = Math.min(100, P.corruption + 40); P.mana = 100;
+    P.perks.soulMana = (P.perks.soulMana || 0) + 0.3; P.perks.undeadOk = 1; P.perks.undeadB = (P.perks.undeadB || 0) + 0.15;
+    A.truce = w.day + 60;
+    plotAdvance(w, 4, "Popiół Morvatha: moc relikwii płynie w tobie. Zabierz Upiornemu Królowi koronę: rozbij go albo zdobądź jego stolicę.");
+    return { title: "Pakt z mrokiem", text: "O północy kładziesz relikwie na płycie grobu. Kielich napełnia się czarną wodą, księga sama się otwiera, gwóźdź wbija się w twoją dłoń bez bólu. Ziemia wokół szarzeje. Słyszysz Upiornego Króla: „Złodziej.” Uśmiechasz się.<br><br><b>Spaczenie +40. Mana odnawia się z dusz poległych, możesz prowadzić nieumarłych, a przez 60 dni martwi omijają cię z daleka.</b>", scene: "cemetery", culture: "undead" };
+  }
+  return null;
+}
 function plotCheckKing(w: World, lines: string[]) {
-  if (!w.plot || w.plot.stage !== 2 || w.plot.done) return;
+  if (!w.plot || (w.plot.stage !== 2 && w.plot.stage !== 4) || w.plot.done) return;
   const K = w.lords.find((l) => l.faction === 5 && l.ruler);
   const capFallen = !w.settlements.some((s) => s.faction === 5 && s.kind === "town");
   if ((K && (!K.alive || K.captive >= 0 || K.party < 0)) || capFallen) {
@@ -382,7 +450,106 @@ function plotCheckKing(w: World, lines: string[]) {
     const P = w.player; P.renown += 300; P.gold += 3000; P.skillPts += 3; P.honor += 10;
     (w.diff ||= { dmg: 1, enemy: 1, gold: 1, aggro: 1, plague: 1, xp: 1 }).plague *= 0.3;
     for (const p of w.parties.slice()) if (p.kind === "undead") removeParty(w, p);
-    lines.push("Korona Upiornego Króla pęka z sykiem. Martwi padają tam, gdzie stali. Zaraza słabnie. +300 sławy, +3000 denarów, +3 punkty drzewek.");
-    chron(w, `${P.name} łamie koronę Upiornego Króla. Popiół Morvatha opada. Pieśni o tym przetrwają wieki.`, PAL.gold, "player");
+    if ((w.plot as any).path === "dark") {
+      P.honor -= 20; P.corruption = 100; P.perks.undeadOk = 1; P.perks.terror = (P.perks.terror || 0) + 0.3;
+      lines.push("Zdzierasz koronę z rozsypującej się czaszki i wkładasz ją na własną głowę. Martwi klękają. Zaraza nie znika: teraz słucha ciebie. +300 sławy, +3000 denarów, +3 punkty drzewek, wróg drży na twój widok.");
+      chron(w, `${P.name} odbiera koronę Upiornemu Królowi i sam staje się panem popiołu. Żywi szepczą jego imię ze strachem.`, PAL.purpleL, "player");
+    } else {
+      lines.push("Korona Upiornego Króla pęka z sykiem. Martwi padają tam, gdzie stali. Zaraza słabnie. +300 sławy, +3000 denarów, +3 punkty drzewek.");
+      chron(w, `${P.name} łamie koronę Upiornego Króla. Popiół Morvatha opada. Pieśni o tym przetrwają wieki.`, PAL.gold, "player");
+    }
+  }
+}
+
+
+// ---------- Koalicje przeciw najsilniejszym ----------
+function coalitionDaily(w: World) {
+  const alive = MAJOR.filter((f) => w.factions[f].alive);
+  if (alive.length < 3) return;
+  const cnt = (f: number) => w.settlements.filter((s) => s.faction === f).length;
+  const total = alive.reduce((a, f) => a + cnt(f), 0) || 1;
+  const strong = alive.sort((a, b) => cnt(b) - cnt(a))[0];
+  if (cnt(strong) / total < 0.32) return;
+  const others = alive.filter((f) => f !== strong);
+  for (const a of others) {
+    const fa = fst(w, a);
+    fa.relation[strong] = (fa.relation[strong] || 0) - 0.12; fst(w, strong).relation[a] = fa.relation[strong];
+    for (const b of others) if (a < b && !fa.war[b] && !isAlly(w, a, b) && chance(0.015)) { setAlly(w, a, b, true, true); chron(w, `${factionName(a)} i ${factionName(b)} zawierają sojusz przeciw rosnącej potędze ${factionShort(strong)}.`, PAL.gold, "peace"); }
+    if (!fa.war[strong] && (fa.truce[strong] || 0) <= 0 && chance(0.006)) { setWar(w, a, strong, true, true); chron(w, `${factionName(a)} wypowiada wojnę ${factionShort(strong)}: nikt nie może urosnąć zbyt wysoko.`, PAL.redL, "war"); }
+  }
+}
+// ---------- Zmęczenie wojną: dużo zdobyczy = bunty w podbitych osadach, chęć pokoju ----------
+const START_OWN: Record<number, number> = {};
+function weariness(w: World, f: number) {
+  if (!MAJOR.includes(f)) return 0;
+  const base = START_OWN[f] ||= 17;
+  const own = w.settlements.filter((s) => s.faction === f).length;
+  const conq = w.settlements.filter((s) => s.faction === f && FACTION_OF_CULTURE[s.culture] !== f).length;
+  return clamp((own - base) / base * 0.6 + conq / Math.max(1, own) * 0.8, 0, 1.5);
+}
+function wearinessDaily(w: World) {
+  for (const f of MAJOR) {
+    if (!w.factions[f].alive) continue;
+    const W2 = weariness(w, f);
+    if (W2 < 0.25) continue;
+    // chętniej zawierają pokój
+    for (const x of MAJOR) if (fst(w, f).war[x] && chance(0.004 * W2)) setWar(w, f, x, false);
+    // powstanie w podbitej twierdzy: wraca do dawnych panów (jeśli żyją)
+    const conq = w.settlements.filter((s) => s.faction === f && s.kind !== "village" && !s.siegeBy.length && FACTION_OF_CULTURE[s.culture] && FACTION_OF_CULTURE[s.culture] !== f && w.factions[FACTION_OF_CULTURE[s.culture]]?.alive);
+    if (conq.length && chance(0.02 * W2)) {
+      const s = pick(conq), back = FACTION_OF_CULTURE[s.culture];
+      applyLosses(s.garrison, 0.6);
+      const owner = w.lords.find((l) => l.faction === back && l.alive && !l.ruler);
+      captureSettlement(w, s, back, owner ? owner.id : -1);
+      fillGarrison(w, s, 12);
+      chron(w, `Powstanie w ${s.name}! Mieszkańcy wyrzynają załogę ${factionShort(f)} i wracają pod sztandar ${factionShort(back)}.`, PAL.redL, "war");
+    }
+  }
+}
+// ---------- Bunty: frakcja buntowników z pretendentem, wojna domowa ----------
+interface Rebels { id: number; from: number; lord: number; start: number; held?: number; }
+function rebelsList(w: World): Rebels[] { return ((w as any).rebels ||= []); }
+function rebelOf(w: World, from: number) { return rebelsList(w).find((r) => r.from === from && w.factions[r.id]?.alive); }
+function isRebel(f: number) { return f >= 11 && f <= 15; }
+function rebelFactionDef(w: World, r: Rebels) {
+  const L = lordById(w, r.lord), O = FACTIONS[r.from];
+  FACTIONS[r.id] = { id: r.id, name: `Bunt ${L ? L.name : ""} (${O.short})`, short: `Buntownicy ${O.short}`, culture: O.culture, race: O.race, col: PAL.rust, shade: PAL.dirtD, trim: O.col, pattern: "quarter", ruler: `Pretendent ${L ? L.name : ""}`, gov: "Wojna domowa" };
+}
+function restoreRebels(w: World) { for (const r of rebelsList(w)) rebelFactionDef(w, r); }
+function startRebellion(w: World, L: Lord) {
+  const from = L.faction, id = 10 + from;
+  const r: Rebels = { id, from, lord: L.id, start: w.day };
+  const list = rebelsList(w); const old = list.findIndex((x) => x.id === id); if (old >= 0) list.splice(old, 1);
+  list.push(r);
+  rebelFactionDef(w, r);
+  w.factions[id] = { id, war: {}, warDays: {}, truce: {}, relation: {}, gold: 2000, alive: true, name: FACTIONS[id].name } as any;
+  setWar(w, id, from, true, true);
+  if (from !== 5) setWar(w, id, 5, true, true);
+  // do buntu przyłączają się niezadowoleni lordowie tej samej korony
+  const joiners = [L, ...w.lords.filter((o) => o !== L && o.alive && o.faction === from && !o.ruler && lordLoyal(o) < 30).slice(0, 2)];
+  for (const o of joiners) {
+    o.faction = id; (o as any).loyal = 70; (o as any).rumor = 0;
+    const p = partyById(w, o.party); if (p) { p.faction = id; p.siege = undefined; p.state = "idle"; p.wait = 0; }
+    for (const s of w.settlements) if (s.owner === o.id) { s.faction = id; s.siegeBy = []; s.siegeDays = 0; for (const v of w.settlements) if (v.bound === s.id) v.faction = id; }
+  }
+  w.ownerVersion++;
+  chron(w, `Wojna domowa! ${L.title} ${L.name} ogłasza się pretendentem do tronu ${factionName(from)}.${joiners.length > 1 ? ` Dołączają: ${joiners.slice(1).map((o) => o.name).join(", ")}.` : ""}`, PAL.redL, "war");
+  pending(w).push({ kind: "rebellion" as any, f: id, lord: L.id, day: w.day });
+}
+function rebelsDaily(w: World) {
+  for (const r of rebelsList(w)) {
+    const F = w.factions[r.id]; if (!F || !F.alive) continue;
+    const own = w.settlements.filter((s) => s.faction === r.id && s.kind !== "village").length;
+    if (!own) {
+      F.alive = false;
+      for (const o of w.lords) if (o.faction === r.id) { o.faction = r.from; (o as any).loyal = 40; const p = partyById(w, o.party); if (p) p.faction = r.from; }
+      chron(w, `Bunt w ${factionName(r.from)} upada. Pretendent ${lordById(w, r.lord)?.name || ""} korzy się przed władcą.`, PAL.moss, "war");
+      if (w.player.liege === r.id) { w.player.liege = r.from; w.player.status = "wasal"; addLogMsg("Bunt upadł. Wracasz pod dawną koronę, ale nikt tego nie zapomni.", PAL.redL); }
+      continue;
+    }
+    // zwycięstwo buntowników: dłużej trzymają ponad połowę dawnych twierdz
+    const fromOwn = w.settlements.filter((s) => s.faction === r.from && s.kind !== "village").length;
+    if (own > fromOwn) { r.held = (r.held || 0) + 1; if (r.held >= 30) { setWar(w, r.id, r.from, false); FACTIONS[r.id].gov = "Monarchia"; FACTIONS[r.id].short = FACTIONS[r.id].name; chron(w, `Wojna domowa kończy się: ${factionName(r.id)} zostaje osobnym królestwem.`, PAL.gold, "peace"); r.held = -999; } }
+    else if ((r.held || 0) > 0) r.held = 0;
   }
 }

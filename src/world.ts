@@ -48,7 +48,7 @@ interface Lord {
   respawn: number; ruler: boolean; personality: "honorowy" | "chciwy" | "okrutny" | "ostrożny";
 }
 interface SpecialPlace { id: number; kind: "ruins" | "lair" | "shrine" | "camp" | "cemetery"; cx: number; cy: number; name: string; cleared: number; seen: boolean; }
-interface Quest { id: number; kind: "bandits" | "letter" | "grain" | "wolves" | "defend" | "cattle" | "militia" | "capture" | "persuade"; giver: number; target: number; amount: number; reward: number; days: number; text: string; done: boolean; giverLord?: number; item?: string; hide?: boolean; failed?: boolean; }
+interface Quest { id: number; kind: "bandits" | "letter" | "grain" | "wolves" | "defend" | "cattle" | "militia" | "capture" | "persuade" | "raid" | "kidnap" | "relieve" | "relic" | "escort"; giver: number; target: number; amount: number; reward: number; days: number; text: string; done: boolean; giverLord?: number; item?: string; hide?: boolean; failed?: boolean; }
 interface ChronEntry { day: number; text: string; col?: string; cat?: string; }
 
 const GOODS: Record<string, { name: string; base: number; food?: boolean }> = {
@@ -205,6 +205,7 @@ function findPath(w: World, from: number, to: number, maxIter = 90000, allowMoun
 // ---------- Projekt mapy (zawsze ta sama kraina, szczegóły z szumu) ----------
 // Projekt w siatce 240×150, skalowany do rozmiaru mapy (MS).
 const MS = WGW / 240;
+const RIVER_PTS: { pts: number[]; wide: boolean }[] = [];   // gładkie koryta rzek do rysowania (komórki zostają do przejść)
 const sc2 = (a: [number, number][]) => a.map(([x, y]) => [x * MS, y * MS] as [number, number]);
 const sc3 = (a: [number, number, number][]) => a.map(([x, y, r]) => [x * MS, y * MS, r * MS] as [number, number, number]);
 // Współrzędne w komórkach (240×150). Wybrzeże, pasma gór, rzeki, lasy, bagna i osady są rozplanowane ręcznie.
@@ -213,7 +214,7 @@ const MAP_GULFS: [number, number, number][] = sc3([[50, 121, 11], [9, 56, 4], [2
 const MAP_ISLES: [number, number, number][] = sc3([[5, 40, 3], [28, 140, 3], [215, 145, 2], [240, 88, 3]]);
 const MAP_LAKES: [number, number, number][] = sc3([[121, 76, 5], [176, 32, 3]]);
 const MAP_RANGES: { pts: [number, number][]; w: number }[] = ([
-  { pts: [[198, 28], [206, 46], [203, 64], [210, 82], [205, 102], [212, 122]], w: 15 },   // Góry Khazgrim
+  { pts: [[198, 28], [206, 46], [203, 64], [210, 82], [205, 102], [212, 122]], w: 12 },   // Góry Khazgrim
   { pts: [[146, 40], [158, 30], [170, 26], [182, 30]], w: 6 },                            // Kły Popiołu
   { pts: [[118, 118], [132, 111], [146, 114], [158, 110]], w: 5 },                         // Grań Kości
   { pts: [[96, 48], [101, 52]], w: 4 },                                                     // Samotna Turnia
@@ -295,7 +296,14 @@ function generateWorld(seed: number, player: PlayerState): World {
     }
     w.terr[i] = t;
   }
+  // przełęcze i doliny w Górach Khazgrim (240-siatka: linie w poprzek pasma)
+  for (const [ax, ay, bx, by] of [[188, 58, 222, 54], [186, 88, 222, 90], [190, 112, 226, 116], [196, 36, 214, 40]]) {
+    const A2: [number, number] = [ax * MS, ay * MS], B2: [number, number] = [bx * MS, by * MS];
+    for (let y = 0; y < WGH; y++) for (let x = 0; x < WGW; x++) { const i = cidx(x, y); if (w.terr[i] === T_MOUNT && segD(x, y, A2, B2) < 1.6 + vnoise(x * 3, y * 3, 5) * 1.5) w.terr[i] = T_HILL; }
+  }
   // rzeki według projektu, z meandrami; w górach drążą dolinę
+  RIVER_PTS.length = 0;
+  let curPts: number[] | null = null;
   const riverCells = (R: typeof MAP_RIVERS[number]) => {
     const out: number[] = [];
     const ph = R.name.length * 1.7;
@@ -305,7 +313,9 @@ function generateWorld(seed: number, player: PlayerState): World {
       for (let s2 = 0; s2 <= L; s2 += 0.25) {
         const u = s2 / (L || 1), gt = k * 10 + s2;
         const m = Math.sin(gt * 0.45 + ph) * 1.4 + (vnoise(gt * 3, ph * 10, 6) - 0.5) * 2.2;
-        const x = Math.round(ax + (bx - ax) * u + nx * m), y = Math.round(ay + (by - ay) * u + ny * m);
+        const fx = ax + (bx - ax) * u + nx * m, fy = ay + (by - ay) * u + ny * m;
+        const x = Math.round(fx), y = Math.round(fy);
+        if (curPts) curPts.push(fx, fy);
         if (x < 0 || y < 0 || x >= WGW || y >= WGH) continue;
         const c = cidx(x, y);
         if (out[out.length - 1] !== c) out.push(c);
@@ -314,7 +324,11 @@ function generateWorld(seed: number, player: PlayerState): World {
     return out;
   };
   for (const R of MAP_RIVERS) {
+    curPts = []; const ptsR = curPts;
     const cells = riverCells(R);
+    curPts = null;
+    // punkty gładkiego koryta: do ujścia w morzu (jeziora po drodze są wodą)
+    { const out: number[] = []; for (let k = 0; k < ptsR.length; k += 2) { const c = cidx(clamp(Math.round(ptsR[k]), 0, WGW - 1), clamp(Math.round(ptsR[k + 1]), 0, WGH - 1)); if (w.terr[c] === T_SEA && !MAP_LAKES.some(([lx, ly, r]) => Math.hypot(ptsR[k] - lx, ptsR[k + 1] - ly) < r + 3)) { out.push(ptsR[k], ptsR[k + 1]); break; } out.push(ptsR[k], ptsR[k + 1]); } RIVER_PTS.push({ pts: out, wide: !!R.wide }); }
     let prev = -1;
     for (const c of cells) {
       if (w.terr[c] === T_SEA) { const cx3 = c % WGW, cy3 = Math.floor(c / WGW); if (MAP_LAKES.some(([lx, ly, r]) => Math.hypot(cx3 - lx, cy3 - ly) < r + 3)) { prev = -1; continue; } break; }
@@ -620,6 +634,7 @@ function playerAtWarWith(w: World, f: number) {
   return P.wars.includes(f);
 }
 function hostile(w: World, a: Party, b: Party) {
+  const tru = (w.plot as any)?.truce; if (tru && tru > w.day && ((a.kind === "player" && (b.kind === "undead" || b.faction === 5)) || (b.kind === "player" && (a.kind === "undead" || a.faction === 5)))) return false;
   if (a.kind === "caravan" && b.kind === "caravan") return false;
   if ((a.kind === "villagers" || a.kind === "caravan") && (b.kind === "villagers" || b.kind === "caravan")) return false;
   if (a.kind === "undead" || b.kind === "undead") return a.faction !== b.faction;
@@ -762,7 +777,10 @@ function dailyTick(w: World) {
         s.siegeDays++;
         // głód: po wyczerpaniu zapasów załoga słabnie z dnia na dzień
         if (s.faction !== 5 && s.siegeDays > siegeStores(s)) { applyLosses(s.garrison, 0.05); if (s.siegeDays === siegeStores(s) + 1) chron(w, `Głód w oblężonym ${s.name}. Załoga słabnie.`, PAL.redL); }
-        if (s.siegeDays >= 4 && !s.siegeBy.includes(w.pid)) aiAssault(w, s);
+        // szturm dopiero po dłuższym oblężeniu (chyba że przewaga jest miażdżąca)
+        const apow = s.siegeBy.reduce((a2, id) => { const o = partyById(w, id); return a2 + (o ? partyPower(w, o) : 0); }, 0);
+        const need = apow > troopPower(s.garrison) * 2.1 * 3 ? 5 : 9;
+        if (s.siegeDays >= need && !s.siegeBy.includes(w.pid)) aiAssault(w, s);
       }
       else s.siegeDays = 0;
     }
@@ -784,9 +802,9 @@ function dailyTick(w: World) {
   }
   // bandyci, bestie, karawany
   const count = (k: PartyKind) => w.parties.filter((p) => p.kind === k).length;
-  for (let k = 0; k < 3; k++) if (count("bandit") < 16 && chance(0.6)) spawnFromPlace(w, "camp");
-  if (count("monster") < 6 && chance(0.3)) spawnFromPlace(w, "lair");
-  if (count("undead") < 7 && chance(0.3)) spawnFromPlace(w, "cemetery");
+  for (let k = 0; k < 3; k++) if (count("bandit") < 16 * densityK() && chance(0.6)) spawnFromPlace(w, "camp");
+  if (count("monster") < 6 * densityK() && chance(0.3)) spawnFromPlace(w, "lair");
+  if (count("undead") < 7 * densityK() && chance(0.3)) spawnFromPlace(w, "cemetery");
   livingWorldDaily(w);
   for (const p of w.places) if (p.cleared > 0) p.cleared--;
   // lordowie: uzupełnienia w domu
@@ -814,7 +832,7 @@ function livingWorldDaily(w: World) {
       const food = FOOD_KEYS.reduce((a, k) => a + Math.max(0, s.stock[k] - 12), 0);
       if (food < 6) { S.trip = w.day + 2; continue; }
       const p = spawnVillagers(w, s);
-      S.trip = w.day + Math.round(rr(1, 3));
+      S.trip = w.day + Math.round(rr(1, 3) / densityK());
       if (p) S.vparty = p.id;
     } else if (s.kind === "town") {
       if ((S.car && alive.has(S.car)) || (S.carDay || 0) > w.day || s.siegeBy.length) continue;
@@ -885,7 +903,9 @@ function aiAssault(w: World, s: Settlement) {
     const leader = att.sort((a, b) => partyPower(w, b) - partyPower(w, a))[0];
     captureSettlement(w, s, leader.faction, leader.lord ?? -1);
     // część armii zostaje w załodze
-    for (const t of leader.troops) { const n = Math.floor(t.n * 0.3); if (n > 0) { addTroops(s.garrison, t.type, n); removeTroops(leader.troops, t.type, n); } }
+    // zdobywca zostawia mocną załogę ze wszystkich armii szturmu
+    for (const pa of att) for (const t of pa.troops.slice()) { const n = Math.floor(t.n * (pa === leader ? 0.45 : 0.2)); if (n > 0) { addTroops(s.garrison, t.type, n); removeTroops(pa.troops, t.type, n); } }
+    fillGarrison(w, s, 10);
   } else chron(w, `Szturm na ${s.name} odparty. Obrońcy trzymają mury.`, PAL.bone);
   for (const p of att) { p.siege = undefined; p.state = "idle"; p.wait = 0; }
   s.siegeBy = []; s.siegeDays = 0;
@@ -916,6 +936,7 @@ function aiBattle(w: World, a: Party, b: Party) {
   const survivors = Math.round(troopCount(lose.troops) * rr(0.05, 0.25));
   // jeńcy
   if (lose.kind !== "monster" && lose.kind !== "undead" && win.kind !== "monster" && win.kind !== "undead") for (const t of lose.troops) addTroops(win.prisoners, t.type, Math.floor(t.n * 0.25));
+  if (lose.kind === "villagers" && win.kind === "bandit" && lose.home !== undefined) { (win as any).captVillage = lose.home; for (const t of lose.troops) addTroops(win.prisoners, t.type, Math.max(1, Math.floor(t.n * 0.5))); }
   win.gold += Math.floor(lose.gold * 0.7);
   if (lose.goods && win.kind === "bandit") win.gold += 200;
   // lordowie
@@ -1037,6 +1058,7 @@ function arrive(w: World, p: Party) {
         if (!goTo(w, p, home.cx * WCELL + 4, home.cy * WCELL + 4)) removeParty(w, p);
         return;
       }
+      for (const q of w.player.quests) if (!q.done && q.kind === "escort" && q.target === p.id && q.amount === d.id) { const pp = playerParty(w); if (dist(pp.x, pp.y, p.x, p.y) < 30 * WCELL) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); } else { q.done = true; q.failed = true; addLogMsg("Karawana dotarła sama. Kupcy nie zapłacą za eskortę, której nie było.", PAL.ash); } }
       // karawana: sprzedaje, płaci cło miastu, kupuje dalej
       p.gold += Math.round(value * 0.6);
       d.prosperity = Math.min(100, d.prosperity + 0.25);
@@ -1069,13 +1091,25 @@ function arrive(w: World, p: Party) {
 
 // Godzinny przebieg: ruch wszystkich oddziałów AI.
 const POWC = new Map<number, number>();
+let WTICK = 0;
+function densityK() { return typeof settings !== "undefined" && settings.density ? settings.density : 1; }
 function worldTick(w: World, hours: number) {
   POWC.clear();
   const before = w.hour;
   w.hour += hours;
   if (w.hour >= 24) { w.hour -= 24; dailyTick(w); }
   void before;
-  for (const p of w.parties.slice()) if (w.parties.includes(p)) partyAI(w, p, hours);
+  // oddziały daleko od gracza liczone rzadziej (zbierają czas i wykonują go naraz): płynność przy dużym świecie
+  WTICK++;
+  const pp = playerParty(w);
+  for (const p of w.parties.slice()) {
+    if (!w.parties.includes(p)) continue;
+    const A = p as any;
+    const far = pp && p !== pp && Math.abs(p.x - pp.x) + Math.abs(p.y - pp.y) > 110 * WCELL;
+    if (far && (WTICK + p.id) % 3 !== 0) { A.acc = (A.acc || 0) + hours; continue; }
+    const hh = hours + (A.acc || 0); A.acc = 0;
+    partyAI(w, p, hh);
+  }
 }
 
 // ---------- Gracz: dzienne koszty ----------
@@ -1166,6 +1200,10 @@ function playerDaily(w: World) {
   for (const q of P.quests) if (!q.done) {
     // zdobycie zamku: wystarczy, że zamek przejdzie w ręce twojej strony
     if (q.kind === "capture") { const t = w.settlements[q.target]; if (t && (t.faction === PLAYER_FACTION || (P.liege > 0 && t.faction === P.liege))) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); continue; } }
+    // odsiecz: oblężenie zdjęte, twierdza wciąż w rękach sojusznika, a ty byłeś w pobliżu
+    if (q.kind === "relieve") { const t = w.settlements[q.target]; if (t && t.faction !== q.amount) { q.done = true; q.failed = true; addLogMsg(`Za późno: ${t.name} padło.`, PAL.redL); continue; } if (t && !t.siegeBy.length && dist(t.cx * WCELL, t.cy * WCELL, p.x, p.y) < 40 * WCELL) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); continue; } }
+    if (q.kind === "kidnap") { const L = lordById(w, q.target); if (L && L.captive === PLAYER_FACTION) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); continue; } if (L && !L.alive) { q.done = true; q.failed = true; continue; } }
+    if (q.kind === "escort") { const c = partyById(w, q.target); if (!c) { q.done = true; q.failed = true; addLogMsg("Karawana, którą eskortowałeś, przepadła.", PAL.redL); if (w.settlements[q.giver]) w.settlements[q.giver].relation -= 6; continue; } const d0 = w.settlements[q.amount]; if (d0 && dist(c.x, c.y, d0.cx * WCELL, d0.cy * WCELL) < 16) { const lines: string[] = []; completeQuest(q, lines); lines.forEach((l) => addLogMsg(l, PAL.gold)); continue; } }
     q.days--;
     if (q.days <= 0) { q.done = true; q.failed = true; addLogMsg(`Zadanie przepadło: ${q.text}`, PAL.ash); if (w.settlements[q.giver]) w.settlements[q.giver].relation -= 5; if (q.giverLord != null) { const L = lordById(w, q.giverLord); if (L) L.relation -= 6; } }
   }

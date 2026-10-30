@@ -287,6 +287,15 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
     // blizny
     if (L.scar === 1) P.line(cx + 1, ey - 2, cx + 2, ey + 2, PAL.bloodD);
     if (L.scar === 2) P.line(cx - 3, ey + 1, cx + 2, ey + 1, SD);
+    if (L.scar === 3) { P.line(cx - 2, ey - 2, cx - 2, ey + 2, PAL.bloodD); P.p(cx - 2, ey, PAL.ash); }
+    if (L.scar === 5) { P.r(cx - 3, ey - 1, 2, 2, PAL.black); }
+    // malunki wojenne (widoczne bez zasłoniętej twarzy)
+    if (L.paint && H !== "great") {
+      const pc = orc ? PAL.black : PAL.bloodD;
+      if (L.paint === 1) P.r(fx0, ey, F.headW, 1, pc);
+      if (L.paint === 2) { P.p(cx - 2, ey + 2, pc); P.p(cx + 1, ey + 2, pc); P.p(cx - 3, ey + 2, pc); P.p(cx + 2, ey + 2, pc); }
+      if (L.paint === 3) { P.r(cx - 2, ey - 1, 2, 2, PAL.black); P.r(cx + 1, ey - 1, 2, 2, PAL.black); P.p(cx - 2, ey, PAL.redL); }
+    }
   } else {
     // profil (w prawo)
     for (let y = fy0; y <= fy1; y++) for (let x = fx0; x <= fx1; x++) P.p(x, y, x < cx ? L.hair : S);
@@ -299,8 +308,13 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
     if (orc) { P.p(fx1, ey + 2, PAL.boneHi); P.p(fx1 + 1, ey + 3, PAL.boneHi); P.r(fx0 - 2, ey - 1, 2, 2, S); }
     if (L.scar) P.line(fx1 - 1, ey - 1, fx1, ey + 2, PAL.bloodD);
   }
+  // kozia bródka i wąsy
+  if ((L.beard === 4 || L.beard === 5) && dir === 0 && H !== "great") {
+    if (L.beard === 4) { P.r(cx - 1, fy1 - 1, 2, 3, L.hair); }
+    else { P.r(cx - 2, fy1 - 2, 4, 1, L.hair); P.p(cx - 3, fy1 - 1, L.hair); P.p(cx + 2, fy1 - 1, L.hair); }
+  }
   // broda
-  if (L.beard && dir !== 1 && !(H === "great")) {
+  if (L.beard && L.beard < 4 && dir !== 1 && !(H === "great")) {
     const by0 = fy1 - (L.beard >= 2 ? 3 : 2);
     const long = L.beard === 2 ? 3 : L.beard === 3 ? 7 : 0;
     if (dir === 0) {
@@ -316,8 +330,15 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
   }
   // włosy (bez hełmu)
   if (H === "none") {
-    if (dir === 0) { P.r(fx0, fy0 - 1, F.headW, 2, L.hair); P.p(fx0 - 1, fy0 + 1, L.hair); P.p(fx1 + 1, fy0 + 1, L.hair); if (orc) P.r(cx - 1, fy0 - 3, 2, 3, PAL.black); }
-    if (dir === 2) { P.r(fx0, fy0 - 1, F.headW - 1, 2, L.hair); if (orc) P.r(cx - 1, fy0 - 3, 2, 3, PAL.black); }
+    // fryzury z kreatora: 0 krótkie, 1 łysy, 2 długie, 3 irokez, 4 warkocze, 5 kucyk
+    const hs = L.hairStyle || 0;
+    if (hs === 1) { if (dir !== 1) { P.p(fx0, fy0 + 1, L.hair); P.p(fx1, fy0 + 1, L.hair); P.p(cx, fy0, PAL.boneHi); } else P.r(fx0, fy0, F.headW, F.headH - 2, S); return; }
+    if (hs === 3) { P.r(cx - 1, fy0 - 3, 2, 4, L.hair); if (dir === 1) P.r(cx - 1, fy0, 2, F.headH - 2, L.hair); return; }
+    if (dir === 0) { P.r(fx0, fy0 - 1, F.headW, 2, L.hair); P.p(fx0 - 1, fy0 + 1, L.hair); P.p(fx1 + 1, fy0 + 1, L.hair); if (orc && hs === 0) P.r(cx - 1, fy0 - 3, 2, 3, PAL.black); }
+    if (dir === 2) { P.r(fx0, fy0 - 1, F.headW - 1, 2, L.hair); if (orc && hs === 0) P.r(cx - 1, fy0 - 3, 2, 3, PAL.black); }
+    if (hs === 2) { if (dir === 0) { P.r(fx0 - 1, fy0 + 1, 1, 5, L.hair); P.r(fx1 + 1, fy0 + 1, 1, 5, L.hair); } else P.r(fx0 - 1, fy0, 2, 7, L.hair); }
+    if (hs === 4) { if (dir === 0) { P.r(fx0 - 1, fy0 + 2, 1, 6, L.hair); P.r(fx1 + 1, fy0 + 2, 1, 6, L.hair); P.p(fx0 - 1, fy0 + 8, PAL.gold); P.p(fx1 + 1, fy0 + 8, PAL.gold); } else P.r(fx0 - 1, fy0 + 1, 1, 7, L.hair); }
+    if (hs === 5) { if (dir !== 0) P.r(fx0 - 2, fy0 + 1, 2, 5, L.hair); }
     return;
   }
   // hełmy

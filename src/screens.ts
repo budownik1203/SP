@@ -29,6 +29,7 @@ function deserializeWorld(json: string): World {
   // przedmioty z jakością odtwarzamy z identyfikatorów
   for (const id of w.player.items) ensureItem(id);
   for (const id of Object.values(w.player.equip)) if (id) ensureItem(id as string);
+  restoreRebels(w);
   recomputeBlight(w);
   applyCrest(w.player);
   return w;
@@ -424,6 +425,8 @@ function updateTip() {
 const SET = { id: 0, tab: "main", bet: 0, kit: 0, quest: null as Quest | null, unit: "" };
 function enterSettlement(s: Settlement) {
   const w = WORLD, P = w.player;
+  const ps = plotScene(w, { settlement: s.id });
+  if (ps) { playerParty(w).path = []; showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(ps.scene, s.seed, ps.culture, isNight(w)), "scene-img")}</div><h1>${ps.title}</h1><p class="dlg">${ps.text}</p><div class="btns"><button data-a="ok">Dalej</button></div></div>`, { ok: () => enterSettlement(s) }, "dialog-scr"); refreshMapHud(); return; }
   playerParty(w).path = [];
   G.view.hover = null; const tipEl = document.getElementById("tip"); if (tipEl) tipEl.hidden = true;
   SET.id = s.id; SET.tab = "main"; SET.quest = null;
@@ -743,7 +746,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
           ${active.length ? `<div class="row"><button class="mini danger" data-a="abandon" data-v="${active[0].id}">Porzuć zadanie (nastawienie −10)</button></div>` : ""}
           ${q && !active.length ? `<h2>Prośba</h2><p>${q.text}</p><p class="tip">Nagroda: ${q.reward} denarów · czas: ${q.days} dni</p><button class="mini" data-a="take">Przyjmij zadanie</button>` : !active.length ? "<p class='muted'>Nie mają dla ciebie roboty.</p>" : ""}`,
         acts: {
-          take: () => { P.quests.push(q); SET.quest = null; toast("Nowe zadanie: " + q.text, PAL.gold); re(); },
+          take: () => { if (!acceptQuest(q)) { SET.quest = null; toast("Za późno: tej bandy już tu nie ma.", PAL.ash); re(); return; } SET.quest = null; toast("Nowe zadanie: " + q.text, PAL.gold); re(); },
           giveMeat: () => { P.goods.meat -= cattleQ.amount; const lines: string[] = []; completeQuest(cattleQ, lines); lines.forEach((l) => toast(l, PAL.gold)); re(); },
           train: () => { closeScreen(); G.waitHours = 48; G.camping = true; p.state = "camp"; pendingAfterWait = () => { const lines: string[] = []; s.garrison = s.garrison || []; addTroops(s.garrison, RECRUITS[s.culture]?.village[0] || "a_recruit", 6); for (const t of p.troops) t.xp += 20 * t.n; completeQuest(milQ, lines); lines.push("Chłopi umieją już trzymać włócznię. Twoi ludzie też się czegoś nauczyli."); lines.forEach((l) => toast(l, PAL.gold)); enterSettlement(s); }; },
           abandon: (v) => { const q2 = P.quests.find((x) => x.id === Number(v)); if (!q2) return; q2.done = true; q2.failed = true; s.relation -= 10; toast("Porzucasz zadanie. Ludzie są rozczarowani.", PAL.redL); re(); },
@@ -892,6 +895,7 @@ function raidVillage(s: Settlement) {
     if (mode === "burn") { s.prosperity = Math.max(3, s.prosperity - 40); s.relation -= 40; P.honor -= 6; P.renown += 5; P.gold += 60; lines.push("Wioska płonie. Dym widać z daleka."); }
     if (mode === "press") { const k = Math.min(Math.max(3, s.recruits), partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length)); if (k > 0) addTroops(p.troops, mil, k); s.recruits = 0; s.relation -= 25; P.honor -= 3; s.prosperity = Math.max(5, s.prosperity - 10); lines.push(`Bierzesz ${Math.max(0, k)} chłopów w kamasze siłą.`); }
     chron(w, `${P.name} ${mode === "burn" ? "pali" : mode === "press" ? "bierze siłą chłopów z" : "pustoszy"} wioskę ${s.name}.`, PAL.redL);
+    for (const q of P.quests) if (!q.done && q.kind === "raid" && q.target === s.id) completeQuest(q, lines);
   } });
   showScr(`<div class="dialog frame"><h1>Napaść na ${s.name}</h1><p>Chłopi chwytają widły. Czego chcesz od tej wioski? (wszystko obniży honor i nastawienie)</p>
     <div class="choices"><button class="choice" data-a="loot"><span class="key">1</span>Zabierz zapasy i pieniądze</button><button class="choice" data-a="burn"><span class="key">2</span>Spal wszystko, ku przestrodze</button><button class="choice" data-a="press"><span class="key">3</span>Weź chłopów siłą do armii</button><button class="choice" data-a="back"><span class="key">4</span>Jednak nie</button></div></div>`,
@@ -923,12 +927,27 @@ function spawnLocalBeasts(w: World, s: Settlement, n: number): Party | null {
   addTroops(p.troops, "x_wolf", n); p.home = undefined; p.wait = 30;
   return p;
 }
+// Przyjęcie zadania: dopiero teraz pojawia się banda (albo rezerwujemy istniejącą).
+function acceptQuest(q: Quest) {
+  const w = WORLD, sp = (q as any).spawn;
+  if (sp) {
+    let b: Party | null = null;
+    if (sp.k === "caravan") { const home = w.settlements[q.giver], to = w.settlements[sp.to]; b = newParty(w, "caravan", `Karawana z ${home.name}`, home.faction, home.cx * WCELL + 4, home.cy * WCELL + 12); addTroops(b.troops, "m_sword", 5); addTroops(b.troops, "m_xbow", 3); b.home = home.id; b.gold = 800; b.goods = { cloth: 15, spice: 6 }; b.dest = to.id; b.state = "travel"; goTo(w, b, to.cx * WCELL + 4, to.cy * WCELL + 4); q.target = b.id; delete (q as any).spawn; w.player.quests.push(q); return true; }
+    if (sp.k === "monster") { b = newParty(w, "monster", sp.name, 7, sp.x, sp.y); addTroops(b.troops, "x_wolf", sp.n); }
+    else { b = spawnBandits(w, sp.x, sp.y, sp.n); if (b) b.name = sp.name; }
+    if (!b) return false;
+    b.wait = 30; b.quest = q.id; q.target = b.id; delete (q as any).spawn;
+  } else if (q.kind === "bandits" || q.kind === "defend") { const b = partyById(w, q.target); if (!b) return false; b.quest = q.id; }
+  w.player.quests.push(q);
+  return true;
+}
 function offerQuest(s: Settlement): Quest | null {
   const w = WORLD, P = w.player;
-  if (P.quests.some((q) => !q.done && q.giver === s.id)) return null;
+  if (((P as any).wanted?.[s.faction] || 0) > w.day) return null;   // list gończy
+  if (P.quests.some((q) => !q.done && q.giver === s.id && (q.kind as string) !== "plot" && (q.kind as string) !== "rescue")) return null;
   if ((s as any).questCd > w.day) return null;   // po wykonanym zadaniu chwila przerwy
   const h = hashInt(s.seed + w.day);
-  const kinds: Quest["kind"][] = s.kind === "village" ? ["grain", "wolves", "bandits", "defend", "cattle", "militia", "lair"] as any : ["bandits", "letter", "bandits", "cattle", "lair"] as any;
+  const kinds: Quest["kind"][] = s.kind === "village" ? ["grain", "wolves", "bandits", "defend", "cattle", "militia", "lair"] as any : ["bandits", "letter", "escort", "cattle", "lair", "escort"] as any;
   let kind = kinds[h % kinds.length] as string;
   if (kind === "grain" && s.stock.grain >= 10) kind = "wolves";   // o zboże proszą tylko, gdy naprawdę go brakuje
   const id = w.questId++;
@@ -943,34 +962,39 @@ function offerQuest(s: Settlement): Quest | null {
     }
     kind = "wolves";
   }
+  // banda i wilki pojawiają się dopiero po przyjęciu zadania (spawn), istniejące bandy rezerwujemy przy przyjęciu
   if (kind === "bandits") {
-    let b = localBand(w, s, "bandit");
-    if (!b) { const at = localSpot(w, s, 40, R * 0.8); b = at ? spawnBandits(w, at.x, at.y, 7 + (h % 7)) : null; if (b) b.wait = 30; }
-    if (!b) return null;
-    b.quest = id;
-    return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 150 + troopCount(b.troops) * 15, days: 12, text: `Rozbij bandę „${b.name}” grasującą w okolicy ${s.name}.`, done: false };
+    const b = localBand(w, s, "bandit");
+    if (b) return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 150 + troopCount(b.troops) * 15, days: 12, text: `Rozbij bandę „${b.name}” grasującą w okolicy ${s.name}.`, done: false };
+    const at = localSpot(w, s, 40, R * 0.8); if (!at) return null;
+    const n = 7 + (h % 7), nm = pick(["Podpalacze", "Wilcze Kły", "Banda Szczerbatego", "Nocni Goście", "Łotrzykowie"]);
+    return { id, kind: "bandits", giver: s.id, target: -1, amount: 0, reward: 150 + n * 15, days: 12, text: `Rozbij bandę „${nm}” grasującą w okolicy ${s.name}.`, done: false, spawn: { k: "bandit", x: at.x, y: at.y, n, name: nm } } as any;
   }
   if (kind === "wolves") {
-    let b = localBand(w, s, "monster");
-    if (!b) b = spawnLocalBeasts(w, s, 5 + (h % 6));
-    if (!b) return null;
-    b.quest = id;
-    return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 200 + troopCount(b.troops) * 12, days: 12, text: `${b.name} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false };
+    const b = localBand(w, s, "monster");
+    if (b) return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 200 + troopCount(b.troops) * 12, days: 12, text: `${b.name} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false };
+    const at = localSpot(w, s, 40, R * 0.8); if (!at) return null;
+    const n = 5 + (h % 6), nm = pick(["Wataha wilków", "Wargi z kniei", "Głodne wilki"]);
+    return { id, kind: "bandits", giver: s.id, target: -1, amount: 0, reward: 200 + n * 12, days: 12, text: `${nm} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false, spawn: { k: "monster", x: at.x, y: at.y, n, name: nm } } as any;
+  }
+  if (kind === "escort") {
+    const t = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !atWar(w, x.faction, s.faction) && !playerAtWarWith(w, x.faction) && dist(x.cx, x.cy, s.cx, s.cy) < 110).sort((a, b) => dist(a.cx, a.cy, s.cx, s.cy) - dist(b.cx, b.cy, s.cx, s.cy)).slice(0, 3).find((_, i, arr) => i === h % arr.length);
+    if (t) return { id, kind: "escort", giver: s.id, target: -1, amount: t.id, reward: Math.round(150 + dist(s.cx, s.cy, t.cx, t.cy) * 5), days: 20, text: `Eskortuj karawanę z ${s.name} do ${t.name}. Trzymaj się blisko, na traktach grasują zbóje.`, done: false, spawn: { k: "caravan", to: t.id } } as any;
+    kind = "letter";
   }
   if (kind === "letter") {
     // list do miasta własnej frakcji (albo sąsiedniego, niewrogiego)
     const cands = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !playerAtWarWith(w, x.faction) && !atWar(w, x.faction, s.faction)).sort((a, b) => (a.faction === s.faction ? 0 : 60) + dist(a.cx, a.cy, s.cx, s.cy) - ((b.faction === s.faction ? 0 : 60) + dist(b.cx, b.cy, s.cx, s.cy)));
-    const t = cands[h % Math.min(3, cands.length || 1)];
+    const own = cands.filter((x) => x.faction === s.faction && dist(x.cx, x.cy, s.cx, s.cy) < 90), near = own.length ? own : cands.filter((x) => dist(x.cx, x.cy, s.cx, s.cy) < 70);
+    const t = near[h % Math.max(1, near.length)];
     if (!t) return null;
     return { id, kind: "letter", giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };
   }
   if (kind === "defend") {
-    // banda idzie na wioskę: pojawia się w pobliżu i trzeba ją rozbić
-    const at = localSpot(w, s, 50, 100);
-    const b = at ? spawnBandits(w, at.x, at.y, 8 + (h % 8)) : null;
-    if (!b) return null;
-    b.quest = id;
-    return { id, kind: "defend", giver: s.id, target: b.id, amount: 0, reward: 220 + troopCount(b.troops) * 14, days: 6, text: `Banda „${b.name}” szykuje napad na ${s.name}. Rozbij ją, zanim spali wioskę.`, done: false, item: chance(0.3) ? qid(pick(baseItems().filter((it) => it.tier === 2 && it.slot !== "horse")).id, 2) : undefined };
+    // banda idzie na wioskę: pojawia się w pobliżu po przyjęciu zadania
+    const at = localSpot(w, s, 50, 100); if (!at) return null;
+    const n = 8 + (h % 8), nm = pick(["Podpalacze", "Nocni Goście", "Rzeźnicy z Traktu", "Czarne Kaptury"]);
+    return { id, kind: "defend", giver: s.id, target: -1, amount: 0, reward: 220 + n * 14, days: 6, text: `Banda „${nm}” szykuje napad na ${s.name}. Rozbij ją, zanim spali wioskę.`, done: false, item: chance(0.3) ? qid(pick(baseItems().filter((it) => it.tier === 2 && it.slot !== "horse")).id, 2) : undefined, spawn: { k: "bandit", x: at.x, y: at.y, n, name: nm } } as any;
   }
   if (kind === "cattle") { const n = 5 + (h % 5); return { id, kind: "cattle", giver: s.id, target: s.id, amount: n, reward: n * 45, days: 12, text: `Przyprowadź ${n} sztuk bydła (suszone mięso) do ${s.name}. Pomór wybił stado.`, done: false }; }
   if (kind === "militia") return { id, kind: "militia", giver: s.id, target: s.id, amount: 2, reward: 260, days: 10, text: `Wyszkol milicję w ${s.name}: zostań 2 dni z co najmniej 8 zdrowymi żołnierzami.`, done: false };
@@ -1111,6 +1135,8 @@ function arenaFinished(r: BattleResult) {
 // ---------- Miejsca specjalne ----------
 function enterPlace(pl: SpecialPlace) {
   const w = WORLD, P = w.player;
+  const ps = plotScene(w, { place: pl.id });
+  if (ps) { playerParty(w).path = []; showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(ps.scene, pl.id * 31, ps.culture, true), "scene-img")}</div><h1>${ps.title}</h1><p class="dlg">${ps.text}</p><div class="btns"><button data-a="ok">Dalej</button></div></div>`, { ok: () => closeScreen() }, "dialog-scr"); refreshMapHud(); return; }
   playerParty(w).path = [];
   const scene = drawScene(pl.kind, pl.id * 31 + 7, pl.kind === "cemetery" ? "undead" : "aurelia", isNight(w) || pl.kind === "cemetery");
   const desc: Record<string, string> = {
@@ -1656,7 +1682,7 @@ function strengthChart(w: World, ids: number[]) {
 function showFactions() {
   firstTip("fac", "Frakcje", "Kliknij lorda, by zobaczyć, skąd wzięła się jego relacja z tobą. Jako król wyślesz posłów: pokój, sojusz, trybut, ślub.");
   const w = WORLD, P = w.player;
-  const ids = [1, 2, 3, 4, 5, ...(w.factions[PLAYER_FACTION] ? [PLAYER_FACTION] : [])];
+  const ids = [1, 2, 3, 4, 5, ...rebelsList(w).filter((r) => w.factions[r.id]?.alive).map((r) => r.id), ...(w.factions[PLAYER_FACTION] ? [PLAYER_FACTION] : [])];
   const tabs: [string, string][] = [["over", "Przegląd"], ["lords", "Lordowie"], ["dipl", "Dyplomacja i wyprawy"], ["crest", "Herb"]];
   let body = "";
   if (FW.tab === "over") {
@@ -1811,13 +1837,39 @@ function showPending(ev: PendingEv) {
       yes: () => { setWar(w, PLAYER_FACTION, ev.f, false); if (ev.gold) P.gold += ev.gold; done("Pokój zawarty."); },
       no: () => done(),
     });
+  } else if ((ev.kind as string) === "plotChoice") {
+    const opts = MAJOR.filter((f) => w.factions[f].alive);
+    showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("ruins", w.day * 3, "undead", true), "scene-img")}</div><h1>Trzy relikwie</h1><p class="dlg">Kielich, księga i gwóźdź leżą przed tobą na płaszczu. Kiedy ich dotykasz, słyszysz dwa głosy. Jeden, ciepły jak ogień w kaplicy, mówi o koronach, które mogą stanąć razem przeciw zarazie. Drugi, zimny, mówi tylko: „Weź to dla siebie.”</p><div class="btns col-btns">${opts.map((f, k) => `<button class="choice" data-a="cr" data-v="${f}">${k + 1}. Krucjata: zanieś relikwie do ${factionName(f)} (${CRUSADE[f].who})</button>`).join("")}<button class="choice alt" data-a="dark">${opts.length + 1}. Pakt z mrokiem: zwiąż moc relikwii ze sobą</button></div></div>`, {
+      cr: (v) => { plotChoose(w, "crusade", Number(v)); done("Wyruszasz z relikwiami do " + factionName(Number(v)) + "."); },
+      dark: () => { plotChoose(w, "dark"); done("Szept prowadzi cię na cmentarz."); },
+    }, "dialog-scr pend-scr");
+  } else if ((ev.kind as string) === "rumor" && L) {
+    if (!L.alive || L.faction !== ev.f) { drop(); return; }
+    if (ev.f === PLAYER_FACTION) dlg("Niezadowolony wasal", `Szepczą, że ${L.title} ${L.name} czuje się pominięty i rozgląda się za nowym panem. Lojalność: ${lordLoyal(L)}.`, `<button class="choice" data-a="gift" ${P.gold >= 500 ? "" : "disabled"}>Wyślij mu 500 denarów i list z podziękowaniem</button><button class="choice alt" data-a="threat">Przypomnij mu o przysiędze (groźba)</button><button class="choice alt" data-a="no">Zignoruj</button>`, {
+      gift: () => { P.gold -= 500; addLoyal(L, 25); lordRel(w, L, 6, "hojność władcy"); done(`${L.name} dziękuje. Lojalność rośnie.`); },
+      threat: () => { if (chance(0.5 + P.renown / 2000)) { addLoyal(L, 15); lordRel(w, L, -5, "groźby władcy"); done(`${L.name} spuszcza głowę.`); } else { addLoyal(L, -10); lordRel(w, L, -10, "groźby władcy"); done(`${L.name} odpowiada chłodno. Groźba tylko go rozgniewała.`); } },
+      no: () => done(),
+    });
+    else dlg("Plotki na dworze", `${L.title} ${L.name} głośno narzeka na władcę ${factionName(ev.f)}. Mówią, że szuka nowego pana albo szykuje bunt.`, `<button class="choice" data-a="report">Donieś władcy</button><button class="choice alt" data-a="calm">Porozmawiaj z nim (charyzma)</button><button class="choice alt" data-a="no">Nie wtrącaj się</button>`, {
+      report: () => { const R = w.lords.find((l) => l.faction === ev.f && l.ruler); if (R) lordRel(w, R, 6, "doniosłeś o niezadowolonym lordzie"); lordRel(w, L, -15, "doniosłeś na niego władcy"); addLoyal(L, 8); done("Władca jest wdzięczny. Lord już mniej."); },
+      calm: () => { if (chance(clamp(0.25 + P.attr.cha * 0.05, 0.2, 0.8))) { addLoyal(L, 15); lordRel(w, L, 5, "przemówiłeś mu do rozsądku"); done(`${L.name} obiecuje cierpliwość.`); } else done(`${L.name} macha ręką: „Nie twoja sprawa.”`); },
+      no: () => done(),
+    });
+  } else if ((ev.kind as string) === "rebellion" && L) {
+    const r = rebelsList(w).find((x) => x.id === ev.f); if (!r || !w.factions[r.id]?.alive) { drop(); return; }
+    const mine = P.liege === r.from && P.status !== "król";
+    dlg("Wojna domowa", `${L.title} ${L.name} ogłosił się pretendentem do tronu ${factionName(r.from)}. Kraj dzieli się na dwa obozy.${mine ? " Jako wasal korony musisz wybrać stronę." : " Obie strony szukają sojuszników."}`, `<button class="choice" data-a="rebel">Poprzyj pretendenta</button>${mine ? `<button class="choice alt" data-a="crown">Zostań wierny koronie</button>` : ""}<button class="choice alt" data-a="no">Trzymaj się z dala</button>`, {
+      rebel: () => { if (P.liege > 0) leaveLiege(w, mine); P.liege = r.id; P.status = "wasal"; P.wars = []; lordRel(w, L, 25, "poparłeś jego roszczenia"); chron(w, `${P.name} staje po stronie pretendenta ${L.name}.`, PAL.gold, "war"); done("Służysz teraz pretendentowi."); },
+      crown: () => { const R = w.lords.find((l) => l.faction === r.from && l.ruler); if (R) lordRel(w, R, 10, "dochowałeś wierności w wojnie domowej"); done("Korona pamięta wiernych."); },
+      no: () => done(),
+    });
   } else drop();
 }
 
 function showQuests() {
   const w = WORLD, P = w.player;
   const act = P.quests.filter((q) => !q.done);
-  const icon: Record<string, string> = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf", defend: "shield", cattle: "food", militia: "man", capture: "castle", persuade: "crown", plot: "skull", rescue: "chain" };
+  const icon: Record<string, string> = { bandits: "sword", letter: "scroll", grain: "food", wolves: "wolf", defend: "shield", cattle: "food", militia: "man", capture: "castle", persuade: "crown", plot: "skull", rescue: "chain", raid: "fire", kidnap: "chain", relieve: "shield", relic: "star", escort: "coin" };
   const done = P.quests.filter((q) => q.done).slice(-6).reverse();
   showScr(`<div class="card frame"><h1>Zadania</h1>${act.length ? act.map((q) => { const pos = questPos(w, q); const gl = q.giverLord != null ? lordById(w, q.giverLord) : null; return `<div class="quest">${ic(icon[q.kind] || "scroll", "big")}<div><div class="qtop"><span class="gold">${ic("coin")} ${q.reward}${q.item ? ` + ${ITEMS[q.item]?.name}` : ""}</span><span class="${q.days <= 3 ? "bad" : "muted"}">${q.days > 900 ? "" : `${ic("sun")} ${q.days} dni`}</span></div><b style="color:${QUEST_COL}">${q.text}</b><br><span class="muted">${(q.kind as string) === "plot" ? "Wątek główny" : (q.kind as string) === "rescue" ? "Twoja sprawa" : `Zleca: ${gl ? `${gl.title} ${gl.name}` : w.settlements[q.giver]?.name || "?"}`}</span><br>${pos ? `<button class="mini" data-a="show" data-v="${q.id}">Pokaż na mapie (${Math.round(dist(pos.x, pos.y, playerParty(w).x, playerParty(w).y) / WCELL)} pól)</button> <button class="mini" data-a="go" data-v="${q.id}">Idź tam</button>` : `<span class="tip">Cel jeszcze nieznany. Szukaj w okolicy lub pytaj w karczmach.</span>`} <button class="mini ${q.hide ? "" : "on"}" data-a="mark" data-v="${q.id}">${q.hide ? "Znacznik: wył." : "Znacznik: wł."}</button> <button class="mini danger" data-a="drop" data-v="${q.id}">Porzuć</button></div></div>`; }).join("") : "<p class='muted'>Brak zadań. Rady miast, sołtysi wiosek i lordowie mają robotę.</p>"}
     ${done.length ? `<h2>Ostatnio</h2>${done.map((q) => `<p class="${q.failed ? "bad" : "muted"}">${q.failed ? "✗" : "✓"} ${q.text}</p>`).join("")}` : ""}
@@ -1885,8 +1937,8 @@ function showSettings(back: () => void) {
   const rng = (k: keyof Settings, label: string, min: number, max: number, step: number) => `<label class="opt"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${S[k]}" data-in="r:${k}"><b id="rv-${k}">${Math.round((S[k] as number) * 100)}%</b></label>`;
   const tabs: [string, string, string][] = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"], ["keys", "Klawisze", "scroll"]];
   let body = "";
-  if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie") + chk("loadScreens", "Ekrany ładowania z cytatami i wskazówkami") + `<div class="opt"><span>Podpowiedzi przy pierwszym użyciu</span><button class="mini" data-a="tipsReset">Pokaż ponownie</button></div>`;
-  if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
+  if (SETT.tab === "game") body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + sel("density", "Gęstość świata (liczba oddziałów na mapie)", [[0.6, "rzadki: płynniej"], [1, "normalny"], [1.4, "gęsty: więcej życia"]]) + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie") + chk("loadScreens", "Ekrany ładowania z cytatami i wskazówkami") + `<div class="opt"><span>Podpowiedzi przy pierwszym użyciu</span><button class="mini" data-a="tipsReset">Pokaż ponownie</button></div>`;
+  if (SETT.tab === "map") body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + rng("mapText", "Wielkość napisów na mapie", 0.6, 1.6, 0.1) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
   if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
   if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Muzyka", 0, 1, 0.05) + rng("fxVol", "Efekty (walka, otoczenie)", 0, 1, 0.05) + rng("voiceVol", "Głosy", 0, 1, 0.05) + rng("uiVol", "Interfejs (kliknięcia, strony)", 0, 1, 0.05) + `<p class="tip">Muzyka zmienia się z regionem, porą dnia i miejscem w osadzie. W bitwie narasta z walką i brzmi inaczej przeciw każdej rasie.</p>`;
   if (SETT.tab === "keys") body = keysTab();
@@ -1917,6 +1969,8 @@ function showSettings(back: () => void) {
     bind: (v) => { KEYWAIT = v; KEYBACK = back; showSettings(back); },
     unbind: () => { settings.keys = {}; saveSettings(); showSettings(back); },
     "b:loadScreens": (v) => apply("loadScreens", !!v),
+    "r:mapText": (v) => { apply("mapText", Number(v)); BIGTXT.clear(); const e = document.getElementById("rv-mapText"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
+    "s:density": (v) => apply("density", Number(v)),
     "r:musicVol": (v) => { apply("musicVol", Number(v)); const e = document.getElementById("rv-musicVol"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     fs: () => { toggleFullscreen(); setTimeout(() => showSettings(back), 300); },
     reset: () => { Object.assign(S, { damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100, musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, atkMode: "mouse", horseMode: "dir", gore: true, dmgHeroOnly: true, outline: true, dirHint: true, questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true, fxVol: 1, voiceVol: 1, uiVol: 0.8, loadScreens: true, uiScale: 1.15 }); sfx.setBus("fx", 1); sfx.setBus("voice", 1); sfx.setBus("ui", 0.8); sfx.setVolume(S.volume); sfx.setMusicVolume(S.musicVol); applyUiScale(); saveSettings(); showSettings(back); },
@@ -2042,7 +2096,24 @@ function offerLordQuest(L: Lord, trust = false): Quest | null {
   const home = w.settlements.find((s) => s.owner === L.id) || nearestSettlement(w, partyById(w, L.party)?.x ?? 0, partyById(w, L.party)?.y ?? 0);
   const F = w.factions[L.faction];
   const enemies = Object.keys(F.war).filter((k) => F.war[Number(k)]).map(Number);
-  const roll = trust ? 0 : hashInt(L.id * 7 + w.day) % 3;
+  const roll = trust ? 0 : hashInt(L.id * 7 + w.day) % 7;
+  // dalekie zadania: grabież, porwanie lorda, odsiecz, loch po artefakt
+  if (roll === 3 && enemies.length) {
+    const v = w.settlements.filter((s) => s.kind === "village" && enemies.includes(s.faction) && s.raided === 0).sort((a, b) => dist(a.cx, a.cy, home.cx, home.cy) - dist(b.cx, b.cy, home.cx, home.cy))[hashInt(id) % 3];
+    if (v) return { id, kind: "raid", giver: home.id, giverLord: L.id, target: v.id, amount: 0, reward: 600, days: 20, text: `Złup wioskę ${v.name} (${factionShort(v.faction)}). Niech wróg poczuje głód.`, done: false };
+  }
+  if (roll === 4 && enemies.length) {
+    const t = w.lords.filter((o) => o.alive && enemies.includes(o.faction) && o.captive < 0 && o.party >= 0 && !o.ruler)[hashInt(id) % 4];
+    if (t) return { id, kind: "kidnap", giver: home.id, giverLord: L.id, target: t.id, amount: 0, reward: 1200, days: 35, text: `Pojmaj ${t.title} ${t.name} (${factionShort(t.faction)}) i przytrzymaj go w niewoli.`, done: false };
+  }
+  if (roll === 5) {
+    const t = w.settlements.filter((s) => s.kind !== "village" && s.faction === L.faction && s.siegeBy.length)[0];
+    if (t) return { id, kind: "relieve", giver: home.id, giverLord: L.id, target: t.id, amount: t.faction, reward: 1400, days: 14, text: `Odbij oblężone ${t.name}. Rozbij oblegających, zanim mury padną.`, done: false };
+  }
+  if (roll === 6) {
+    const r = w.places.filter((p) => p.kind === "ruins" && p.cleared <= 0).sort((a, b) => dist(b.cx, b.cy, home.cx, home.cy) - dist(a.cx, a.cy, home.cx, home.cy))[hashInt(id) % 2];
+    if (r) { r.seen = true; return { id, kind: "relic", giver: home.id, giverLord: L.id, target: r.id, amount: 0, reward: 900, days: 40, text: `Wyprawa do ${r.name}: odnajdź w lochach rodową relikwię ${L.name}.`, done: false, item: pick(UNIQUES) }; }
+  }
   if (trust || roll === 0) {
     const tgt = w.settlements.filter((s) => s.kind === "castle" && enemies.includes(s.faction)).sort((a, b) => dist(a.cx, a.cy, home.cx, home.cy) - dist(b.cx, b.cy, home.cx, home.cy))[0];
     if (tgt) return { id, kind: "capture", giver: home.id, giverLord: L.id, target: tgt.id, amount: 0, reward: trust ? 2500 : 1500, days: 40, text: `Zdobądź ${tgt.name} dla ${factionName(L.faction)}.`, done: false, item: trust ? pick(UNIQUES) : undefined };

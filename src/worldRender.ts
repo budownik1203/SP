@@ -51,6 +51,26 @@ function renderWorldMap(w: World) {
     return lerp(lerp(E[i], E[i + 1], ax), lerp(E[i + WGW], E[i + WGW + 1], ax), ay) + vnoise(px, py, 6) * 0.05 + vnoise(px + 70, py, 17) * 0.06;
   };
   // granice regionów poszarpane szumem i ditheringiem, bez prostych linii
+  // maska gładkich rzek: woda (2) i brzeg (1) na poziomie pikseli
+  const RM = new Uint8Array(PW * PH);
+  for (const R of RIVER_PTS) {
+    const P2 = R.pts, n = P2.length / 2;
+    for (let k = 0; k < n - 1; k++) {
+      const x0 = P2[k * 2] * WCELL + 4, y0 = P2[k * 2 + 1] * WCELL + 4, x1 = P2[k * 2 + 2] * WCELL + 4, y1 = P2[k * 2 + 3] * WCELL + 4;
+      const L = Math.hypot(x1 - x0, y1 - y0), steps = Math.max(1, Math.ceil(L / 0.7));
+      for (let j = 0; j <= steps; j++) {
+        const u = j / steps, px = x0 + (x1 - x0) * u, py = y0 + (y1 - y0) * u, prog = (k + u) / n;
+        const r = (R.wide && px < 70 * MS * WCELL ? 3.6 + prog * 1.4 : 1.7 + prog * 1.3) + (vnoise(px, py, 9) - 0.5) * 0.8, rb = r + 1.3;
+        for (let dy = -Math.ceil(rb); dy <= Math.ceil(rb); dy++) for (let dx = -Math.ceil(rb); dx <= Math.ceil(rb); dx++) {
+          const X = Math.round(px + dx), Y = Math.round(py + dy); if (X < 0 || Y < 0 || X >= PW || Y >= PH) continue;
+          const d = Math.hypot(px + dx - X + dx * 0, dy) ; const dd = Math.hypot(X - px, Y - py);
+          void d;
+          const i2 = Y * PW + X;
+          if (dd <= r) RM[i2] = 2; else if (dd <= rb && RM[i2] < 1) RM[i2] = 1;
+        }
+      }
+    }
+  }
   const regionPal = (cx: number, cy: number, x = 0, y = 0, th = 0.5) => {
     const jx = cx + (vnoise(cx * 1.3, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3, jy = cy + (vnoise(cx * 1.3 + 77, cy * 1.3, 9) - 0.5) * 16 + (th - 0.5) * 3;
     return steppeAt(jx, jy) ? steppe : jx < 76 * MS && jy > 40 * MS ? lush : jy < 40 * MS && jx < 160 * MS ? north : grass;
@@ -70,19 +90,7 @@ function renderWorldMap(w: World) {
         if (d < 1.1 && n + th * 0.3 > 0.95) col = C(PAL.bone);    // piana przy brzegu
         break;
       }
-      case T_RIVER: {
-        // koryto: wąski kanał przez środek komórki, łączony z sąsiednią wodą; reszta to brzeg
-        const lx = x & 7, ly = y & 7;
-        const wat = (dx: number, dy: number) => { const tt = terrAt(w, cx + dx, cy + dy); return tt === T_RIVER || tt === T_SEA; };
-        const m = 1.6 + (vnoise(x, y, 5) - 0.5) * 1.2;
-        let inW = Math.abs(lx - 3.5) < m + 0.6 && Math.abs(ly - 3.5) < m + 0.6;
-        if (!inW && Math.abs(ly - 3.5) < m && ((lx > 3 && wat(1, 0)) || (lx < 4 && wat(-1, 0)))) inW = true;
-        if (!inW && Math.abs(lx - 3.5) < m && ((ly > 3 && wat(0, 1)) || (ly < 4 && wat(0, -1)))) inW = true;
-        if (!inW && wat(1, 1) && wat(1, 0) && wat(0, 1) && lx > 3 && ly > 3) inW = true;
-        if (inW) col = riverW[clamp(Math.floor(n * 1.8 + th * 0.9 - 0.2), 0, 2)];
-        else { const pal = bl ? ashG : regionPal(cx, cy, x, y, th); col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8) + 1, 0, 3)]; (col as any).bank = 1; }
-        break;
-      }
+      case T_RIVER: { const pal = bl ? ashG : regionPal(cx, cy, x, y, th); col = pal[clamp(Math.floor(n * 2.2 + (th - 0.5) * 0.8), 0, 2)]; break; }
       case T_BEACH: col = sand[clamp(Math.floor(n * 2 + th - 0.5), 0, 2)]; break;
       case T_MOUNT: col = (bl ? ashG : stone)[clamp(Math.floor(n * 2.5 + th - 0.6), 0, 2)]; break;
       case T_HILL: { const pal = bl ? ashG : regionPal(cx, cy, x, y, th); col = pal[clamp(Math.floor(n * 2.4 + th - 0.2), 0, 3)]; break; }
@@ -99,23 +107,17 @@ function renderWorldMap(w: World) {
       const sh = (elev(x, y) - elev(x - 3, y - 3)) * (t === T_MOUNT ? 5 : 7);
       const k2 = clamp(1 + sh + (th - 0.5) * 0.04, 0.62, 1.4);
       col = [Math.min(255, col[0] * k2), Math.min(255, col[1] * k2), Math.min(255, col[2] * k2)];
-    } else if (t === T_RIVER && !(col as any).bank) {
-      if (((x + y * 3 + Math.floor(n * 10)) % 23) === 0) col = C("#6f8f84");   // połysk
     }
+    // rzeki: gładkie koryto z ciemnym, błotnistym brzegiem
+    const rm = RM[y * PW + x];
+    if (rm === 2 && t !== T_SEA) { col = riverW[clamp(Math.floor(n * 1.8 + th * 0.9 - 0.2), 0, 2)]; if (((x + y * 3 + Math.floor(n * 10)) % 23) === 0) col = C("#6f8f84"); }
+    else if (rm === 1 && t !== T_SEA) col = [col[0] * 0.55 + 14, col[1] * 0.5 + 10, col[2] * 0.45 + 6];
     const k = (y * PW + x) * 4;
     im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255;
   }
-  // ciemna linia brzegu wokół koryt rzecznych
-  const D2 = im.data, isW = (px: number, py: number) => { if (px < 0 || py < 0 || px >= PW || py >= PH) return false; const t2 = w.terr[cidx(px >> 3, py >> 3)]; if (t2 === T_SEA) return true; if (t2 !== T_RIVER) return false; const k3 = (py * PW + px) * 4; return D2[k3 + 2] > D2[k3] + 8; };
-  const ink = C(PAL.ink);
-  for (let cy = 0; cy < WGH; cy++) for (let cx = 0; cx < WGW; cx++) {
-    if (w.terr[cidx(cx, cy)] !== T_RIVER) continue;
-    for (let py = cy * 8 - 1; py <= cy * 8 + 8; py++) for (let px = cx * 8 - 1; px <= cx * 8 + 8; px++) {
-      if (px < 0 || py < 0 || px >= PW || py >= PH || isW(px, py)) continue;
-      if (isW(px + 1, py) || isW(px - 1, py) || isW(px, py + 1) || isW(px, py - 1)) { const k3 = (py * PW + px) * 4; D2[k3] = ink[0]; D2[k3 + 1] = ink[1]; D2[k3 + 2] = ink[2]; }
-    }
-  }
   g.putImageData(im, 0, 0);
+  // trzciny na brzegach rzek
+  for (let i3 = 0; i3 < RM.length; i3 += 3) if (RM[i3] === 1 && hashInt(i3 * 13) % 41 === 0) { const X = i3 % PW, Y = Math.floor(i3 / PW); if (w.terr[cidx(X >> 3, Y >> 3)] === T_SEA) continue; g.fillStyle = hashInt(i3) % 2 ? PAL.moss : PAL.grassL; g.fillRect(X, Y - 3, 1, 3); g.fillStyle = PAL.dirtL; g.fillRect(X, Y - 4, 1, 1); }
   // pola uprawne wokół wiosek i miast żywych
   for (const st of w.settlements) {
     if (st.culture === "undead" || st.kind === "castle") continue;
@@ -171,10 +173,11 @@ function renderWorldMap(w: World) {
       if ((h >>> 8) % 3 > 0) tree(x + 5 + ((h >>> 2) % 3), y + 3 + ((h >>> 6) % 3), bl && (h >>> 3) % 3 > 0, true);
       if ((h >>> 11) % 2 === 0) tree(x + 1 + ((h >>> 13) % 5), y + 9 + ((h >>> 15) % 2), bl && (h >>> 5) % 2 > 0, (h >>> 9) % 2 === 0);
     } else if (t === T_MOUNT) {
-      const hiE = E[i] > 0.62 && h % 4 !== 0;
-      if (!hiE && h % 5 < 2) { g.fillStyle = PAL.ash; g.fillRect(x + 2, y + 5, 4, 1); g.fillRect(x + 3, y + 4, 2, 1); g.fillStyle = PAL.slate; g.fillRect(x + 4, y + 5, 2, 1); }
+      const hiE = E[i] > 0.66 && h % 3 !== 0;
+      if (h % 4 === 0 && !hiE) { g.fillStyle = PAL.slate; g.fillRect(x + 1 + (h % 4), y + 4, 3, 2); g.fillStyle = PAL.ash; g.fillRect(x + 2 + (h % 4), y + 4, 1, 1); }
+      else if (!hiE && h % 5 < 2) { g.fillStyle = PAL.ash; g.fillRect(x + 2, y + 5, 4, 1); g.fillRect(x + 3, y + 4, 2, 1); g.fillStyle = PAL.slate; g.fillRect(x + 4, y + 5, 2, 1); }
       else {
-        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = (hiE ? 12 : 8) + (h % (hiE ? 8 : 4));
+        const px = x + 4 + (h % 3) - 1, py = y + 7, hh = Math.round(((hiE ? 11 : 7) + (h % (hiE ? 9 : 4))) * (0.75 + ((h >>> 5) % 6) / 10));
         g.fillStyle = "rgba(10,9,8,0.35)"; for (let k = 0; k < 6; k++) g.fillRect(px + 2 + k, py - 2 + Math.floor(k / 2), 4, 1);   // cień na wschód
         for (let k = 0; k < hh; k++) {
           const half = Math.floor((k * 7) / hh);
@@ -312,7 +315,9 @@ function questRef(w: World, q: Quest): { kind: "party" | "place" | "settlement";
   if ((q.kind as string) === "rescue") return { kind: "settlement", id: q.target };
   if (q.kind === "bandits" || q.kind === "defend") return { kind: "party", id: q.target };
   if (q.kind === "persuade") { const L = lordById(w, q.target); return L && L.party >= 0 ? { kind: "party", id: L.party } : null; }
-  if (q.kind === "wolves") return { kind: "place", id: q.target };
+  if (q.kind === "wolves" || q.kind === "relic") return { kind: "place", id: q.target };
+  if (q.kind === "kidnap") { const L = lordById(w, q.target); return L && L.party >= 0 ? { kind: "party", id: L.party } : null; }
+  if (q.kind === "escort") return { kind: "party", id: q.target };
   if (q.kind === "grain" || q.kind === "cattle" || q.kind === "militia") return { kind: "settlement", id: q.giver };
   return { kind: "settlement", id: q.target };
 }
@@ -321,7 +326,7 @@ function questPos(w: World, q: Quest): V | null {
   if ((q.kind as string) === "plot") { if (!r) return null; if (r.kind === "place") { const pl = w.places[r.id]; return pl ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; } if (r.kind === "party") { const p = partyById(w, r.id); return p ? { x: p.x, y: p.y } : null; } }
   if (r && r.kind === "party") { const p = partyById(w, r.id); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
   if (q.kind === "bandits") { const p = partyById(w, q.target); return p && partyVisible(w, p) ? { x: p.x, y: p.y } : null; }
-  if (q.kind === "wolves") { const pl = w.places[q.target]; return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; }
+  if (q.kind === "wolves" || q.kind === "relic") { const pl = w.places[q.target]; return pl && w.explored[cidx(pl.cx, pl.cy)] ? { x: pl.cx * WCELL + 4, y: pl.cy * WCELL + 4 } : null; }
   const s = w.settlements[r && r.kind === "settlement" ? r.id : q.target];
   return s ? { x: s.cx * WCELL + 4, y: s.cy * WCELL + 4 } : null;
 }
@@ -416,6 +421,8 @@ function renderOverview(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   (v as any).ovK = { k, ox, oy };
 }
 let MAPZ_LAST_W = 480;
+let LBL: [number, number, number, number][] = [];
+let LBLK = 1;
 function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   if (!WMAP) renderWorldMap(w);
   if (WBORDER_VER !== w.ownerVersion) renderBorders(w);
@@ -441,8 +448,8 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     if (ph < 0.5) g.fillRect(hx + Math.round(ph * 6), hy, 2, 1);
   }
   // nazwy krain przy oddaleniu
-  if (W >= 700) {
-    const al = clamp((W - 700) / 300, 0.25, 0.6);
+  if (W >= 1100) {
+    const al = clamp((W - 1100) / 300, 0.3, 0.6);
     g.globalAlpha = al;
     for (const [nm, rx, ry] of MAP_REGIONS) {
       const x = rx * WCELL - sx, y = ry * WCELL - sy;
@@ -451,6 +458,17 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     }
     g.globalAlpha = 1;
   }
+  // rejestr napisów: osady najpierw, oddziały szukają wolnego miejsca
+  LBL = []; LBLK = clamp(Math.round((W / 520) * (settings.mapText || 1)), 1, 3);
+  for (const st of w.settlements) {
+    const x0 = st.cx * WCELL + 4 - sx, y0 = st.cy * WCELL + 4 - sy;
+    if (x0 < -80 || x0 > W + 80 || y0 < -40 || y0 > H + 40) continue;
+    const kk = st.kind === "village" ? LBLK : LBLK + 1, tw = (st.name.length * 4 + 4) * kk;
+    LBL.push([x0 + 5 - tw / 2 - 10, y0 + 9, tw + 12, 9 * kk + 2]);
+    LBL.push([x0 - 14, y0 - 22, 28, 30]);   // sama ikona osady
+  }
+  const pp0 = playerParty(w);
+  const inTown = pp0 && !w.player.captive ? w.settlements.find((st) => dist(st.cx * WCELL + 4, st.cy * WCELL + 4, pp0.x, pp0.y) < 14) : undefined;
   type D = { y: number; draw: () => void };
   const list: D[] = [];
   // miejsca specjalne
@@ -500,10 +518,13 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       const qm = settings.questMarkers && QM.set.has(s.id);
       const lcol2 = qm ? QUEST_COL : s.owner === -2 ? PAL.gold : playerAtWarWith(w, s.faction) ? PAL.redL : PAL.boneHi;
       g.globalAlpha = qm ? 1 : 0.92;
-      if (s.kind === "village") { const lw = label.length * 4 + 2; wText(g, label, Math.round(x - sx - lw / 2 + 4), iy + img.height + 2, lcol2); crestAt(g, s.faction, Math.round(x - sx - lw / 2 - 5), iy + img.height + 1); }
-      else { const bw = wTextBig(g, label, Math.round(x - sx + 5), iy + img.height + 1, lcol2, 2); crestAt(g, s.faction, Math.round(x - sx + 5 - bw / 2 - 9), iy + img.height + 4); }
+      if (s.kind === "village" && LBLK === 1) { const lw = label.length * 4 + 2; wText(g, label, Math.round(x - sx - lw / 2 + 4), iy + img.height + 2, lcol2); crestAt(g, s.faction, Math.round(x - sx - lw / 2 - 5), iy + img.height + 1); }
+      else if (s.kind === "village") { const bw = wTextBig(g, label, Math.round(x - sx + 5), iy + img.height + 1, lcol2, LBLK); crestAt(g, s.faction, Math.round(x - sx + 5 - bw / 2 - 9), iy + img.height + 2); }
+      else { const bw = wTextBig(g, label, Math.round(x - sx + 5), iy + img.height + 1, lcol2, LBLK + 1); crestAt(g, s.faction, Math.round(x - sx + 5 - bw / 2 - 9), iy + img.height + 4); }
       g.globalAlpha = 1;
       if (qm) questPin(g, Math.round(x - sx), iy - 2, t);
+      if (inTown === s && !playerParty(w).path.length) playerBanner(g, Math.round(x - sx) - 14, iy - 10, t, 3);
+      else if (s.owner === -2 && s.kind !== "village") playerBanner(g, ix + img.width - 4, iy - 8, t, s.id);
     } });
   }
   // oddziały
@@ -511,6 +532,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   for (const p of w.parties) {
     if (!vis(p.x, p.y) || !partyVisible(w, p)) continue;
     if (p.kind === "player" && w.player.captive) continue;
+    if (p.kind === "player" && inTown && !p.path.length) continue;   // w osadzie: zamiast postaci herb nad miastem
     list.push({ y: p.y, draw: () => drawPartyFig(w, g, p, sx, sy, t, v.hover?.kind === "party" && v.hover.id === p.id) });
   }
   list.sort((a, b) => a.y - b.y);
@@ -652,8 +674,9 @@ function drawPartyFig(w: World, g: CanvasRenderingContext2D, p: Party, sx: numbe
   const lcol = qm ? QUEST_COL : p.kind === "player" ? PAL.gold : hostile(w, playerParty(w), p) ? PAL.redL : PAL.boneHi;
   const nearTown = w.settlements.some((s2) => dist(s2.cx * WCELL + 4, s2.cy * WCELL + 4, p.x, p.y) < 22);
   const named = qm || hover || (mode === "all" && !nearTown) || (mode === "lords" && p.kind === "lord" && !nearTown);
-  if (p.kind === "lord" || p.kind === "player") {   // proporzec nad armią
-    const [fc, , ft] = p.kind === "player" ? [PAL.gold, PAL.goldD, PAL.red] : factionCol(p.faction), bx = x + 5, by = y - 22;
+  if (p.kind === "player") playerBanner(g, x + 5, y - 26, t, 0);
+  else if (p.kind === "lord") {   // proporzec nad armią
+    const [fc, , ft] = factionCol(p.faction), bx = x + 5, by = y - 22;
     g.fillStyle = PAL.ink; g.fillRect(bx, by, 1, 14);
     const wv = Math.floor(t * 4 + p.id) % 3;
     g.fillStyle = PAL.ink; g.fillRect(bx + 1, by - 1, 7, 6);
@@ -661,7 +684,10 @@ function drawPartyFig(w: World, g: CanvasRenderingContext2D, p: Party, sx: numbe
   }
   // liczebność: plakietka
   if (p.kind !== "caravan" && p.kind !== "villagers") { const txt = String(n), bw2 = txt.length * 4 + 3; g.fillStyle = "rgba(10,9,8,0.75)"; g.fillRect(x - Math.round(bw2 / 2), y + 3, bw2, 7); wText(g, txt, x - Math.round(bw2 / 2) + 2, y + 4, lcol); }
-  if (p.kind !== "player" && named) { const txt = p.name; wText(g, txt.toUpperCase(), x - Math.round(txt.length * 2), y - 27, lcol); }
+  if (p.kind !== "player" && named) {
+    const txt = p.name.toUpperCase(), k = LBLK, tw = (txt.length * 4 + 4) * k, th = 9 * k;
+    for (const oy of [-27 - th + 9, 12, -36 - th + 9, 21]) { const r: [number, number, number, number] = [x - tw / 2, y + oy, tw, th]; if (!LBL.some((q) => r[0] < q[0] + q[2] && r[0] + r[2] > q[0] && r[1] < q[1] + q[3] && r[1] + r[3] > q[1])) { LBL.push(r); if (k > 1) wTextBig(g, txt, x, y + oy, lcol, k); else wText(g, txt, x - Math.round(tw / 2) + 2, y + oy + 1, lcol); break; } }
+  }
   if (qm) questPin(g, x, y - 28, t);
   if (hover) { g.fillStyle = PAL.white; g.fillRect(x - 7, y + 3, 15, 1); }
 }
@@ -685,6 +711,27 @@ function wTextBig(g: CanvasRenderingContext2D, t: string, cx: number, y: number,
   return c.width;
 }
 // Mały herb frakcji przy nazwie.
+// Godła w miniaturze 5×5 (sztandary na mapie i w bitwie).
+const CHARGE_PIX: Record<string, string[]> = {
+  star: ["..#..", ".###.", "#####", ".###.", "#.#.#"], crown: ["#.#.#", "#####", "#####", ".....", "....."].map((r, i) => i > 2 ? "....." : r),
+  skull: [".###.", "#.#.#", "#####", ".###.", ".#.#."], sword: ["..#..", "..#..", "..#..", "#####", "..#.."], tower: ["#.#.#", "#####", "##.##", "#####", "#####"],
+  wolf: ["#...#", "##.##", "#####", ".###.", "..#.."], cross: ["..#..", "#####", "..#..", "..#..", "..#.."], moon: [".###.", "##...", "#....", "##...", ".###."],
+};
+function playerCharge(): string { return (WORLD?.player as any)?.crest?.charge || "none"; }
+function drawCharge(g: CanvasRenderingContext2D, ch: string, x: number, y: number, col: string) {
+  const P = CHARGE_PIX[ch]; if (!P) return;
+  g.fillStyle = col;
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (P[r][c] === "#") g.fillRect(x + c, y + r, 1, 1);
+}
+// Duży sztandar gracza z godłem (drużyna na mapie, zamki gracza).
+function playerBanner(g: CanvasRenderingContext2D, bx: number, by: number, t: number, seed: number) {
+  const [fc, fd, ft] = factionCol(PLAYER_FACTION);
+  g.fillStyle = PAL.ink; g.fillRect(bx, by, 1, 18);
+  const wv = Math.floor(t * 4 + seed) % 3;
+  g.fillStyle = PAL.ink; g.fillRect(bx + 1, by - 1, 10, 9);
+  g.fillStyle = fc; g.fillRect(bx + 1, by + (wv === 1 ? 1 : 0), 9, 7); g.fillStyle = fd; g.fillRect(bx + 7, by + (wv === 1 ? 1 : 0), 3, 7);
+  drawCharge(g, playerCharge(), bx + 3, by + 1 + (wv === 1 ? 1 : 0), ft || PAL.bone);
+}
 function crestAt(g: CanvasRenderingContext2D, f: number, x: number, y: number) {
   const [c1, c2, c3] = factionCol(f);
   g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 8, 9);

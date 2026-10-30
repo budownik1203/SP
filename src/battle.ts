@@ -24,7 +24,7 @@ const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => 
 function KB(id: string): string { return (settings.keys && settings.keys[id]) || KEYDEF_MAP[id]; }
 function keyName(code: string) { return code.replace(/^Key/, "").replace(/^Digit/, "").replace("Space", "Spacja").replace("ShiftLeft", "Shift").replace("Escape", "Esc").replace("Numpad", "Num "); }
 interface Settings {
-  fxVol?: number; voiceVol?: number; uiVol?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
+  fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
   questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
