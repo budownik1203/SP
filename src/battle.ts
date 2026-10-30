@@ -62,6 +62,8 @@ interface BattleResult {
   timeline?: { t: number; a: number; b: number }[]; best?: { type: string; name: string; kills: number } | null;
 }
 
+// Pancerz (B27): wyraźnie chroni przed cięciem, słabo przed obuchem. Mnożnik obrażeń: niższy = lepsza ochrona.
+function armTune(a: Record<DmgType, number>): Record<DmgType, number> { return { cut: Math.pow(a.cut, 1.3), pierce: a.pierce, blunt: 1 - (1 - a.blunt) * 0.55 }; }
 class Unit {
   id = UID++;
   def: UnitDef;
@@ -154,7 +156,7 @@ class Unit {
     this.team = team; this.squad = squad;
     this.x = x; this.y = y;
     this.hp = this.maxHp = this.def.hp;
-    this.arm = { ...this.def.armor };
+    this.arm = armTune(this.def.armor);
     this.weaponKey = this.def.weapon;
     this.hasShield = this.def.shield; this.shieldHp = 140 + this.def.tier * 30;
     this.face = this.wantFace = this.heading = team === 0 ? 0 : Math.PI;
@@ -557,7 +559,7 @@ class Battle {
         h.maxHp = H.maxHp; h.hp = H.hp;
         h.weaponKey = H.weapon; h.hasShield = H.shield; h.shieldHp = 420;
         h.bowDmg = H.bowDmg; h.ammo = H.ammo; this.heroAmmoMax = Math.max(H.ammo, 1);
-        h.arm = { cut: 1 - H.armor, pierce: 1 - H.armor * 0.8, blunt: 1 - H.armor * 0.5 };
+        h.arm = { cut: Math.max(0.22, 1 - H.armor * 1.2), pierce: 1 - H.armor * 0.8, blunt: 1 - H.armor * 0.4 };
         if (H.mount) { h.mount(H.mount, (side.faction || 9)); h.horseHp = h.horseMax = H.mount.hp; }
         this.hero = h; this.units.push(h);
       }
@@ -565,7 +567,7 @@ class Battle {
         const u = new Unit("companion", 0, C.squad, z.x + rr(-20, 20), z.y + rr(-60, 60), (side.faction || 9), C.look);
         u.companion = C.id; u.name = C.name; u.officer = true; u.compAb = C.ab || "";
         u.maxHp = C.maxHp; u.hp = C.hp; u.weaponKey = C.weapon; u.hasShield = C.shield;
-        u.arm = { cut: 1 - C.armor, pierce: 1 - C.armor * 0.8, blunt: 1 - C.armor * 0.5 };
+        u.arm = { cut: Math.max(0.22, 1 - C.armor * 1.2), pierce: 1 - C.armor * 0.8, blunt: 1 - C.armor * 0.4 };
         if (C.bow) { u.bowDmg = C.bow; u.ammo = 30; }
         if (C.mount) u.mount(C.mount, (side.faction || 9));
         this.units.push(u);
@@ -1177,14 +1179,14 @@ class Battle {
         const k = h.drawT;
         const a = h.face + rr(-1, 1) * this.bowSpread();
         const d = clamp(dist(h.x, h.y - 12, wx, wy), 40, 380);
-        if (xb) this.fire(h, a, 380, h.bowDmg, d, "bolt"); else this.fire(h, a, lerp(190, 270, k), lerp(h.bowDmg * 0.45, h.bowDmg, k), d, "arrow");
+        if (xb) this.fire(h, a, 380, h.bowDmg, d, "bolt"); else this.fire(h, a, lerp(190, 280, k), lerp(h.bowDmg * 0.5, h.bowDmg * 1.3, k), d, "arrow");
         h.ammo--;
         this.kickCam(-Math.cos(a), -Math.sin(a), 1.3);
       }
       h.drawT = 0;
     }
   }
-  bowSpread() { const h = this.hero; return lerp(0.18, 0.012, h.drawT) * ((h.moving || h.rspeed > 20) && !(h.mounted && this.P("horseArch")) ? 1.8 : 1) * ((this.heroCfg as any)?.xbow ? 0.5 : 1) * (this.cfg.rain ? 1.3 : 1) * (1 + (h.bowShake || 0) * 5); }
+  bowSpread() { const h = this.hero; return lerp(0.22, 0.03, h.drawT) * ((h.moving || h.rspeed > 20) && !(h.mounted && this.P("horseArch")) ? 1.8 : 1) * ((this.heroCfg as any)?.xbow ? 0.5 : 1) * (this.cfg.rain ? 1.3 : 1) * (1 + (h.bowShake || 0) * 5); }
   atkMode(): "mouse" | "keys" | "screen" { return this.settings.atkMode || (this.settings.gesture ? "screen" : "mouse"); }
   heroAmmoMax = 30;
   castFlash: { col: string; t: number } | null = null;
@@ -1387,7 +1389,11 @@ class Battle {
         if (this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 12 * this.furyMul);
         return;
       }
-      d.stamina -= (9 + w.dmg[dir] * 0.35) * this.heroBlockCost * (d.weaponBlock ? 1.5 : 1); d.staminaWait = 0.6;
+      // blok to okno czasowe: tuż po parowaniu tanio, trzymany długo coraz drożej i coraz więcej przepuszcza
+      const age = this.time - d.blockStart, good = age <= this.parryWindow() + 0.25, stale = age > 1.2 ? Math.min(2.4, 1 + (age - 1.2) * 0.7) : 1;
+      if (good) this.floater(d.x, d.y - 32, "DOBRY BLOK", PAL.steelL, true); else if (stale > 1.6 && chance(0.4)) this.floater(d.x, d.y - 32, "RĘCE SŁABNĄ", PAL.ash, true);
+      d.stamina -= (9 + w.dmg[dir] * 0.35) * this.heroBlockCost * (d.weaponBlock ? 1.5 : 1) * (good ? 0.55 : stale); d.staminaWait = 0.6;
+      if (!good && stale > 1.3 && !d.weaponBlock) this.damage(d, w.dmg[dir] * d.arm[w.type[dir]] * 0.12 * (stale - 1), a, false, w.type[dir], false, hx, hy);
       if (d.weaponBlock) {   // blok bronią: część ciosu przechodzi
         this.sfx.clang(1, s.pan); this.sparks(hx, hy, 10, PAL.steelL);
         this.push(d, a.x, a.y, 60);

@@ -455,6 +455,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   const enemyPow = r.theirs.reduce((s, c) => s + unitPower(c.type) * (c.killed + c.wounded), 0);
   const heroXp = Math.round(enemyPow * 6 + r.heroKills * 12 + (r.win ? 40 : 10));
   gainXp(P, heroXp, lines);
+  if (ctx.kind !== "escape") { P.morale = clamp(P.morale + (r.win ? 8 + Math.min(10, r.theirs.reduce((s2, c) => s2 + c.killed, 0) / 10) : r.retreated ? -6 : -14), 0, 100); }
   if (r.win) {
     P.battlesWon++;
     const renown = Math.round(clamp(enemyPow * 0.6, 1, 60) * (ctx.kind === "siege" ? 2 : 1));

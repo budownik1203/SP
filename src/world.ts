@@ -1156,7 +1156,7 @@ function playerDaily(w: World) {
   const kinds = FOOD_KEYS.filter((k) => (P.goods[k] || 0) > 0).length;
   for (const k of FOOD_KEYS) { while (need > 0 && (P.goods[k] || 0) > 0) { P.goods[k]--; need--; } }
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }
-  else P.morale += kinds >= 2 ? 1.5 : 0.3;
+  else P.morale += kinds >= 4 ? 2.5 : kinds >= 3 ? 1.8 : kinds >= 2 ? 1 : -0.5;   // jedna strawa nudzi, różnorodność cieszy
   // jeńcy uciekają, gdy straż jest za słaba
   const prN = troopCount(p.prisoners), grd = healthyCount(p.troops) + P.companions.length;
   if (prN > 0 && prN > grd * 1.2 && chance(0.35)) {
@@ -1172,7 +1172,7 @@ function playerDaily(w: World) {
   if ((races.has("orc") && races.has("dwarf")) || (races.has("undead") && [...races].some((c) => c && c !== "undead" && c !== "merc" && c !== "bandit"))) { P.morale -= 2; if (chance(0.15)) addLogMsg("W obozie dochodzi do bójki między rasami. Morale spada.", PAL.redL); }
   // jeńcy po kilku dniach w niewoli: część gotowa przejść na twoją stronę
   const pa2 = p as any;
-  if (p.prisoners.length) { pa2.prisDays = (pa2.prisDays || 0) + 1; if (pa2.prisDays >= 3) pa2.willing = Math.min(troopCount(p.prisoners), (pa2.willing || 0) + Math.ceil(troopCount(p.prisoners) * 0.2)); } else { pa2.prisDays = 0; pa2.willing = 0; }
+  if (p.prisoners.length) { pa2.prisDays = (pa2.prisDays || 0) + 1; if (pa2.prisDays >= 3) pa2.willing = Math.min(troopCount(p.prisoners), (pa2.willing || 0) + Math.ceil(troopCount(p.prisoners) * (deedTraits(P).some((t) => t.id === "merciful") ? 0.32 : 0.2))); } else { pa2.prisDays = 0; pa2.willing = 0; }
   // karawany wracają z zyskiem albo przepadają
   const cars = ((P as any).caravans || []) as { from: number; to: number; gold: number; back: number }[];
   for (const c of cars.slice()) if (c.back <= w.day) {
@@ -1195,7 +1195,7 @@ function playerDaily(w: World) {
   if (w.day - P.lastPay >= 7) {
     P.lastPay = w.day;
     const wage = partyWages(w) * 7;
-    if (P.gold >= wage) { P.gold -= wage; addLogMsg(`Wypłacono żołd: ${wage} denarów.`, PAL.gold); }
+    if (P.gold >= wage) { P.gold -= wage; P.morale = Math.min(100, P.morale + 4); addLogMsg(`Wypłacono żołd: ${wage} denarów. Ludzie zadowoleni.`, PAL.gold); }
     else { const paid = P.gold; P.gold = 0; P.morale -= 25; addLogMsg(`Brak pieniędzy na żołd (${paid}/${wage}). Ludzie szemrzą i odchodzą.`, PAL.redL); desert(w, 0.12); }
   }
   // najemnik: zapłata od pracodawcy
