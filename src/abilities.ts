@@ -174,6 +174,7 @@ function explodeFire(b: Battle, x: number, y: number, dmg: number, src: Unit) {
   b.shake(src.hero ? 4 : 2);
   for (let i = 0; i < 40; i++) { const a = rr(0, 6.28), sp = rr(20, 110); b.parts.push({ x, y, z: rr(2, 10), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: rr(20, 90), life: rr(0.3, 0.8), max: 0.8, col: pick([PAL.gold, PAL.redL, PAL.bloodL, PAL.boneHi]), kind: "fire" }); }
   b.parts.push({ x, y, z: 0, vx: 7, vy: 0, vz: 0, life: 0.35, max: 0.35, col: PAL.gold, kind: "ring" });
+  igniteAt(b, x, y, 1.2); if (chance(0.5)) igniteAt(b, x + rr(-16, 16), y + rr(-12, 12), 1);
   // osmalenie gruntu
   for (let i = 0; i < 70; i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * 18; b.dg.fillStyle = chance(0.7) ? PAL.ink : PAL.dusk; b.dg.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.7), 1, 1); }
   const R = 34;

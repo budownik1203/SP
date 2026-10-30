@@ -58,7 +58,7 @@ class Input {
 
   attach(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const block = ["Space", "Tab", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F1", "F2", "F3", "F4", "F5"];
+    const block = ["Space", "AltLeft", "AltRight", "Tab", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F1", "F2", "F3", "F4", "F5"];
     addEventListener("keydown", (e) => {
       if (block.includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);

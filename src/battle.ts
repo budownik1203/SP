@@ -18,12 +18,12 @@ const KEYDEF: [string, string, string, string][] = [
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
   ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-  ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+  ["dodge", "AltLeft", "Odskok", "Bitwa"], ["tpause", "Space", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
   ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
 function KB(id: string): string { return (settings.keys && settings.keys[id]) || KEYDEF_MAP[id]; }
-function keyName(code: string) { return code.replace(/^Key/, "").replace(/^Digit/, "").replace("Space", "Spacja").replace("ShiftLeft", "Shift").replace("Escape", "Esc").replace("Numpad", "Num "); }
+function keyName(code: string) { return code.replace(/^Key/, "").replace(/^Digit/, "").replace("Space", "Spacja").replace("ShiftLeft", "Shift").replace("AltLeft", "Alt").replace("Escape", "Esc").replace("Numpad", "Num "); }
 interface Settings {
   fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
@@ -48,7 +48,7 @@ interface BattleConfig {
   maxPerSide?: number;
   title?: string;
   allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
-  tutorial?: boolean; dmgTaken?: number; campFort?: boolean; wallDmg?: number; paint?: Record<number, { main: string; trim: string; charge: string }>;
+  tutorial?: boolean; defensive?: boolean; moraleMod?: { team0?: number; team1?: number }; dmgTaken?: number; campFort?: boolean; wallDmg?: number; paint?: Record<number, { main: string; trim: string; charge: string }>;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -257,7 +257,7 @@ class Battle {
   cds: Record<string, number> = {};
   lastAbility = "";
   fx: AbilityFx[] = [];
-  fogged = false;
+  fogged = false; tacPause = false; tacView = false;
   thrustMode = false;
   engines: SiegeEngine[] = [];
   trebT = 6; stoneT = 2; oilT = 12; boulders: { x: number; y: number; t: number }[] = [];
@@ -921,6 +921,7 @@ class Battle {
       { n: 1, label: "Zajmij wzgórze" }, { n: 2, label: "Zajmij las" }, { n: 3, label: "Oskrzydlenie z lewej" }, { n: 4, label: "Oskrzydlenie z prawej" },
       { n: 5, label: "Zasadzka: ukryj się" }, { n: 6, label: o.fire ? "Wstrzymaj ogień" : "Strzelać wedle uznania" }, { n: 7, label: o.meleeOnly ? "Wolna broń" : "Tylko broń biała" },
       { n: 8, label: o.volley ? "SALWA! Strzelajcie razem" : "Salwa na rozkaz (celujcie i czekajcie)", on: !!o.volley },
+      { n: 9, label: this.selected.some((g) => this.squadUnits(g).some((u) => u.mounted)) ? "Zsiąść z koni" : "Na koń!" },
     ];
     if (this.cmdLevel === "target") {
       const items: { n: number; label: string; on?: boolean }[] = this.enemySquadsVisible().map((s) => ({ n: s, label: this.enemySquadName(s), on: o.targetSquad === s }));
@@ -947,7 +948,7 @@ class Battle {
       }
       case "more":
         if (n === 1) this.orderOccupy(gs, "hill"); else if (n === 2) this.orderOccupy(gs, "forest"); else if (n === 3) this.orderFlank(gs, -1); else if (n === 4) this.orderFlank(gs, 1);
-        else if (n === 5) this.orderAmbush(gs); else if (n === 6) this.orderFire(gs); else if (n === 7) this.orderMelee(gs); else if (n === 8) this.orderVolley(gs); else return;
+        else if (n === 5) this.orderAmbush(gs); else if (n === 6) this.orderFire(gs); else if (n === 7) this.orderMelee(gs); else if (n === 8) this.orderVolley(gs); else if (n === 9) orderDismount(this, gs); else return;
         back(); return;
       case "target": if (n === 9) this.orderTarget(gs, null); else if (this.enemySquadsVisible().includes(n)) this.orderTarget(gs, n); else return; back(); return;
       case "formation": if (n >= 1 && n <= FORMATIONS.length) { this.orderFormation(gs, FORMATIONS[n - 1]); this.flashPreview(gs); back(); } return;
@@ -2276,10 +2277,19 @@ class Battle {
       this.handleOrders();
       for (const o of Object.values(this.orders)) o.ax = Math.min(o.ax, this.cfg.terrain === "siege" ? this.map.wall.x0 - 60 : this.mw * 0.46);
       this.relayoutT -= realDt; if (this.relayoutT <= 0) { this.relayoutT = 0.25; this.layoutAll(true); }
+      if (trapsAllowed(this)) { const wx = this.cam.x + this.input.mx, wy = this.cam.y + this.input.my; if (this.input.hit(KB("treb"))) placeTrap(this, "stakes", wx, wy); if (this.input.hit(KB("cry"))) placeTrap(this, "ditch", wx, wy); }
       if (this.input.hit("Enter") || this.input.hit("Space")) this.startFight();
       return;
     }
     if (this.phase !== "fight" || this.paused) return;
+    if (this.input.hit(KB("tview"))) { this.tacView = !this.tacView; this.say(this.tacView ? "Widok taktyczny" : "Widok zwykły", PAL.ash); }
+    if (this.input.hit(KB("tpause")) && !this.cfg.arena && this.heroUp) { this.tacPause = !this.tacPause; if (this.tacPause) { this.toggleCmd(true); this.say("PAUZA TAKTYCZNA: wydawaj rozkazy, Spacja wznawia.", PAL.gold, true); } else this.toggleCmd(false); }
+    if (this.tacPause) {
+      if (!this.cmdOpen || !this.heroUp) { this.tacPause = false; this.say("Wznowiono.", PAL.ash); }
+      this.handleOrders();
+      this.relayoutT -= realDt; if (this.relayoutT <= 0) { this.relayoutT = 0.25; this.layoutAll(); }
+      return;
+    }
 
     if (this.hitstop > 0) { this.hitstop -= realDt; this.handleOrders(); this.updateHero(0); return; }
     if (this.slowT > 0) this.slowT -= realDt;
@@ -2312,6 +2322,7 @@ class Battle {
       if (u.mounted) this.lanceCheck(u);
       if (!u.hero && u.active) this.updateAI(u, dt);
     }
+    updateFire(this, dt); updateWeather(this, dt); updateTraps(this, dt);
     const h = this.hero;
     for (const u of this.units) {
       if (!u.active) continue;

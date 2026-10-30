@@ -12,6 +12,7 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
   const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
 
   for (const c of b.corpses) if (vis(c.x, c.y)) drawCorpse(g, c, sx, sy);
+  drawFire(b, g, sx, sy); drawTraps(b, g, sx, sy);
 
   // znaczniki rozkazów i podgląd szyków
   if (b.phase !== "end" && b.heroUp) for (const k of Object.keys(b.orders)) {
@@ -233,7 +234,9 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
     g.fillStyle = "rgba(222,215,198,0.12)"; g.fillRect(x0, y0, bw, bh);
     g.fillStyle = PAL.white; g.fillRect(x0, y0, bw, 1); g.fillRect(x0, y0 + bh, bw, 1); g.fillRect(x0, y0, 1, bh); g.fillRect(x0 + bw, y0, 1, bh);
   }
-  if (b.phase === "fight") drawCrosshair(b, g);
+  if (b.tacView) drawTacView(b, g, sx, sy);
+  if (b.tacPause) { g.fillStyle = "rgba(20,18,14,0.22)"; g.fillRect(0, 0, W, H); }
+  if (b.phase === "fight" && !b.tacPause) drawCrosshair(b, g);
 }
 
 // Noc: ciemna warstwa z wyciętymi światłami (ogniska, pochodnie, ogień, magia).

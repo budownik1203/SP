@@ -111,7 +111,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Alt: odskok, Spacja: pauza taktyczna, Y: widok z góry, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
     new: () => showCreator(),
     cont: () => loadSave(SAVE_AUTO),
@@ -1209,7 +1209,8 @@ function meetParty(o: Party, ambushed: boolean) {
     ? (o.kind === "bandit" ? (ambushed ? "„Sakiewka albo życie, wędrowcze!”" : "Zbóje sięgają po broń.") : o.kind === "monster" ? "Wilki krążą, warcząc." : o.kind === "undead" ? "Martwi suną ku wam bez słowa." : L ? `„${P.name}! Twoja głowa ozdobi mój pal.” · ${L.title} ${L.name}` : `${o.name} szykuje się do walki.`)
     : (L ? `„Witaj, ${P.name}.” · ${L.title} ${L.name}, ${factionName(L.faction)}` : o.kind === "caravan" ? "Kupcy kiwają głowami, strażnicy trzymają dłonie na rękojeściach." : o.kind === "villagers" ? "Chłopi zerkają nerwowo na twoje miecze." : `${o.name}.`);
   const acts: Acts = {
-    fight: () => launchBattle({ kind: "field", enemies: [o, ...helpers], allies, title: o.name }),
+    fight: () => launchBattle({ kind: "field", enemies: [o, ...helpers], allies, title: o.name }, { defensive: ambushed || !!G.camping }),
+    duel: () => commanderDuel(o, ambushed || !!G.camping),
     auto: () => autoResolve({ kind: "field", enemies: [o, ...helpers], allies, title: o.name }),
     flee: () => { if (!fleeAttempt(o)) { toast("Nie udało się uciec!", PAL.redL); meetParty(o, true); } },
     rear: () => rearguard(o),
@@ -1255,6 +1256,7 @@ function meetParty(o: Party, ambushed: boolean) {
     ch.push({ a: "auto", label: `Niech dowódcy to rozstrzygną (bez twojego udziału, taktyka ${P.skills.tactics})` });
     if (o.kind === "caravan" || o.kind === "villagers" || (o.kind === "bandit" && myPow > theirPow * 3)) ch.push({ a: "surrender", label: "Złóżcie broń, a darujemy wam życie." });
     if (L) ch.push({ a: "talk", label: "Porozmawiajmy, zanim poleje się krew." });
+    if (L && L.alive) ch.push({ a: "duel", label: `Wyzwij na pojedynek przed szeregami: ${L.title} ${L.name}` });
     if (o.kind === "bandit" && ambushed && P.gold > 20) ch.push({ a: "pay", label: `Weźcie ${Math.round(P.gold * 0.25)} denarów i odejdźcie.` });
     if (o.kind === "bandit") {
       if ((o as any).cowed && P.attr.cha >= 5) ch.push({ a: "recruit", label: `Przyłączcie się do mnie. Będzie żołd. (charyzma ${P.attr.cha})` });
@@ -1430,11 +1432,14 @@ function showAftermath(r: BattleResult, gold: number, items: string[], lines: st
     <div class="cols"><div><h2>Twoje straty</h2>${cas(r.ours)}${r.allies.length ? `<h2>Sojusznicy</h2>${cas(r.allies)}` : ""}</div>
     <div><h2>Straty wroga</h2>${cas(r.theirs)}</div></div>
     ${loot}
+    ${woundedChoiceHtml(r)}
     ${r.prisoners.length ? `<p>${ic("chain")} Jeńcy: ${r.prisoners.map((p) => `${p.n}× ${UNITS[p.type].name}`).join(", ")}</p>` : ""}
     ${promo}
     ${lines.map((l) => `<p class="${/relac|\+\d|−\d|-\d/.test(l) ? "rel" : ""}">${l}</p>`).join("")}
     <div class="btns"><button data-a="next">Dalej</button>${ready.length ? `<button class="alt" data-a="promo">Awansuj wszystkich</button><button class="alt" data-a="army">Armia</button>` : ""}${share}</div></div>`, {
     army: () => { take(); closeScreen(); G.state = "map"; showMapHud(); showParty(); },
+    wSpare: () => { take(); showAftermath(r, gold, [], lines.concat([woundedSpare(r)]), next); },
+    wKill: () => { take(); showAftermath(r, gold, [], lines.concat([woundedKill(r)]), next); },
     promo: () => { take(); promoteAll(); showAftermath(r, gold, [], lines, next); },
     share: () => { take(); const g2 = Math.round(gold * 0.3); P.gold -= g2; P.morale = Math.min(100, P.morale + 10 + Math.round(g2 / 20)); toast(`Ludzie dostają ${g2} denarów. Morale rośnie.`, PAL.gold); showAftermath(r, 0, [], lines.concat([`Podzieliłeś łupy: −${g2} denarów, morale w górę.`]), next); },
     next: () => {

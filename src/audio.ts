@@ -385,6 +385,19 @@ class Sfx {
     const o = this.out(pan, 0.4);
     this.noise(o, 0.45, 300, 1600, 1, 0.5 * v);
   }
+  fireCrackle(v = 1, pan = 0) {
+    if (!this.ok("crackle", 120)) return;
+    const o = this.out(pan, 0.3);
+    for (let i = 0; i < 5; i++) this.noise(o, 0.03, 3000 + Math.random() * 2000, 1500, 2, 0.25 * v * Math.random(), "highpass", i * 0.05 + Math.random() * 0.06);
+    this.noise(o, 0.6, 500, 300, 0.7, 0.12 * v, "lowpass");
+  }
+  thunder(v = 1) {
+    if (!this.ok("thunder", 2000)) return;
+    const o = this.out(0, 0.7);
+    this.noise(o, 0.15, 3000, 800, 1, 0.5 * v);
+    this.noise(o, 2.4, 260, 60, 0.6, 0.9 * v, "lowpass", 0.1);
+    this.tone(o, 55, 30, 2, "sine", 0.5 * v, 0.1);
+  }
   explode(v = 1, pan = 0) {
     if (!this.ok("explode", 60)) return;
     const o = this.out(pan, 0.6);

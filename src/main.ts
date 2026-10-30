@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.22";
+const BUILD = "Build 0.23";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -25,6 +25,7 @@ try {
   if (s) { Object.assign(settings, s); if (!s.ver || s.ver < 9) { settings.tells = false; settings.atkMode = s.gesture ? "screen" : "mouse"; settings.dmgHeroOnly = true; } }
   if (s && (!s.ver || s.ver < 10) && settings.uiScale === 1) settings.uiScale = 1.15;   // B14: większa czcionka domyślnie
   if (!s) settings.uiScale = 1.15;
+  if (settings.keys && settings.keys.dodge === "Space") delete settings.keys.dodge;   // B23: Spacja to pauza taktyczna
   (settings as any).ver = 10;
 } catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try { localStorage.setItem("sztandary-settings", JSON.stringify(settings)); } catch (e) { /* ignoruj */ } }
@@ -203,7 +204,7 @@ function battleHud(dt: number) {
   if (b.banner) { $("banner").textContent = b.banner.text; $("banner").style.color = b.banner.col; $("banner").hidden = false; $("banner").style.opacity = String(clamp(b.banner.t * 2, 0, 1)); }
   else $("banner").hidden = true;
   $("slow").hidden = !b.cmdOpen;
-  $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+  $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.tacPause ? "PAUZA TAKTYCZNA: czas stoi · Spacja wznawia" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
   $("startfight").hidden = b.phase !== "deploy";
   if (b.focusT > 0) { $("slow").hidden = false; $("slow").textContent = "Skupienie"; }
 }
@@ -325,7 +326,7 @@ function frameInner(now: number) {
     const b = G.battle;
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
-    const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : zoomIdx;   // arena jest mała
+    const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : zoomIdx;   // arena jest mała
     if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1]) setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);
     if (input.hit(KB("mini"))) miniWant = !miniWant;
@@ -451,4 +452,5 @@ function spriteSheet(keys: string[], scale = 3): string {
   const [o, g2] = mkCanvas(c.width * scale, c.height * scale); g2.drawImage(c, 0, 0, o.width, o.height); return o.toDataURL();
 }
 (window as any).__T2 = { launchStreets, mineAssault, sallyAgainstPlayer, showCapitulation, playerSiegeDay };
+(window as any).__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed };
 (window as any).__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP) renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER) g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) { g.fillStyle = "#000"; g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12); g.fillStyle = factionCol(s.faction)[0]; g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8); g.fillStyle = "#fff"; g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8); } for (const p of WORLD.places) { g.fillStyle = "#f0f"; g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6); } return c.toDataURL(); } };

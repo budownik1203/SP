@@ -358,13 +358,14 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
   for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100);   // zmęczenie osłabia ducha
   for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
+  const dm = (G as any).duelMod; if (dm) { (G as any).duelMod = null; for (const u of b.units) if (!u.hero && !u.def.undead) u.morale = clamp(u.morale + (u.team === 0 ? dm.team0 || 0 : dm.team1 || 0), 5, 100); }
   G.state = "battle";
   hideMapHud();
   showBattleHud();
   // rozstawienie przed bitwą (pole i szturm), chyba że zasadzka albo arena
   const ambushed = ctx.kind === "field" && ctx.enemies.some((e) => (e as any).ambush);
   b.phase = settings.deploy !== false && (ctx.kind === "field" || (ctx.kind === "siege" && !ctx.defend)) && !ambushed && !(ctx as any).sally ? "deploy" : "fight";
-  if (b.phase === "deploy") { b.cmdOpen = true; b.say("Rozstawienie: ustaw oddziały (wybierz numer, PPM przeciągnij linię). Enter lub Spacja: do boju!", PAL.gold, true); }
+  if (b.phase === "deploy") { b.cmdOpen = true; b.say("Rozstawienie: ustaw oddziały (wybierz numer, PPM przeciągnij linię). Enter: do boju!", PAL.gold, true); if (trapsAllowed(b)) { const st = trapStock(b); b.say(`Bronisz się: T wbija pale (${st.stakes}), G kopie rów (${st.ditch}) w miejscu kursora.`, PAL.gold, true); } }
   // sojusznicy słuchają tylko przy dobrej relacji z ich panem (albo gdy jesteś władcą lub marszałkiem)
   b.cfg.allyObey = P.status === "król" || ctx.allies.every((a) => a.lord == null || a.lord < 0 || (w.lords[a.lord]?.relation ?? 0) >= 10);
   const intro = (ctx as any).streets ? `Walka w uliczkach ${ctx.settlement.name}! Mieszczanie i resztki załogi bronią każdego domu.` : ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
