@@ -145,7 +145,7 @@ function renderBattle(b: Battle, g: CanvasRenderingContext2D) {
   }
   g.globalAlpha = 1;
 
-  drawTells(b, g, sx, sy);
+  drawTells(b, g, sx, sy); drawTelegraphs(b, g, sx, sy);
   // strzałki przy krawędzi: oddziały wroga poza ekranem
   if (b.heroUp && b.phase === "fight" && !b.cmdOpen) {
     const seen = new Set<number>();
@@ -520,6 +520,7 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
     g.fillStyle = u.team === 0 ? PAL.redL : u.commander ? PAL.purpleL : PAL.bone;
     g.fillRect(hx, hy, Math.ceil(w * k), 2);
   }
+  if (near) drawPosture(b, g, u, bx, iy + 8);
   if ((u.companion || u.commander) && near) { const nm = u.companion ? u.name : ""; if (nm) { g.globalAlpha = 0.8; pxSmall(g, nm.toUpperCase(), bx, iy + 1, PAL.boneHi); g.globalAlpha = 1; } }
 }
 

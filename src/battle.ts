@@ -1133,7 +1133,8 @@ class Battle {
     h.weaponBlock = h.blocking && !h.hasShield;
     if (h.blocking) h.staminaWait = Math.max(h.staminaWait, 0.3);
     const H = h as any;
-    if (I.mPressed[0] && h.state !== "idle") H.buf = this.time;   // bufor: kliknięcie w trakcie ciosu ustawia następny
+    if (h.blocking && h.hasShield && I.mPressed[0]) shieldBash(this, h);   // uderzenie tarczą: blok + LPM
+    else if (I.mPressed[0] && h.state !== "idle") H.buf = this.time;   // bufor: kliknięcie w trakcie ciosu ustawia następny
     if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
       if (I.mPressed[0] || (H.buf && this.time - H.buf < 0.4)) { H.buf = 0; heroStartSeries(this, h, wx, wy); }
       else if (I.mPressed[1] && !h.mounted) { this.startWindup(h, "T"); h.key2 = "mouse1"; H.runSp = Math.hypot(h.vx, h.vy); H.soft = softTarget(this, h, wx, wy); }
@@ -1151,7 +1152,7 @@ class Battle {
       else if (!h.mounted) { const lh = this.looseHorses.find((x) => dist(x.x, x.y, h.x, h.y) < 20); if (lh) this.takeHorse(h, lh); else this.say("Brak konia w pobliżu", PAL.ash); }
     }
     if (h.state === "windup") { const held = h.key2 === "mouse" ? I.down[0] : h.key2 === "mouse1" ? I.down[1] : I.held(h.key2); if (held) h.hold += dt; else h.released = true; }
-    if (I.hit(KB("kick")) && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
+    if (I.hit(KB("kick")) && !h.mounted && (h.state === "idle" || h.state === "recover") && !tryExecute(this, h) && h.stamina >= 12) {
       h.state = "kick"; h.t = 0; h.hitDone = false; h.stamina -= 15; h.staminaWait = 0.5; h.blocking = false;
       h.vx += Math.cos(h.face) * 30; h.vy += Math.sin(h.face) * 30;
     }
@@ -1242,7 +1243,7 @@ class Battle {
 
   // ---------- Walka wręcz ----------
   startWindup(u: Unit, dir: Dir) {
-    u.state = "windup"; u.t = 0; u.dir = dir; u.hold = 0; u.released = false; u.hitDone = false;
+    u.state = "windup"; u.t = 0; u.dir = dir; u.hold = 0; u.released = false; u.hitDone = false; rollUnblockable(u);
     u.countering = u.counterT > 0; u.counterT = 0;
     if (!u.hero) u.fatigue = Math.min(1, u.fatigue + 0.01);
     u.swingVar = dir === "L" || dir === "R" ? rr(-0.45, 0.45) : rr(-0.2, 0.2);
@@ -1335,7 +1336,16 @@ class Battle {
       if (Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) > arc) continue;
       if (d < bd) { bd = d; best = u; }
     }
-    if (best) { this.resolveHit(a, best); return; }
+    if (best) {
+      const n = cleaveCount(a);
+      if (n > 1) {   // ciężki zamach trafia też sąsiadów (słabiej)
+        const more = this.units.filter((u) => u !== best && u.team !== a.team && u.active && dist(a.x, a.y, u.x, u.y) <= reach + u.radius && Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) <= arc).sort((p, q) => dist(a.x, a.y, p.x, p.y) - dist(a.x, a.y, q.x, q.y)).slice(0, n - 1);
+        this.resolveHit(a, best);
+        (a as any).cleaveK = 0.7; for (const u of more) if (u.active) this.resolveHit(a, u); (a as any).cleaveK = 1;
+        return;
+      }
+      this.resolveHit(a, best); return;
+    }
     // brama w oblężeniu
     const W2 = this.map.wall;
     if (W2 && !W2.broken && a.team !== this.cfg.siegeDefender && dist(a.x, a.y, W2.x0 - 4, W2.gateY) < reach + 16) {
@@ -1371,7 +1381,8 @@ class Battle {
     const ha = Math.atan2(d.y - a.y, d.x - a.x);
     if (a.hidden) this.reveal(a);
 
-    if (d.hero && d.blocking && angFromD < 1.2) {
+    if (d.hero && d.blocking && angFromD < 1.2 && isUnblockable(a)) this.floater(d.x, d.y - 38, "NIE DO ZABLOKOWANIA", PAL.redL, true);
+    if (d.hero && d.blocking && angFromD < 1.2 && !isUnblockable(a)) {
       if (this.time - d.blockStart <= this.parryWindow()) {
         this.sfx.parry();
         this.hitstop = Math.max(this.hitstop, 0.18); this.kickCam(Math.cos(ha), Math.sin(ha), 1.5);
@@ -1412,10 +1423,12 @@ class Battle {
       this.sparks(hx, hy, 9, PAL.steelL); this.impact(hx, hy, PAL.white, 0.8);
       if (a.hero) { this.stagger(a, 0.4); this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(-Math.cos(ha), -Math.sin(ha), 0.9); this.floater(d.x, d.y - 32, "BLOK", PAL.steelL, true); this.push(a, d.x, d.y, 35); }
       else a.cooldown = 0.3;
+      if (a.hero) breakPosture(this, d, 14);
       d.guardT = Math.max(d.guardT, 0.3);
       return;
     }
-    if (d.dodgeT > 0.05) { this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true); this.sfx.swing?.(0.5, 0, 0.5); return; }
+    if (d.dodgeT > 0.05) { if (d.hero && d.dodgeT > 0.12) perfectDodge(this, d); else this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true); this.sfx.swing?.(0.5, 0, 0.5); return; }
+    if (!d.hero && d.hasShield && a.hero && isSeriesEnd(a) && wclass(a.w) === "axe" && angFromD < 1.0) { this.floater(d.x, d.y - 40, "TARCZA TRZESZCZY", PAL.dirtL, true); if (this.shieldWear(d, w.dmg[dir] * 3)) return; }
     if (!d.hero && d.hasShield && d.shieldOffT <= 0 && d.state === "idle" && angFromD < 1.0) {
       const wall = d.team === 0 && this.ordersOf(0, d.squad)?.formation === "wall";
       if (chance(d.def.shieldBlock * (wall ? 1.6 : 1))) {
@@ -1427,6 +1440,10 @@ class Battle {
     }
     let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg * backHitK(this, d, a);
     if (a.hero && !a.mounted) { const mk = momentumK(a); dmg *= mk; if (mk > 1.15) this.floater(d.x, d.y - 40, "Z ROZPĘDU", PAL.gold, true); }
+    dmg *= critRoll(this, a, d, angFromD);
+    let endFx: (() => void) | null = null;
+    if (isSeriesEnd(a)) { const m = seriesEndMods(this, a, d, dir); dmg *= m.dmgK * Math.pow(Math.max(0.2, d.arm[w.type[dir]]), -m.armIgnore); endFx = m.after; if (m.label) this.floater(d.x, d.y - 46, m.label, PAL.gold, true); }
+    dmg *= (a as any).cleaveK || 1;
     const charged = a.hero && a.hold > 0.5;
     if (a.hero) {
       dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 + this.P("counter") : 1);
@@ -1468,6 +1485,8 @@ class Battle {
     if (a.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 6 * this.furyMul);
     if (d.hero && this.heroCfg) this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8 * this.furyMul);
     this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
+    if (endFx) endFx();
+    if (a.hero) breakPosture(this, d, charged ? 30 : heavy ? 16 : 10);
     if (heroInvolved) {
       const killed = d.hp <= 0;
       this.hitstop = Math.max(this.hitstop, (head ? 0.19 : heavy ? 0.16 : 0.11) + (killed ? 0.07 : 0));
@@ -1486,6 +1505,7 @@ class Battle {
       const shielded = u.hasShield && (u.blocking || u.state === "idle");
       this.stagger(u, (u.def.poise ? 0.5 : 1.1) * (shielded ? 1.3 : 1) * (a.hero && this.P("kick") ? 1.5 : 1)); this.push(u, a.x, a.y, 120 * (a.hero && this.P("kick") ? 1.4 : 1));
       if (a.hero && this.P("kick")) this.damage(u, 15, a, false, "blunt", true);
+      if (a.hero) { breakPosture(this, u, 30); slamCheck(this, u, a.x, a.y); }
       if (shielded) { u.shieldOffT = 2.2; this.floater(u.x, u.y - 32, "TARCZA ODBITA", PAL.gold, true); this.sfx.thunk(1, 0); }
       // spychanie z drabin i muru
       if (this.map.wall && !u.mounted && Math.abs(u.x - this.map.wall.x0) < 14) { this.damage(u, 30, a, false, "blunt", true); this.say(`${u.def.name} spada z drabiny!`, PAL.gold); }
@@ -1531,6 +1551,7 @@ class Battle {
       if (src) this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
     }
     if (src) this.push(d, src.x, src.y, 40 + dmg * (heavy ? 1.35 : 0.8));
+    if (src?.hero && heavy && d.hp > 0) slamCheck(this, d, src.x, src.y);
     const interrupt = !d.def.poise || head || dmg >= 40 || type === "blunt";
     if (d.hp > 0 && head && dmg >= 15) { this.stagger(d, d.hero ? 0.6 : 1.1); if (src?.hero || d.hero) this.floater(d.x, d.y - 38, "OGŁUSZONY", PAL.gold, true); }
     else if (d.hp > 0 && (interrupt || (d.hero && dmg >= 12))) this.stagger(d, d.hero ? (heavy ? 0.65 : 0.45) : heavy ? 0.7 : 0.45);
@@ -1547,6 +1568,7 @@ class Battle {
     this.lastKillT = this.time;
     const s = this.vol(d.x);
     if (src) src.kills++;
+    if (src?.hero && !d.hero) heroKillStreak(this, src, d);
     if (src?.team === 0 && this.heroCfg && d.def.undead) this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
     if (this.archery && d.key === "x_dummy") { this.archery.score++; this.floater(d.x, d.y - 26, "TRAFIONY!", PAL.gold, true); this.crowd(d.x, d.y, 3); }
     if (d.hero && this.P("cheat") && !this.cheatUsed) { this.cheatUsed = true; d.hp = 1; this.shout("Jeszcze nie!", PAL.gold); return; }
@@ -1572,7 +1594,7 @@ class Battle {
     const [dirI] = this.dirIndex(d.face);
     const bones = !!d.def.undead && d.look.race === "skel";
     // ćwiartowanie: ciężkie cięcie albo cios w głowę może odrąbać głowę lub kończynę
-    const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
+    const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.28));
     let img = d.spr.frames[dirI][0];
     if (sever && d.look.race !== "ghoul" && d.look.race !== "wolf" && d.look.race !== "dk") {
       img = d.spr.headless[dirI];
@@ -1580,7 +1602,7 @@ class Battle {
       this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
       if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - d.spr.headY - 6, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
       if (src?.hero) { if (this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
-    } else if (this.settings.gore !== false && type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
+    } else if (this.settings.gore !== false && type === "cut" && (heavy || src?.hero) && chance(0.4) && d.look.race !== "wolf") {
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
       this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
     }
@@ -1720,6 +1742,7 @@ class Battle {
     if (this.inForest(u.x, u.y) && chance(0.4)) { this.sfx.thunk(s.v * 0.3, s.pan); return; }
     // blanki: strzały z zewnątrz często grzęzną w kamieniu
     if (this.onWall(u) && this.map.wall && ar.vx * (this.cfg.siegeDefender === 0 ? 1 : 1) > 0 && chance(0.5)) { this.sfx.thunk(s.v * 0.35, s.pan); this.sparks(u.x - 4, u.y - 10, 2, PAL.stone); return; }
+    if (u.hero && u.blocking && facing < 1.25 && deflectArrow(this, u, ar)) return;
     if (u.hero && u.blocking && !u.weaponBlock && facing < 1.25) { this.sfx.thunk(1, s.pan); this.sparks(u.x, u.y - 12, 3, PAL.wood); return; }
     if (!u.hero && u.hasShield && u.state === "idle" && facing < 1.1) {
       const wall = u.team === 0 && this.ordersOf(0, u.squad)?.formation === "wall";
@@ -2326,7 +2349,7 @@ class Battle {
       if (u.mounted) this.lanceCheck(u);
       if (!u.hero && u.active) this.updateAI(u, dt);
     }
-    updateFire(this, dt); updateWeather(this, dt); updateTraps(this, dt);
+    updateFire(this, dt); updateWeather(this, dt); updateTraps(this, dt); braceTick(this, dt); postureTick(this, dt);
     const h = this.hero;
     for (const u of this.units) {
       if (!u.active) continue;

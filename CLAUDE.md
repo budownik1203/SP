@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.29** (30 października 2026).
+Stan na **Build 0.30** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -29,6 +29,8 @@ Język gry, interfejsu i komunikacji z użytkownikiem: **polski**.
 - Stała dyspozycja: **„pracuj z całością, nie czekaj na mnie”, „pracuj dalej”**. Pracuj autonomicznie,
   build po buildzie, bez pytania o zgodę na kolejne kroki. Pytaj tylko, gdy decyzja jest naprawdę
   jego (np. sprzeczne wymagania).
+- **Przy każdym buildzie aktualizuj ten plik (CLAUDE.md)**: stan, mapę kodu, historię, backlog, klawisze.
+  Użytkownik wprost o to prosi.
 - Po każdym buildzie wyślij plik i daj krótkie podsumowanie po polsku: co doszło, jak to obsłużyć
   (klawisze), co dalej.
 - Decyzje projektowe zebrane są w dwóch ankietach (z odpowiedziami użytkownika) i w GDD (patrz punkt 9).
@@ -81,7 +83,7 @@ renown, retinue, main.
 | `audio.ts` | `Sfx`: efekty, instrumenty, nastroje muzyki (`MoodDef`, `MOTIF` frakcji), ambient |
 | `battleMap.ts` | generowanie pól bitwy: teren, sezon, region, uliczki miasta, palisada obozu, mury |
 | `battle.ts` | klasa `Battle` i `Unit`: symulacja, AI, rozkazy (`cmdMenu`, `cmdChoose`), oblężenia, `KEYDEF` (wszystkie klawisze), `resolveHit`, `damage`, `kill`, wynik |
-| `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany) |
+| `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany); B30: koniec serii (`isSeriesEnd`, `seriesEndMods`), ciężki zamach przez kilku (`cleaveCount`, `cleaveK`), uderzenie tarczą (`shieldBash`), zaparta drzewcowa (`braceTick`), postawa elit (`hasPosture`, `breakPosture`, `drawPosture`), idealny unik (`perfectDodge`), ciosy nie do zablokowania (`rollUnblockable`), zapowiedzi (`drawTelegraphs`), odbijanie strzał (`deflectArrow`), uderzenie o przeszkodę (`slamCheck`), egzekucje (`tryExecute`, klawisz kopniaka F), seria zabójstw (`heroKillStreak`), krytyki (`critRoll`) |
 | `abilities.ts` | umiejętności bohatera (1–3), kule ognia (`explodeFire`) |
 | `battleRender.ts` | rysowanie bitwy, noc, deszcz, mgła, tonowanie, celownik |
 | `world.ts` | `World`, generowanie świata, A* (`findPath`), AI oddziałów (`partyAI`), `dailyTick`, ekonomia, `BUILDINGS`, `COMPANIONS`, `partyLimit`, `heroMaxHp` |
@@ -119,7 +121,7 @@ renown, retinue, main.
   (cięcie `^1.3`, obuch słabiej).
 - **Klawisze** są tylko w `KEYDEF` (`battle.ts`), odczyt przez `KB("id")`. Gracz może je przemapować
   (`settings.keys`). W bitwie: LPM = seria ciosów (przytrzymanie = mocny cios), PPM = blok i parowanie,
-  ŚPM = szybkie pchnięcie, Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry,
+  ŚPM = szybkie pchnięcie, PPM przytrzymany + LPM = uderzenie tarczą, Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry,
   R = tryb pchnięcia albo cięcia (zmienia serię broni kłutych), V = opuść kopię (konno), Q = rozkazy, Z/X/C/V/B = szybkie rozkazy, T/G = trebusz/okrzyk (w rozstawieniu obrony:
   pale/rów). Na mapie: U = Królestwo, C I P F K J L = okna, Spacja = obóz.
 - **Teksty:** po polsku, krótko, w klimacie, bez myślników (używaj dwukropka, kropki, „·”). Zdania jak od
@@ -143,7 +145,9 @@ wypisując na końcu `errors N` (błędy strony). Uruchomienie: `node tests/b23.
 
 - Regresja po każdym buildzie: `t11` (bot gra 14 dni kampanii), `b8`, `b19`, `b22`, `b23`, `b24`,
   `b25`, `b26`, `b27`, `b29` (seria ciosów prawdziwymi kliknięciami myszy). Szybkie i najważniejsze:
-  `t11`, `b23`, `b24`, `b26`, `b29`.
+  `t11`, `b23`, `b24`, `b26`, `b29`, `b30`.
+- `b8`: tryb „duel” zawsze kończy się `NOAFTER` (test odnawia zdrowie bohatera, który nie atakuje), tak
+  było też przed B30, to nie regresja.
 - Znane niestabilności: `b8` (obrona, losowi lordowie) i `t11` (czasem timeout klikania) bywają
   niestabilne. Uruchom ponownie, zanim uznasz to za błąd.
 - Haki testowe w przeglądarce: `window.__game()` (`G`, `WORLD`), `__battle()`,
@@ -162,7 +166,10 @@ B19 podróż i obóz · B20 ekwipunek i rzemiosło · B21 muzyka · B22 oblęże
 B23 nowe mechaniki bitwy · B24 królestwo · B25 dyplomacja i wywiad · B26 reputacja i kompani ·
 B27 strojenie (blok jako okno czasowe, łuk, pancerz, morale, jeńcy) · B28 mapa świata bez winiety starej mapy, mgły i cieni chmur (na życzenie użytkownika: nie przywracać) ·
 B29 mniej ociężałości: serie ciosów zamiast kierunków, bufor, przerwanie zamachu, szybszy obrót i zamach,
-miękkie przyciąganie, rozpęd, pękanie gardy, kara za otoczenie, lżejszy pancerz, kamera auto.
+miękkie przyciąganie, rozpęd, pękanie gardy, kara za otoczenie, lżejszy pancerz, kamera auto ·
+B30 koniec serii zależny od broni, ciężki zamach przez 2–3 wrogów, uderzenie tarczą, zaparta włócznia
+zrzuca jeźdźców, pasek postawy elit, oficerów i lordów, idealny unik, zapowiedzi i ciosy nie do zablokowania,
+odbijanie strzał parowaniem, uderzenie o przeszkodę, egzekucje (F), seria zabójstw, krytyki, więcej ćwiartowania.
 Szczegóły każdego buildu są w GDD.
 
 ## 8. Co dalej (backlog z ankiet, kolejność według priorytetów użytkownika)
@@ -171,20 +178,15 @@ Szczegóły każdego buildu są w GDD.
 w GDD; użytkownik prosi, by traktować je jako kierunek: realizm i ciężar zostają, bez zręcznościowych
 skrajności, bez epickich finiszerów):
 
-a. **Serie broni dokończone:** finisz serii zależny od klasy, ale skromny (miecz: przebicie, topór:
-   łamanie tarczy, obuch: ogłuszenie i wgniecenie hełmu, włócznia: odepchnięcie, dwuręczna: przez kilku,
-   nóż: szczelina w zbroi); ciężki cios trafia 2–3 wrogów zależnie od zasięgu broni. Po serii przerwa
-   i duży koszt wytrzymałości (mistrzostwo zmniejsza karę; jest `seriesCooldown`).
-b. **Tarcza:** uderzenie tarczą (PPM przytrzymany + LPM), ściana tarcz w szeregu. Broń drzewcowa
-   zatrzymuje szarżę i zrzuca jeźdźca, gdy stoisz w miejscu.
-c. **Czucie trafienia:** odrzut na przeszkodę z dodatkowymi obrażeniami i przewróceniem, powalenie po
-   finiszu lub kopniaku, egzekucje (F przy powalonym, efekt morale), licznik serii zabójstw (morale
-   twoich ludzi w pobliżu), krytyki z dźwiękiem, więcej odciętych kończyn, wgniecione hełmy i rozdarte
-   tuniki, więcej krwi na bohaterze. Wstrząs ekranu bez zmian.
-d. **Obrona:** pasek postawy tylko u elit, oficerów i lordów (łamią go bloki, ciężkie ciosy, kopniaki);
-   idealny unik = krótkie spowolnienie i kontra; czerwone zapowiedzi ciosów elit i oficerów; ciosy nie do
-   zablokowania u lordów i potworów; parowanie odbija strzały; mistrzowskie uderzenie jako ulepszenie
-   z mistrzostwa.
+a. ~~Serie broni, koniec serii, ciężki zamach przez kilku~~ (zrobione w B29–B30). Zostało: widoczne
+   wgniecenie hełmu po ogłuszeniu obuchem (flaga `dented` jest ustawiana, rysowanie brak).
+b. ~~Uderzenie tarczą, zaparta drzewcowa~~ (B30). Zostało: ściana tarcz bohatera z oddziałem w szeregu.
+c. **Czucie trafienia:** ~~odrzut na przeszkodę, egzekucje, seria zabójstw, krytyki, więcej ćwiartowania~~
+   (B30). Zostało: wgniecione hełmy i rozdarte tuniki rysowane na wrogach w trakcie walki, więcej krwi
+   na bohaterze, prawdziwe leżenie powalonych (teraz to długie ogłuszenie).
+d. **Obrona:** ~~pasek postawy elit, oficerów i lordów~~ (B30: tier 5+, dowódcy, jednostki z umiejętnością);
+   ~~idealny unik, zapowiedzi, ciosy nie do zablokowania, odbijanie strzał~~ (B30). Zostało: mistrzowskie
+   uderzenie jako ulepszenie z mistrzostwa.
 e. **Umiejętności:** 5 slotów (3 z drzewek, 1 z broni, 1 rzutka); źródła: drzewka, mistrzostwo broni,
    runy wkute w kuźni, dary świętych, starych bogów i duchów przodków, Morvath przy spaczeniu, z ukrytymi
    parami-synergiami; płatność: odnowienie, wytrzymałość, wiara lub mana. Rzutki zamiast drugiej broni,

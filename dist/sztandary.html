@@ -6608,7 +6608,9 @@ class Battle {
         if (h.blocking)
             h.staminaWait = Math.max(h.staminaWait, 0.3);
         const H = h;
-        if (I.mPressed[0] && h.state !== "idle")
+        if (h.blocking && h.hasShield && I.mPressed[0])
+            shieldBash(this, h); // uderzenie tarczą: blok + LPM
+        else if (I.mPressed[0] && h.state !== "idle")
             H.buf = this.time; // bufor: kliknięcie w trakcie ciosu ustawia następny
         if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
             if (I.mPressed[0] || (H.buf && this.time - H.buf < 0.4)) {
@@ -6662,7 +6664,7 @@ class Battle {
             else
                 h.released = true;
         }
-        if (I.hit(KB("kick")) && !h.mounted && (h.state === "idle" || h.state === "recover") && h.stamina >= 12) {
+        if (I.hit(KB("kick")) && !h.mounted && (h.state === "idle" || h.state === "recover") && !tryExecute(this, h) && h.stamina >= 12) {
             h.state = "kick";
             h.t = 0;
             h.hitDone = false;
@@ -6800,6 +6802,7 @@ class Battle {
         u.hold = 0;
         u.released = false;
         u.hitDone = false;
+        rollUnblockable(u);
         u.countering = u.counterT > 0;
         u.counterT = 0;
         if (!u.hero)
@@ -7016,6 +7019,17 @@ class Battle {
             }
         }
         if (best) {
+            const n = cleaveCount(a);
+            if (n > 1) { // ciężki zamach trafia też sąsiadów (słabiej)
+                const more = this.units.filter((u) => u !== best && u.team !== a.team && u.active && dist(a.x, a.y, u.x, u.y) <= reach + u.radius && Math.abs(angDiff(a.face, Math.atan2(u.y - a.y, u.x - a.x))) <= arc).sort((p, q) => dist(a.x, a.y, p.x, p.y) - dist(a.x, a.y, q.x, q.y)).slice(0, n - 1);
+                this.resolveHit(a, best);
+                a.cleaveK = 0.7;
+                for (const u of more)
+                    if (u.active)
+                        this.resolveHit(a, u);
+                a.cleaveK = 1;
+                return;
+            }
             this.resolveHit(a, best);
             return;
         }
@@ -7067,7 +7081,9 @@ class Battle {
         const ha = Math.atan2(d.y - a.y, d.x - a.x);
         if (a.hidden)
             this.reveal(a);
-        if (d.hero && d.blocking && angFromD < 1.2) {
+        if (d.hero && d.blocking && angFromD < 1.2 && isUnblockable(a))
+            this.floater(d.x, d.y - 38, "NIE DO ZABLOKOWANIA", PAL.redL, true);
+        if (d.hero && d.blocking && angFromD < 1.2 && !isUnblockable(a)) {
             if (this.time - d.blockStart <= this.parryWindow()) {
                 this.sfx.parry();
                 this.hitstop = Math.max(this.hitstop, 0.18);
@@ -7145,13 +7161,23 @@ class Battle {
             }
             else
                 a.cooldown = 0.3;
+            if (a.hero)
+                breakPosture(this, d, 14);
             d.guardT = Math.max(d.guardT, 0.3);
             return;
         }
         if (d.dodgeT > 0.05) {
-            this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true);
+            if (d.hero && d.dodgeT > 0.12)
+                perfectDodge(this, d);
+            else
+                this.floater(d.x, d.y - 30, "UNIK", PAL.boneHi, true);
             this.sfx.swing?.(0.5, 0, 0.5);
             return;
+        }
+        if (!d.hero && d.hasShield && a.hero && isSeriesEnd(a) && wclass(a.w) === "axe" && angFromD < 1.0) {
+            this.floater(d.x, d.y - 40, "TARCZA TRZESZCZY", PAL.dirtL, true);
+            if (this.shieldWear(d, w.dmg[dir] * 3))
+                return;
         }
         if (!d.hero && d.hasShield && d.shieldOffT <= 0 && d.state === "idle" && angFromD < 1.0) {
             const wall = d.team === 0 && this.ordersOf(0, d.squad)?.formation === "wall";
@@ -7174,6 +7200,16 @@ class Battle {
             if (mk > 1.15)
                 this.floater(d.x, d.y - 40, "Z ROZPĘDU", PAL.gold, true);
         }
+        dmg *= critRoll(this, a, d, angFromD);
+        let endFx = null;
+        if (isSeriesEnd(a)) {
+            const m = seriesEndMods(this, a, d, dir);
+            dmg *= m.dmgK * Math.pow(Math.max(0.2, d.arm[w.type[dir]]), -m.armIgnore);
+            endFx = m.after;
+            if (m.label)
+                this.floater(d.x, d.y - 46, m.label, PAL.gold, true);
+        }
+        dmg *= a.cleaveK || 1;
         const charged = a.hero && a.hold > 0.5;
         if (a.hero) {
             dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 + this.P("counter") : 1);
@@ -7251,6 +7287,10 @@ class Battle {
         if (d.hero && this.heroCfg)
             this.heroCfg.fury = Math.min(100, this.heroCfg.fury + 8 * this.furyMul);
         this.damage(d, dmg, a, head, w.type[dir], heavy, hx, hy);
+        if (endFx)
+            endFx();
+        if (a.hero)
+            breakPosture(this, d, charged ? 30 : heavy ? 16 : 10);
         if (heroInvolved) {
             const killed = d.hp <= 0;
             this.hitstop = Math.max(this.hitstop, (head ? 0.19 : heavy ? 0.16 : 0.11) + (killed ? 0.07 : 0));
@@ -7275,6 +7315,10 @@ class Battle {
             this.push(u, a.x, a.y, 120 * (a.hero && this.P("kick") ? 1.4 : 1));
             if (a.hero && this.P("kick"))
                 this.damage(u, 15, a, false, "blunt", true);
+            if (a.hero) {
+                breakPosture(this, u, 30);
+                slamCheck(this, u, a.x, a.y);
+            }
             if (shielded) {
                 u.shieldOffT = 2.2;
                 this.floater(u.x, u.y - 32, "TARCZA ODBITA", PAL.gold, true);
@@ -7353,6 +7397,8 @@ class Battle {
         }
         if (src)
             this.push(d, src.x, src.y, 40 + dmg * (heavy ? 1.35 : 0.8));
+        if (src?.hero && heavy && d.hp > 0)
+            slamCheck(this, d, src.x, src.y);
         const interrupt = !d.def.poise || head || dmg >= 40 || type === "blunt";
         if (d.hp > 0 && head && dmg >= 15) {
             this.stagger(d, d.hero ? 0.6 : 1.1);
@@ -7380,6 +7426,8 @@ class Battle {
         const s = this.vol(d.x);
         if (src)
             src.kills++;
+        if (src?.hero && !d.hero)
+            heroKillStreak(this, src, d);
         if (src?.team === 0 && this.heroCfg && d.def.undead)
             this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
         if (this.archery && d.key === "x_dummy") {
@@ -7455,7 +7503,7 @@ class Battle {
         const [dirI] = this.dirIndex(d.face);
         const bones = !!d.def.undead && d.look.race === "skel";
         // ćwiartowanie: ciężkie cięcie albo cios w głowę może odrąbać głowę lub kończynę
-        const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.15));
+        const sever = this.settings.gore !== false && (type === "cut" && (heavy || head) && chance(head ? 0.6 : 0.35)) || (src?.hero && type === "cut" && chance(0.28));
         let img = d.spr.frames[dirI][0];
         if (sever && d.look.race !== "ghoul" && d.look.race !== "wolf" && d.look.race !== "dk") {
             img = d.spr.headless[dirI];
@@ -7470,7 +7518,7 @@ class Battle {
                 this.shake(2);
             }
         }
-        else if (this.settings.gore !== false && type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
+        else if (this.settings.gore !== false && type === "cut" && (heavy || src?.hero) && chance(0.4) && d.look.race !== "wolf") {
             const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
             this.parts.push({ x: d.x, y: d.y, z: 14, vx: Math.cos(a) * rr(40, 80), vy: Math.sin(a) * rr(20, 50), vz: rr(50, 90), life: 3, max: 3, col: d.def.undead ? PAL.bone : d.look.skin[0], kind: "limb", rot: 0 });
         }
@@ -7734,6 +7782,8 @@ class Battle {
             this.sparks(u.x - 4, u.y - 10, 2, PAL.stone);
             return;
         }
+        if (u.hero && u.blocking && facing < 1.25 && deflectArrow(this, u, ar))
+            return;
         if (u.hero && u.blocking && !u.weaponBlock && facing < 1.25) {
             this.sfx.thunk(1, s.pan);
             this.sparks(u.x, u.y - 12, 3, PAL.wood);
@@ -8828,6 +8878,8 @@ class Battle {
         updateFire(this, dt);
         updateWeather(this, dt);
         updateTraps(this, dt);
+        braceTick(this, dt);
+        postureTick(this, dt);
         const h = this.hero;
         for (const u of this.units) {
             if (!u.active)
@@ -9317,6 +9369,301 @@ function guardBreaks(b, d) {
         return true;
     }
     return false;
+}
+// ---------- B30: koniec serii, ciężki cios przez kilku, uderzenie tarczą, zaparta włócznia ----------
+function isSeriesEnd(h) { const H = hx(h); return h.hero && H.seriesN > 1 && H.seriesI === H.seriesN - 1 && h.key2 === "mouse"; }
+// skromny koniec serii zależny od klasy broni (bez efektownych finiszerów: te są umiejętnościami)
+function seriesEndMods(b, a, d, dir) {
+    const c = wclass(a.w);
+    switch (c) {
+        case "sword": return dir === "T" ? { dmgK: 1.15, armIgnore: 0.25, after: null, label: "PRZEBICIE" } : { dmgK: 1.1, armIgnore: 0, after: null, label: "" };
+        case "dagger": return { dmgK: 1, armIgnore: 0.45, after: null, label: "W SZCZELINĘ" };
+        case "axe": return { dmgK: 1.1, armIgnore: 0, after: null, label: "" };
+        case "blunt": return { dmgK: 1.1, armIgnore: 0.1, after: () => { if (d.active && !d.def.undead) {
+                b.stagger(d, d.def.poise ? 0.7 : 1.15);
+                hx(d).dented = 1;
+                b.floater(d.x, d.y - 38, "OGŁUSZONY", PAL.gold, true);
+            } }, label: "" };
+        case "spear": return { dmgK: 1.05, armIgnore: 0.1, after: () => { if (d.active) {
+                b.push(d, a.x, a.y, 110);
+                slamCheck(b, d, a.x, a.y);
+            } }, label: "" };
+        case "two": return { dmgK: 1.15, armIgnore: 0, after: () => { if (d.active && !d.def.poise) {
+                b.stagger(d, 1.0);
+                b.floater(d.x, d.y - 38, "POWALONY", PAL.gold, true);
+            } }, label: "" };
+        default: return { dmgK: 1.05, armIgnore: 0, after: null, label: "" };
+    }
+}
+// ile celów zmieści się w ciężkim zamachu: zależy od zasięgu broni
+function cleaveCount(a) {
+    if (!a.hero || a.mounted)
+        return 1;
+    const heavy = a.hold > 0.5 || (isSeriesEnd(a) && wclass(a.w) === "two");
+    if (!heavy || a.dir === "T")
+        return 1;
+    return a.w.reach >= 24 ? 3 : a.w.reach >= 18 ? 2 : 1;
+}
+// uderzenie tarczą: przytrzymany blok + LPM
+function shieldBash(b, h) {
+    const H = hx(h);
+    if ((H.bashCd ?? 0) > b.time || h.stamina < 14)
+        return;
+    H.bashCd = b.time + 0.7;
+    h.stamina -= 14;
+    h.staminaWait = 0.7;
+    h.vx += Math.cos(h.face) * 60;
+    h.vy += Math.sin(h.face) * 60;
+    let hit = false;
+    for (const u of b.units) {
+        if (u.team === h.team || !u.active || u.mounted)
+            continue;
+        if (dist(h.x, h.y, u.x, u.y) > 20 + u.radius || Math.abs(angDiff(h.face, Math.atan2(u.y - h.y, u.x - h.x))) > 0.8)
+            continue;
+        hit = true;
+        b.push(u, h.x, h.y, u.def.poise ? 60 : 130);
+        slamCheck(b, u, h.x, h.y);
+        if (u.state === "windup" || u.state === "strike") {
+            b.stagger(u, 0.8);
+            b.floater(u.x, u.y - 34, "PRZERWANY", PAL.gold, true);
+        }
+        else
+            b.stagger(u, u.def.poise ? 0.3 : 0.6);
+        b.damage(u, 6, h, false, "blunt", false);
+        breakPosture(b, u, 25);
+    }
+    const s = b.vol(h.x);
+    b.sfx.thunk(s.v, s.pan);
+    if (hit) {
+        b.hitstop = Math.max(b.hitstop, 0.07);
+        b.kickCam(Math.cos(h.face), Math.sin(h.face), 1.2);
+    }
+    b.dust(h.x + Math.cos(h.face) * 8, h.y + Math.sin(h.face) * 6, 3);
+}
+// zaparta broń drzewcowa zatrzymuje szarżującego jeźdźca i zrzuca go z konia
+function braceTick(b, dt) {
+    const B = b;
+    B.braceT = (B.braceT || 0) - dt;
+    if (B.braceT > 0)
+        return;
+    B.braceT = 0.12;
+    for (const u of b.units) {
+        if (!u.active || u.mounted || wclass(u.w) !== "spear")
+            continue;
+        const still = u.hero ? !u.moving && (u.state === "idle" || u.blocking) : (u.state === "idle" && !u.moving && (b.inFormation(u) || chance(0.5)));
+        if (!still)
+            continue;
+        for (const r of b.units) {
+            if (!r.active || !r.mounted || r.team === u.team || r.rspeed < r.maxRide * 0.45)
+                continue;
+            const d = dist(u.x, u.y, r.x, r.y);
+            if (d > u.w.reach + 10)
+                continue;
+            if (Math.abs(angDiff(u.face, Math.atan2(r.y - u.y, r.x - u.x))) > 0.7)
+                continue;
+            if ((hx(r).braceHitT ?? -9) > b.time - 1.5)
+                continue;
+            hx(r).braceHitT = b.time;
+            const s = b.vol(r.x);
+            b.sfx.thunk(s.v, s.pan);
+            b.sfx.neigh?.(s.v, s.pan);
+            r.horseHp -= 90 + r.rspeed * 0.4;
+            r.rspeed *= 0.15;
+            b.damage(r, 25 + r.rspeed * 0.1, u, false, "pierce", true);
+            if (r.active && r.mounted && r.horseHp <= 0)
+                b.dismount(r);
+            if (r.active && r.mounted && chance(0.45)) {
+                b.dismount(r);
+            }
+            if (r.active && !r.mounted) {
+                b.stagger(r, r.hero ? 0.8 : 1.3);
+                b.floater(r.x, r.y - 34, "ZRZUCONY Z KONIA", PAL.gold, u.hero || r.hero);
+            }
+            if (u.hero || r.hero) {
+                b.hitstop = Math.max(b.hitstop, 0.1);
+                b.shake(2);
+            }
+            break;
+        }
+    }
+}
+// ---------- postawa elit, oficerów i lordów (pasek, który łamią bloki, ciężkie ciosy, kopniaki) ----------
+function hasPosture(u) { return !u.hero && (u.commander || u.def.tier >= 5 || !!u.def.ability); }
+function breakPosture(b, u, v) {
+    if (!hasPosture(u) || !u.active)
+        return;
+    const U = hx(u);
+    U.post = Math.min(100, (U.post || 0) + v);
+    U.postT = b.time;
+    if (U.post >= 100) {
+        U.post = 0;
+        b.stagger(u, 1.4);
+        b.floater(u.x, u.y - 40, "POSTAWA ZŁAMANA", PAL.gold, true);
+        const s = b.vol(u.x);
+        b.sfx.clang(s.v, s.pan);
+        b.sparks(u.x, u.y - 14, 16, PAL.gold);
+    }
+}
+function postureTick(b, dt) { for (const u of b.units) {
+    const U = hx(u);
+    if (U.post > 0 && b.time - (U.postT || 0) > 1.5)
+        U.post = Math.max(0, U.post - dt * 18);
+} }
+function drawPosture(b, g, u, x, y) {
+    const p = hx(u).post || 0;
+    if (p <= 1 || !hasPosture(u))
+        return;
+    const w = 14, f = Math.round(w * p / 100);
+    g.fillStyle = PAL.ink;
+    g.fillRect(x - w / 2 - 1, y - 1, w + 2, 3);
+    g.fillStyle = p > 75 ? PAL.gold : PAL.bone;
+    g.fillRect(x - w / 2, y, f, 1);
+}
+// ---------- B31: obrona i czucie trafienia ----------
+// idealny unik: odskok trafiony w ostatniej chwili spowalnia czas i daje kontrę
+function perfectDodge(b, d) {
+    if (!d.hero)
+        return;
+    const D = hx(d);
+    if ((D.pdT ?? -9) > b.time - 1)
+        return;
+    D.pdT = b.time;
+    b.slowT = Math.max(b.slowT, 0.45);
+    d.counterT = 0.9;
+    d.stamina = Math.min(100, d.stamina + 10);
+    b.floater(d.x, d.y - 34, "IDEALNY UNIK", PAL.gold, true);
+    b.sfx.parry();
+}
+// ciosy nie do zablokowania: lordowie, dowódcy i potwory czasem biorą zamach, którego nie da się sparować
+function rollUnblockable(u) { hx(u).unblock = !u.hero && (u.commander || u.def.culture === "monster" && u.def.tier >= 3 || u.def.tier >= 6) && chance(0.22); }
+function isUnblockable(u) { return !!hx(u).unblock; }
+// zapowiedzi ciosów elit i oficerów (zawsze widoczne, niezależnie od ustawienia „podpowiedzi”)
+function drawTelegraphs(b, g, sx, sy) {
+    const h = b.hero;
+    if (!h || !h.active)
+        return;
+    for (const u of b.units) {
+        if (!u.active || u.team === 0 || u.state !== "windup" || u.target !== h)
+            continue;
+        if (!hasPosture(u) && !isUnblockable(u))
+            continue;
+        if (dist(u.x, u.y, h.x, h.y) > 80)
+            continue;
+        const x = Math.round(u.x - sx), y = Math.round(u.y - sy - u.spr.h - (u.mounted ? 14 : 2));
+        const blink = Math.floor(b.real * 12) % 2 === 0;
+        const col = isUnblockable(u) ? PAL.redL : PAL.gold;
+        g.fillStyle = PAL.ink;
+        g.fillRect(x - 2, y - 7, 5, 7);
+        g.fillStyle = blink ? col : PAL.bone;
+        g.fillRect(x - 1, y - 6, 3, 3);
+        g.fillRect(x, y - 2, 1, 1);
+        if (isUnblockable(u)) {
+            g.globalAlpha = 0.5;
+            g.fillStyle = PAL.redL;
+            for (let i = 0; i < 12; i++) {
+                const a = i / 12 * 6.28 + b.real * 3;
+                g.fillRect(Math.round(x + Math.cos(a) * 9), Math.round(u.y - sy - 10 + Math.sin(a) * 5), 1, 1);
+            }
+            g.globalAlpha = 1;
+        }
+    }
+}
+// parowanie odbija strzały w stronę strzelca
+function deflectArrow(b, u, ar) {
+    if (!u.hero || !u.blocking || b.time - u.blockStart > b.parryWindow() + 0.1)
+        return false;
+    const src = ar.src;
+    const a = src && src.active ? Math.atan2(src.y - 12 - (u.y - 12), src.x - u.x) : Math.atan2(-ar.vy, -ar.vx);
+    b.fire(u, a + rr(-0.05, 0.05), 300, ar.dmg * 0.8, src ? dist(u.x, u.y, src.x, src.y) + 10 : 200, ar.kind === "bolt" ? "bolt" : "arrow");
+    b.floater(u.x, u.y - 34, "ODBITA", PAL.gold, true);
+    b.sfx.parry();
+    b.sparks(u.x, u.y - 14, 8, PAL.gold);
+    return true;
+}
+// uderzenie o przeszkodę albo innego żołnierza po mocnym odrzucie
+function slamCheck(b, d, fromX, fromY) {
+    if (!d.active || d.mounted)
+        return;
+    const a = Math.atan2(d.y - fromY, d.x - fromX), bx = d.x + Math.cos(a) * 12, by = d.y + Math.sin(a) * 10;
+    let hitWhat = "";
+    if (!b.passable(bx, by))
+        hitWhat = "wall";
+    else if (b.map.obstacles.some((o) => o.tall !== false && Math.abs(o.x - bx) < 7 && Math.abs(o.y - by) < 5))
+        hitWhat = "tree";
+    const other = b.units.find((o) => o !== d && o.active && !o.mounted && Math.abs(o.x - bx) < 7 && Math.abs(o.y - by) < 6);
+    if (!hitWhat && other)
+        hitWhat = "unit";
+    if (!hitWhat)
+        return;
+    b.damage(d, 12, null, false, "blunt", true);
+    if (!d.active)
+        return;
+    b.stagger(d, 1.0);
+    b.floater(d.x, d.y - 38, hitWhat === "unit" ? "WPADA NA SWOICH" : "O PRZESZKODĘ", PAL.gold, true);
+    if (other && hitWhat === "unit") {
+        b.stagger(other, 0.5);
+        b.push(other, d.x, d.y, 50);
+    }
+    const s = b.vol(d.x);
+    b.sfx.thunk(s.v, s.pan);
+    b.dust(bx, by, 4);
+}
+// egzekucja: F przy ogłuszonym wrogu
+function tryExecute(b, h) {
+    let t = null, td = 1e9;
+    for (const u of b.units) {
+        if (!u.active || u.team === h.team || u.mounted || u.state !== "stagger" || u.hold - u.t < 0.25 || u.hold < 0.9)
+            continue;
+        const d = dist(h.x, h.y, u.x, u.y);
+        if (d < 22 + u.radius && d < td) {
+            td = d;
+            t = u;
+        }
+    }
+    if (!t)
+        return false;
+    h.state = "kick";
+    h.t = 0.1;
+    h.hitDone = true;
+    h.stamina = Math.min(100, h.stamina + 15);
+    h.face = h.wantFace = Math.atan2(t.y - h.y, t.x - h.x);
+    b.hitstop = Math.max(b.hitstop, 0.16);
+    b.shake(2.5);
+    b.kickCam(Math.cos(h.face), Math.sin(h.face), 1.8);
+    b.floater(t.x, t.y - 40, "EGZEKUCJA", PAL.redL, true);
+    b.damage(t, 9999, h, true, "cut", true);
+    for (const u of b.units)
+        if (u.active && u.team === t.team && !u.def.undead && dist(u.x, u.y, t.x, t.y) < 90)
+            u.morale -= 10;
+    return true;
+}
+// licznik serii zabójstw bohatera
+function heroKillStreak(b, h, d) {
+    const H = hx(h);
+    H.streak = b.time - (H.lastKillT ?? -9) < 4 ? (H.streak || 0) + 1 : 1;
+    H.lastKillT = b.time;
+    if (H.streak >= 3)
+        b.floater(h.x, h.y - 46, `×${H.streak}`, PAL.gold, true);
+    if (H.streak % 5 === 0) {
+        b.say(`Seria ×${H.streak}! Twoi ludzie nabierają ducha.`, PAL.gold, true);
+        for (const u of b.units)
+            if (u.active && u.team === 0 && !u.hero && dist(u.x, u.y, h.x, h.y) < 130)
+                u.morale = Math.min(100, u.morale + 6);
+        b.sfx.battleCry(0.6);
+    }
+}
+// trafienie krytyczne bohatera
+function critRoll(b, a, d, angFromD) {
+    if (!a.hero)
+        return 1;
+    const c = 0.07 + (angFromD > 2.1 ? 0.12 : 0) + (d.state === "stagger" ? 0.15 : 0);
+    if (!chance(c))
+        return 1;
+    b.floater(d.x, d.y - 48, "KRYTYK", PAL.gold, true);
+    b.sparks(d.x, d.y - 14, 12, PAL.gold);
+    b.sfx.clang(1, 0);
+    b.hitstop = Math.max(b.hitstop, 0.1);
+    return 1.5;
 }
 
 "use strict";
@@ -10001,6 +10348,7 @@ function renderBattle(b, g) {
     }
     g.globalAlpha = 1;
     drawTells(b, g, sx, sy);
+    drawTelegraphs(b, g, sx, sy);
     // strzałki przy krawędzi: oddziały wroga poza ekranem
     if (b.heroUp && b.phase === "fight" && !b.cmdOpen) {
         const seen = new Set();
@@ -10593,6 +10941,8 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillStyle = u.team === 0 ? PAL.redL : u.commander ? PAL.purpleL : PAL.bone;
         g.fillRect(hx, hy, Math.ceil(w * k), 2);
     }
+    if (near)
+        drawPosture(b, g, u, bx, iy + 8);
     if ((u.companion || u.commander) && near) {
         const nm = u.companion ? u.name : "";
         if (nm) {
@@ -25031,7 +25381,7 @@ function companionExtraActs(w, re) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.29";
+const BUILD = "Build 0.30";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -25765,7 +26115,7 @@ function spriteSheet(keys, scale = 3) {
     return o.toDataURL();
 }
 window.__T2 = { launchStreets, mineAssault, sallyAgainstPlayer, showCapitulation, playerSiegeDay };
-window.__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed, siegeWon, showKingdom, kingdomDaily, planRoad, planBridge, works, partyLimit, serializeWorld, deserializeWorld, KG, sendSpy, intelDaily, treatyDaily, sendTreaty, hireCompany, mercCompany, intrigue, spies, treaties, contracts, spyAct, IG, setWar, playerDeclareWar, addDeed, addBounty, bountyDaily, maybeWound, deedTraits, enterSettlement, perk, companionQuestsDaily, makeCompanion, ennoble, gearUp, completeQuest, pquestDo };
+window.__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed, siegeWon, showKingdom, kingdomDaily, planRoad, planBridge, works, partyLimit, serializeWorld, deserializeWorld, KG, sendSpy, intelDaily, treatyDaily, sendTreaty, hireCompany, mercCompany, intrigue, spies, treaties, contracts, spyAct, IG, setWar, playerDeclareWar, tryExecute, addDeed, addBounty, bountyDaily, maybeWound, deedTraits, enterSettlement, perk, companionQuestsDaily, makeCompanion, ennoble, gearUp, completeQuest, pquestDo };
 window.__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP)
         renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER)
         g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) {
