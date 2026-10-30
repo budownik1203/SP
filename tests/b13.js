@@ -1,0 +1,43 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push('PAGEERR ' + e.message + '\n' + e.stack));
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html');
+  await p.waitForTimeout(800);
+  await p.click('text=Nowa gra'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300); await p.waitForTimeout(600);
+  await p.evaluate(() => { const w = window.__game().WORLD, P = w.player; P.gold = 20000; P.skillPts = 12; P.attr.str = 9; P.attr.end = 8; P.items.push('w_greataxe', 'x_heavy', 'w_sword'); });
+  await p.evaluate(() => window.__T.showCharacter()); await p.waitForTimeout(300);
+  for (const id of ['ps1', 'ps2', 'cleaver']) { const nb = await p.$(`#ui button.node[data-v="${id}"]`); if (nb) await nb.click(); await p.waitForTimeout(80); const u = await p.$('#ui button[data-a="unlock"]'); if (u) await u.click(); await p.waitForTimeout(80); }
+  await p.click('#ui button.ttab[data-v="heavy"]'); await p.waitForTimeout(150);
+  await p.click('#ui button.node[data-v="hv1"]'); const u2 = await p.$('#ui button[data-a="unlock"]'); if (u2) await u2.click(); await p.waitForTimeout(150);
+  await p.click('#ui button.ttab[data-v="light"]'); await p.waitForTimeout(150);
+  await p.screenshot({ path: '/tmp/claude-0/t/b13_char.png' });
+  console.log('nodes', await p.evaluate(() => window.__game().WORLD.player.nodes.join(',')), await p.evaluate(() => JSON.stringify(window.__game().WORLD.player.perks)));
+  const det = await p.$('#ui details.stats summary'); if (det) await det.click(); await p.waitForTimeout(100);
+  await p.screenshot({ path: '/tmp/claude-0/t/b13_char2.png' });
+  console.log('respec', await p.evaluate(() => window.__T.respecNodes(window.__game().WORLD.player)), await p.evaluate(() => window.__game().WORLD.player.nodes.join(',') + ' pts ' + window.__game().WORLD.player.skillPts + ' ' + JSON.stringify(window.__game().WORLD.player.perks)));
+  await p.keyboard.press('Escape');
+  await p.evaluate(() => window.__T.showInventory()); await p.waitForTimeout(300);
+  await p.screenshot({ path: '/tmp/claude-0/t/b13_inv.png' });
+  await p.dragAndDrop('#ui .bag2 .slot[data-drag="on:0"]', '#ui .pslot[data-drop="on"]');
+  await p.waitForTimeout(200);
+  const o2 = await p.$('#ui button[data-a="on2"]'); if (o2) await o2.click(); await p.waitForTimeout(150);
+  console.log('equip', await p.evaluate(() => JSON.stringify(window.__game().WORLD.player.equip) + ' w2 ' + window.__game().WORLD.player.weapon2));
+  await p.screenshot({ path: '/tmp/claude-0/t/b13_inv2.png' });
+  await p.keyboard.press('Escape');
+  await p.evaluate(() => { const w = window.__game().WORLD, P = w.player; const i = P.items.indexOf('x_heavy'); if (i >= 0) { P.items.splice(i, 1); P.equip.bow = 'x_heavy'; P.ammo = 20; } const e = w.parties.find(x => x.kind === 'bandit'); window.__T.launchBattle({ kind: 'field', enemies: [e], allies: [], title: 'T' }); });
+  await p.waitForTimeout(300);
+  const seq = await p.evaluate(() => { const B = window.__battle(); B.startFight(); const out = []; for (let k = 0; k < 4; k++) { B.input.pressed.add('Tab'); B.updateHero(0.016); B.input.pressed.clear(); out.push(B.hero.loadout + ':' + B.hero.weaponKey); } return out.join(' ') + ' xbow=' + B.heroCfg.xbow + ' w2=' + B.heroCfg.weapon2; });
+  console.log('tab', seq);
+  await p.evaluate(() => { const B = window.__battle(); for (let i = 0; i < 9000 && B.phase !== 'end'; i++) { B.hero.hp = B.hero.maxHp; B.update(0.05); } });
+  for (let k = 0; k < 30; k++) { const c = await p.evaluate(() => document.querySelector('#ui .win')?.className || ''); if (c.includes('after')) break; await p.waitForTimeout(200); }
+  await p.click('#ui button:has-text("Dalej")').catch(() => {}); await p.waitForTimeout(300);
+  console.log('cond', await p.evaluate(() => JSON.stringify(window.__game().WORLD.player.cond)));
+  await p.evaluate(() => { window.__T.showParty(); }); await p.waitForTimeout(200);
+  const fv = await p.$('#ui button[data-a="view"][data-v="form"]'); if (fv) await fv.click(); await p.waitForTimeout(200);
+  await p.screenshot({ path: '/tmp/claude-0/t/b13_army.png' });
+  console.log(errs.slice(0, 8).join('\n'));
+  await b.close();
+})();

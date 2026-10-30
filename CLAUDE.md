@@ -71,7 +71,8 @@ czego używa.
    `file_path: dist/sztandary.html`, `url: https://claude.ai/artifact/HWSJFEh7xhvbVMoPzZCc4i`,
    `label: "Build 0.N"`.
 5. Dopisanie sekcji „## Build 0.N: …” na końcu GDD (punkt 9).
-6. Wysłanie pliku z `/home/claude/buildy/` użytkownikowi i krótkie podsumowanie po polsku.
+6. Kopia buildu do `releases/` w repozytorium (przed commitem), wysłanie pliku z `/home/claude/buildy/`
+   użytkownikowi i krótkie podsumowanie po polsku.
 
 ## 4. Mapa kodu (`src/`, ok. 16 tys. linii)
 
@@ -252,6 +253,11 @@ Potem reszta backlogu:
 - **Ankiety z odpowiedziami:** „Dalszy rozwój” (https://claude.ai/artifact/Vv482bPRFmHitQ24d7eXQF)
   i „Mechaniki i treść” (https://claude.ai/artifact/NQSzHiT8jpKtJehWsvGErJ). Odpowiedzi są streszczone
   w GDD i w punkcie 8.
+- **W repozytorium:** `docs/GDD.md` (eksport GDD, odświeżaj przy dużych zmianach przez
+  `mcp__Claude_Docs__export` z `file: "f9648b31-566b"`, format markdown, pole `bytes_b64`),
+  `docs/odpowiedzi/` (wszystkie odpowiedzi użytkownika z ankiet: najważniejsze źródło decyzji),
+  `docs/ankiety/` (ankiety HTML), `releases/` (każdy wydany build jako plik HTML; dopisuj nowy przy każdym
+  wydaniu: `cp "/home/claude/buildy/Sztandary Popiołu B<N>.html" releases/`), `tests/` (wszystkie testy).
 - **Repozytorium:** https://github.com/budownik1203/sp (gałąź `main`, w niej też `dist/sztandary.html`
   każdego buildu).
 - **Wydane buildy:** `/home/claude/buildy/Sztandary Popiołu B<N>.html`; lokalne tagi git `build-0.N`.

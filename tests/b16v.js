@@ -1,0 +1,23 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+  p.on('pageerror', e => console.log('ERR', e.message, e.stack.split('\n')[1]));
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html'); await p.waitForTimeout(800);
+  await p.click('text=Nowa gra');
+  for (let i = 0; i < 6; i++) await p.click('#ui button[data-a="look"][data-v="hairStyle:1"]');
+  await p.click('#ui button[data-a="look"][data-v="hairStyle:1"]'); await p.click('#ui button[data-a="look"][data-v="hairStyle:1"]');
+  await p.click('#ui button[data-a="look"][data-v="paint:1"]');
+  for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]');
+  await p.click('#ui button[data-a="cchg"][data-v="wolf"]');
+  await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1600);
+  await p.click('#ftip button').catch(() => {});
+  await p.evaluate(() => { const w = window.__game().WORLD; const pp = w.parties.find(x => x.kind === 'player'); for (let h = 0; h < 30; h++) window.__T.worldTick(w, 1); (w.pending||[]).splice(0); const L = w.lords.find(l => l.party >= 0); const lp = w.parties.find(x => x.id === L.party); lp.x = pp.x + 40; lp.y = pp.y + 10; lp.path = []; });
+  await p.waitForTimeout(500);
+  await p.screenshot({ path: '/tmp/claude-0/t/b16_town.png' });
+  await p.evaluate(() => { const w = window.__game().WORLD; const pp = w.parties.find(x => x.kind === 'player'); pp.troops.push({ type: 'a_recruit', n: 20, wounded: 0, xp: 0 }); const e = w.parties.find(x => x.kind === 'bandit'); window.__T.launchBattle({ kind: 'field', enemies: [e], allies: [], title: 'T' }); });
+  await p.waitForTimeout(600);
+  await p.evaluate(() => { const B = window.__battle(); B.cam.x = B.hero.x - 200; B.cam.y = B.hero.y - 110; });
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: '/tmp/claude-0/t/b16_battle.png' });
+  await b.close();
+})();

@@ -1,0 +1,143 @@
+ODPOWIEDZI: DOPRACOWANIE B7 (113/114)
+
+## 1. Priorytety
+1. Co jest teraz najważniejsze do dopracowania? → Walka bohatera i jej czucie; Mapa świata: czytelność i wygląd; Osady, ekonomia, zadania; Postać, drzewka, ekwipunek; Interfejs i HUD; Dowodzenie i AI w bitwie
+2. Jak długa ma być typowa sesja do pierwszego zamku? → 5 godzin i więcej
+3. Poziom trudności kampanii na start? → Twardy jak w Mount & Blade bez litości
+4. Wybór trudności w nowej grze? → Tak: 3 poziomy (obrażenia, siła AI, ceny)
+5. Samouczek? → Krótkie podpowiedzi przy pierwszym użyciu rzeczy
+
+## 2. Walka bohatera
+6. Tempo walki wręcz po B6? → Za szybkie
+7. Blok tarczą? → Blok bez tarczy bronią, słabszy
+8. Ciosy bez tarczy: blok bronią? → Tak, prosty, bez kierunku
+9. Reakcja na trafienie bohatera? → Mocniej: zachwianie, odrzut, krótka przerwa w ataku
+10. Wytrzymałość (stamina)? → Ma bardziej ograniczać: zamachy też ją zużywają
+11. Kopnięcie (F)? → Zostaje
+12. Walka konna? → Dodać szarżę z kopią (opuszczona kopia przy pełnym galopie)
+13. Łuk bohatera? → Strzały spadają łukiem, trzeba wyprzedzać cel
+14. Trafienia krytyczne i rany? → Tak: trafienie w głowę ogłusza, w nogi spowalnia
+15. Animacje z B6? → Grubsze, lepiej widoczne ręce; Większe zamachy broni dwuręcznej; Odrzut i potknięcie po ciosie; Wiele wariantów ciosu (nie tylko 4 kierunki)
+16. Śmierć bohatera w bitwie? → Ogłuszenie jak teraz (nigdy nie ginie)
+17. Kamera w walce? → Jak jest: za bohaterem z lekkim wyprzedzeniem
+
+## 3. Dowodzenie i AI
+18. Panel rozkazów pod Q? → Dodać mini mapę taktyczną w trybie rozkazów
+19. Formacje: co dopracować? → Zwarty szyk ma się trzymać pod naporem; Obrót całego szyku bez rozsypywania; Mur tarcz z realnym blokiem strzał; Klin jazdy jako przebicie
+20. AI wroga: czego brakuje? → Rezerwa, którą generał wprowadza później; Odwrót i przegrupowanie; Jazda okrążająca strzelców; Strzelcy na wzgórzach i w lesie; Ochrona dowódcy
+21. Morale i ucieczki? → Jak jest
+22. Oficerowie (proporce) i kompani? → Kompani mają własne umiejętności w bitwie; Śmierć oficera mocniej łamie oddział
+23. Sojusznicy AI w bitwie? → Mogę im wydawać ogólne rozkazy
+24. Automatyczne rozstrzygnięcie bitwy (bez walki)? → Dodać przycisk w oknie spotkania
+25. Wycofanie z bitwy? → Oba
+26. Wielkość bitew domyślnie? → 100
+27. Fale posiłków? → Z sygnałem rogu i krótkim komunikatem
+
+## 4. Teren, oblężenia, arena
+28. Oblężenia są za łatwe. Co zmienić? → Obrońcy na murach z przewagą (trudno ich zepchnąć); Drabiny powolne i wąskie: tłok przy wejściu; Brama mocniejsza, potrzebny taran; Kamienie i olej z murów; Więcej obrońców na murach
+29. Machiny oblężnicze? → Taran i wieża oblężnicza do zbudowania przed szturmem [notatka: I trebusz - balista]
+30. Obrona własnego zamku w bitwie (gdy AI oblega)? → Tak, w następnym buildzie
+31. Mapy bitew: co dodać? → Wioska z chałupami (bitwa przy grabieży); Most i wąska przeprawa; Gęsty las z polanami; Ruiny z murkami jako osłoną; Wąwóz
+32. Wysokość terenu? → Większy wpływ (zasięg i siła z góry, wolniej pod górę)
+33. Arena? → Więcej trybów: drużyny 5 na 5, fala za falą; Prawdziwa broń w walkach na śmierć (ciemne kluby); Drewniana broń i nokaut jak teraz
+34. Turniej? → Drabinka 8 zawodników na ekranie; Pojedynki konne z kopią
+35. Pogoda w bitwie? → Deszcz osłabia łuki i spowalnia; Mgła ogranicza widoczność
+
+## 5. HUD bitwy
+36. Lewy panel (zdrowie, wytrzymałość, zasoby)? → Zostaje
+37. Lista oddziałów (lewy dół)? → Ikony oddziałów z liczbą i morale (bardziej wizualnie)
+38. Pasek umiejętności 1–4? → Większe ikony zamiast nazw
+39. Minimapa bitwy? → Tak, w rogu: kropki oddziałów
+40. Licznik sił (prawy górny)? → Oba
+41. Komunikaty bitwy (dziennik)? → Mniej komunikatów, tylko ważne
+42. Celownik? → Zmienia się w zależności od broni
+43. Ekran po bitwie? → Bardziej wizualnie: miniatury jednostek, kto awansował
+
+## 6. Mapa: wygląd i czytelność
+44. Ogólna czytelność mapy? → W sam raz
+45. Mgła wojny? → Odkryte tereny jaśniejsze, pół-mgła słabsza
+46. Przybliżenie mapy? → Płynne przybliżanie kółkiem
+47. Mapa całego świata (pełny widok)? → Oba
+48. Nazwy osad? → Większe i czytelniejsze; Z ikoną frakcji (herb) obok; Kolor nazwy według frakcji
+49. Ikony osad? → Większe, lepiej odróżnialne miasto, zamek, wioska; Pokazywać wielkość załogi i dobrobyt ikonką
+50. Granice frakcji? → Wyraźniejsze, kolorowe linie; Delikatne zabarwienie terytorium jak teraz; Wyłączalne w ustawieniach
+51. Teren: co poprawić? → Wyraźniejsze góry (masywy, szczyty); Rzeki szersze i lepiej widoczne; Brody i mosty oznaczone ikoną; Lasy gęstsze, z różnymi drzewami; Drogi wyraźniejsze
+52. Martwe ziemie Morvath? → Mocniej odróżnione: popiół, martwe drzewa, mgła
+53. Animacje na mapie? → Dym z kominów i ognisk; Ptaki, wrony; Fale i nurt rzek; Chmury i cienie
+54. Figurki oddziałów? → Większe, z widocznym sztandarem frakcji; Grupka postaci zależna od wielkości armii
+55. Noc na mapie? → Mniej ciemna
+
+## 7. Mapa: ruch, czas, spotkania
+56. Szybkość podróży? → W sam raz
+57. Długość dnia (30 s)? → Jak jest
+58. Sterowanie czasem? → Dodać ×8
+59. Ścieżka marszu? → Pokazywać całą trasę wyraźniej i czas dojścia
+60. Agresja wrogów na mapie? → W sam raz
+61. Okno spotkania? → Do tego podgląd terenu bitwy i pogody; Przycisk automatycznego rozstrzygnięcia
+62. Obóz na mapie? → Menu obozu: odpoczynek, szkolenie, rozmowy z kompanami; Ognisko i namioty widoczne na mapie
+63. Zwiad i informacje? → Najechanie na oddział pokazuje dokładny skład tylko z dobrym tropieniem; Ślady przemarszu na mapie
+64. Wydarzenia losowe w podróży? → Tak: znaleziska, uciekinierzy, pułapki, handlarze
+65. Podróż z innym lordem (dołączenie do jego armii)? → Tak, jako wasal lub najemnik
+
+## 8. Osady i ekonomia
+66. Ekran osady? → Klikalne budynki na ilustracji zamiast zakładek
+67. Wnętrza (karczma, kowal, arena)? → Osobne ilustracje z postaciami, z którymi można rozmawiać
+68. Targ? → Pokazywać, gdzie towar jest tani lub drogi (znane ceny)
+69. Kowal? → Więcej przedmiotów i lepsze opisy; Porównanie z tym, co nosisz (strzałki lepiej, gorzej); Naprawa i ulepszanie sprzętu; Podgląd na postaci przed kupnem [notatka: Targ normalny towar, kowal. Na zamówienia i epicy]
+70. Zadania? → Więcej rodzajów (eskorta, polowanie na lorda, dostawa broni); Łańcuchy zadań z fabułą; Zadania od lordów, nie tylko od osad
+71. Rekrutacja? → Rekruci zależni od nastawienia wioski; Szkolenie rekrutów w zamku za opłatą
+72. Własne lenna? → Budynki do rozbudowy (mury, targ, koszary); Ustawianie podatków; Zarządca i raporty
+73. Dobrobyt i grabież? → Widoczne skutki na mapie (spalone pola)
+74. Turnieje i ogłoszenia? → Komunikat na mapie z odległością
+75. Karczma? → Więcej kompanów (8–10) z historiami; Gry hazardowe (kości); Bardowie i plotki jako zadania
+
+## 9. Frakcje i lordowie
+76. Rozmowy z lordami? → Więcej tematów: wojna, plotki, gdzie jest kto; Zadania od lordów; Relacje rosną przez wspólne bitwy, jak jest
+77. Okno frakcji? → Mapa terytoriów i stan wojen w formie wykresu; Lista lordów z portretami i miejscem pobytu
+78. Wojny AI? → W sam raz
+79. Kampanie lordów? → Marszałek zbiera lordów w jedną armię
+80. Twoje królestwo? → Rada i rozdawanie lenn własnym lordom; Nazwa, herb i kolory do wyboru; Dyplomacja: sojusze i daniny
+81. Morvath? → Rośnie z czasem jak zaraza
+82. Kronika? → Filtrowanie według frakcji i typu wydarzeń; Ważne wydarzenia jako okno z ilustracją
+83. Herb gracza? → Edytor herbu (kolory, wzór, symbol)
+
+## 10. Postać, drzewka, ekwipunek
+84. Okno drzewek z B5? → Większe węzły i lepiej widoczne połączenia; Opis wszystkich węzłów od razu przy najechaniu [notatka: Więcej do odblokowania]
+85. Ile punktów drzewek? → 1 na poziom plus nagrody z zadań
+86. Więcej węzłów w drzewkach? → Tak, 8–10 na drzewko
+87. Wykluczenia? → Jak jest (Wiara albo Mrok, Tarczownik albo Rębacz)
+88. Reset drzewek? → Za opłatą w kapliczce lub u nauczyciela
+89. Ekwipunek: okno? → Prawdziwa lalka z miejscami na postaci (jak w M&B); Porównanie statystyk przy zakładaniu; Przeciąganie przedmiotów myszą
+90. Wygląd bohatera? → Sprzęt widoczny na postaci w bitwie i na portrecie
+91. Waga i obciążenie? → Ciężka zbroja spowalnia i męczy
+92. Jakość przedmiotów? → Zardzewiały, zwykły, dobry, mistrzowski
+93. Spaczenie? → Widoczne na postaci i z wydarzeniami
+
+## 11. Armia i jednostki
+94. Okno armii z B5? → Podgląd całej armii w szyku; Sortowanie i filtrowanie (piechota, strzelcy, jazda)
+95. Drzewka jednostek T1–T5? → Więcej gałęzi i jednostek specjalnych; Wyraźniejsze różnice wyglądu między tierami
+96. Ceny awansów? → Za tanie
+97. Jednostki unikatowe frakcji? → Tak, po 1–2 elitarne na frakcję (np. Paladyni, Runiczni strażnicy)
+98. Najemnicy? → Więcej rodzajów i kompanii najemnych
+99. Rekrutacja nieumarłych? → Każdy po paktach Mroku
+100. Jeńcy? → Rekrutacja jeńców za złoto; Ucieczki jeńców
+101. Kompani? → Własne drzewka i ekwipunek kompanów; Rozmowy i konflikty między kompanami
+
+## 12. Interfejs ogólnie
+102. Styl okien? → Więcej faktury (pergamin, skóra, metal)
+103. Czcionka? → Bardziej czytelna przy małych napisach
+104. Skróty klawiszowe? → Lista skrótów pod F1
+105. Podpowiedzi po najechaniu? → Więcej szczegółów (liczby, wzory)
+106. Dialogi z B5? → Dłuższe rozmowy z wyborami i konsekwencjami
+107. Ekran tytułowy? → Ilustracja i animowane tło
+108. Zapisy? → Więcej slotów (3–5) z nazwą i datą
+109. Sterowanie na laptopie (touchpad)? → Nie potrzebuję
+
+## 13. Dźwięk i klimat
+110. Muzyka? → Więcej utworów (spokojne na mapie, bitewne w walce)
+111. Dźwięki na mapie? → Kroki i konie podczas marszu; Wiatr i wrony jak teraz; Odgłosy osad przy wejściu
+112. Głosy postaci? → Więcej i bardziej zróżnicowane (rasy)
+113. Co jeszcze buduje klimat? → Ekran ładowania z cytatami z kroniki; Pora roku i śnieg; Zaraza i głód jako wydarzenia; Krótkie scenki fabularne
+
+## 14. Na koniec
+114. Co najbardziej przeszkadzało w B5–B7? Błędy, irytujące rzeczy, pomysły. → —

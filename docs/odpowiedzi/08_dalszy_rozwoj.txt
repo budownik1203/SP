@@ -1,0 +1,125 @@
+ODPOWIEDZI: DALSZY ROZWÓJ (92/94)
+
+## 1. Muzyka i dźwięk
+1. Styl muzyki → Mieszanka zależna od miejsca
+2. Motywy frakcji → Każda frakcja ma własny motyw na mapie i w bitwie
+3. Muzyka reaguje na sytuację (pościg, oblężenie, przegrana) → Tak, z płynnymi przejściami
+4. Osobna muzyka w karczmie, na zamku i na targu → Tak
+5. Odgłosy bitwy: więcej warstw (tłum, rozkazy, trąby, rżenie) → Tak
+6. Pieśni barda o czynach gracza → Krótkie melodie z tekstem na ekranie
+
+## 2. Nowe mechaniki bitwy
+7. Formacje: które dodać? → —
+8. Taktyczna pauza z wydawaniem rozkazów → Tak, spacja wstrzymuje grę
+9. Pojedynek dowódców przed bitwą → Opcja przy każdej bitwie z lordem
+10. Ranni na polu: oszczędzić czy dobić → Tak, z wpływem na honor i jeńców
+11. Pogoda zmienia się w trakcie bitwy → Tak (zaczyna padać, mgła opada)
+12. Rozbicie oddziału po śmierci dowódcy lub chorążego → Mocny efekt, łańcuch ucieczek
+13. Podpalanie terenu (zboże, las, chaty) → Tak, ogień się rozprzestrzenia
+14. Pułapki i przygotowanie pola (kolce, rowy, palisady) → Tak, przed bitwą w obronie
+15. Widok taktyczny z góry → Tak, przełączany klawiszem
+16. Jeźdźcy zsiadają i walczą pieszo na rozkaz → Tak
+
+## 3. Oblężenia
+17. Machiny oblężnicze → Obie
+18. Obrona murów: wrzący olej, kamienie, strzelcy na blankach → Tak
+19. Głód w oblężonym mieście i kapitulacja → Tak, zapasy maleją, możliwe poddanie
+20. Walka w uliczkach po przełamaniu muru → Tak, druga faza bitwy
+21. Podkopy i saperzy → Tak, jako trzecia droga do zdobycia
+22. Co gracz robi po zdobyciu miasta? → Wybór: oszczędź, złup, spal
+23. Wyłomy i zniszczenia zostają po oblężeniu → Tak, naprawa trwa tygodnie
+24. Wypady oblężonych na obóz oblegających → Tak, AI też je robi
+
+## 4. Nowe frakcje, rasy i wrogowie
+25. Nowa frakcja w przyszłości → Najeźdźcy zza morza; Koczownicy ze stepu; Elfy lub leśny lud; Kult demona
+26. Grywalna rasa nieumarłych od startu → Tak, z własnym początkiem [notatka: 1 + 2. Przez wybór rasy nieumarłego można wystartować w krainie nieumarłych. Więcej mechanik nieumarłych dla tej frakcji. Kompletnie inny styl gry. Więcej różnorodności. I z 2 można po przejściu łaczuszka questów i wybranie ścieżki mroku.]
+27. Wielkie bestie jako bossowie (smok, troll, wąpierz) → Zdecyduj ty [notatka: 1 + 2]
+28. Najazdy z zewnątrz w późnej grze → Tak, wielka inwazja zmusza frakcje do współpracy
+29. Zakony rycerskie jako osobne siły → Tak, z własnymi zamkami i zadaniami
+30. Jednostki unikalne dla regionu (np. górscy łucznicy) → Tak
+
+## 5. Ekwipunek i rzemiosło
+31. Rzemiosło gracza → Kucie broni i zbroi z materiałów
+32. Przedmioty legendarne z historią → Tak, unikalne, rozsiane po świecie
+33. Komplety zbroi z premią → Nie
+34. Zestaw naprawczy w drodze → Tak, drobna naprawa poza miastem
+35. Wygląd sprzętu żołnierzy można ustalić → Tak, malowanie tarcz i tabardów oddziału
+36. Trofea z bitew (sztandary, głowy, broń lordów) → Tak, do sali w zamku
+
+## 6. Podróż i obóz
+37. Zmęczenie drużyny w marszu → Tak, trzeba spać i odpoczywać
+38. Obóz jako ekran z czynnościami → Tak: trening, polowanie, naprawa, rozmowy
+39. Wydarzenia w drodze z wyborem → Więcej: znaleziska, pielgrzymi, pułapki, dezerterzy
+40. Przeszukiwanie pobojowisk i pogorzelisk → Tak, łupy, ranni, wieści
+41. Choroby w drużynie (zimą, na bagnach) → Tak, z lekarzem i zielarzem
+42. Polowanie i zbieranie żywności → Tak, w lasach i na stepie
+
+## 7. Twoje królestwo: nowe systemy
+43. Budowa na mapie (nowe wieże, mosty, drogi) → Tak
+44. Zakładanie nowych wiosek → Nie
+45. Koronacja i ceremonie → Tak, z wydarzeniem i gośćmi
+46. Tytuły i rangi szlacheckie dla wasali → Tak (baron, hrabia, książę)
+47. Przenoszenie wojsk między garnizonami → Tak, z ekranu królestwa
+48. Mapa królestwa z przeglądem (dochody, zagrożenia, nastroje) → Tak
+49. Sąd królewski (sprawy poddanych do rozstrzygnięcia) → Tak, z wpływem na nastroje
+50. Straż i porządek w miastach (przestępczość) → Nie
+
+## 8. Dyplomacja i wywiad
+51. Posłowie gracza z propozycjami → Pokój, sojusz, trybut, wymiana jeńców
+52. Szpiedzy → Tak: podgląd armii, sabotaż, kradzież planów
+53. Zakładnicy jako gwarancja układów → Tak
+54. Traktaty z warunkami (granice, okup, prawo przejścia) → Tak
+55. Embargo i wojna handlowa → Tak
+56. Intrygi na dworach (spiski, otrucia, szantaż) → Tak, gracz może w nich brać udział
+57. Kompanie najemników na mapie → Tak, do wynajęcia przez frakcje i gracza
+
+## 9. Postać i reputacja
+58. Cechy charakteru zdobywane czynami → Tak (okrutny, hojny, tchórzliwy…), z wpływem na rozmowy
+59. Listy gończe i przestępstwa → Tak, nagroda za twoją głowę u frakcji
+60. Starzenie się bohatera → Nie
+61. Trwałe rany → Tak (utrata oka, kulawa noga) z efektem
+62. Zmiana wyglądu u balwierza → Tak (fryzura, zarost)
+63. Tytuły od ludu (np. Rzeźnik z Dębnik) → Tak, z wpływem na reakcje
+
+## 10. Kompani: nowe
+64. Liczba kompanów do znalezienia → Ok. 16, z różnymi historiami
+65. Zadania osobiste kompanów → Tak, każdy ma swój wątek
+66. Kompani sami dobierają ekwipunek → Tak, z możliwością blokady
+67. Kompan może odejść i założyć własną frakcję → Tak
+68. Najemni specjaliści bez historii (lekarz, inżynier, zwiadowca) → Tak
+
+## 11. Konie i zwierzęta
+69. Rasy koni i hodowla w lennie → Tak
+70. Koń z imieniem i charakterem → Tak
+71. Jazda na innych wierzchowcach (wilki orków, kozice krasnoludów) → Tak
+72. Wozy taborowe w bitwie (osłona, zapasy) → Tak
+
+## 12. Turnieje i rozrywki
+73. Nowe konkurencje turniejowe → Strzelanie z kuszy; Zapasy
+74. Zakłady na turniejach → Tak
+75. Gry w karczmie → Więcej (karty, siłowanie, picie)
+76. Święta i jarmarki w miastach → Tak, z wydarzeniami i lepszymi cenami
+
+## 13. Interfejs
+77. Jeden wspólny ekran drużyny i ekwipunku → Zostawić osobne
+78. Obsługa pada → Nie
+79. Samouczek z misjami na start → Wystarczą podpowiedzi
+80. Minimapa z filtrami (armie, karawany, zadania) → Tak
+81. Ekran statystyk kampanii (wykresy, bitwy, łupy) → Tak
+82. Kronika jako ilustrowana księga do przeglądania → Tak
+
+## 14. Technika i wydanie
+83. Na czym gra ma działać? → Wersja do pobrania (np. Steam)
+84. Zapis do pliku (pobierz i wczytaj) → Tak
+85. Tryb niskiej jakości dla słabszych komputerów → Tak
+86. Gra wieloosobowa → Nie
+87. Modowanie (edytor jednostek, frakcji, mapy) → Nie
+88. Edytor scenariuszy bitew → Nie
+89. Wersja angielska w przyszłości → Tak
+
+## 15. Priorytety
+90. Co w następnym buildzie? (najwyżej trzy) → Podróż i obóz; Ekwipunek i rzemiosło; Muzyka i dźwięk
+91. Tempo buildów → Jak teraz
+92. Najpierw dopracowanie czy nowości? → Dopracowanie
+93. Docelowy czas kampanii do zjednoczenia krainy → Zdecyduj ty [notatka: +/- 100]
+94. Pomysł spoza listy → —

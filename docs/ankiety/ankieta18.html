@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mechaniki i treść</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+:root{
+  --bg:#e6e8ec; --panel:#f6f7f9; --ink:#1d2029; --muted:#5d6372; --line:#c3c7d0;
+  --accent:#a3262e; --accent-ink:#ffffff; --gold:#9a6a12; --sel:#f3dfe0; --rec:#7a5410;
+  --display:"Pixelify Sans", "Courier New", monospace;
+  --body:"Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+h1{font:700 clamp(26px,4vw,36px)/1.05 var(--display);margin:0;letter-spacing:.5px;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;font-size:15px;max-width:70ch}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count{font:500 18px var(--display);font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--line);position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);width:0;transition:width .25s}
+.btn{font:500 15px var(--display);letter-spacing:.3px;padding:10px 16px;border:0;cursor:pointer;background:var(--panel);color:var(--ink);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line);margin:3px}
+.btn:hover{background:var(--sel)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.btn:focus-visible,.opt:focus-visible,.chap:focus-visible,textarea:focus-visible{outline:3px dashed var(--gold);outline-offset:3px}
+.btn:disabled{opacity:.4;cursor:default}
+.main{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;align-items:start}
+nav{display:grid;gap:2px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.chap{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;text-align:left;background:none;border:0;color:var(--ink);padding:8px 10px;cursor:pointer;font:500 15px var(--body)}
+.chap .n{font:500 14px var(--display);color:var(--muted)}
+.chap .p{font:500 13px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.chap:hover{background:var(--panel)}
+.chap.on{background:var(--panel);box-shadow:inset 4px 0 0 var(--accent)}
+.chap.done .p{color:var(--gold)}
+.card{background:var(--panel);padding:28px clamp(18px,4vw,36px);display:grid;gap:18px;min-width:0}
+.eyebrow{font:500 14px var(--display);color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.qnum{color:var(--accent)}
+h2{font:600 clamp(21px,2.6vw,26px)/1.3 var(--body);margin:0;text-wrap:balance;max-width:40ch}
+.hint{color:var(--muted);font-size:15px;margin:-8px 0 0}
+.opts{display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;text-align:left;cursor:pointer;background:var(--bg);color:var(--ink);border:0;padding:12px 14px;font:inherit;
+  box-shadow:0 -2px 0 0 var(--line),0 2px 0 0 var(--line),-2px 0 0 0 var(--line),2px 0 0 0 var(--line);margin:2px}
+.opt .k{font:500 15px var(--display);color:var(--muted);padding-top:1px}
+.opt .rec{display:inline-block;font:500 12px var(--display);color:var(--rec);letter-spacing:.5px;margin-left:8px;white-space:nowrap}
+.opt:hover{background:var(--sel)}
+.opt.on{background:var(--sel);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.opt.on .k{color:var(--accent)}
+.opt.you{color:var(--muted);font-style:italic}
+label.nl{font:500 14px var(--display);color:var(--muted);letter-spacing:.5px}
+textarea{width:100%;min-height:72px;resize:vertical;font:16px/1.45 var(--body);color:var(--ink);background:var(--bg);border:2px solid var(--line);padding:10px 12px;margin-top:6px}
+.nav2{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.keys{color:var(--muted);font-size:13px}
+.modal{position:fixed;inset:0;background:rgb(0 0 0 / .55);display:grid;place-items:center;z-index:20;padding:16px}
+.modal .box{background:var(--panel);width:min(760px,100%);max-height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:22px}
+.modal h3{font:700 22px var(--display);margin:0}
+.modal textarea{min-height:300px;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:0}
+.modal .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.msg{color:var(--gold);font:500 14px var(--display);margin-right:auto}
+@media (max-width:760px){
+  .main{grid-template-columns:1fr}
+  nav{position:static;display:flex;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .chap{grid-template-columns:auto auto;white-space:nowrap}
+  .chap .t{display:none}
+  .keys{display:none}
+}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Mechaniki i treść · kolejna setka</h1>
+      <p class="sub">Szczegóły systemów, które wybrałeś na następne buildy (obóz, zmęczenie, rzemiosło, legendy, muzyka), więcej treści (jednostki, zadania, miejsca, kompani), strojenie obecnych mechanik, grywalni nieumarli i plan na kampanię ok. 100 godzin. Pytania z gwiazdką mają moją rekomendację.</p>
+    </div>
+    <div class="tools">
+      <span class="count" id="count">0 / 0</span>
+      <button class="btn primary" id="exportBtn">Wyślij odpowiedzi</button>
+    </div>
+  </header>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <div class="main">
+    <nav id="chapters" aria-label="Rozdziały"></nav>
+    <section class="card" id="card" aria-live="polite">
+      <div class="eyebrow"><span id="chapName"></span><span class="qnum" id="qnum"></span></div>
+      <h2 id="qtext" tabindex="-1"></h2>
+      <p class="hint" id="qhint"></p>
+      <div class="opts" id="opts"></div>
+      <div>
+        <label class="nl" for="note">Twoja notatka lub własna odpowiedź</label>
+        <textarea id="note" placeholder="Opcjonalnie: doprecyzuj, dopisz coś swojego…"></textarea>
+      </div>
+      <div class="nav2">
+        <button class="btn" id="prev">← Wstecz</button>
+        <span class="keys">Klawisze 1–9 wybierają, Enter dalej</span>
+        <button class="btn primary" id="next">Dalej →</button>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mh">
+    <div><h3 id="mh">Twoje odpowiedzi</h3><p class="sub">Skopiuj ten tekst i wklej go w czat. Na tej podstawie przygotuję kolejne buildy.</p></div>
+    <textarea id="out" readonly aria-label="Odpowiedzi do skopiowania"></textarea>
+    <div class="row"><span class="msg" id="msg"></span><button class="btn" id="close">Zamknij</button><button class="btn primary" id="copy">Kopiuj</button></div>
+  </div>
+</div>
+<script>
+const R="(Rekomendowane)";
+// [pytanie, opcje, indeks rekomendowanej (-1 brak), wielokrotny wybór, podpowiedź]
+const CH=[
+["Obóz",[
+["Jak rozbija się obóz?",["Przycisk Obóz na mapie (jak teraz), otwiera ekran obozu","Automatycznie wieczorem, gdy drużyna stoi","Obie"],2,0],
+["Ile czynności można zlecić naraz?",["Jedną na noc dla całej drużyny","Każdy kompan robi coś innego","Bez limitu"],1,0],
+["Trening w obozie",["Rekruci zdobywają doświadczenie od weteranów","Bohater ćwiczy umiejętność","Obie"],2,0],
+["Rozmowy przy ognisku",["Losowe rozmowy kompanów z wyborem odpowiedzi","Opowieści o świecie i plotki","Obie"],2,0],
+["Warta i napad na obóz nocą",["Wystawiasz wartę, bez niej łatwiej o zasadzkę","Brak napadów"],0,0],
+["Ufortyfikowany obóz na dłużej",["Palisada i namioty przy dłuższym postoju","Nie"],0,0],
+["Wygląd obozu",["Ilustrowana scena z ogniskiem i namiotami, animowana","Zwykłe okno z listą"],0,0],
+["Ognisko widać na mapie nocą",["Tak, wrogowie też je widzą","Nie"],0,0],
+]],
+["Zmęczenie, choroby, polowanie",[
+["Co męczy drużynę najbardziej?",["Marsz bez przerwy","Marsz nocą","Zła pogoda i zima","Bitwy"],-1,1],
+["Skutek zmęczenia",["Wolniejszy marsz i słabsza walka","Też dezercje przy skrajnym zmęczeniu","Tylko spadek morale"],1,0],
+["Ile snu trzeba?",["Ok. 8 godzin na dobę","Wystarczy krótki postój co dzień","Zależy od kondycji oddziału"],0,0],
+["Choroby: które?",["Gorączka bagienna","Zaraza Morvatha","Czerwonka w obozie","Odmrożenia"],-1,1],
+["Leczenie",["Lekarz i zielarz w drużynie, zioła z targu","Odpoczynek w mieście","Obie"],2,0],
+["Polowanie",["Automatyczne w obozie (zależy od tropienia)","Krótka scena z łukiem","Obie"],0,0],
+["Zbieractwo (grzyby, zioła, chrust)",["Tak, w lesie i na bagnach","Nie"],0,0],
+["Zwierzyna zależna od krainy",["Tak (jelenie w lesie, ptactwo na bagnach, nic w popiele)","Nie"],0,0],
+]],
+["Wydarzenia w drodze i pobojowiska",[
+["Jak często wydarzenia w drodze?",["Raz na 2–3 dni marszu","Raz dziennie","Rzadko, ale ważniejsze"],0,0],
+["Rodzaje wydarzeń",["Znaleziska i skrytki","Pielgrzymi i podróżni z prośbą","Pułapki i zasadzki","Dezerterzy z armii lordów","Dziwne zjawiska i wizje"],-1,1],
+["Konsekwencje wydarzeń wracają po czasie",["Tak (uratowany pielgrzym spotyka cię później)","Nie"],0,0],
+["Przeszukanie pobojowiska zajmuje czas",["Kilka godzin, ryzyko spotkania hien cmentarnych","Natychmiast"],0,0],
+["Co można znaleźć na pobojowisku?",["Broń i zbroje do naprawy","Rannych do zwerbowania","Listy i wieści o armiach","Ciała lordów z okupem"],-1,1],
+["Grabieżcy pobojowisk jako nowe bandy",["Tak","Nie"],0,0],
+]],
+["Rzemiosło",[
+["Skąd materiały?",["Kupno na targu","Rozbieranie zdobytego sprzętu","Kopalnie i lasy w lennach","Łupy z potworów"],-1,1],
+["Rodzaje materiałów",["Żelazo, stal, drewno, skóra, kość","Plus rzadkie: srebro, ruda krasnoludów, czarna stal Morvatha"],1,0],
+["Gdzie się kuje?",["W kuźni w mieście i we własnym zamku","Też w obozie z przenośnym kowadłem","Tylko u kowala"],0,0],
+["Jak powstaje przedmiot?",["Wybór wzoru, materiału i jakości, czas pracy","Prosty przepis: materiały na przedmiot"],0,0],
+["Umiejętność kowalstwa",["Nowe drzewko umiejętności","Część istniejącego drzewka","Kowal-kompan zamiast umiejętności"],-1,0],
+["Wzory przedmiotów",["Odkrywane z rozebranego sprzętu i ksiąg","Wszystkie od razu"],0,0],
+["Kultury mają własne wzory",["Tak (krasnoludzkie topory, aureliańskie miecze)","Nie"],0,0],
+["Imię nadane wykutej broni",["Tak, gracz nadaje nazwę","Nie"],0,0],
+]],
+["Sprzęt: legendy, naprawa, barwy, trofea",[
+["Ile przedmiotów legendarnych?",["Ok. 10","Ok. 25","Ponad 40"],1,0],
+["Jak zdobywa się legendy?",["Lochy i ruiny","Zadania i wątek główny","Pokonani bossowie","Pokonani wielcy lordowie"],-1,1],
+["Legendy mają wymagania i wady",["Tak (przeklęty miecz pije zdrowie)","Tylko zalety"],0,0],
+["Naprawa w drodze",["Zestaw zużywa się, naprawia do ok. 70%","Pełna naprawa przy kowalu-kompanie"],0,0],
+["Malowanie tarcz i tabardów: zakres",["Kolory i godło dla każdego oddziału osobno","Jedne barwy dla całej armii"],0,0],
+["Sala trofeów w zamku",["Daje premie (morale, sława)","Tylko wystawa"],0,0],
+["Trofea można sprzedać lub oddać",["Tak (zwrot sztandaru wrogowi poprawia relacje)","Nie"],0,0],
+]],
+["Muzyka: wykonanie",[
+["Jak tworzyć muzykę w grze?",["Generowana w grze z instrumentów (bez plików, jak teraz)","Gotowe utwory w plikach","Mieszanka"],0,0],
+["Instrumenty frakcji",["Aurelia: dzwony i chór, Legion: bębny i rogi, krasnoludy: niskie rogi, orkowie: bębny i gardłowe głosy, Morvath: organy i szepty","Wspólny zestaw instrumentów"],0,0],
+["Głośność muzyki względem dźwięków",["Muzyka cicho w tle","Muzyka wyraźna"],0,0],
+["Cisza jako element",["Momenty bez muzyki (noc, mgła, pobojowisko)","Muzyka zawsze gra"],0,0],
+["Fanfary przy ważnych chwilach",["Awans, zdobycie zamku, koronacja, zwycięstwo","Tylko zwycięstwo"],0,0],
+]],
+["Więcej treści: jednostki",[
+["Głębokość drzewek jednostek",["5 poziomów jak teraz, więcej odgałęzień","6 poziomów z elitą","Bez zmian"],0,0],
+["Nowe typy jednostek",["Harcownicy z oszczepami","Konni łucznicy","Topornicy dwuręczni","Procarze","Kapłani i medycy polowi"],-1,1],
+["Jednostki z lenn (np. kusznicy z miasta X)",["Tak, specjalność miasta lub zamku","Nie"],0,0],
+["Weterani z imionami",["Najlepsi żołnierze dostają imię i rosną jak mini-kompani","Nie"],0,0],
+["Jednostki zakonów rycerskich",["Tak, elitarne, za zgodą zakonu","Nie"],0,0],
+["Najemnicy egzotyczni (zza morza)",["Tak, drodzy i silni","Nie"],0,0],
+]],
+["Więcej treści: zadania i wydarzenia",[
+["Nowe typy zadań od wiosek",["Znajdź zaginione dziecko","Zabij potwora z bagien","Rozsądź spór sąsiadów","Odzyskaj bydło od bandytów","Ochroń ślub lub pogrzeb"],-1,1],
+["Nowe typy zadań od miast",["Wytrop przemytników","Ochroń kupca na jarmarku","Złap mordercę w uliczkach","Dostarcz towar na termin"],-1,1],
+["Nowe zadania od lordów",["Zdobądź sztandar wroga w bitwie","Zastrasz zbuntowaną wioskę","Odbij zakładnika","Pojedynek w imieniu lorda"],-1,1],
+["Wydarzenia świata (rzadkie, wielkie)",["Głód po nieurodzaju","Kometa i fanatycy","Śmierć władcy i walka o tron","Wielki pożar miasta","Powódź"],-1,1],
+["Ile tekstu w zadaniach?",["Krótko, jak teraz","Dłuższe rozmowy z wyborami","Mieszanka"],2,0],
+]],
+["Więcej treści: miejsca i lochy",[
+["Nowe miejsca na mapie",["Kopalnie i kamieniołomy","Klasztory i pustelnie","Stare pola bitew z duchami","Wieże magów","Kurhany"],-1,1],
+["Lochy: jak wyglądają?",["Bitwa w korytarzach z małą drużyną","Tekstowa wyprawa z wyborami","Mieszanka"],2,0],
+["Ile lochów na mapie?",["Kilka ręcznie zaprojektowanych","Wiele losowych","Kilka stałych i kilka losowych"],2,0],
+["Miejsca odnawiają się",["Tak, po czasie wracają bandy i potwory","Raz oczyszczone zostają puste"],0,0],
+["Kryjówka gracza poza miastem",["Tak, ukryta baza na start","Nie"],1,0],
+]],
+["Więcej treści: kompani",[
+["Jakie typy kompanów?",["Wojownicy","Łucznicy","Uzdrowiciele","Uczeni i magowie","Złodzieje i szpiedzy","Kupcy"],-1,1],
+["Kompani z innych ras",["Krasnolud, ork, nawet nieumarły","Tylko ludzie"],0,0],
+["Kompani z przeszłością związaną z frakcjami",["Tak (wygnany syn lorda, dezerter legionu)","Nie"],0,0],
+["Kompani reagują na decyzje gracza",["Komentują i mogą odejść","Tylko lojalność liczbowo"],0,0],
+["Jak założą własną frakcję?",["Gdy są silni i niezadowoleni, z częścią twoich ziem","Tylko zakładają bandę najemników"],-1,0],
+]],
+["Aktualne mechaniki: walka",[
+["Blok i kierunki ciosów",["Jak teraz","Trudniej: krótsze okno bloku","Łatwiej: automatyczny kierunek bloku"],0,0],
+["Łucznictwo bohatera",["Jak teraz","Większy rozrzut, mocniejsze trafienia","Łatwiej trafić"],0,0],
+["Siła szarży konnicy",["Mocniejsza","Jak teraz","Słabsza"],0,0],
+["Strzały wroga",["Groźniejsze dla bohatera","Jak teraz","Mniej groźne"],1,0],
+["Pancerz",["Wyraźniej chroni przed cięciem, słabo przed obuchem","Jak teraz"],0,0],
+["Wytrzymałość (stamina) bohatera",["Mocniej ogranicza ciosy i bieg","Jak teraz","Słabiej"],1,0],
+]],
+["Aktualne mechaniki: kampania",[
+["Tempo awansu żołnierzy",["Szybciej","Jak teraz","Wolniej"],1,0],
+["Jeńcy",["Więcej opcji: werbunek, wymiana, egzekucja","Jak teraz"],0,0],
+["Morale drużyny w kampanii",["Mocniej zależne od jedzenia, żołdu i zwycięstw","Jak teraz"],0,0],
+["Rozmiar armii gracza",["Większy limit","Jak teraz","Mniejszy"],1,0],
+["Siła lordów AI",["Silniejsi","Jak teraz","Słabsi"],1,0],
+["Tempo wojen między frakcjami",["Częstsze wojny","Jak teraz","Dłuższe okresy pokoju"],1,0],
+]],
+["Więcej treści: przedmioty i towary",[
+["Więcej broni",["Halabardy i gizarmy","Cepy i morgensterny","Szable i tasaki","Kusze ciężkie i lekkie","Bronie egzotyczne zza morza"],-1,1],
+["Więcej zbroi",["Brygantyny i łuski","Futra i skóry północy","Zbroje rytualne kapłanów","Hełmy z przyłbicą i zasłoną"],-1,1],
+["Nowe towary w handlu",["Wino, sól, przyprawy","Konie i bydło","Relikwie i odpusty","Rudy i materiały do kucia"],-1,1],
+["Przedmioty użytkowe w bitwie",["Bomby ogniowe i dym","Mikstury lecznicze","Sieci i bola","Tarcze pawęże do rozstawienia"],-1,1],
+["Ozdoby i amulety z premią",["Tak, osobne miejsce w ekwipunku","Nie"],0,0],
+["Księgi i mapy do zdobycia",["Tak: odkrywają miejsca, uczą umiejętności, opowiadają historię","Nie"],0,0],
+]],
+["Więcej życia na mapie",[
+["Nowe grupy na mapie",["Pielgrzymi do kaplic","Uchodźcy z wojny","Łowcy nagród szukający ciebie","Wędrowni kupcy i kuglarze","Pastuszkowie ze stadami"],-1,1],
+["Zwierzęta na mapie",["Stada jeleni, wilki, ptaki nad lasem","Tylko potwory"],0,0],
+["Pory dnia zmieniają ruch",["Nocą mniej karawan, więcej band","Bez zmian"],0,0],
+["Osady na mapie ożywają",["Dym, światła, ludzie przy bramach, jarmarki widoczne z daleka","Bez zmian"],0,0],
+["Granice zmieniają się widocznie",["Spalone wioski i ruiny po wojnach zostają na lata","Odbudowa jak teraz"],1,0],
+["Wiadomości docierają z opóźnieniem",["Tak, o odległych bitwach dowiadujesz się po dniach","Nie, od razu"],0,0],
+]],
+["Nieumarli jako grywalna frakcja",[
+["Start nieumarłego",["Przebudzenie w krypcie w krainie Morvatha","Wybór: krypta albo pakt z mrokiem w trakcie gry"],1,0],
+["Werbunek nieumarłych",["Wskrzeszanie poległych po bitwie","Kupno w nekropoliach","Obie"],2,0],
+["Jedzenie i żołd nieumarłych",["Nie jedzą, płacą duszami lub mrocznym złotem","Jak żywi"],0,0],
+["Reakcje żywych",["Większość osad zamyka bramy, handel tylko u przemytników","Łagodniej"],0,0],
+["Słońce i święta ziemia osłabiają",["Tak","Nie"],0,0],
+["Zaraza jako narzędzie gracza",["Tak, rozsiewasz zarazę na wrogie ziemie","Nie"],0,0],
+]],
+["Długa kampania (ok. 100 godzin)",[
+["Jak rozłożyć tempo na 100 godzin?",["Etapy: najemnik, wasal, lord, król, z nowymi systemami w każdym","Wolniejsze tempo wszystkiego","Więcej wydarzeń świata w późnej grze"],0,0],
+["Inwazja z zewnątrz: kiedy?",["Po ok. 60–70 godzinach","Gdy ktoś zjednoczy połowę krainy","Losowo"],1,0],
+["Koniec gry",["Zjednoczenie albo pokonanie inwazji, potem gra dalej","Napisy końcowe"],0,0],
+["Zapis gry w tak długiej kampanii",["Więcej miejsc zapisu i zapis do pliku","Wystarczy jak jest"],0,0],
+["Co ma utrzymać ciekawość w środku gry?",["Wątki frakcji i kompanów","Wielkie wydarzenia świata","Rozbudowa królestwa","Lochy i legendy"],-1,1],
+["Pomysł spoza listy",[],-1,0,"Wpisz w notatce."],
+]],
+];
+const Q=[];CH.forEach((c,ci)=>c[1].forEach(q=>Q.push({ci,t:q[0],o:q[1],r:q[2],m:!!q[3],h:q[4]||""})));
+const YOU="Zdecyduj ty";
+let A={},cur=0;
+try{const s=JSON.parse(localStorage.getItem("qmech18")||"null");if(s){A=s.A||{};cur=Math.min(s.cur||0,Q.length-1)}}catch(e){}
+const save=()=>{try{localStorage.setItem("qmech18",JSON.stringify({A,cur}))}catch(e){}};
+const $=id=>document.getElementById(id);
+const answered=i=>{const a=A[i];return a&&((a.s&&a.s.length)||(a.n&&a.n.trim()))};
+function renderNav(){
+  $("chapters").innerHTML=CH.map((c,ci)=>{
+    const idx=Q.map((q,i)=>q.ci===ci?i:-1).filter(i=>i>=0);
+    const d=idx.filter(answered).length;
+    return `<button class="chap${Q[cur].ci===ci?" on":""}${d===idx.length?" done":""}" data-c="${ci}"><span class="n">${ci+1}</span><span class="t">${c[0]}</span><span class="p">${d}/${idx.length}</span></button>`}).join("");
+  const n=Q.filter((_,i)=>answered(i)).length;
+  $("count").textContent=n+" / "+Q.length;$("bar").style.width=(n/Q.length*100)+"%";
+}
+function render(){
+  const q=Q[cur],a=A[cur]||{s:[],n:""};
+  $("chapName").textContent=CH[q.ci][0];
+  $("qnum").textContent="Pytanie "+(cur+1)+" / "+Q.length;
+  $("qtext").textContent=q.t;
+  $("qhint").textContent=q.h||(q.m?"Możesz zaznaczyć kilka.":"");$("qhint").hidden=!$("qhint").textContent;
+  const opts=q.o.length?[...q.o,YOU]:[];
+  $("opts").innerHTML=opts.map((o,i)=>`<button class="opt${(a.s||[]).includes(i)?" on":""}${i===q.o.length?" you":""}" data-i="${i}" aria-pressed="${(a.s||[]).includes(i)}"><span class="k">${i+1}</span><span>${o}${i===q.r?`<span class="rec">★ ${R}</span>`:""}</span></button>`).join("");
+  $("note").value=a.n||"";
+  $("prev").disabled=cur===0;
+  $("next").textContent=cur===Q.length-1?"Zakończ ✓":"Dalej →";
+  renderNav();save();
+}
+function pick(i){
+  const q=Q[cur];const a=A[cur]||(A[cur]={s:[],n:""});
+  if(i>=q.o.length+1||!q.o.length)return;
+  if(q.m){a.s=a.s.includes(i)?a.s.filter(x=>x!==i):[...a.s,i];render()}
+  else{a.s=[i];render();clearTimeout(pick.t);pick.t=setTimeout(()=>{if(document.activeElement!==$("note"))go(1)},380)}
+}
+function go(d){const n=cur+d;if(n<0)return;if(n>=Q.length){openExport();return}cur=n;render();$("qtext").focus()}
+$("opts").addEventListener("click",e=>{const b=e.target.closest(".opt");if(b)pick(+b.dataset.i)});
+$("chapters").addEventListener("click",e=>{const b=e.target.closest(".chap");if(!b)return;const ci=+b.dataset.c;const first=Q.findIndex((q,i)=>q.ci===ci&&!answered(i));cur=first>=0?first:Q.findIndex(q=>q.ci===ci);render()});
+$("note").addEventListener("input",e=>{(A[cur]||(A[cur]={s:[],n:""})).n=e.target.value;renderNav();save()});
+$("prev").onclick=()=>go(-1);$("next").onclick=()=>go(1);
+document.addEventListener("keydown",e=>{
+  if(!$("modal").hidden){if(e.key==="Escape")$("modal").hidden=true;return}
+  if(e.target.tagName==="TEXTAREA")return;
+  if(/^[1-9]$/.test(e.key))pick(+e.key-1);
+  else if(e.key==="Enter"&&!e.target.closest("button")){e.preventDefault();go(1)}
+  else if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1);
+});
+function buildText(){
+  let s=`ODPOWIEDZI: MECHANIKI I TREŚĆ (${Q.filter((_,i)=>answered(i)).length}/${Q.length})\n`;
+  CH.forEach((c,ci)=>{s+=`\n## ${ci+1}. ${c[0]}\n`;
+    Q.forEach((q,i)=>{if(q.ci!==ci)return;const a=A[i];
+      let ans="—";
+      if(a&&a.s&&a.s.length)ans=a.s.map(x=>x===q.o.length?YOU:q.o[x]).join("; ");
+      s+=`${i+1}. ${q.t} → ${ans}`;
+      if(a&&a.n&&a.n.trim())s+=` [notatka: ${a.n.trim().replace(/\s+/g," ")}]`;
+      s+="\n"})});
+  return s;
+}
+function openExport(){$("out").value=buildText();$("msg").textContent="";$("modal").hidden=false;$("copy").focus()}
+$("exportBtn").onclick=openExport;$("close").onclick=()=>$("modal").hidden=true;
+$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").hidden=true});
+$("copy").onclick=()=>{const t=$("out").value;
+  const ok=()=>$("msg").textContent="Skopiowano. Wklej w czat.";
+  try{navigator.clipboard.writeText(t).then(ok,()=>{$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."})}
+  catch(e){$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."}};
+render();
+</script>
+</body></html>

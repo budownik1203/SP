@@ -1,0 +1,302 @@
+ODPOWIEDZI: DOPRACOWANIE MECHANIK B8 (254/255)
+
+## 1. Walka bohatera: sterowanie
+1. Jak ma działać wybór kierunku ciosu? → Do wyboru w ustawieniach, domyślnie położenie myszy
+2. Przytrzymanie LPM przed ciosem? → Ładuje mocniejszy cios (dłużej = mocniej)
+3. Blok tarczą/bronią (PPM): jak dokładny? → Prosty, ale idealny blok w ostatniej chwili daje kontrę
+4. Czy dodać unik / odskok? → Tak, Spacja: krótki odskok za wytrzymałość
+5. Kopnięcie (F) — co ma robić? → Przebija blok tarczą i ogłusza dłużej
+6. Zużycie wytrzymałości: jak dotkliwe? → Jak teraz
+7. Bieg (Shift) na piechotę? → Tak, sprint za wytrzymałość
+8. Zmiana broni w walce? → Klawisz zmiany między dwiema broniami (np. miecz/łuk)
+9. Łuk: sterowanie celowaniem → Dodać trzymanie naciągu zużywające wytrzymałość; Dodać zoom/przybliżenie przy pełnym naciągu
+10. Jazda konna: sterowanie → Do wyboru w ustawieniach
+11. Atak z konia: co poprawić? → Lepszy zasięg i wyraźniejsza strefa trafienia; Mocniejsze cięcia z rozpędu; Kopia łatwiejsza do trafienia
+12. Zsiadanie i wsiadanie na konia w bitwie (E)? → Tak
+13. Czy bohater może podnosić broń i strzały z pola? → Tylko strzały
+14. Kamera w walce → Lekko wyprzedza w kierunku myszy
+15. Coś jeszcze w sterowaniu, co cię irytuje? → —
+
+## 2. Walka: czucie, animacje, oprawa
+16. Odczucie trafienia: czego brakuje? → Mocniejszy hitstop (zamrożenie klatki); Większe odrzucenie trafionego; Więcej krwi i iskier; Mocniejszy dźwięk uderzenia
+17. Animacje zamachów: kierunek prac → Wyraźniejszy zamach (czytelny telegraf); Więcej wariantów ciosów; Więcej klatek, płynniejsze; Ślad ostrza (smuga)
+18. Śmierć jednostek → Różne animacje zależnie od ciosu (ścięcie, pchnięcie, obuch)
+19. Odcięte kończyny / głowy przy mocnych ciosach? → Tak, jako opcja w ustawieniach
+20. Liczby obrażeń → Tylko dla bohatera [notatka: 2 + 3]
+21. Kolory i czytelność drużyn w tłumie → Delikatny obrys/podświetlenie wrogów; Kolor proporców nad oddziałami
+22. Ciała i krew zostają na polu? → Zostają, ale bez limitu tylko na mocnym PC
+23. Dźwięki walki: priorytet → Szczęk stali i tarcz; Okrzyki i jęki; Tętent koni; Świst strzał; Wszystko mocniej zróżnicować
+24. Zwolnienie czasu przy zabójstwie → Tylko przy mocnych ciosach / ścięciach
+25. Wstrząsy kamery → Jak teraz
+26. Efekty magii (uderzenie światła, ogień, klątwy) → Więcej cząsteczek i błysków; Wyraźniejsze obszary działania; Dźwięki mocniejsze
+27. Pancerz: widoczny efekt trafienia w zbroję → Iskry i 'klang' przy ciężkiej zbroi
+28. Uszkodzenia wyglądu (krew na postaci, pęknięte tarcze)? → Obie
+
+## 3. Dowodzenie i formacje
+29. Menu rozkazów (Q): jak ma wyglądać? → Jak teraz: lista numerowana
+30. Spowolnienie czasu w trybie Q → Zostaje
+31. Przeciąganie linii frontu PPM → Dodać podgląd szerokości i głębokości
+32. Formacje do dodania → Klin piechoty; Koło/czworobok przeciw jeździe; Kolumna marszowa; Rozproszony harcownik
+33. Szybkie klawisze rozkazów (bez menu)? → Tak: F1–F4 jak w M&B
+34. Rozkaz 'idź tam, gdzie patrzę' (punkt na ziemi)? → Nie
+35. Rozkaz 'trzymaj ogień' / 'strzelaj do woli' dla strzelców → Dodać 'salwa na rozkaz'; Dodać 'strzelaj do wybranego oddziału'
+36. Oddziały: ile i jak tworzone? → Gracz sam ustawia skład przed bitwą [notatka: 1 + 3]
+37. Ekran rozstawienia przed bitwą → Tak, z ustawieniem oddziałów na mapie
+38. Głosowe okrzyki dowódcy przy rozkazach → Tak, krótkie okrzyki
+39. Rozkazy dla sojuszników (pozycja 8) → Sojusznicy powinni słuchać tylko przy dobrej relacji
+40. Znaczniki oddziałów nad głowami → Proporzec z numerem
+
+## 4. AI bitewne i morale
+41. Ogólny poziom AI przeciwnika → Mądrzejszy, mniej przewidywalny
+42. Ucieczki (morale) → Jak teraz
+43. Uciekający: wracają do walki? → Tak, czasem
+44. AI strzelców → Wszystko
+45. AI jazdy → Oskrzydlanie i uderzenia w tyły; Szarże i nawroty (jak teraz); Nie wjeżdża w las i bagno
+46. Jednostki mają być indywidualne (unikają ciosów, osłaniają)? → Tak, wyższe tiery wyraźnie sprytniejsze
+47. Zmęczenie oddziałów w długiej bitwie → Tak, wolniejsi i słabsi
+48. Poddawanie się i branie jeńców w bitwie → Wrogowie z niskim morale się poddają (więcej jeńców)
+49. Wpływ bohatera na morale → Większy: zabójstwa i okrzyki podnoszą
+50. Wpływ nocy i pogody na AI → Zasadzki częstsze nocą; Gorsza widoczność dla wszystkich
+51. Nieumarli: inne zachowanie → Nie uciekają, ale rozpadają się po śmierci nekromanty
+52. Orkowie: inne zachowanie → Szarża z okrzykiem, mało formacji; Berserkerzy wybiegają przed szereg
+
+## 5. Oblężenia
+53. Budowa machin przed szturmem → Wymaga ludzi z wiedzą inżynierską (kompan)
+54. Drabiny → Drabiny do przenoszenia i stawiania w bitwie
+55. Mury: walka na koronie → Spychanie wrogów z drabin (kopnięcie); Ciaśniej, przepychanie z muru
+56. Obrona: poziom trudności → Obrona łatwiejsza (mury dają więcej)
+57. Głód w oblężonym zamku → Tak, zapasy spadają, morale też
+58. Wypady z zamku → Tak, nocny wypad na obóz oblegających
+59. Wnętrze zamku po przełamaniu → Druga faza: walka na dziedzińcu / w twierdzy
+60. Trebusz: rola → Gracz może nim celować [notatka: 2+3]
+61. Balista na murach dla obrońców → Tak
+62. Ogień: podpalanie machin i bramy → Tak, płonące strzały
+63. Grafika murów → Wyższe, z wieżami; Bardziej zniszczalne (wyrwy)
+64. Łupienie zdobytego miasta → Wybór: oszczędź / łup / spal
+
+## 6. Arena i turnieje
+65. Wybór trybu areny → Plansza z ilustracjami trybów
+66. Zakłady → Na każdą walkę, nie tylko turniej; Też na innych zawodników
+67. Nagrody → Jak teraz
+68. Sprzęt na arenie → Wybór z kilku zestawów
+69. Turniej: ilu zawodników → 16 z grupami
+70. Turniej: rodzaje rund → Pieszo + kopie (jak teraz); Dodać łucznictwo do tarcz; Dodać walkę drużynową
+71. Kopie: zasady → Punkty za trafienie, 3 przejazdy
+72. Lordowie startują w turniejach → Tak, z relacją za wygraną z nimi
+73. Publiczność → Rzucanie kwiatów/monet przy dobrych akcjach; Więcej widzów i okrzyki
+74. Walki na śmierć → Tylko w ciemnych zaułkach nocą
+75. Ranking areny / tytuł mistrza miasta → Tak
+76. Fale przeciwników: co dodać → Bestie (wilki, niedźwiedź); Coraz silniejsi wojownicy; Bonus za serię bez obrażeń
+
+## 7. HUD bitwy i ekran po bitwie
+77. Lewy panel bohatera → Jak teraz
+78. Pasek przewagi → Zostaje
+79. Minimapa → Przezroczysta
+80. Mapa taktyczna (Q) → Pokazuje też teren (las, wzgórza); Klikanie na niej wydaje rozkazy
+81. Dziennik walki → Tylko ważne wydarzenia
+82. Kompas / kierunek do wrogów → Tak, strzałki przy krawędzi
+83. Ostrzeżenia o ciosach wroga → Usunąć
+84. Ekran po bitwie: co dodać → Zdobyty sprzęt z ikonami; Najlepszy żołnierz bitwy; Wykres strat w czasie; Relacje, które się zmieniły
+85. Awans jednostek z ekranu po bitwie → Przycisk 'Awansuj wszystkich' od razu
+86. Łupy po bitwie → Wybór przedmiotów jak w M&B (okno łupów)
+87. Podział łupów z kompanami/żołnierzami (morale) → Tak
+
+## 8. Mapa świata: wygląd
+88. Styl mapy → Jak teraz (pikselowa z góry)
+89. Miasta i zamki na mapie → Animowane (dym, flagi); Większe, z detalami
+90. Drzewa i góry → Gęstsze lasy; Wyższe, cieniowane góry
+91. Dzień i noc → Płynne przejścia o świcie/zmierzchu; Ciemniejsza noc z latarniami w osadach
+92. Pogoda na mapie → Widoczny deszcz i mgła; Śnieg zimą; Burze
+93. Zaraza Morvath → Wyraźniejsza (szare ziemie, martwe drzewa); Rozlewa się animowanie
+94. Ikony oddziałów na mapie → Większa postać i liczebność
+95. Granice frakcji → Tylko na żądanie (klawisz)
+96. Nazwy osad → Z herbem frakcji; Większe
+97. Przybliżenie mapy → Płynne kółkiem; Większy zakres oddalenia
+
+## 9. Mapa świata: ruch, czas, spotkania
+98. Prędkość czasu → Dodać ×8
+99. Ruch: klik vs przytrzymanie → Obie
+100. Trasa na mapie → Pokazać linię trasy i czas dotarcia
+101. Zatrzymanie przy zagrożeniu → Tylko przy silniejszym wrogu
+102. Częstość spotkań z bandytami → Jak teraz
+103. Ucieczka przed pościgiem → Zostawienie części ludzi / łupów, by uciec
+104. Prędkość drużyny → Zależy wyraźniej od ilości jeńców, rannych i koni
+105. Obóz (odpoczynek na mapie) → Rozbudować: leczenie, trening, wartownicy
+106. Żywność i głód w podróży → Jak teraz
+107. Zdarzenia losowe w podróży → Częstsze, z wyborami
+108. Śledzenie (ślady) innych oddziałów → Tak, z umiejętnością tropienia
+109. Podgląd przed spotkaniem (siły, teren, pogoda) → Tak, w okienku spotkania
+
+## 10. Spotkania i dialogi
+110. Okno dialogu → Większe portrety, animowane
+111. Efekt pisania tekstu → Wyłączyć / pomijalny kliknięciem
+112. Wybory w dialogach → Więcej opcji opartych na cechach (charyzma, honor); Groźby, przekupstwo, blef
+113. Rozmowy z bandytami → Możliwość przekupienia / zastraszenia; Rekrutacja bandytów po rozmowie
+114. Rozmowy z lordami → Więcej tematów (plotki, wojna, małżeństwo); Pamięć wcześniejszych rozmów
+115. Głosy postaci → Krótkie 'mruknięcia' przy dialogu
+116. Portrety → Z twarzą i ubiorem z ekwipunku
+117. Konsekwencje wyborów → Widoczne od razu (relacja +/-)
+118. Historia rozmów → Nie trzeba
+119. Numery 1–9 do wyboru opcji → Dodać też strzałki + Enter
+
+## 11. Osady: miasto, zamek, wioska
+120. Ekran osady → Klikalna ilustracja z budynkami
+121. Wygląd scen → Zależne od dobrobytu (bieda/bogactwo); Większe, bardziej szczegółowe; Zależne od pory dnia i pogody
+122. Ludzie w osadzie → Klikalni mieszkańcy z plotkami; Kupcy i rzemieślnicy z imionami
+123. Wioska: co dodać → Prośby wieśniaków; Rekruci zależni od relacji (jest); Podatki i zbiory widoczne
+124. Zamek: co dodać → Sala tronowa z lordem; Lochy z jeńcami; Zbrojownia
+125. Łupienie wiosek → Wybór: zabierz zapasy / spal / rekrutuj siłą
+126. Odpoczynek w osadzie → Wybór liczby dni z kosztem
+127. Informacja o osadzie → Więcej liczb (dochód, garnizon, zapasy)
+128. Dźwięki osady → Gwar miasta, kowal, dzwony; Muzyka miejska
+129. Zarządzanie własną osadą → Budynki do budowy; Rządca; Ustalanie podatków
+
+## 12. Rekrutacja
+130. Okno rekrutacji → Jak teraz (lista + podgląd)
+131. Liczba ochotników → Jak teraz
+132. Odnawianie ochotników → Jak teraz
+133. Koszt rekrutacji → Jak teraz
+134. Żołd → Jak teraz
+135. Rekruci od relacji z wioską → Obie
+136. Najemnicy w karczmach → Kompanie najemne jako całe oddziały
+137. Jeńcy jako rekruci → Tak, po kilku dniach w niewoli
+138. Limit armii → Zależny od przywództwa i sławy (jak teraz)
+139. Odprawianie żołnierzy → Obie
+140. Rekrutacja kobiet / innych ras w wioskach → Rasy zależne od kultury osady
+
+## 13. Handel i kowal
+141. Okno targu → Dwie kolumny: ty i kupiec, przeciąganie
+142. Ceny towarów → Większe różnice między miastami (handel opłacalny)
+143. Informacja o cenach → Pamiętane ceny z odwiedzonych miast; Plotki o cenach
+144. Karawany gracza → Tak, wysyłanie karawan
+145. Kowal: co ma robić → Naprawa; Wykuwanie na zamówienie z czasem; Ulepszanie (ostrzenie, wzmacnianie); Przetapianie
+146. Jakość przedmiotów → Zardzewiały, zwykły, dobry, mistrzowski
+147. Porównanie przedmiotów → Obie
+148. Przedmioty epickie / unikalne → Obie [notatka: i ciężkie questy i długie]
+149. Sprzedaż łupów → Kupcy płacą mniej za zniszczone
+150. Targowanie się → Umiejętność handlu daje zniżki (jak jest)
+151. Dźwięk przy handlu → Więcej: kowadło, odgłosy targu
+
+## 14. Karczma i kompani
+152. Ilu kompanów w świecie → 12–16
+153. Kompani: osobowość → Wszystko
+154. Kompani w walce → Własne umiejętności (jest); Mogą dowodzić oddziałem
+155. Kompani poza walką → Wysyłanie na zwiad / misje; Mogą zostać rządcami / zarządcami osad
+156. Śmierć kompanów → Nigdy, tylko ranni
+157. Karczma: atmosfera → Wszystko; Plotki i zadania; Kości i hazard; Muzyka barda
+158. Gra w kości → Z zakładami i blefem
+159. Bardowie → Śpiewają o twoich czynach (sława)
+160. Portrety kompanów → — [notatka: 1 ale ty dopracowuyjesz]
+161. Rekrutacja kompana → Dłuższy dialog z wyborami
+
+## 15. Zadania
+162. Liczba typów zadań → Więcej różnych
+163. Łańcuchy zadań → Tak, kilka etapów z historią
+164. Okno zadań → Z nagrodą i terminem na wierzchu
+165. Znaczniki na mapie → Do wyłączania pojedynczo
+166. Terminy zadań → Jak teraz
+167. Nagrody → Częściej przedmioty; Złoto i relacja (jak teraz)
+168. Zadania od lordów → Więcej wojskowych (zdobądź zamek, obroń wioskę); Polityczne (przekonaj innego lorda)
+169. Zadania od wiosek → Obrona przed bandytami; Przyprowadź bydło/zboże; Szkolenie milicji
+170. Odmowa / porzucenie zadania → Kara relacji
+171. Śledzenie aktywnego zadania na HUD mapy → Tak, mały panel
+
+## 16. Okno postaci i drzewka
+172. Układ okna postaci → Duży portret postaci po lewej
+173. Atrybuty: ile punktów → 1 na poziom (jak teraz)
+174. Węzły drzewek → Większe, z ikonami; Więcej węzłów (8–10 na drzewko); Opis pod kursorem [notatka: więcej. 20 nadrzewko z umiejkami]
+175. Wykluczanie drzewek → Więcej wykluczeń (np. łuk ↔ ciężka zbroja) [notatka: lekka zbroja / ciężka zbroja, łuk / kusza, wiara / mrok itd.]
+176. Zmiana punktów (respec) → Za opłatą u mnicha/maga
+177. Animacja odblokowania węzła → Błysk i dźwięk
+178. Statystyki postaci → Pełna lista (obrażenia, pancerz, prędkość)
+179. Cechy / przywary (np. 'Okrutny', 'Honorowy') → Tak, zdobywane czynami
+180. Spaczenie (korupcja) → Widoczne na portrecie i postaci
+181. Sława i honor → Widoczne z progami (co odblokowują)
+182. Poziomy: tempo → Jak teraz
+
+## 17. Ekwipunek
+183. Okno ekwipunku → Lalka (paperdoll) z przeciąganiem
+184. Podgląd postaci w ekwipunku → Duży, obracany
+185. Waga i obciążenie → Tak, wpływa na szybkość i wytrzymałość
+186. Sortowanie i filtry plecaka → Tak
+187. Wymagania przedmiotów (siła do zbroi, broni) → Tak
+188. Drugi zestaw broni → Tak, przełączany w bitwie
+189. Ekwipunek kompanów → Pełne zarządzanie
+190. Konie → Więcej rodzajów z cechami; Koń z imieniem i doświadczeniem
+191. Zużycie sprzętu → Tak, naprawa u kowala
+192. Wygląd sprzętu na postaci → Wyraźniejsze różnice między zbrojami; Hełmy z pióropuszami/herbem
+
+## 18. Armia: okno i jednostki
+193. Okno armii → Obie (przełącznik)
+194. Drzewko jednostki → Większe, z podglądem każdej jednostki; Z kosztem awansu przy strzałce
+195. Koszt awansu → Wyższy
+196. Doświadczenie jednostek → Trening u kompana / w zamku
+197. Jednostki elitarne frakcji → 1–2 na frakcję, wymagają relacji
+198. Rani w armii → Leczenie zależy od medycyny wyraźniej
+199. Morale armii → Pokazać czynniki (jedzenie, żołd, zwycięstwa)
+200. Mieszanie ras w armii → Kary morale za orków obok krasnoludów
+201. Jeńcy w oknie armii → Osobna zakładka z cenami okupu
+202. Ustawienie oddziałów przed bitwą w oknie armii → Tak (przypisanie do 1–8)
+203. Nieumarli w armii gracza → Po paktach z mrokiem
+
+## 19. Frakcje, lordowie, królestwo
+204. Okno frakcji → Lista lordów z portretami i relacją; Mapa terytorium i wykres siły
+205. Relacje z lordami → Wyraźniejsze powody zmian
+206. Wojny i pokój → Rzadsze, dłuższe wojny
+207. Marszałek i kampanie → Obie
+208. Nadawanie lenn → Rada głosuje
+209. Własne królestwo: herb i kolory → Edytor herbu
+210. Dyplomacja → Sojusze i trybuty; Małżeństwa; Wysłannicy
+211. Zdrada i bunty lordów → Tak, przy niskiej relacji
+212. Morvath (nieumarli) → Rośnie jak zaraza, trzeba wspólnie walczyć
+213. Kronika → Filtry (wojny, gracz, lordowie); Ilustrowane wydarzenia
+
+## 20. Niewola, jeńcy, odwrót
+214. Niewola bohatera → Krótka scena ucieczki do zagrania; Jak teraz (ucieczka / okup / czekanie); Pomoc kompanów w ucieczce
+215. Częstość niewoli → Jak teraz
+216. Jeńcy lordowie → Okup przez dialog; Wymiana jeńców; Egzekucja (kara honoru)
+217. Sprzedaż jeńców → Też w zamkach
+218. Ucieczki jeńców → Tak, przy słabej straży
+219. Odwrót z bitwy → Straż tylna: wybierasz, kto osłania
+220. Kara za przegraną → Utrata części ekwipunku i złota
+221. Ratowanie kompanów z niewoli → Zadanie / szturm na zamek
+222. Strażnicy jeńców w armii → Potrzeba ludzi do pilnowania (spowalnia)
+223. Przesłuchanie jeńców (informacje o wrogu) → Tak
+
+## 21. Interfejs ogólny i menu
+224. Wygląd okien → Tekstury drewna/pergaminu
+225. Czcionka → Czytelniejsza, większa
+226. Podpowiedzi (tooltips) → Więcej szczegółów
+227. Skróty klawiszowe → Obie
+228. Animacje okien → Płynne otwieranie
+229. Menu główne → Animowane tło
+230. Zapisy → 3–5 slotów
+231. Ekran ładowania → Cytaty i porady; Ilustracje
+232. Samouczek → Krótkie podpowiedzi przy pierwszym użyciu
+233. Powiadomienia (toasty) → Dziennik powiadomień
+234. Wsparcie pada → Nie
+
+## 22. Dźwięk i muzyka
+235. Muzyka na mapie → Kilka utworów zależnych od regionu; Dzień/noc inne
+236. Muzyka w bitwie → Narasta z intensywnością; Inna dla każdej rasy wroga
+237. Ambient na mapie → Wiatr, ptaki, rzeki; Odgłosy marszu
+238. Dźwięki interfejsu → Kliknięcia, przewracanie kartek
+239. Głosy ras → Bardziej zróżnicowane (orki, krasnoludy, nieumarli)
+240. Głośność ogólna → Osobne suwaki: efekty, muzyka, głosy, interfejs
+241. Dźwięk awansu / poziomu → Fanfara
+242. Cisza przed bitwą i róg na start → Tak
+243. Muzyka w osadach → Inna w karczmie, na targu, w zamku
+244. Styl muzyki → Mroczny, średniowieczny (lutnia, bębny, chór)
+245. Dźwięki magii → Wyraźniejsze, inne dla wiary i mroku
+
+## 23. Kreator postaci i początek gry
+246. Kreator: wygląd → Wybór rasy (człowiek, krasnolud, ork); Więcej opcji twarzy, włosów, blizn
+247. Pochodzenie → Krótka scena wprowadzająca [notatka: kilka etapów. dziecko, nastolatek, aktualny itd.]
+248. Start gry → Krótki prolog (bitwa samouczek)
+249. Pierwsze godziny → Piaskownica bez prowadzenia
+250. Fabuła główna → Opcjonalna
+251. Poziomy trudności → Suwaki szczegółowe
+252. Imię i herb na starcie → Tak, edytor herbu w kreatorze
+253. Startowy ekwipunek → Biedny (jak teraz)
+254. Startowi towarzysze → Sam, z garstką ludzi (jak teraz)
+255. Losowy świat (nowe ziarno mapy) → Zawsze ta sama mapa

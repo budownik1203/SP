@@ -1,0 +1,121 @@
+ODPOWIEDZI PROJEKTOWE (100/100)
+
+## 1. Wizja i filary
+1. Jak opiszesz grę jednym zdaniem? → Wojenna piaskownica fantasy, w której świat żyje sam
+2. Jaki jest główny cel gracza? → Brak celu: czysta piaskownica
+3. Czy gra ma kampanię fabularną? → Lekka oś fabularna, którą można zignorować
+4. Ile ma trwać jedna pełna kampania? → 40+ godzin
+5. Jak surowa ma być gra? → Wymagająca, ale uczciwa
+6. Jak działa zapis gry? → Tryb Ironman (jeden zapis) jako opcja
+7. Kto jest docelowym graczem? → Po trochu każdy z nich
+8. Jaki ton ma mieć gra? → Poważny i mroczny
+9. Jakie inne gry są dla Ciebie inspiracją? → Battle Brothers; Crusader Kings; Total War
+10. Tryb wieloosobowy? → Tylko gra jednoosobowa
+
+## 2. Świat i lore
+11. Jaki rodzaj fantasy? → Dark fantasy: brud, plaga, okrucieństwo
+12. Jakie rasy zamieszkują świat? → Wiele ras, każda z frakcją
+13. Ile frakcji na start kampanii? → 6
+14. Na czym opierać kultury frakcji? → Mieszanka
+15. Jaką rolę ma magia? → Rzadka i potężna: magowie jako elitarne jednostki
+16. Czy w świecie są potwory? → Zdecyduj ty [notatka: 2 + 3]
+17. Czy w późnej grze pojawia się wielkie zagrożenie? → Losowy kryzys z kilku możliwych
+18. Jak duży ma być świat? → Duży kontynent
+19. Świat stały czy generowany? → Stała mapa z losowymi elementami
+20. Religie i bogowie? → Mechanika: bonusy, święte wojny, kapłani
+
+## 3. Bohater
+21. Jak wygląda tworzenie postaci? → Pełny kreator z historią życia (jak w M&B)
+22. Czy pochodzenie zmienia start gry? → Tak: chłop, szlachcic, najemnik, banita zaczynają inaczej
+23. Jak rozwija się bohater? → Atrybuty i umiejętności jak w M&B
+24. Klasy postaci? → Specjalizacje odblokowywane z czasem
+25. Ekwipunek bohatera? → Pełny: hełm, zbroja, rękawice, buty, 4 sloty broni, koń
+26. Co się dzieje, gdy bohater zginie? → Zostaje ranny lub pojmany, gra trwa dalej
+27. Starzenie, małżeństwo, dzieci? → Brak
+28. Towarzysze bohatera? → Unikalni towarzysze z historiami i konfliktami
+29. Reputacja i moralność? → Honor i sława, jak w M&B
+30. Czy bohater może używać magii? → Zdecyduj ty [notatka: 2 + 1]
+
+## 4. Walka osobista i arena
+31. Co rozumiesz przez to, że gracz jest na arenie? → Jedno i drugie
+32. Jak sterujesz bohaterem w walce? → WASD + mysz celuje i atakuje
+33. Walka kierunkowa jak w M&B? → Tak, ciosy z czterech kierunków i blok w kierunku
+34. Jak działa obrona? → Blok tarczą i parowanie w dobrym momencie
+35. Jakie bronie są w grze? → Miecze; Topory i maczugi; Włócznie i halabardy; Łuki; Kusze; Bronie rzucane; Magia
+36. Walka konna? → Tak, kluczowa: szarża z rozpędem, kopie
+37. Czy obrażenia zależą od prędkości i trafienia? → Tak: rozpęd konia, trafienie w głowę, zasięg
+38. Wytrzymałość i zmęczenie? → Tylko dla sprintu i bloków
+39. Turnieje na arenach w miastach? → Tak, z zakładami i nagrodami
+40. Pojedynki z lordami? → Tak, można wyzwać lub przyjąć wyzwanie
+
+## 5. Armia i dowodzenie
+41. Skąd bierzesz żołnierzy? → Jedno i drugie
+42. Jak żołnierze się rozwijają? → Drzewka jednostek: rekrut → weteran, rozgałęzienia
+43. Maksymalna wielkość armii gracza? → Około 150
+44. Utrzymanie armii? → Żołd, jedzenie i morale
+45. Rola morale? → Wpływa na ucieczkę w bitwie i dezercję w obozie
+46. Czy towarzysze dowodzą oddziałami? → Tak, przypisujesz kapitanów do formacji z bonusami
+47. Ile armii może mieć gracz? → Kilka, po zostaniu lordem wysyłasz generałów
+48. Jakie jednostki specjalne? → Magowie; Bestie i potwory; Elitarne jednostki ras; Najemnicy z obcych krain [notatka: Trzeba jeszcze pomyśleć nad większą ilością.]
+49. Jeńcy? → Niewola, okup, rekrutacja jeńców
+50. Ranni i polegli? → Ranni wracają do zdrowia, polegli giną na zawsze
+
+## 6. Bitwy taktyczne
+51. Ile jednostek naraz na polu bitwy? → 100–200
+52. Jakie rozkazy? → Formacje: linia, klin, mur tarcz, luźny szyk
+53. Pauza taktyczna? → Spowolnienie czasu
+54. Czy teren ma znaczenie? → Tak: wzgórza, lasy, rzeki dają premie i kary
+55. Pogoda i pora dnia? → Wpływa na walkę: deszcz, mgła, noc
+56. Oblężenia? → Pełne: drabiny, tarany, wieże, mury
+57. Automatyczne rozstrzyganie bitew? → Zawsze dostępne
+58. Gdy bohater padnie w bitwie? → Jest ogłuszony, armia walczy dalej, sterujesz kamerą
+59. Rozmieszczenie wojsk przed bitwą? → Tak, ustawiasz oddziały
+60. Jakie rodzaje starć? → Zasadzki; Bandyci na szlakach; Obrona wiosek; Bitwy morskie; Wypady na legowiska potworów
+
+## 7. Mapa strategiczna i frakcje
+61. Jak płynie czas na mapie? → Czas rzeczywisty z pauzą, jak w M&B
+62. Jak zbudowana jest mapa? → Swobodny ruch po mapie
+63. Mgła wojny? → Tak
+64. Jak zachowują się frakcje AI? → Toczą wojny, upadają, powstają nowe
+65. Czy lordowie AI chodzą po mapie z armiami? → Tak, każdy lord ma własną armię
+66. Co można zdobywać? → Tylko miasta i zamki
+67. Bunty i rebelie? → Tak
+68. Wydarzenia losowe? → Trochę
+69. Pory roku? → Zima utrudnia marsz, zbiory wpływają na głód
+70. Własne królestwo? → Jedno i drugie
+
+## 8. Ekonomia i osady
+71. Handel? → Ceny zależą od regionu, karawany, popyt
+72. Jakie zasoby? → Złoto i żywność
+73. Rozbudowa osad? → Budynki w miastach i zamkach
+74. Warsztaty i biznesy gracza? → Tak
+75. Podatki i lenna? → Tak, ustawiasz podatki i zarządzasz lennami
+76. Rzemiosło broni i zbroi? → W późniejszej wersji
+77. Własne karawany? → Tak
+78. Ludność i zadowolenie? → Uproszczone
+79. Grabież wiosek? → Tak, z konsekwencjami dla honoru i relacji
+80. Czy wojny wpływają na gospodarkę? → Tak: blokady, spalone wioski, droższe jedzenie
+
+## 9. Polityka i dyplomacja
+81. Ścieżka kariery? → Zdecyduj ty [notatka: 1. rozwińmy to bardziej]
+82. Zakres dyplomacji? → Pełna, z intrygami i roszczeniami
+83. Relacje z lordami? → Indywidualne relacje z każdym lordem
+84. Rada i wasale w królestwie gracza? → Tak, rozdzielasz lenna i musisz dbać o lojalność
+85. Zadania (questy)? → Jedno i drugie
+86. Dialogi? → Proste menu wyborów
+87. Intrygi: szpiedzy, zamachy? → W późniejszej wersji
+88. Prawa i ustrój królestwa? → Tak, wpływają na lordów i ludność
+89. Czy lordowie mogą zmieniać strony? → Tak, także gracz
+90. Kronika wydarzeń świata? → Tak, dziennik i powiadomienia
+
+## 10. Grafika, technologia i zakres
+91. Rozmiar sprite'ów? → 32×32
+92. Klimat palety kolorów? → Ponura, przygaszona
+93. Animacje? → Proste, 2–4 klatki
+94. Muzyka i dźwięki? → Proste, generowane
+95. Skąd grafika? → — [notatka: To tworzysz]
+96. Język gry? → Oba
+97. Platforma? → Przeglądarka teraz, Steam później
+98. Co ma być w pierwszym grywalnym prototypie? → Bitwa
+99. Tytuł roboczy? → Sztandary Popiołu
+100. Co MUSI być w grze, żebyś był zadowolony? → — [notatka: Ciężko stwierdzić. swoboda i content.]

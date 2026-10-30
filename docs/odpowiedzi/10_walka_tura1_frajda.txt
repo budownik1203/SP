@@ -1,0 +1,58 @@
+ODPOWIEDZI: MECHANIKI I TREŚĆ (34/41)
+
+## 1. Rytm ciosów
+1. Kombinacje ciosów: seria 3 ciosów w rytmie, trzeci to finiszer (odrzut, przewrócenie) → Tak, dla każdej broni inna seria
+2. Czy kombinacje mają łączyć się z kierunkami ciosu (lewo, prawo, z góry)? → Zdecyduj ty [notatka: kierunek do wyjebania]
+3. Cios z odskoku (atak tuż po odskoku = doskok z premią) → Tylko z drzewka umiejętności
+4. Cios naładowany (przytrzymaj = szeroki zamach dookoła) → Tak, ale tylko bronią dwuręczną
+5. Łańcuch odskoków (2–3 odskoki pod rząd) → Z drzewka umiejętności
+6. Odbijanie strzał mieczem w odpowiednim momencie → Tak, parowanie odbija też strzały
+
+## 2. Czucie trafienia
+7. Biały błysk wroga przy trafieniu → Tak
+8. Odrzut na przeszkodę (drzewo, mur, inny żołnierz) zadaje dodatkowe obrażenia i przewraca → Tak
+9. Powalenie: wróg leży chwilę i można go dobić → Tylko po finiszerze lub kopniaku
+10. Egzekucje (klawisz F przy ogłuszonym lub leżącym wrogu, krótka animacja) → Tak, z efektem morale dla wrogów w pobliżu
+11. Licznik serii zabójstw (×5, ×10…) z premią → Tak, seria podnosi morale twoich ludzi w pobliżu
+12. Ciosy krytyczne z osobnym dźwiękiem i błyskiem → Tak
+13. Siła wstrząsu ekranu → Jak teraz
+14. Odcięte kończyny i rozpad wrogów przy mocnych ciosach → Częściej niż teraz
+
+## 3. Obrona i postawa
+15. Pasek postawy wroga (bloki i trafienia go łamią, złamana postawa = ogłuszenie i dobicie) → Tylko dla elit, oficerów i lordów
+16. Twoja postawa (zamiast tylko wytrzymałości) → Nie, wystarczy wytrzymałość
+17. Idealny unik (odskok w ostatniej chwili) = spowolnienie czasu i darmowa kontra → Tak
+18. Zapowiedzi mocnych ciosów (czerwony błysk przed ciosem elity) → Tak, dla elit i oficerów
+19. Ciosy, których nie da się zablokować (tylko unik) → Tak, u lordów i potworów
+
+## 4. Zasoby w walce
+20. Odnawianie zasobów ciosami (trafienia ładują magię, wiarę albo pociski) → Nie, jak teraz
+21. Leczenie w bitwie → Bandaże jak teraz
+22. Rzut bronią pod osobnym klawiszem (toporek, oszczep, nóż) z krótkim odnowieniem → Zdecyduj ty [notatka: 2 + jako umiejki dla każdego typu broni, slot w eq na nie]
+23. Szał jako przemiana (pełny pasek = kilka sekund mocy jak musou) → Zdecyduj ty [notatka: 1 + jako umiejka]
+
+## 5. Dary w bitwie
+24. Błogosławieństwa w trakcie bitwy (wybór 1 z 3 darów, działa do końca bitwy) → Nie
+25. Od kogo dary? → Święci Korony; Starzy bogowie krain; Morvath przy wysokim spaczeniu; Duchy przodków (kompan szaman)
+26. Przykładowe dary: które brzmią najlepiej? → Kontra wysyła falę uderzeniową; Odskok zostawia ogień; Zabicie przywraca wytrzymałość; Każdy blok leczy; Ciosy podpalają; Strzały rozpryskują się na trzy; Zdecyduj ty [notatka: jako umiejki]
+27. Łączenie darów (dwa dary od różnych bogów dają trzeci, mocniejszy) → Tak
+28. Runy na broni zmieniające cios (zatrucie, krwawienie, ogłuszenie) → Tak, wkuwane w kuźni
+
+## 6. Wrogowie i bossowie
+29. Lordowie jako minibossowie z własnymi ruchami i drugą fazą → Zdecyduj ty [notatka: 1 + Generalnie lordowie powinni być trochę wieksi i być trochę bardziej styłu z eskortą (chyba że cecha np odważny to wbiega w środek z pierwszą linią)]
+30. Bestie i potwory z własnymi wzorcami ataku (szarża, skok, ryk) → Tak
+31. Elitarni wrogowie z modyfikatorami (np. tarcza z kolcami, ognisty, wampiryczny) → —
+32. Wrogowie celują w bohatera, gdy jest sławny (pojedynkowicze z szeregów wroga) → —
+33. Fale wrogów w lochach i ruinach (walka bohatera i kompanów bez armii) → —
+
+## 7. Postać i rozwój
+34. Bronie jeszcze bardziej różne w odczuciu (zasięg, szybkość, specjalny ruch każdej klasy) → Tak, każda klasa broni ma ruch specjalny
+35. Specjalny ruch broni pod PPM+LPM albo osobnym klawiszem → — [notatka: umiejki]
+36. Mistrzostwo broni (używanie broni odblokowuje jej ruchy) → Tak
+37. Wyzwania w bitwie (np. zabij oficera bez otrzymania ciosu) z nagrodą → —
+38. Bohater bardziej odporny (mniej obrażeń od zwykłych żołnierzy, groźni tylko elitarni) → —
+39. Kamera w walce bohatera → Do wyboru w ustawieniach
+
+## 8. Kolejność
+40. Co zrobić najpierw? → —
+41. Konie (zaplanowane na 0.29) przed czy po walce? → —

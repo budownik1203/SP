@@ -1,0 +1,35 @@
+DOPRACOWANIE 0.15.2: WYBORY
+
+## Naprawić teraz (29)
+- Postacie: więcej detali → Większe sprajty (ok. 32×40 px) z dorysowanymi detalami: nity, pasy, sprzączki, faktura kolczugi; Zostawić rozmiar, dodać cieniowanie w 3–4 tonach i obrys zależny od światła; Więcej klatek animacji (chód 6, zamach 5, śmierć 6) zamiast obecnych 2–4; Warianty sprzętu frakcji: inne kształty hełmów, tarcz i płaszczy dla każdej kultury
+- Postacie: brud i zużycie → Warstwa brudu na sprajcie: błoto od dołu, plamy krwi, przetarcia na płaszczach; Brud rośnie z czasem kampanii i liczbą bitew, czyszczenie w mieście (łaźnia); Zbroje z rdzą i wgnieceniami zależnie od stanu (zużycia) przedmiotu; W bitwie krew i błoto dopisują się na żywo po trafieniach i upadkach
+- Teren bitwy: tekstury → Bogatsza tekstura podłoża: kępy trawy, kamienie, gruz, korzenie, kałuże; Teren brudzi się w trakcie walki: wydeptana trawa, błoto, ślady kopyt, kałuże krwi; Pora roku na polu: zimą śnieg z błotem, jesienią liście i deszcz; Porzucony sprzęt i trupy zostają jako część krajobrazu do końca bitwy
+- Mapa świata: tekstury → Przybrudzona paleta terenu i dodatkowa faktura (plamy błota, wydeptane łąki); Ślady wozów i koleiny na drogach, wydeptane ścieżki między wioskami; Pogorzeliska i ślady bitew zostające na mapie przez kilka dni; Efekt starej mapy: lekka winieta i ziarno na krawędziach
+- Osady: budynki → Większe ikony z detalami: łaty na dachach, płoty, stogi, śmietniska, szubienice; Wygląd zależny od dobrobytu (biedne: ruiny i dziury, bogate: kamień i chorągwie); Wygląd zależny od kultury (krasnoludy w skale, orkowie w namiotach z kości); Ślady oblężenia i grabieży na ikonie (dym, czarne zgliszcza, wyłamana brama)
+- Paleta kolorów → Różna paleta zależna od regionu i pory roku; Mniej nasycona, cieplejsza paleta (brązy, oliwki, rdza), jak w Darkest Dungeon; Chłodniejsza, szaro-niebieska paleta (mgła, popiół)
+- Efekty: dym, kurz, popiół → Kurz spod nóg i kopyt, przy szarży gęsta chmura; Dym z pożarów i machin, iskry przy trafieniach w stal; Popiół w powietrzu w krainie Morvatha i po bitwach; Mgła poranna snująca się po polu
+- Ilustracje scen i portrety → Sceny w osadach w podwójnej rozdzielczości z większą liczbą detali i postaci; Portrety z brudem, bliznami, zarostem i zmęczeniem po bitwach; Animowane sceny (dym z kominów, migające pochodnie, ruch ludzi); Ilustracje wydarzeń w kronice i przy ważnych momentach
+- Interfejs → Plamy, zacieki i przetarcia na pergaminie i drewnie; Okna jak zniszczone księgi i mapy z przypalonymi brzegami
+- Tempo marszu na większej mapie → Zostawić, większa mapa ma trwać dłużej
+- Balans frakcji → Sąsiedzi silnej frakcji chętniej zawierają przeciw niej sojusze; Zmęczenie wojną: frakcja z wieloma zdobyczami ma bunty i niższe morale
+- Zamki przechodzące z rąk do rąk → Zdobywca zostawia większą załogę; Oblężenie musi trwać dłużej, zanim AI ruszy do szturmu
+- Zdrady lordów → Częstsze: szybszy spadek lojalności przy przegranych i bez lenna; Zdrady ogłaszane wcześniej plotkami (gracz może zareagować)
+- Wydajność przy ×8 → Obie
+- Ikona drużyny na nazwie miasta → Drużyna w mieście chowa się, a nad miastem pojawia się mały herb gracza
+- Imiona lordów na nazwach osad → Automatyczne rozsuwanie napisów, żeby się nie nakładały
+- Nazwy krain przykrywają wioski → Nazwy krain tylko przy dużym oddaleniu i w widoku całej mapy
+- Schodkowe rzeki → Rysować rzekę gładką linią przez środki pól (wygląd), przejście zostaje po polach; Szersze rzeki z rozmytymi brzegami i trzcinami
+- Jednolite Góry Khazgrim → Różne wielkości i kształty szczytów, przełęcze i doliny w środku pasma; Ośnieżone tylko najwyższe szczyty, niższe skaliste i porośnięte; Węższe pasmo z większą liczbą dolin i wiosek krasnoludów
+- Mały tekst na mapie → Obie
+- Godło na sztandarach → Godło na sztandarze drużyny na mapie i na chorążych w bitwie; Godło też na tarczach i tabardach twoich żołnierzy; Godło na banerach twoich zamków i miast
+- Wygląd z kreatora w bitwie → Przenieść fryzurę, brodę i malunki na sprajt bohatera; Tylko gdy nie ma hełmu (z hełmem bez zmian)
+- Bunt lordów → Buntownicy tworzą własną frakcję z pretendentem do tronu; Bunt jako wojna domowa: gracz może poprzeć jedną ze stron
+- Wątek główny → Wybory w wątku (np. sojusz z mrokiem albo krucjata); Dłuższy wątek z rozmowami i ilustrowanymi scenami; Osobne wątki dla każdej frakcji
+- Prolog i samouczek → Zostawić krótki, reszta przez podpowiedzi
+- Bandy z obejrzanych zleceń → Banda pojawia się dopiero po przyjęciu zadania
+- Dalekie zadania od lordów → Złup wioskę wroga; Pojmaj wskazanego lorda; Odbij oblężony zamek sojusznika; Wyprawa do lochu po artefakt
+- Karawany i chłopi → Wszystkie trzy
+- Stare zapisy → Nic nie robić (nowa gra)
+
+## Bez decyzji (1)
+- Muzyka i dźwięki

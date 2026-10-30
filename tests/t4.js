@@ -1,0 +1,33 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push('PAGEERR ' + e.message + '\n' + e.stack));
+  p.on('console', m => { if (m.type() === 'error' && !m.text().includes('ERR_TUNNEL')) errs.push(m.text()); });
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html');
+  await p.waitForTimeout(800);
+  await p.click('text=Nowa gra');
+  for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300);
+  await p.waitForTimeout(500);
+  await p.evaluate(() => { const g = window.__game(); const w = g.WORLD; const pp = w.parties.find(x=>x.kind==='player'); const bd = w.parties.find(x=>x.kind==='bandit'); pp.x = bd.x + 4; pp.y = bd.y; pp.troops.push({type:'a_maa',n:15,wounded:0,xp:0}); g.G.view.cam.x = pp.x-240; g.G.view.cam.y=pp.y-135; });
+  await p.waitForTimeout(300);
+  // wywołaj spotkanie
+  await p.evaluate(() => { const g = window.__game(); const w = g.WORLD; const bd = w.parties.find(x=>x.kind==='bandit');  });
+  await p.evaluate(() => { const w = window.__game().WORLD; const bd = w.parties.find(x=>x.kind==='bandit'); window.__meet(bd); }).catch(e=>console.log('no __meet'));
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: 'meet.png' });
+  await p.click('text=Do ataku!');
+  await p.waitForTimeout(1500);
+  await p.screenshot({ path: 'mbattle.png' });
+  await p.evaluate(() => { const b = window.__battle(); for (let i = 0; i < 6000 && b.phase === 'fight'; i++) b.update(0.05); });
+  await p.waitForTimeout(3500);
+  await p.screenshot({ path: 'after.png' });
+  const st = await p.evaluate(() => { const g = window.__game(); return { state: g.G.state, gold: g.WORLD.player.gold, troops: g.WORLD.parties.find(x=>x.kind==='player').troops, pris: g.WORLD.parties.find(x=>x.kind==='player').prisoners }; });
+  console.log(JSON.stringify(st));
+  await p.click('text=Dalej').catch(()=>{});
+  await p.waitForTimeout(500);
+  await p.screenshot({ path: 'map3.png' });
+  console.log(errs.slice(0, 10).join('\n'));
+  await b.close();
+})();

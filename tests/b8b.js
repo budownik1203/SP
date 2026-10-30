@@ -1,0 +1,21 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push('PAGEERR ' + e.message + '\n' + e.stack));
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html');
+  await p.waitForTimeout(800);
+  await p.click('text=Nowa gra'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300); await p.waitForTimeout(500);
+  const s0 = await p.evaluate(() => window.__game().WORLD.settlements.find(s=>s.kind==='town').id);
+  await p.evaluate((id) => { const g = window.__game(); window.__T.startTourney(g.WORLD.settlements[id], 0); }, s0);
+  await p.click('#ui button:has-text("Do walki!")'); await p.waitForTimeout(200);
+  await p.evaluate(() => { const B = window.__battle(); for (const u of B.units) if (u.team===1) u.hp = 1; for (let i=0;i<3000 && B.phase!=='end';i++) { if (i===5) { const h=B.hero; const e=B.units.find(u=>u.team===1); e.x=h.x+15; e.y=h.y; } B.update(0.05);} });
+  console.log(await p.evaluate(() => { const B = window.__battle(); return JSON.stringify({r: B.result && {win:B.result.win, ko:B.result.heroKO, ret: B.result.retreated}, units: B.units.map(u=>[u.team,Math.round(u.hp),u.active,u.state,u.fleeing,u.key])}); }));
+  await p.waitForTimeout(3000);
+  console.log(await p.evaluate(() => document.querySelector('#ui .win')?.className + document.querySelector('#ui').innerText.slice(0,500)));
+  await p.click('#ui button:has-text("Dalej")'); await p.waitForTimeout(500);
+  console.log(await p.evaluate(() => document.querySelector('#ui')?.innerText.slice(0,400)));
+  console.log(errs.join('\n'));
+  await b.close();
+})();

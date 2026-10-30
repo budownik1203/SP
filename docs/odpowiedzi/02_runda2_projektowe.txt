@@ -1,0 +1,121 @@
+ODPOWIEDZI PROJEKTOWE, RUNDA 2 (100/100)
+
+## 11. Pętla rozgrywki i tempo
+101. Jak wygląda pierwsza godzina gry? → Krótki prolog, który można pominąć
+102. Jak szybko gracz może dowodzić dużą armią? → Zależy od wyborów, bez sztywnego tempa
+103. Ile trwa jeden dzień na mapie w czasie rzeczywistym? → Około 30 sekund
+104. Jak często dochodzi do bitew? → Gracz w pełni decyduje
+105. Ile trwa typowa bitwa? → 5–10 minut
+106. Co gracz robi między bitwami? → Handel; Zadania; Turnieje; Zarządzanie osadami; Polityka i dyplomacja; Eksploracja i legowiska
+107. Czy świat zmienia się, gdy gracz nic nie robi? → Tak, w pełni
+108. Czy da się przegrać kampanię? → Tak, np. gdy kryzys pochłonie świat
+109. Jak kończy się piaskownica? → Gracz decyduje o końcu, a gra pokazuje kronikę jego życia
+110. Skąd ma pochodzić „content”, o który prosiłeś? → Z systemów, które same tworzą historie
+
+## 12. Rasy i frakcje
+111. Jakie rasy zamieszkują świat? → Ludzie; Elfy lub leśni odmieńcy; Krasnoludy; Orkowie lub zwierzoludzie; Nieumarli; Rasa wymyślona od zera
+112. Jak klasyczne mają być rasy? → Mroczne, przerobione wersje klasyków
+113. Czy gracz może grać inną rasą niż człowiek? → Tak, każdą
+114. Czy rasy mieszają się w armiach? → Tak, ale z karą do morale
+115. Czy napięcia między rasami są mechaniką? → Tak, wpływają na relacje i lojalność
+116. Czy frakcje mają różne ustroje? → Tak: monarchia, republika kupiecka, plemię, teokracja
+117. Czy frakcje mają unikalne mechaniki? → Tak, każda inną
+118. Które pomysły na frakcje brzmią dobrze? → Upadłe imperium ludzi; Teokracja płomienia; Klany stepowe; Kupiecka republika portowa; Krasnoludzkie twierdze; Plemiona bagien
+119. Jak brzmią nazwy w świecie? → Każda frakcja ma własny język
+120. Ile historii świata przed startem gry? → Jedna wielka katastrofa lub wojna
+
+## 13. Kariera bohatera
+121. Jak zarabia najemnik na starcie? → Jedno i drugie
+122. Jak zostaje się wasalem? → Jedno i drugie
+123. Stopnie wewnątrz frakcji? → Zależnie od ustroju frakcji
+124. Jakie alternatywne ścieżki kariery? → Kupiec; Banita i watażka; Kapłan lub zakonnik; Mag; Mistrz areny
+125. Czy można zostać władcą bez podboju? → Tak: elekcja lub przewrót w frakcji
+126. Wybrałeś brak starzenia i dzieci, a śmierć to tylko rana. Co z ciągłością przy 40+ godzinach? → Bohater żyje bez końca
+127. Czy można stracić pozycję? → Tak: wygnanie, utrata lenn, odebranie tytułu
+128. Zakony rycerskie i gildie najemników do wstąpienia? → Tak
+129. Co odblokowuje sława? → Rozmowy z władcami; Lepszych towarzyszy; Turnieje wyższej rangi; Większy limit armii
+130. Gdy jesteś królem, co ma być głównym wyzwaniem? → Wszystko naraz
+
+## 14. Walka w widoku z góry
+131. Jak wybierać kierunek ciosu w widoku z góry? → Pozycją myszy względem bohatera
+132. Kamera w bitwie? → Przełączalna
+133. Perspektywa? → Lekki skos 3/4, jak w starej Zeldzie
+134. Czy wysokość ma znaczenie (koń, wzgórze)? → Tak, wpływa na zasięg i obrażenia
+135. Strzelanie z łuku przez gracza? → Celowanie myszą z naciąganiem cięciwy
+136. Strefy trafień? → Tylko głowa kontra reszta
+137. Jak działa zbroja? → Różnie chroni przed cięciem, obuchem i pchnięciem
+138. Trwałe rany i okaleczenia? → Tak, mogą zostać na zawsze
+139. Magia bohatera w walce? → Jedno i drugie
+140. Formaty walk na arenach? → Pojedynki; Walki drużynowe; Walki z bestiami; Podziemne walki na śmierć; Turnieje konne
+
+## 15. Jednostki i drzewka
+141. Ile typów jednostek na frakcję? → 10–14
+142. Ile poziomów w drzewku jednostek? → 6
+143. Jak rozgałęziają się drzewka? → Dowolnie, zależnie od frakcji
+144. Czy weterani dostają imiona? → Tak, wyróżnieni weterani z imionami i cechami
+145. Skąd najemnicy z obcych krain? → Jedno i drugie
+146. Jak bestie trafiają do armii? → Zdecyduj ty [notatka: wszystko po trochu]
+147. Ilu magów w armii? → Bez limitu, ale bardzo drodzy
+148. Czy magia jest ryzykowna? → Tak: może się wymknąć lub spaczyć użytkownika
+149. Ekwipunek żołnierzy? → Losowe warianty
+150. Jakie jeszcze jednostki specjalne? → Kapłani bojowi; Zwiadowcy i zabójcy; Inżynierowie; Psy bojowe; Konni łucznicy; Berserkerzy; Nieumarli słudzy
+
+## 16. Bitwy i oblężenia
+151. Skąd mapy bitew? → Generowane z terenu, na którym doszło do starcia
+152. Wielkość mapy bitwy? → Średnia, 2–3 ekrany
+153. Posiłki w trakcie bitwy? → Tak, gdy armia przekracza limit na polu
+154. Odwrót z bitwy? → Tak, kosztem tylnej straży
+155. Sojusznicy AI w bitwie? → Możesz przejąć dowodzenie, gdy jesteś wyżej w hierarchii
+156. Jak przebiega oblężenie? → Jak wyżej, plus wypady obrońców
+157. Bitwy morskie? → W późniejszej wersji
+158. Zniszczalne otoczenie (palisady, płonące budynki)? → Tak
+159. Jakie formacje? → Więcej: kolumna, koło, czworobok
+160. Jak sterować grupami oddziałów? → Oba
+
+## 17. Żyjący świat
+161. Jakie kryzysy mogą nadejść? → Plaga; Najazd hordy; Przebudzenie pradawnej bestii; Zima stulecia i głód; Wojna religijna; Powstanie nieumarłych
+162. Kiedy pierwszy kryzys? → Zależy od stanu świata
+163. Potwory na mapie? → Jedno i drugie
+164. Ile religii? → 4–6
+165. Czy bogowie są realni? → Nie wiadomo, świat milczy
+166. Skąd bierze się magia? → Z artefaktów [notatka: wszystko po trochu]
+167. Plotki i wieści? → Tak, w tawernach i od podróżnych
+168. Ruiny i lochy? → Tak, z bitwami
+169. Bandyci? → Rosną w siłę, gdy panuje chaos
+170. Ziemie niczyje? → Tak, dzikie tereny bez władcy
+
+## 18. Ekonomia i osady
+171. Ile towarów handlowych? → 6–10
+172. Żywność? → Kilka rodzajów
+173. Ile typów budynków? → 5–8
+174. Jak działają warsztaty? → Kupujesz, zysk zależy od cen surowców
+175. Długi i bankructwo? → Tak, pożyczki od kupców i lichwiarzy
+176. Czy karawany gracza mogą zostać napadnięte? → Tak
+177. Główne źródło złota na początku? → Łupy z bitew
+178. Waluta? → Jedna dla całego świata
+179. Skąd dochód z lenna? → Ludność i budynki
+180. Głód w osadach? → Tak, prowadzi do buntów i ucieczki ludności
+
+## 19. Interfejs i sterowanie
+181. Gdzie widać stan armii? → Okno pod klawiszem
+182. Styl interfejsu? → Ciemny metal i skóra
+183. Zoom na mapie? → Kilka stałych poziomów
+184. Encyklopedia w grze? → Tak
+185. Podpowiedzi? → Wszędzie dymki z opisami
+186. Ruch na mapie? → Klik i idziesz
+187. Przyspieszanie czasu? → x1, x2, x4
+188. Ułatwienia dostępu? → Skalowanie tekstu; Tryb dla daltonistów; Zmiana klawiszy
+189. Wizyta w mieście? → Menu teraz, spacer później
+190. Portrety postaci w dialogach? → Tak, w pixel arcie
+
+## 20. Produkcja i współpraca
+191. Co dokładnie w prototypie bitwy? → Bohater i 20 na 20 żołnierzy
+192. Jak często pokazywać postępy? → Raz na kilka funkcji
+193. Jak przekazujesz uwagi? → Grasz w przeglądarce i piszesz w czacie
+194. Gdzie trzymać kod? → Załóż repozytorium GitHub
+195. Ile decyzji mam podejmować sam? → Drobne sam, duże pytam
+196. Tytuł „Sztandary Popiołu” zostaje? → Tylko roboczo
+197. Model wydania? → Płatna na Steam
+198. Co po prototypie bitwy? → Mapa strategiczna
+199. Kiedy prototyp bitwy jest udany? → Sama walka daje frajdę
+200. Czego najbardziej obawiasz się w tym projekcie? → — [notatka: walki]

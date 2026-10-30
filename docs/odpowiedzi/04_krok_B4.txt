@@ -1,0 +1,86 @@
+ODPOWIEDZI: KROK B4 (65/65)
+
+## 1. Zakres kroku B4
+1. Jak duży ma być ten krok? → Prawie pełna pętla: mapa, osady, ekonomia, lordowie, frakcje i wojny
+2. Ile frakcji na mapie w B4? → 5–6
+3. Jakie rasy i jednostki w B4? → Do tego orkowie i krasnoludy
+4. Kim startuje gracz? → Uproszczony kreator z wyborem pochodzenia
+5. Zapis gry w B4? → Tak: autozapis i jeden slot
+6. Cel testowy B4? → Wolna piaskownica
+
+## 2. Świat
+7. Wielkość mapy w B4? → Około jednej trzeciej kontynentu
+8. Jakie tereny? → Równiny; Lasy; Góry nieprzejezdne; Bagna (spowalniają); Rzeki z brodami i mostami; Wybrzeże
+9. Drogi przyspieszają podróż? → Tak
+10. Wygląd mapy? → Bardziej szczegółowa: osady jako zabudowa
+11. Mgła wojny? → Odkrywanie mapy i zasięg wzroku
+12. Pora dnia na mapie? → Dzień i noc wpływają na wzrok i bitwy
+13. Pogoda i pory roku w B4? → Później
+14. Miejsca specjalne? → Ruiny i lochy; Legowiska potworów; Kapliczki i święte miejsca; Obozy bandytów; Cmentarzyska nieumarłych
+
+## 3. Podróż
+15. Ruch drużyny? → Klik i ścieżka omijająca przeszkody
+16. Od czego zależy prędkość? → Wielkość armii; Konnica w armii; Teren; Ranni; Pora roku
+17. Spotkanie z armią na mapie? → Okno: walcz, rozmawiaj, uciekaj
+18. Ucieczka przed walką? → Oba
+19. Obóz i odpoczynek? → Tak, leczy rannych
+20. Zapasy jedzenia w podróży? → Tak, dzienne zużycie
+
+## 4. Osady
+21. Ile osad w B4? → 15–25
+22. Co można w mieście? → Rekrutacja; Handel; Tawerna: najemnicy, plotki, towarzysze; Arena i turnieje; Zadania; Kowal: broń i zbroje
+23. Co można w wiosce? → Rekrutacja; Kupno jedzenia; Zadania; Grabież
+24. Zamki w B4? → Do zdobycia i posiadania
+25. Oblężenia w B4? → Pełne
+26. Widok wnętrza osady? → Ilustracja w pixel arcie rysowana kodem
+27. Ekonomia w B4? → Ceny regionalne i handel
+28. Lenna w B4? → Tak
+
+## 5. Frakcje i lordowie
+29. Lordowie AI na mapie? → Tak, 3–5 na frakcję, z imionami i armiami
+30. Wojny między frakcjami? → Dynamiczne: wybuchają i kończą się
+31. Dołączanie do frakcji w B4? → Jako najemnik i wasal
+32. Dyplomacja w B4? → Pełna dyplomacja
+33. Bandyci i potwory jako wolne armie? → Tak
+34. Kronika wydarzeń w B4? → Tak
+
+## 6. Bitwy z mapy
+35. Rozmiar bitew z mapy? → Cała armia, nadwyżka wchodzi falami (do około 100 na stronę)
+36. Automatyczne rozstrzygnięcie? → Zawsze dostępne
+37. Co po bitwie? → Łupy; Jeńcy; Ranni do leczenia; Doświadczenie żołnierzy; Raport strat
+38. Sojusznicy w bitwie? → Lordowie AI w pobliżu dołączają
+39. Teren bitwy? → Zgodny z miejscem na mapie (las, wzgórze, rzeka)
+40. Gdy bohater przegra bitwę? → Niewola, z ucieczką albo okupem
+
+## 7. Armia i bohater
+41. Ekran armii? → Oddziały z drzewkami awansów
+42. Awanse jednostek w B4? → Drzewka 2–3 poziomy
+43. Ekwipunek bohatera w B4? → Pełny: hełm, zbroja, broń, koń
+44. Rozwój bohatera w B4? → Poziomy, atrybuty i umiejętności
+45. Towarzysze w B4? → 2–3 do zwerbowania
+46. Żołd i morale armii na mapie? → Tak
+
+## 8. Umiejętności aktywne
+47. Skąd bohater ma umiejętności? → Z każdego po trochu
+48. Jakie umiejętności? → Smite: święty ogień; Okrzyk bojowy (morale i strach); Szarża tarczą; Wir ostrza (cios dookoła); Kula ognia; Modlitwa leczenia; Klątwa osłabienia; Krwawy rytuał (siła kosztem zdrowia); Przyzwanie wilków lub duchów; Skupienie (spowolnienie czasu)
+49. Ile umiejętności aktywnych naraz? → 3
+50. Klawisze umiejętności? → 1–4 poza trybem rozkazów (oddziały wybierasz tylko pod Q)
+51. Z czego płaci się za umiejętności? → Osobny pasek: wiara, mana albo furia, zależnie od rodzaju
+52. Jak efektowne mają być? → Rzadkie, ale bardzo potężne
+53. Jak działa smite? → Oba, jako kolejne poziomy
+54. Koszt i ryzyko w duchu dark fantasy? → Święte wymagają pobożności; Magiczne grożą spaczeniem; Bojowe zużywają zdrowie lub wytrzymałość
+55. Czy jednostki też mają umiejętności (kapłani bojowi, magowie)? → Tak, w B4
+56. Czy wrogowie używają umiejętności (dotyk śmierci, nekromanta wskrzesza)? → Tak
+
+## 9. Mroczniejszy styl i detale
+57. Co ma uczynić grę mroczniejszą? → Brudniejsza, przygaszona paleta: mniej zieleni, więcej brązu i szarości; Mocniejsze cienie i kontrast; Błoto, krew i ślady walki na postaciach; Ponure niebo: mgła, deszcz, popiół; Makabra w otoczeniu: pale, szubienice, wrony
+58. Paleta kolorów? → Nowa, zgniła paleta: oliwki, brązy, szarości
+59. Większe postacie na więcej detali? → Tak: 24×32 zamiast 16×22
+60. Jakie detale postaci? → Brudne, poszarpane tabardy; Hełmy z przyłbicami i nitami; Twarze z bliznami; Pasy, sakwy i pochwy; Rdza i zniszczenia na zbrojach; Różne sylwetki: grubi, chudzi, wysocy
+61. Animacje? → Więcej klatek chodu i ataku (4–6)
+62. Oświetlenie? → Pochodnie i ogniska w nocnych bitwach
+63. Brutalność? → Odcinanie kończyn i głów
+64. Portrety w dialogach w B4? → Tak
+
+## 10. Na koniec
+65. Co jeszcze ma się znaleźć w B4? → — [notatka: ustawienia i z opcją full screen]

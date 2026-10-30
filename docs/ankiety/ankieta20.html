@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Walka bohaterem</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+:root{
+  --bg:#e6e8ec; --panel:#f6f7f9; --ink:#1d2029; --muted:#5d6372; --line:#c3c7d0;
+  --accent:#a3262e; --accent-ink:#ffffff; --gold:#9a6a12; --sel:#f3dfe0; --rec:#7a5410;
+  --display:"Pixelify Sans", "Courier New", monospace;
+  --body:"Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+h1{font:700 clamp(26px,4vw,36px)/1.05 var(--display);margin:0;letter-spacing:.5px;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;font-size:15px;max-width:70ch}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count{font:500 18px var(--display);font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--line);position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);width:0;transition:width .25s}
+.btn{font:500 15px var(--display);letter-spacing:.3px;padding:10px 16px;border:0;cursor:pointer;background:var(--panel);color:var(--ink);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line);margin:3px}
+.btn:hover{background:var(--sel)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.btn:focus-visible,.opt:focus-visible,.chap:focus-visible,textarea:focus-visible{outline:3px dashed var(--gold);outline-offset:3px}
+.btn:disabled{opacity:.4;cursor:default}
+.main{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;align-items:start}
+nav{display:grid;gap:2px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.chap{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;text-align:left;background:none;border:0;color:var(--ink);padding:8px 10px;cursor:pointer;font:500 15px var(--body)}
+.chap .n{font:500 14px var(--display);color:var(--muted)}
+.chap .p{font:500 13px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.chap:hover{background:var(--panel)}
+.chap.on{background:var(--panel);box-shadow:inset 4px 0 0 var(--accent)}
+.chap.done .p{color:var(--gold)}
+.card{background:var(--panel);padding:28px clamp(18px,4vw,36px);display:grid;gap:18px;min-width:0}
+.eyebrow{font:500 14px var(--display);color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.qnum{color:var(--accent)}
+h2{font:600 clamp(21px,2.6vw,26px)/1.3 var(--body);margin:0;text-wrap:balance;max-width:40ch}
+.hint{color:var(--muted);font-size:15px;margin:-8px 0 0}
+.opts{display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;text-align:left;cursor:pointer;background:var(--bg);color:var(--ink);border:0;padding:12px 14px;font:inherit;
+  box-shadow:0 -2px 0 0 var(--line),0 2px 0 0 var(--line),-2px 0 0 0 var(--line),2px 0 0 0 var(--line);margin:2px}
+.opt .k{font:500 15px var(--display);color:var(--muted);padding-top:1px}
+.opt .rec{display:inline-block;font:500 12px var(--display);color:var(--rec);letter-spacing:.5px;margin-left:8px;white-space:nowrap}
+.opt:hover{background:var(--sel)}
+.opt.on{background:var(--sel);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.opt.on .k{color:var(--accent)}
+.opt.you{color:var(--muted);font-style:italic}
+label.nl{font:500 14px var(--display);color:var(--muted);letter-spacing:.5px}
+textarea{width:100%;min-height:72px;resize:vertical;font:16px/1.45 var(--body);color:var(--ink);background:var(--bg);border:2px solid var(--line);padding:10px 12px;margin-top:6px}
+.nav2{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.keys{color:var(--muted);font-size:13px}
+.modal{position:fixed;inset:0;background:rgb(0 0 0 / .55);display:grid;place-items:center;z-index:20;padding:16px}
+.modal .box{background:var(--panel);width:min(760px,100%);max-height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:22px}
+.modal h3{font:700 22px var(--display);margin:0}
+.modal textarea{min-height:300px;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:0}
+.modal .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.msg{color:var(--gold);font:500 14px var(--display);margin-right:auto}
+@media (max-width:760px){
+  .main{grid-template-columns:1fr}
+  nav{position:static;display:flex;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .chap{grid-template-columns:auto auto;white-space:nowrap}
+  .chap .t{display:none}
+  .keys{display:none}
+}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Walka bohaterem · lżej, ale wciąż realistycznie</h1>
+      <p class="sub">Druga tura, już w duchu naszej gry: realizm i ciężar zostają, ale bohater ma być szybszy w reakcji i dawać więcej satysfakcji. Inspiracje z gier, które pasują stylem: Kingdom Come, Exanima, Mount &amp; Blade, Tunic, Diablo II, Kingdom Under Fire, Battle Brothers. Uwzględniłem twoje odpowiedzi z pierwszej tury (bez kierunków ciosu, dodatki jako umiejętności, lordowie z eskortą). Pytania z gwiazdką mają moją rekomendację.</p>
+    </div>
+    <div class="tools">
+      <span class="count" id="count">0 / 0</span>
+      <button class="btn primary" id="exportBtn">Wyślij odpowiedzi</button>
+    </div>
+  </header>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <div class="main">
+    <nav id="chapters" aria-label="Rozdziały"></nav>
+    <section class="card" id="card" aria-live="polite">
+      <div class="eyebrow"><span id="chapName"></span><span class="qnum" id="qnum"></span></div>
+      <h2 id="qtext" tabindex="-1"></h2>
+      <p class="hint" id="qhint"></p>
+      <div class="opts" id="opts"></div>
+      <div>
+        <label class="nl" for="note">Twoja notatka lub własna odpowiedź</label>
+        <textarea id="note" placeholder="Opcjonalnie: doprecyzuj, dopisz coś swojego…"></textarea>
+      </div>
+      <div class="nav2">
+        <button class="btn" id="prev">← Wstecz</button>
+        <span class="keys">Klawisze 1–9 wybierają, Enter dalej</span>
+        <button class="btn primary" id="next">Dalej →</button>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mh">
+    <div><h3 id="mh">Twoje odpowiedzi</h3><p class="sub">Skopiuj ten tekst i wklej go w czat. Na tej podstawie przygotuję kolejne buildy.</p></div>
+    <textarea id="out" readonly aria-label="Odpowiedzi do skopiowania"></textarea>
+    <div class="row"><span class="msg" id="msg"></span><button class="btn" id="close">Zamknij</button><button class="btn primary" id="copy">Kopiuj</button></div>
+  </div>
+</div>
+<script>
+const R="(Rekomendowane)";
+// [pytanie, opcje, indeks rekomendowanej (-1 brak), wielokrotny wybór, podpowiedź]
+const CH=[
+["Mniej ociężałości",[
+["Co najbardziej ciąży teraz w walce bohaterem?",["Wolny zamach (długie wejście w cios)","Długi powrót po ciosie","Wolne obracanie się","Szybko kończy się wytrzymałość","Za wolny chód i bieg w pancerzu","Trudno trafić tego, kogo chcę"],-1,1,"Zaznacz wszystko, co przeszkadza. Na tej podstawie dobiorę liczby."],
+["Bufor ciosu: kliknięcie w trakcie ciosu ustawia następny w kolejce",["Tak","Nie"],0,0,"Standard w grach akcji. Gra nie gubi kliknięć, a walka zostaje ciężka."],
+["Przerwanie własnego zamachu blokiem lub odskokiem",["Tak, w pierwszej połowie zamachu","Tak, zawsze, za koszt wytrzymałości","Nie, raz zaczęty cios trzeba skończyć"],0,0,"Kingdom Come i Mount & Blade: zwód i przerwanie. Mniej frustracji, nadal realizm."],
+["Tempo walki w porównaniu z teraz",["Wyraźnie szybciej","Trochę szybciej","Bez zmian, tylko lepsza reakcja na klawisze"],1,0,""],
+["Pancerz a ruchliwość",["Ciężka zbroja spowalnia mniej niż teraz","Jak teraz","Mocniej: lekki pancerz ma być wyborem dla zwinnych"],0,0,"Historycznie płyta mało krępowała ruchy, męczyła za to kondycję."],
+["Wytrzymałość",["Szybciej się odnawia, gdy nie atakujesz","Ciosy kosztują mniej, blok więcej","Jak teraz"],0,0,""],
+]],
+["Sterowanie bez kierunków ciosu",[
+["Co zamiast kierunków?",["LPM: seria ciosów, przytrzymanie: ciężki cios","LPM: lekki, PPM: ciężki, blok pod Shift albo innym klawiszem","LPM: seria, ŚPM: pchnięcie, PPM: blok"],0,0,"Kierunki znikają. Gardę wroga przełamujesz serią, ciężkim ciosem, kopniakiem albo postawą."],
+["Gdzie leci cios?",["W stronę kursora","Miękko przyciąga do wroga najbliżej kursora","W stronę ruchu postaci"],1,0,"Diablo II, Tunic: cios idzie tam, gdzie celujesz, z lekkim przyciąganiem"],
+["Namierzanie przeciwnika (np. pod klawiszem lub PPM na wrogu)",["Tak, opcjonalne w pojedynkach","Nie, swobodna walka w tłumie"],0,0,"Tunic, gry souls: lock-on ułatwia pojedynki z lordami"],
+["Jak wróg ma blokować bez kierunków?",["Blok trzyma przez chwilę, potem garda pęka od serii","Tarcza blokuje z przodu, z boku i od tyłu trafiasz","Obie"],2,0,"Ustawienie i okrążanie jako taktyka, jak w Exanimie"],
+["Przełącznik pchnięcie i cięcie (R)",["Zostaje","Znika: pchnięcie jest częścią serii albo ciężkim ciosem broni kłutej","Zdecyduj ty"],1,0,""],
+]],
+["Bronie i ich serie",[
+["Długość serii",["2 ciosy i finiszer","3 ciosy i finiszer","Różnie, zależnie od broni (sztylet dłuższa, młot krótsza)"],2,0,"Kingdom Come: kombinacje kończone ciosem nie do obrony"],
+["Finiszery broni: które pasują?",["Miecz: pchnięcie przebijające","Topór: rąbnięcie łamiące tarczę","Buzdygan i młot: ogłuszenie, wgniecenie hełmu","Włócznia: pchnięcie odpychające na dystans","Dwuręczne: szeroki zamach przez kilku","Sztylet: cios w szczelinę zbroi (ignoruje pancerz)"],-1,1,""],
+["Ciężka broń w tłumie",["Ciężki cios może trafić 2–3 wrogów","Tylko zamach dwuręczny trafia kilku","Zawsze jeden cel"],0,0,"Mount & Blade: przecinanie tłumu przy mocnym zamachu"],
+["Tarcza",["Uderzenie tarczą (odrzut, przerywa zamach wroga)","Ściana tarcz z oddziałem, gdy stoisz w szeregu","Tarcza zbiera strzały i pęka jak teraz"],-1,1,""],
+["Broń drzewcowa (halabarda, włócznia) przeciw konnicy",["Zatrzymuje szarżę i zrzuca jeźdźca, gdy stoisz w miejscu","Tylko większe obrażenia koniom","Bez zmian"],0,0,"Bannerlord: zaparcie włóczni"],
+]],
+["Umiejętności i rzutki",[
+["Ile slotów umiejętności w bitwie?",["3 jak teraz","4","5 (np. 3 z drzewek, 1 z broni, 1 rzutka)"],2,0,""],
+["Skąd umiejętności?",["Drzewka postaci","Mistrzostwo danej broni","Runy wkute w broń","Święci, starzy bogowie, duchy przodków (dary jako umiejętności)","Morvath przy spaczeniu"],-1,1,"Twoja uwaga z ankiety: dary jako umiejętności, nie wybór w bitwie"],
+["Czym się płaci za umiejętności?",["Czas odnowienia","Wytrzymałość","Szał (rośnie od zadawania i otrzymywania ciosów)","Wiara lub mana zależnie od źródła"],-1,1,""],
+["Slot na rzutki w ekwipunku",["Jeden slot: noże, toporki albo oszczepy","Dwa sloty","Zamiast drugiej broni"],0,0,"Bannerlord: oszczepy i toporki w osobnych slotach"],
+["Ile rzutek na bitwę?",["Noże 5, toporki 3, oszczepy 2","Wszystkiego po 3","Uzupełniane z poległych na polu (podnieś z ziemi)"],0,0,""],
+["Szał jako umiejętność: co ma robić?",["Kilka sekund bez bólu: brak ogłuszeń, ciosy nie do przerwania","Przyspieszenie i mocniejsze ciosy","Okrzyk: wrogowie w pobliżu tracą morale, twoi wpadają w szał"],-1,1,"Berserker z kronik: nie musou, tylko zawziętość"],
+["Synergie (np. dar świętego + dar starych bogów daje trzeci efekt)",["Tak, kilka ukrytych par do odkrycia","Tak, opisane w drzewku","Nie"],0,0,""],
+]],
+["Mistrzostwo broni",[
+["Jak rośnie mistrzostwo?",["Trafienia i zabójstwa daną klasą broni","Ćwiczenia w obozie i na arenie","Obie"],2,0,"Kingdom Come: kapitan uczy ruchów, praktyka podnosi biegłość"],
+["Co daje mistrzostwo?",["Ruch specjalny klasy broni (umiejętność)","Krótszy zamach i powrót","Dłuższa seria","Szersze okno parowania tą bronią"],-1,1,""],
+["Nauczyciele: mistrzowie broni w miastach i zamkach uczą ruchów za złoto",["Tak","Nie, tylko praktyka"],0,0,"Kingdom Come: Bernard i mistrzowie"],
+]],
+["Realizm, który daje frajdę",[
+["Pęd biegu dodaje obrażeń (cios z rozbiegu, szarża pieszo)",["Tak, wyraźnie","Trochę","Nie"],0,0,"Exanima i Mount & Blade: rozpęd ma znaczenie"],
+["Zwarcie: blisko przy wrogu kopniak łapie broń, szybkie klikanie przełamuje (wróg ogłuszony)",["Tak","Tylko kopniak jak teraz"],0,0,"Kingdom Come: clinch"],
+["Mistrzowskie uderzenie: idealne parowanie w ostatniej chwili od razu kontruje ciosem nie do obrony",["Tak, zamiast obecnej kontry","Tak, jako ulepszenie z mistrzostwa","Zostaje jak jest"],2,0,"Kingdom Come: master strike"],
+["Otoczony bohater (3+ wrogów wokół)",["Ostrzeżenie i kara do obrony z tyłu","Bez specjalnych zasad"],0,0,"Exanima, Bannerlord: pozycja decyduje"],
+["Potknięcia o ciała i zwłoki na polu",["Tak, rzadko, przy biegu","Nie"],1,0,"Exanima: fizyka otoczenia"],
+["Wgniecione hełmy i rozdarte tuniki na wrogach w trakcie walki",["Tak","Nie"],0,0,"Battle Brothers: zużycie widać na postaci"],
+["Krew na ostrzu i zbroi bohatera, gdy walczy dłużej",["Tak, więcej niż teraz","Jak teraz"],0,0,""],
+]],
+["Lordowie, elity, potwory",[
+["Wielkość lordów i bohaterów frakcji",["Trochę więksi (ok. 10–15%)","Ta sama skala, wyróżnia ich zbroja i sztandar"],0,0,"Twoja uwaga z ankiety"],
+["Eskorta lorda",["Przyboczni trzymają się przy nim i rzucają się na bohatera","Przyboczni plus chorąży ze sztandarem (zabity chorąży = morale w dół)","Obie"],2,0,"Kingdom Under Fire: dowódca z gwardią"],
+["Cechy lordów w bitwie",["Odważny: wbiega z pierwszą linią","Ostrożny: zostaje z tyłu z łucznikami","Okrutny: dobija rannych i straszy","Honorowy: wychodzi na pojedynek"],-1,1,"Rozszerza osobowości lordów, które już są w grze"],
+["Pasek postawy elit, oficerów i lordów: co go łamie?",["Bloki i parowania","Ciężkie ciosy i finiszery","Kopniak i uderzenie tarczą","Wszystko po trochu"],3,0,""],
+["Potwory i bestie: najpierw które?",["Wilki olbrzymy: skok i obalenie","Trolle i ogry: zamach przez kilku, ryk","Upiory: przenikanie, ciosy nie do zablokowania","Abominacje nieumarłych: szarża"],-1,1,""],
+]],
+["Konno",[
+["Szarża konna przewraca piechotę na drodze",["Tak, lekkich wrogów","Tak, wszystkich poza tarczownikami w szyku","Jak teraz"],1,0,"Mount & Blade: szarża łamie szyk"],
+["Cięcie z konia",["Mocniejsze przy prędkości (jak kopia)","Jak teraz"],0,0,""],
+["Koń może się przewrócić (zaparte włócznie, rów, pale)",["Tak, bohater spada i jest ogłuszony","Nie"],0,0,""],
+]],
+["Kolejność",[
+["Co najpierw?",["Mniej ociężałości i sterowanie bez kierunków","Serie broni i finiszery","Czucie trafienia: błysk, odrzut, egzekucje, licznik serii","Postawa elit, zapowiedzi, idealny unik","Umiejętności, rzutki, mistrzostwo","Lordowie z eskortą i potwory"],0,0,""],
+["Konie (planowane na 0.29)",["Po walce","Przed walką"],0,0,""],
+]],
+];
+const Q=[];CH.forEach((c,ci)=>c[1].forEach(q=>Q.push({ci,t:q[0],o:q[1],r:q[2],m:!!q[3],h:q[4]||""})));
+const YOU="Zdecyduj ty";
+let A={},cur=0;
+try{const s=JSON.parse(localStorage.getItem("qfight20")||"null");if(s){A=s.A||{};cur=Math.min(s.cur||0,Q.length-1)}}catch(e){}
+const save=()=>{try{localStorage.setItem("qfight20",JSON.stringify({A,cur}))}catch(e){}};
+const $=id=>document.getElementById(id);
+const answered=i=>{const a=A[i];return a&&((a.s&&a.s.length)||(a.n&&a.n.trim()))};
+function renderNav(){
+  $("chapters").innerHTML=CH.map((c,ci)=>{
+    const idx=Q.map((q,i)=>q.ci===ci?i:-1).filter(i=>i>=0);
+    const d=idx.filter(answered).length;
+    return `<button class="chap${Q[cur].ci===ci?" on":""}${d===idx.length?" done":""}" data-c="${ci}"><span class="n">${ci+1}</span><span class="t">${c[0]}</span><span class="p">${d}/${idx.length}</span></button>`}).join("");
+  const n=Q.filter((_,i)=>answered(i)).length;
+  $("count").textContent=n+" / "+Q.length;$("bar").style.width=(n/Q.length*100)+"%";
+}
+function render(){
+  const q=Q[cur],a=A[cur]||{s:[],n:""};
+  $("chapName").textContent=CH[q.ci][0];
+  $("qnum").textContent="Pytanie "+(cur+1)+" / "+Q.length;
+  $("qtext").textContent=q.t;
+  $("qhint").textContent=q.h||(q.m?"Możesz zaznaczyć kilka.":"");$("qhint").hidden=!$("qhint").textContent;
+  const opts=q.o.length?[...q.o,YOU]:[];
+  $("opts").innerHTML=opts.map((o,i)=>`<button class="opt${(a.s||[]).includes(i)?" on":""}${i===q.o.length?" you":""}" data-i="${i}" aria-pressed="${(a.s||[]).includes(i)}"><span class="k">${i+1}</span><span>${o}${i===q.r?`<span class="rec">★ ${R}</span>`:""}</span></button>`).join("");
+  $("note").value=a.n||"";
+  $("prev").disabled=cur===0;
+  $("next").textContent=cur===Q.length-1?"Zakończ ✓":"Dalej →";
+  renderNav();save();
+}
+function pick(i){
+  const q=Q[cur];const a=A[cur]||(A[cur]={s:[],n:""});
+  if(i>=q.o.length+1||!q.o.length)return;
+  if(q.m){a.s=a.s.includes(i)?a.s.filter(x=>x!==i):[...a.s,i];render()}
+  else{a.s=[i];render();clearTimeout(pick.t);pick.t=setTimeout(()=>{if(document.activeElement!==$("note"))go(1)},380)}
+}
+function go(d){const n=cur+d;if(n<0)return;if(n>=Q.length){openExport();return}cur=n;render();$("qtext").focus()}
+$("opts").addEventListener("click",e=>{const b=e.target.closest(".opt");if(b)pick(+b.dataset.i)});
+$("chapters").addEventListener("click",e=>{const b=e.target.closest(".chap");if(!b)return;const ci=+b.dataset.c;const first=Q.findIndex((q,i)=>q.ci===ci&&!answered(i));cur=first>=0?first:Q.findIndex(q=>q.ci===ci);render()});
+$("note").addEventListener("input",e=>{(A[cur]||(A[cur]={s:[],n:""})).n=e.target.value;renderNav();save()});
+$("prev").onclick=()=>go(-1);$("next").onclick=()=>go(1);
+document.addEventListener("keydown",e=>{
+  if(!$("modal").hidden){if(e.key==="Escape")$("modal").hidden=true;return}
+  if(e.target.tagName==="TEXTAREA")return;
+  if(/^[1-9]$/.test(e.key))pick(+e.key-1);
+  else if(e.key==="Enter"&&!e.target.closest("button")){e.preventDefault();go(1)}
+  else if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1);
+});
+function buildText(){
+  let s=`ODPOWIEDZI: MECHANIKI I TREŚĆ (${Q.filter((_,i)=>answered(i)).length}/${Q.length})\n`;
+  CH.forEach((c,ci)=>{s+=`\n## ${ci+1}. ${c[0]}\n`;
+    Q.forEach((q,i)=>{if(q.ci!==ci)return;const a=A[i];
+      let ans="—";
+      if(a&&a.s&&a.s.length)ans=a.s.map(x=>x===q.o.length?YOU:q.o[x]).join("; ");
+      s+=`${i+1}. ${q.t} → ${ans}`;
+      if(a&&a.n&&a.n.trim())s+=` [notatka: ${a.n.trim().replace(/\s+/g," ")}]`;
+      s+="\n"})});
+  return s;
+}
+function openExport(){$("out").value=buildText();$("msg").textContent="";$("modal").hidden=false;$("copy").focus()}
+$("exportBtn").onclick=openExport;$("close").onclick=()=>$("modal").hidden=true;
+$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").hidden=true});
+$("copy").onclick=()=>{const t=$("out").value;
+  const ok=()=>$("msg").textContent="Skopiowano. Wklej w czat.";
+  try{navigator.clipboard.writeText(t).then(ok,()=>{$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."})}
+  catch(e){$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."}};
+render();
+</script>
+</body></html>

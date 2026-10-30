@@ -1,0 +1,62 @@
+ODPOWIEDZI: MECHANIKI I TREŚĆ (43/43)
+
+## 1. Mniej ociężałości
+1. Co najbardziej ciąży teraz w walce bohaterem? → Wolny zamach (długie wejście w cios); Długi powrót po ciosie; Wolne obracanie się; Trudno trafić tego, kogo chcę
+2. Bufor ciosu: kliknięcie w trakcie ciosu ustawia następny w kolejce → Tak
+3. Przerwanie własnego zamachu blokiem lub odskokiem → Tak, w pierwszej połowie zamachu
+4. Tempo walki w porównaniu z teraz → Trochę szybciej
+5. Pancerz a ruchliwość → Ciężka zbroja spowalnia mniej niż teraz
+6. Wytrzymałość → Szybciej się odnawia, gdy nie atakujesz
+
+## 2. Sterowanie bez kierunków ciosu
+7. Co zamiast kierunków? → Zdecyduj ty [notatka: 1 + R zmienia tryb pchnięcie/cięcie. płynna realistyczna seria ma to być]
+8. Gdzie leci cios? → Miękko przyciąga do wroga najbliżej kursora
+9. Namierzanie przeciwnika (np. pod klawiszem lub PPM na wrogu) → Nie, swobodna walka w tłumie
+10. Jak wróg ma blokować bez kierunków? → Obie
+11. Przełącznik pchnięcie i cięcie (R) → Zostaje
+
+## 3. Bronie i ich serie
+12. Długość serii → Różnie, zależnie od broni (sztylet dłuższa, młot krótsza) [notatka: różnie, ale bez epickich finiszerów. zostawiamy je jako umiejki dla postaci]
+13. Finiszery broni: które pasują? → Miecz: pchnięcie przebijające; Topór: rąbnięcie łamiące tarczę; Buzdygan i młot: ogłuszenie, wgniecenie hełmu; Włócznia: pchnięcie odpychające na dystans; Dwuręczne: szeroki zamach przez kilku; Sztylet: cios w szczelinę zbroi (ignoruje pancerz)
+14. Ciężka broń w tłumie → Ciężki cios może trafić 2–3 wrogów [notatka: zależnie od zasiągu broni i kogo trafi]
+15. Tarcza → Uderzenie tarczą (odrzut, przerywa zamach wroga); Ściana tarcz z oddziałem, gdy stoisz w szeregu; Tarcza zbiera strzały i pęka jak teraz [notatka: uderzenie tarcza PPM przytrzymany i + klik lpm]
+16. Broń drzewcowa (halabarda, włócznia) przeciw konnicy → Zatrzymuje szarżę i zrzuca jeźdźca, gdy stoisz w miejscu
+
+## 4. Umiejętności i rzutki
+17. Ile slotów umiejętności w bitwie? → 5 (np. 3 z drzewek, 1 z broni, 1 rzutka)
+18. Skąd umiejętności? → Drzewka postaci; Święci, starzy bogowie, duchy przodków (dary jako umiejętności); Morvath przy spaczeniu; Runy wkute w broń; Mistrzostwo danej broni
+19. Czym się płaci za umiejętności? → Czas odnowienia; Wytrzymałość; Wiara lub mana zależnie od źródła
+20. Slot na rzutki w ekwipunku → Zamiast drugiej broni
+21. Ile rzutek na bitwę? → Uzupełniane z poległych na polu (podnieś z ziemi) [notatka: 1 + 3 (o ile mieli / też rzucili i podniośłeś z ziemi)]
+22. Szał jako umiejętność: co ma robić? → Przyspieszenie i mocniejsze ciosy; Kilka sekund bez bólu: brak ogłuszeń, ciosy nie do przerwania; Okrzyk: wrogowie w pobliżu tracą morale, twoi wpadają w szał
+23. Synergie (np. dar świętego + dar starych bogów daje trzeci efekt) → Tak, kilka ukrytych par do odkrycia
+
+## 5. Mistrzostwo broni
+24. Jak rośnie mistrzostwo? → Obie
+25. Co daje mistrzostwo? → Ruch specjalny klasy broni (umiejętność); Krótszy zamach i powrót; Szersze okno parowania tą bronią; Dłuższa seria [notatka: po seriach ma być przerwa ale duży koszt ich staminy by niue móc cały czas przytrzymywać/ klikać lpm. mistrzostwo zmiejsza kare]
+26. Nauczyciele: mistrzowie broni w miastach i zamkach uczą ruchów za złoto → Tak
+
+## 6. Realizm, który daje frajdę
+27. Pęd biegu dodaje obrażeń (cios z rozbiegu, szarża pieszo) → Tak, wyraźnie
+28. Zwarcie: blisko przy wrogu kopniak łapie broń, szybkie klikanie przełamuje (wróg ogłuszony) → Tylko kopniak jak teraz
+29. Mistrzowskie uderzenie: idealne parowanie w ostatniej chwili od razu kontruje ciosem nie do obrony → Tak, jako ulepszenie z mistrzostwa
+30. Otoczony bohater (3+ wrogów wokół) → Ostrzeżenie i kara do obrony z tyłu
+31. Potknięcia o ciała i zwłoki na polu → Nie
+32. Wgniecione hełmy i rozdarte tuniki na wrogach w trakcie walki → Tak
+33. Krew na ostrzu i zbroi bohatera, gdy walczy dłużej → Tak, więcej niż teraz
+
+## 7. Lordowie, elity, potwory
+34. Wielkość lordów i bohaterów frakcji → Trochę więksi (ok. 10–15%)
+35. Eskorta lorda → Obie
+36. Cechy lordów w bitwie → Odważny: wbiega z pierwszą linią; Ostrożny: zostaje z tyłu z łucznikami; Okrutny: dobija rannych i straszy; Honorowy: wychodzi na pojedynek [notatka: i kilku więcej]
+37. Pasek postawy elit, oficerów i lordów: co go łamie? → Wszystko po trochu
+38. Potwory i bestie: najpierw które? → Wilki olbrzymy: skok i obalenie; Trolle i ogry: zamach przez kilku, ryk; Upiory: przenikanie, ciosy nie do zablokowania; Abominacje nieumarłych: szarża
+
+## 8. Konno
+39. Szarża konna przewraca piechotę na drodze → Tak, wszystkich poza tarczownikami w szyku [notatka: i broń drzewcowa mnoże ich zrzucić / zatrzymąć jak w mount and blade]
+40. Cięcie z konia → Mocniejsze przy prędkości (jak kopia)
+41. Koń może się przewrócić (zaparte włócznie, rów, pale) → Tak, bohater spada i jest ogłuszony
+
+## 9. Kolejność
+42. Co najpierw? → Mniej ociężałości i sterowanie bez kierunków
+43. Konie (planowane na 0.29) → Po walce

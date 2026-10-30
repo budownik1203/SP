@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Frajda z walki</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+:root{
+  --bg:#e6e8ec; --panel:#f6f7f9; --ink:#1d2029; --muted:#5d6372; --line:#c3c7d0;
+  --accent:#a3262e; --accent-ink:#ffffff; --gold:#9a6a12; --sel:#f3dfe0; --rec:#7a5410;
+  --display:"Pixelify Sans", "Courier New", monospace;
+  --body:"Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+h1{font:700 clamp(26px,4vw,36px)/1.05 var(--display);margin:0;letter-spacing:.5px;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;font-size:15px;max-width:70ch}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count{font:500 18px var(--display);font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--line);position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);width:0;transition:width .25s}
+.btn{font:500 15px var(--display);letter-spacing:.3px;padding:10px 16px;border:0;cursor:pointer;background:var(--panel);color:var(--ink);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line);margin:3px}
+.btn:hover{background:var(--sel)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.btn:focus-visible,.opt:focus-visible,.chap:focus-visible,textarea:focus-visible{outline:3px dashed var(--gold);outline-offset:3px}
+.btn:disabled{opacity:.4;cursor:default}
+.main{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;align-items:start}
+nav{display:grid;gap:2px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.chap{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;text-align:left;background:none;border:0;color:var(--ink);padding:8px 10px;cursor:pointer;font:500 15px var(--body)}
+.chap .n{font:500 14px var(--display);color:var(--muted)}
+.chap .p{font:500 13px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.chap:hover{background:var(--panel)}
+.chap.on{background:var(--panel);box-shadow:inset 4px 0 0 var(--accent)}
+.chap.done .p{color:var(--gold)}
+.card{background:var(--panel);padding:28px clamp(18px,4vw,36px);display:grid;gap:18px;min-width:0}
+.eyebrow{font:500 14px var(--display);color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.qnum{color:var(--accent)}
+h2{font:600 clamp(21px,2.6vw,26px)/1.3 var(--body);margin:0;text-wrap:balance;max-width:40ch}
+.hint{color:var(--muted);font-size:15px;margin:-8px 0 0}
+.opts{display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;text-align:left;cursor:pointer;background:var(--bg);color:var(--ink);border:0;padding:12px 14px;font:inherit;
+  box-shadow:0 -2px 0 0 var(--line),0 2px 0 0 var(--line),-2px 0 0 0 var(--line),2px 0 0 0 var(--line);margin:2px}
+.opt .k{font:500 15px var(--display);color:var(--muted);padding-top:1px}
+.opt .rec{display:inline-block;font:500 12px var(--display);color:var(--rec);letter-spacing:.5px;margin-left:8px;white-space:nowrap}
+.opt:hover{background:var(--sel)}
+.opt.on{background:var(--sel);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.opt.on .k{color:var(--accent)}
+.opt.you{color:var(--muted);font-style:italic}
+label.nl{font:500 14px var(--display);color:var(--muted);letter-spacing:.5px}
+textarea{width:100%;min-height:72px;resize:vertical;font:16px/1.45 var(--body);color:var(--ink);background:var(--bg);border:2px solid var(--line);padding:10px 12px;margin-top:6px}
+.nav2{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.keys{color:var(--muted);font-size:13px}
+.modal{position:fixed;inset:0;background:rgb(0 0 0 / .55);display:grid;place-items:center;z-index:20;padding:16px}
+.modal .box{background:var(--panel);width:min(760px,100%);max-height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:22px}
+.modal h3{font:700 22px var(--display);margin:0}
+.modal textarea{min-height:300px;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:0}
+.modal .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.msg{color:var(--gold);font:500 14px var(--display);margin-right:auto}
+@media (max-width:760px){
+  .main{grid-template-columns:1fr}
+  nav{position:static;display:flex;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .chap{grid-template-columns:auto auto;white-space:nowrap}
+  .chap .t{display:none}
+  .keys{display:none}
+}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Frajda z walki · inspiracje z gier top-down</h1>
+      <p class="sub">Pomysły na to, by walka bohaterem dawała więcej frajdy, zebrane z gier top-down i akcji: Hades, Hyper Light Drifter, Death's Door, Sekiro, Dynasty Warriors, Diablo, Children of Morta, Nuclear Throne. Pod każdym pytaniem jest gra, z której pochodzi pomysł. Pytania z gwiazdką mają moją rekomendację.</p>
+    </div>
+    <div class="tools">
+      <span class="count" id="count">0 / 0</span>
+      <button class="btn primary" id="exportBtn">Wyślij odpowiedzi</button>
+    </div>
+  </header>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <div class="main">
+    <nav id="chapters" aria-label="Rozdziały"></nav>
+    <section class="card" id="card" aria-live="polite">
+      <div class="eyebrow"><span id="chapName"></span><span class="qnum" id="qnum"></span></div>
+      <h2 id="qtext" tabindex="-1"></h2>
+      <p class="hint" id="qhint"></p>
+      <div class="opts" id="opts"></div>
+      <div>
+        <label class="nl" for="note">Twoja notatka lub własna odpowiedź</label>
+        <textarea id="note" placeholder="Opcjonalnie: doprecyzuj, dopisz coś swojego…"></textarea>
+      </div>
+      <div class="nav2">
+        <button class="btn" id="prev">← Wstecz</button>
+        <span class="keys">Klawisze 1–9 wybierają, Enter dalej</span>
+        <button class="btn primary" id="next">Dalej →</button>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mh">
+    <div><h3 id="mh">Twoje odpowiedzi</h3><p class="sub">Skopiuj ten tekst i wklej go w czat. Na tej podstawie przygotuję kolejne buildy.</p></div>
+    <textarea id="out" readonly aria-label="Odpowiedzi do skopiowania"></textarea>
+    <div class="row"><span class="msg" id="msg"></span><button class="btn" id="close">Zamknij</button><button class="btn primary" id="copy">Kopiuj</button></div>
+  </div>
+</div>
+<script>
+const R="(Rekomendowane)";
+// [pytanie, opcje, indeks rekomendowanej (-1 brak), wielokrotny wybór, podpowiedź]
+const CH=[
+["Rytm ciosów",[
+["Kombinacje ciosów: seria 3 ciosów w rytmie, trzeci to finiszer (odrzut, przewrócenie)",["Tak, dla każdej broni inna seria","Tak, jedna wspólna seria","Nie, zostają pojedyncze ciosy kierunkowe"],0,0,"Hades, Death's Door: krótkie serie z mocnym ostatnim ciosem"],
+["Czy kombinacje mają łączyć się z kierunkami ciosu (lewo, prawo, z góry)?",["Tak: kolejność kierunków tworzy różne finiszery","Nie, kierunek zostaje tylko do omijania gardy"],0,0,"Mount & Blade + For Honor: kierunek jako decyzja"],
+["Cios z odskoku (atak tuż po odskoku = doskok z premią)",["Tak","Tylko z drzewka umiejętności","Nie"],0,0,"Hades: dash strike, podstawa rytmu walki"],
+["Cios naładowany (przytrzymaj = szeroki zamach dookoła)",["Tak, przy pełnym naładowaniu cios obrotowy","Tak, ale tylko bronią dwuręczną","Nie, zostaje mocniejszy cios w jednym kierunku"],1,0,"Hyper Light Drifter: naładowany cios czyści otoczenie"],
+["Łańcuch odskoków (2–3 odskoki pod rząd)",["Tak, za wytrzymałość","Z drzewka umiejętności","Nie, jeden odskok"],1,0,"Hyper Light Drifter: chain dash"],
+["Odbijanie strzał mieczem w odpowiednim momencie",["Tak, parowanie odbija też strzały","Tylko tarczą","Nie"],0,0,"Hyper Light Drifter: odbijanie pocisków"],
+]],
+["Czucie trafienia",[
+["Biały błysk wroga przy trafieniu",["Tak","Delikatny, tylko przy mocnych ciosach","Nie"],0,0,"Hades, Dead Cells: każdy cios widać"],
+["Odrzut na przeszkodę (drzewo, mur, inny żołnierz) zadaje dodatkowe obrażenia i przewraca",["Tak","Nie"],0,0,"Hades: wall slam"],
+["Powalenie: wróg leży chwilę i można go dobić",["Tak","Tylko po finiszerze lub kopniaku","Nie"],1,0,"Sekiro, Bannerlord: przewrócenie po mocnym ciosie"],
+["Egzekucje (klawisz F przy ogłuszonym lub leżącym wrogu, krótka animacja)",["Tak, z efektem morale dla wrogów w pobliżu","Tak, tylko ozdobnie","Nie"],0,0,"Doom, Sekiro: brutalne dobicie jako nagroda"],
+["Licznik serii zabójstw (×5, ×10…) z premią",["Tak, seria podnosi morale twoich ludzi w pobliżu","Tak, tylko licznik","Nie"],0,0,"Dynasty Warriors: licznik KO"],
+["Ciosy krytyczne z osobnym dźwiękiem i błyskiem",["Tak","Nie"],0,0,"Diablo, Hades"],
+["Siła wstrząsu ekranu",["Mocniejsza niż teraz","Jak teraz","Słabsza"],1,0,"Nuclear Throne: wstrząs to połowa frajdy, ale męczy"],
+["Odcięte kończyny i rozpad wrogów przy mocnych ciosach",["Częściej niż teraz","Jak teraz","Rzadziej"],1,0,""],
+]],
+["Obrona i postawa",[
+["Pasek postawy wroga (bloki i trafienia go łamią, złamana postawa = ogłuszenie i dobicie)",["Tak, dla wszystkich","Tylko dla elit, oficerów i lordów","Nie"],1,0,"Sekiro: posture, świetnie pasuje do twojego bloku i parowania"],
+["Twoja postawa (zamiast tylko wytrzymałości)",["Tak, osobny pasek","Nie, wystarczy wytrzymałość"],1,0,"Sekiro, Tunic"],
+["Idealny unik (odskok w ostatniej chwili) = spowolnienie czasu i darmowa kontra",["Tak","Tylko krótki błysk, bez spowolnienia","Nie"],0,0,"Bayonetta, Nioh, Hades"],
+["Zapowiedzi mocnych ciosów (czerwony błysk przed ciosem elity)",["Tak, dla elit i oficerów","Dla wszystkich wrogów","Nie, czytaj animację"],0,0,"Death's Door: każdy ruch wroga łatwo odczytać"],
+["Ciosy, których nie da się zablokować (tylko unik)",["Tak, u lordów i potworów","Nie"],0,0,"Sekiro: ataki zagrażające"],
+]],
+["Zasoby w walce",[
+["Odnawianie zasobów ciosami (trafienia ładują magię, wiarę albo pociski)",["Tak, trafienia ładują magię i wiarę","Tak, trafienia oddają strzały do łuku","Nie, jak teraz"],0,0,"Death's Door i Hyper Light Drifter: zasób wraca, gdy walczysz z bliska"],
+["Leczenie w bitwie",["Bandaże jak teraz","Krople zdrowia z pokonanych (jak w Diablo)","Leczenie za egzekucje","Bez zmian"],0,0,""],
+["Rzut bronią pod osobnym klawiszem (toporek, oszczep, nóż) z krótkim odnowieniem",["Tak, broń trzeba potem podnieść","Tak, z zapasem (np. 3 noże)","Nie"],1,0,"Hades: Cast; God of War: rzucany topór"],
+["Szał jako przemiana (pełny pasek = kilka sekund mocy jak musou)",["Tak, efektowny atak specjalny","Tak, czasowe wzmocnienie","Nie, jak teraz"],0,0,"Dynasty Warriors: musou"],
+]],
+["Dary w bitwie",[
+["Błogosławieństwa w trakcie bitwy (wybór 1 z 3 darów, działa do końca bitwy)",["Tak, po zapełnieniu szału","Tak, za zabicie oficera lub lorda","Nie"],1,0,"Hades: dary bogów; Children of Morta: relikwie wybierane w trakcie"],
+["Od kogo dary?",["Święci Korony","Starzy bogowie krain","Morvath przy wysokim spaczeniu","Duchy przodków (kompan szaman)"],-1,1,""],
+["Przykładowe dary: które brzmią najlepiej?",["Ciosy podpalają","Każdy blok leczy","Kontra wysyła falę uderzeniową","Odskok zostawia ogień","Zabicie przywraca wytrzymałość","Strzały rozpryskują się na trzy"],-1,1,""],
+["Łączenie darów (dwa dary od różnych bogów dają trzeci, mocniejszy)",["Tak","Nie"],0,0,"Hades: duet boons"],
+["Runy na broni zmieniające cios (zatrucie, krwawienie, ogłuszenie)",["Tak, wkuwane w kuźni","Tak, znajdowane w ruinach","Nie"],0,0,"Children of Morta: runy zmieniające atak"],
+]],
+["Wrogowie i bossowie",[
+["Lordowie jako minibossowie z własnymi ruchami i drugą fazą",["Tak, każdy ruler i bohater frakcji","Tylko w pojedynkach dowódców","Nie"],0,0,"Hades, Death's Door: bossowie z fazami"],
+["Bestie i potwory z własnymi wzorcami ataku (szarża, skok, ryk)",["Tak","Nie"],0,0,""],
+["Elitarni wrogowie z modyfikatorami (np. tarcza z kolcami, ognisty, wampiryczny)",["Tak, rzadko","Tak, często w późnej grze","Nie"],0,0,"Diablo: elity z cechami"],
+["Wrogowie celują w bohatera, gdy jest sławny (pojedynkowicze z szeregów wroga)",["Tak, czempioni wychodzą do ciebie","Nie"],0,0,"Dynasty Warriors: oficerowie szukają gracza"],
+["Fale wrogów w lochach i ruinach (walka bohatera i kompanów bez armii)",["Tak, jak arena w lochu","Nie"],0,0,"Children of Morta, Diablo"],
+]],
+["Postać i rozwój",[
+["Bronie jeszcze bardziej różne w odczuciu (zasięg, szybkość, specjalny ruch każdej klasy)",["Tak, każda klasa broni ma ruch specjalny","Tylko różnice w liczbach"],0,0,"Death's Door: szybkie krótkie i wolne ciężkie bronie"],
+["Specjalny ruch broni pod PPM+LPM albo osobnym klawiszem",["Osobny klawisz","Kombinacja przycisków myszy","Nie"],0,0,"np. włócznia: zamiatanie nóg, topór: rozbicie tarczy, młot: uderzenie w ziemię"],
+["Mistrzostwo broni (używanie broni odblokowuje jej ruchy)",["Tak","Nie, wszystko przez drzewka"],0,0,"Dynasty Warriors, Nioh"],
+["Wyzwania w bitwie (np. zabij oficera bez otrzymania ciosu) z nagrodą",["Tak","Nie"],0,0,"Hades: prośby bogów"],
+["Bohater bardziej odporny (mniej obrażeń od zwykłych żołnierzy, groźni tylko elitarni)",["Tak, wyraźniej","Trochę","Nie, realizm jak teraz"],1,0,"Dynasty Warriors kontra Bannerlord: power fantasy kontra realizm"],
+["Kamera w walce bohatera",["Bliżej przy walce wręcz, dalej przy rozkazach (automatycznie)","Stała, jak teraz","Do wyboru w ustawieniach"],2,0,""],
+]],
+["Kolejność",[
+["Co zrobić najpierw?",["Rytm ciosów (kombinacje, cios z odskoku)","Czucie trafienia (błysk, odrzut, egzekucje)","Postawa i obrona (Sekiro)","Dary w bitwie","Bossowie i elity","Rzut bronią i ruchy specjalne"],1,0,""],
+["Konie (zaplanowane na 0.29) przed czy po walce?",["Najpierw walka, konie potem","Najpierw konie"],0,0,""],
+]],
+];
+const Q=[];CH.forEach((c,ci)=>c[1].forEach(q=>Q.push({ci,t:q[0],o:q[1],r:q[2],m:!!q[3],h:q[4]||""})));
+const YOU="Zdecyduj ty";
+let A={},cur=0;
+try{const s=JSON.parse(localStorage.getItem("qfight19")||"null");if(s){A=s.A||{};cur=Math.min(s.cur||0,Q.length-1)}}catch(e){}
+const save=()=>{try{localStorage.setItem("qfight19",JSON.stringify({A,cur}))}catch(e){}};
+const $=id=>document.getElementById(id);
+const answered=i=>{const a=A[i];return a&&((a.s&&a.s.length)||(a.n&&a.n.trim()))};
+function renderNav(){
+  $("chapters").innerHTML=CH.map((c,ci)=>{
+    const idx=Q.map((q,i)=>q.ci===ci?i:-1).filter(i=>i>=0);
+    const d=idx.filter(answered).length;
+    return `<button class="chap${Q[cur].ci===ci?" on":""}${d===idx.length?" done":""}" data-c="${ci}"><span class="n">${ci+1}</span><span class="t">${c[0]}</span><span class="p">${d}/${idx.length}</span></button>`}).join("");
+  const n=Q.filter((_,i)=>answered(i)).length;
+  $("count").textContent=n+" / "+Q.length;$("bar").style.width=(n/Q.length*100)+"%";
+}
+function render(){
+  const q=Q[cur],a=A[cur]||{s:[],n:""};
+  $("chapName").textContent=CH[q.ci][0];
+  $("qnum").textContent="Pytanie "+(cur+1)+" / "+Q.length;
+  $("qtext").textContent=q.t;
+  $("qhint").textContent=q.h||(q.m?"Możesz zaznaczyć kilka.":"");$("qhint").hidden=!$("qhint").textContent;
+  const opts=q.o.length?[...q.o,YOU]:[];
+  $("opts").innerHTML=opts.map((o,i)=>`<button class="opt${(a.s||[]).includes(i)?" on":""}${i===q.o.length?" you":""}" data-i="${i}" aria-pressed="${(a.s||[]).includes(i)}"><span class="k">${i+1}</span><span>${o}${i===q.r?`<span class="rec">★ ${R}</span>`:""}</span></button>`).join("");
+  $("note").value=a.n||"";
+  $("prev").disabled=cur===0;
+  $("next").textContent=cur===Q.length-1?"Zakończ ✓":"Dalej →";
+  renderNav();save();
+}
+function pick(i){
+  const q=Q[cur];const a=A[cur]||(A[cur]={s:[],n:""});
+  if(i>=q.o.length+1||!q.o.length)return;
+  if(q.m){a.s=a.s.includes(i)?a.s.filter(x=>x!==i):[...a.s,i];render()}
+  else{a.s=[i];render();clearTimeout(pick.t);pick.t=setTimeout(()=>{if(document.activeElement!==$("note"))go(1)},380)}
+}
+function go(d){const n=cur+d;if(n<0)return;if(n>=Q.length){openExport();return}cur=n;render();$("qtext").focus()}
+$("opts").addEventListener("click",e=>{const b=e.target.closest(".opt");if(b)pick(+b.dataset.i)});
+$("chapters").addEventListener("click",e=>{const b=e.target.closest(".chap");if(!b)return;const ci=+b.dataset.c;const first=Q.findIndex((q,i)=>q.ci===ci&&!answered(i));cur=first>=0?first:Q.findIndex(q=>q.ci===ci);render()});
+$("note").addEventListener("input",e=>{(A[cur]||(A[cur]={s:[],n:""})).n=e.target.value;renderNav();save()});
+$("prev").onclick=()=>go(-1);$("next").onclick=()=>go(1);
+document.addEventListener("keydown",e=>{
+  if(!$("modal").hidden){if(e.key==="Escape")$("modal").hidden=true;return}
+  if(e.target.tagName==="TEXTAREA")return;
+  if(/^[1-9]$/.test(e.key))pick(+e.key-1);
+  else if(e.key==="Enter"&&!e.target.closest("button")){e.preventDefault();go(1)}
+  else if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1);
+});
+function buildText(){
+  let s=`ODPOWIEDZI: MECHANIKI I TREŚĆ (${Q.filter((_,i)=>answered(i)).length}/${Q.length})\n`;
+  CH.forEach((c,ci)=>{s+=`\n## ${ci+1}. ${c[0]}\n`;
+    Q.forEach((q,i)=>{if(q.ci!==ci)return;const a=A[i];
+      let ans="—";
+      if(a&&a.s&&a.s.length)ans=a.s.map(x=>x===q.o.length?YOU:q.o[x]).join("; ");
+      s+=`${i+1}. ${q.t} → ${ans}`;
+      if(a&&a.n&&a.n.trim())s+=` [notatka: ${a.n.trim().replace(/\s+/g," ")}]`;
+      s+="\n"})});
+  return s;
+}
+function openExport(){$("out").value=buildText();$("msg").textContent="";$("modal").hidden=false;$("copy").focus()}
+$("exportBtn").onclick=openExport;$("close").onclick=()=>$("modal").hidden=true;
+$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").hidden=true});
+$("copy").onclick=()=>{const t=$("out").value;
+  const ok=()=>$("msg").textContent="Skopiowano. Wklej w czat.";
+  try{navigator.clipboard.writeText(t).then(ok,()=>{$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."})}
+  catch(e){$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."}};
+render();
+</script>
+</body></html>

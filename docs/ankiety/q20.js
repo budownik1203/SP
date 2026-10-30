@@ -1,0 +1,63 @@
+const CH=[
+["Mniej ociężałości",[
+["Co najbardziej ciąży teraz w walce bohaterem?",["Wolny zamach (długie wejście w cios)","Długi powrót po ciosie","Wolne obracanie się","Szybko kończy się wytrzymałość","Za wolny chód i bieg w pancerzu","Trudno trafić tego, kogo chcę"],-1,1,"Zaznacz wszystko, co przeszkadza. Na tej podstawie dobiorę liczby."],
+["Bufor ciosu: kliknięcie w trakcie ciosu ustawia następny w kolejce",["Tak","Nie"],0,0,"Standard w grach akcji. Gra nie gubi kliknięć, a walka zostaje ciężka."],
+["Przerwanie własnego zamachu blokiem lub odskokiem",["Tak, w pierwszej połowie zamachu","Tak, zawsze, za koszt wytrzymałości","Nie, raz zaczęty cios trzeba skończyć"],0,0,"Kingdom Come i Mount & Blade: zwód i przerwanie. Mniej frustracji, nadal realizm."],
+["Tempo walki w porównaniu z teraz",["Wyraźnie szybciej","Trochę szybciej","Bez zmian, tylko lepsza reakcja na klawisze"],1,0,""],
+["Pancerz a ruchliwość",["Ciężka zbroja spowalnia mniej niż teraz","Jak teraz","Mocniej: lekki pancerz ma być wyborem dla zwinnych"],0,0,"Historycznie płyta mało krępowała ruchy, męczyła za to kondycję."],
+["Wytrzymałość",["Szybciej się odnawia, gdy nie atakujesz","Ciosy kosztują mniej, blok więcej","Jak teraz"],0,0,""],
+]],
+["Sterowanie bez kierunków ciosu",[
+["Co zamiast kierunków?",["LPM: seria ciosów, przytrzymanie: ciężki cios","LPM: lekki, PPM: ciężki, blok pod Shift albo innym klawiszem","LPM: seria, ŚPM: pchnięcie, PPM: blok"],0,0,"Kierunki znikają. Gardę wroga przełamujesz serią, ciężkim ciosem, kopniakiem albo postawą."],
+["Gdzie leci cios?",["W stronę kursora","Miękko przyciąga do wroga najbliżej kursora","W stronę ruchu postaci"],1,0,"Diablo II, Tunic: cios idzie tam, gdzie celujesz, z lekkim przyciąganiem"],
+["Namierzanie przeciwnika (np. pod klawiszem lub PPM na wrogu)",["Tak, opcjonalne w pojedynkach","Nie, swobodna walka w tłumie"],0,0,"Tunic, gry souls: lock-on ułatwia pojedynki z lordami"],
+["Jak wróg ma blokować bez kierunków?",["Blok trzyma przez chwilę, potem garda pęka od serii","Tarcza blokuje z przodu, z boku i od tyłu trafiasz","Obie"],2,0,"Ustawienie i okrążanie jako taktyka, jak w Exanimie"],
+["Przełącznik pchnięcie i cięcie (R)",["Zostaje","Znika: pchnięcie jest częścią serii albo ciężkim ciosem broni kłutej","Zdecyduj ty"],1,0,""],
+]],
+["Bronie i ich serie",[
+["Długość serii",["2 ciosy i finiszer","3 ciosy i finiszer","Różnie, zależnie od broni (sztylet dłuższa, młot krótsza)"],2,0,"Kingdom Come: kombinacje kończone ciosem nie do obrony"],
+["Finiszery broni: które pasują?",["Miecz: pchnięcie przebijające","Topór: rąbnięcie łamiące tarczę","Buzdygan i młot: ogłuszenie, wgniecenie hełmu","Włócznia: pchnięcie odpychające na dystans","Dwuręczne: szeroki zamach przez kilku","Sztylet: cios w szczelinę zbroi (ignoruje pancerz)"],-1,1,""],
+["Ciężka broń w tłumie",["Ciężki cios może trafić 2–3 wrogów","Tylko zamach dwuręczny trafia kilku","Zawsze jeden cel"],0,0,"Mount & Blade: przecinanie tłumu przy mocnym zamachu"],
+["Tarcza",["Uderzenie tarczą (odrzut, przerywa zamach wroga)","Ściana tarcz z oddziałem, gdy stoisz w szeregu","Tarcza zbiera strzały i pęka jak teraz"],-1,1,""],
+["Broń drzewcowa (halabarda, włócznia) przeciw konnicy",["Zatrzymuje szarżę i zrzuca jeźdźca, gdy stoisz w miejscu","Tylko większe obrażenia koniom","Bez zmian"],0,0,"Bannerlord: zaparcie włóczni"],
+]],
+["Umiejętności i rzutki",[
+["Ile slotów umiejętności w bitwie?",["3 jak teraz","4","5 (np. 3 z drzewek, 1 z broni, 1 rzutka)"],2,0,""],
+["Skąd umiejętności?",["Drzewka postaci","Mistrzostwo danej broni","Runy wkute w broń","Święci, starzy bogowie, duchy przodków (dary jako umiejętności)","Morvath przy spaczeniu"],-1,1,"Twoja uwaga z ankiety: dary jako umiejętności, nie wybór w bitwie"],
+["Czym się płaci za umiejętności?",["Czas odnowienia","Wytrzymałość","Szał (rośnie od zadawania i otrzymywania ciosów)","Wiara lub mana zależnie od źródła"],-1,1,""],
+["Slot na rzutki w ekwipunku",["Jeden slot: noże, toporki albo oszczepy","Dwa sloty","Zamiast drugiej broni"],0,0,"Bannerlord: oszczepy i toporki w osobnych slotach"],
+["Ile rzutek na bitwę?",["Noże 5, toporki 3, oszczepy 2","Wszystkiego po 3","Uzupełniane z poległych na polu (podnieś z ziemi)"],0,0,""],
+["Szał jako umiejętność: co ma robić?",["Kilka sekund bez bólu: brak ogłuszeń, ciosy nie do przerwania","Przyspieszenie i mocniejsze ciosy","Okrzyk: wrogowie w pobliżu tracą morale, twoi wpadają w szał"],-1,1,"Berserker z kronik: nie musou, tylko zawziętość"],
+["Synergie (np. dar świętego + dar starych bogów daje trzeci efekt)",["Tak, kilka ukrytych par do odkrycia","Tak, opisane w drzewku","Nie"],0,0,""],
+]],
+["Mistrzostwo broni",[
+["Jak rośnie mistrzostwo?",["Trafienia i zabójstwa daną klasą broni","Ćwiczenia w obozie i na arenie","Obie"],2,0,"Kingdom Come: kapitan uczy ruchów, praktyka podnosi biegłość"],
+["Co daje mistrzostwo?",["Ruch specjalny klasy broni (umiejętność)","Krótszy zamach i powrót","Dłuższa seria","Szersze okno parowania tą bronią"],-1,1,""],
+["Nauczyciele: mistrzowie broni w miastach i zamkach uczą ruchów za złoto",["Tak","Nie, tylko praktyka"],0,0,"Kingdom Come: Bernard i mistrzowie"],
+]],
+["Realizm, który daje frajdę",[
+["Pęd biegu dodaje obrażeń (cios z rozbiegu, szarża pieszo)",["Tak, wyraźnie","Trochę","Nie"],0,0,"Exanima i Mount & Blade: rozpęd ma znaczenie"],
+["Zwarcie: blisko przy wrogu kopniak łapie broń, szybkie klikanie przełamuje (wróg ogłuszony)",["Tak","Tylko kopniak jak teraz"],0,0,"Kingdom Come: clinch"],
+["Mistrzowskie uderzenie: idealne parowanie w ostatniej chwili od razu kontruje ciosem nie do obrony",["Tak, zamiast obecnej kontry","Tak, jako ulepszenie z mistrzostwa","Zostaje jak jest"],2,0,"Kingdom Come: master strike"],
+["Otoczony bohater (3+ wrogów wokół)",["Ostrzeżenie i kara do obrony z tyłu","Bez specjalnych zasad"],0,0,"Exanima, Bannerlord: pozycja decyduje"],
+["Potknięcia o ciała i zwłoki na polu",["Tak, rzadko, przy biegu","Nie"],1,0,"Exanima: fizyka otoczenia"],
+["Wgniecione hełmy i rozdarte tuniki na wrogach w trakcie walki",["Tak","Nie"],0,0,"Battle Brothers: zużycie widać na postaci"],
+["Krew na ostrzu i zbroi bohatera, gdy walczy dłużej",["Tak, więcej niż teraz","Jak teraz"],0,0,""],
+]],
+["Lordowie, elity, potwory",[
+["Wielkość lordów i bohaterów frakcji",["Trochę więksi (ok. 10–15%)","Ta sama skala, wyróżnia ich zbroja i sztandar"],0,0,"Twoja uwaga z ankiety"],
+["Eskorta lorda",["Przyboczni trzymają się przy nim i rzucają się na bohatera","Przyboczni plus chorąży ze sztandarem (zabity chorąży = morale w dół)","Obie"],2,0,"Kingdom Under Fire: dowódca z gwardią"],
+["Cechy lordów w bitwie",["Odważny: wbiega z pierwszą linią","Ostrożny: zostaje z tyłu z łucznikami","Okrutny: dobija rannych i straszy","Honorowy: wychodzi na pojedynek"],-1,1,"Rozszerza osobowości lordów, które już są w grze"],
+["Pasek postawy elit, oficerów i lordów: co go łamie?",["Bloki i parowania","Ciężkie ciosy i finiszery","Kopniak i uderzenie tarczą","Wszystko po trochu"],3,0,""],
+["Potwory i bestie: najpierw które?",["Wilki olbrzymy: skok i obalenie","Trolle i ogry: zamach przez kilku, ryk","Upiory: przenikanie, ciosy nie do zablokowania","Abominacje nieumarłych: szarża"],-1,1,""],
+]],
+["Konno",[
+["Szarża konna przewraca piechotę na drodze",["Tak, lekkich wrogów","Tak, wszystkich poza tarczownikami w szyku","Jak teraz"],1,0,"Mount & Blade: szarża łamie szyk"],
+["Cięcie z konia",["Mocniejsze przy prędkości (jak kopia)","Jak teraz"],0,0,""],
+["Koń może się przewrócić (zaparte włócznie, rów, pale)",["Tak, bohater spada i jest ogłuszony","Nie"],0,0,""],
+]],
+["Kolejność",[
+["Co najpierw?",["Mniej ociężałości i sterowanie bez kierunków","Serie broni i finiszery","Czucie trafienia: błysk, odrzut, egzekucje, licznik serii","Postawa elit, zapowiedzi, idealny unik","Umiejętności, rzutki, mistrzostwo","Lordowie z eskortą i potwory"],0,0,""],
+["Konie (planowane na 0.29)",["Po walce","Przed walką"],0,0,""],
+]],
+];

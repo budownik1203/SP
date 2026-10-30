@@ -1,0 +1,132 @@
+ODPOWIEDZI: MECHANIKI I TREŚĆ (98/99)
+
+## 1. Obóz
+1. Jak rozbija się obóz? → Obie
+2. Ile czynności można zlecić naraz? → Każdy kompan robi coś innego
+3. Trening w obozie → Obie
+4. Rozmowy przy ognisku → Obie
+5. Warta i napad na obóz nocą → Wystawiasz wartę, bez niej łatwiej o zasadzkę
+6. Ufortyfikowany obóz na dłużej → Palisada i namioty przy dłuższym postoju
+7. Wygląd obozu → Ilustrowana scena z ogniskiem i namiotami, animowana
+8. Ognisko widać na mapie nocą → Tak, wrogowie też je widzą
+
+## 2. Zmęczenie, choroby, polowanie
+9. Co męczy drużynę najbardziej? → Marsz bez przerwy; Marsz nocą; Zła pogoda i zima; Bitwy
+10. Skutek zmęczenia → Też dezercje przy skrajnym zmęczeniu
+11. Ile snu trzeba? → Wystarczy krótki postój co dzień
+12. Choroby: które? → Gorączka bagienna; Zaraza Morvatha; Czerwonka w obozie; Odmrożenia
+13. Leczenie → Obie
+14. Polowanie → Obie
+15. Zbieractwo (grzyby, zioła, chrust) → Tak, w lesie i na bagnach
+16. Zwierzyna zależna od krainy → Tak (jelenie w lesie, ptactwo na bagnach, nic w popiele)
+
+## 3. Wydarzenia w drodze i pobojowiska
+17. Jak często wydarzenia w drodze? → Raz na 2–3 dni marszu
+18. Rodzaje wydarzeń → Znaleziska i skrytki; Pielgrzymi i podróżni z prośbą; Pułapki i zasadzki; Dezerterzy z armii lordów; Dziwne zjawiska i wizje
+19. Konsekwencje wydarzeń wracają po czasie → Tak (uratowany pielgrzym spotyka cię później)
+20. Przeszukanie pobojowiska zajmuje czas → Kilka godzin, ryzyko spotkania hien cmentarnych
+21. Co można znaleźć na pobojowisku? → Broń i zbroje do naprawy; Rannych do zwerbowania; Listy i wieści o armiach; Ciała lordów z okupem
+22. Grabieżcy pobojowisk jako nowe bandy → Tak
+
+## 4. Rzemiosło
+23. Skąd materiały? → Kupno na targu; Kopalnie i lasy w lennach; Łupy z potworów
+24. Rodzaje materiałów → Plus rzadkie: srebro, ruda krasnoludów, czarna stal Morvatha
+25. Gdzie się kuje? → W kuźni w mieście i we własnym zamku
+26. Jak powstaje przedmiot? → Wybór wzoru, materiału i jakości, czas pracy
+27. Umiejętność kowalstwa → Nowe drzewko umiejętności
+28. Wzory przedmiotów → Odkrywane z rozebranego sprzętu i ksiąg
+29. Kultury mają własne wzory → Tak (krasnoludzkie topory, aureliańskie miecze)
+30. Imię nadane wykutej broni → Tak, gracz nadaje nazwę
+
+## 5. Sprzęt: legendy, naprawa, barwy, trofea
+31. Ile przedmiotów legendarnych? → Ok. 25
+32. Jak zdobywa się legendy? → Lochy i ruiny; Zadania i wątek główny; Pokonani bossowie; Pokonani wielcy lordowie
+33. Legendy mają wymagania i wady → Tak (przeklęty miecz pije zdrowie)
+34. Naprawa w drodze → Zestaw zużywa się, naprawia do ok. 70%
+35. Malowanie tarcz i tabardów: zakres → Kolory i godło dla każdego oddziału osobno
+36. Sala trofeów w zamku → Daje premie (morale, sława)
+37. Trofea można sprzedać lub oddać → Tak (zwrot sztandaru wrogowi poprawia relacje)
+
+## 6. Muzyka: wykonanie
+38. Jak tworzyć muzykę w grze? → Generowana w grze z instrumentów (bez plików, jak teraz)
+39. Instrumenty frakcji → Aurelia: dzwony i chór, Legion: bębny i rogi, krasnoludy: niskie rogi, orkowie: bębny i gardłowe głosy, Morvath: organy i szepty
+40. Głośność muzyki względem dźwięków → Muzyka cicho w tle
+41. Cisza jako element → Momenty bez muzyki (noc, mgła, pobojowisko)
+42. Fanfary przy ważnych chwilach → Awans, zdobycie zamku, koronacja, zwycięstwo
+
+## 7. Więcej treści: jednostki
+43. Głębokość drzewek jednostek → 6 poziomów z elitą
+44. Nowe typy jednostek → Harcownicy z oszczepami; Konni łucznicy; Topornicy dwuręczni; Procarze; Kapłani i medycy polowi
+45. Jednostki z lenn (np. kusznicy z miasta X) → Tak, specjalność miasta lub zamku
+46. Weterani z imionami → Najlepsi żołnierze dostają imię i rosną jak mini-kompani
+47. Jednostki zakonów rycerskich → Tak, elitarne, za zgodą zakonu
+48. Najemnicy egzotyczni (zza morza) → Tak, drodzy i silni
+
+## 8. Więcej treści: zadania i wydarzenia
+49. Nowe typy zadań od wiosek → Znajdź zaginione dziecko; Zabij potwora z bagien; Rozsądź spór sąsiadów; Odzyskaj bydło od bandytów; Ochroń ślub lub pogrzeb
+50. Nowe typy zadań od miast → Wytrop przemytników; Ochroń kupca na jarmarku; Złap mordercę w uliczkach; Dostarcz towar na termin
+51. Nowe zadania od lordów → Zdobądź sztandar wroga w bitwie; Zastrasz zbuntowaną wioskę; Odbij zakładnika; Pojedynek w imieniu lorda
+52. Wydarzenia świata (rzadkie, wielkie) → Głód po nieurodzaju; Kometa i fanatycy; Śmierć władcy i walka o tron; Wielki pożar miasta; Powódź
+53. Ile tekstu w zadaniach? → Mieszanka
+
+## 9. Więcej treści: miejsca i lochy
+54. Nowe miejsca na mapie → Kopalnie i kamieniołomy; Klasztory i pustelnie; Stare pola bitew z duchami; Wieże magów; Kurhany
+55. Lochy: jak wyglądają? → Mieszanka
+56. Ile lochów na mapie? → Kilka stałych i kilka losowych
+57. Miejsca odnawiają się → Tak, po czasie wracają bandy i potwory
+58. Kryjówka gracza poza miastem → Nie
+
+## 10. Więcej treści: kompani
+59. Jakie typy kompanów? → Wojownicy; Łucznicy; Uzdrowiciele; Uczeni i magowie; Złodzieje i szpiedzy; Kupcy
+60. Kompani z innych ras → Krasnolud, ork, nawet nieumarły
+61. Kompani z przeszłością związaną z frakcjami → Tak (wygnany syn lorda, dezerter legionu)
+62. Kompani reagują na decyzje gracza → Komentują i mogą odejść
+63. Jak założą własną frakcję? → Zdecyduj ty [notatka: Oba]
+
+## 11. Aktualne mechaniki: walka
+64. Blok i kierunki ciosów → Jak teraz [notatka: Bloki jako okienko, a tryb zmieniasz pod r pchnięcia/cięcia]
+65. Łucznictwo bohatera → Większy rozrzut, mocniejsze trafienia
+66. Siła szarży konnicy → Jak teraz
+67. Strzały wroga → Jak teraz
+68. Pancerz → Wyraźniej chroni przed cięciem, słabo przed obuchem
+69. Wytrzymałość (stamina) bohatera → Jak teraz
+
+## 12. Aktualne mechaniki: kampania
+70. Tempo awansu żołnierzy → Jak teraz
+71. Jeńcy → Więcej opcji: werbunek, wymiana, egzekucja
+72. Morale drużyny w kampanii → Mocniej zależne od jedzenia, żołdu i zwycięstw
+73. Rozmiar armii gracza → Jak teraz
+74. Siła lordów AI → Jak teraz
+75. Tempo wojen między frakcjami → Jak teraz
+
+## 13. Więcej treści: przedmioty i towary
+76. Więcej broni → Halabardy i gizarmy; Cepy i morgensterny; Szable i tasaki; Kusze ciężkie i lekkie; Bronie egzotyczne zza morza
+77. Więcej zbroi → Brygantyny i łuski; Futra i skóry północy; Zbroje rytualne kapłanów; Hełmy z przyłbicą i zasłoną
+78. Nowe towary w handlu → Wino, sól, przyprawy; Konie i bydło; Relikwie i odpusty; Rudy i materiały do kucia
+79. Przedmioty użytkowe w bitwie → Bomby ogniowe i dym; Mikstury lecznicze; Sieci i bola; Tarcze pawęże do rozstawienia
+80. Ozdoby i amulety z premią → Tak, osobne miejsce w ekwipunku
+81. Księgi i mapy do zdobycia → Tak: odkrywają miejsca, uczą umiejętności, opowiadają historię
+
+## 14. Więcej życia na mapie
+82. Nowe grupy na mapie → Pielgrzymi do kaplic; Uchodźcy z wojny; Łowcy nagród szukający ciebie; Wędrowni kupcy i kuglarze; Pastuszkowie ze stadami
+83. Zwierzęta na mapie → Stada jeleni, wilki, ptaki nad lasem
+84. Pory dnia zmieniają ruch → Nocą mniej karawan, więcej band
+85. Osady na mapie ożywają → Dym, światła, ludzie przy bramach, jarmarki widoczne z daleka
+86. Granice zmieniają się widocznie → Odbudowa jak teraz
+87. Wiadomości docierają z opóźnieniem → Tak, o odległych bitwach dowiadujesz się po dniach
+
+## 15. Nieumarli jako grywalna frakcja
+88. Start nieumarłego → Wybór: krypta albo pakt z mrokiem w trakcie gry
+89. Werbunek nieumarłych → Obie [notatka: Oba + wydarzenia + sale tworzenia życia zdobywasz materiały z kurhanów, cmentarzy, po bitwach itd jako części ludzi i organy. Sala tworzenia ma stół w którym łączysz wszystkie elementy i tworzysz abominacje jeżeli masz gotowe schematy (lub sam się w strzelisz w nieznany ci schemat) to tworzysz konkretnego potwora np. ogr zombie,]
+90. Jedzenie i żołd nieumarłych → Nie jedzą, płacą duszami lub mrocznym złotem
+91. Reakcje żywych → Większość osad zamyka bramy, handel tylko u przemytników
+92. Słońce i święta ziemia osłabiają → Tak
+93. Zaraza jako narzędzie gracza → Tak, rozsiewasz zarazę na wrogie ziemie
+
+## 16. Długa kampania (ok. 100 godzin)
+94. Jak rozłożyć tempo na 100 godzin? → Etapy: najemnik, wasal, lord, król, z nowymi systemami w każdym
+95. Inwazja z zewnątrz: kiedy? → Gdy ktoś zjednoczy połowę krainy
+96. Koniec gry → Zjednoczenie albo pokonanie inwazji, potem gra dalej
+97. Zapis gry w tak długiej kampanii → Więcej miejsc zapisu i zapis do pliku
+98. Co ma utrzymać ciekawość w środku gry? → Wątki frakcji i kompanów; Wielkie wydarzenia świata; Rozbudowa królestwa; Lochy i legendy
+99. Pomysł spoza listy → —

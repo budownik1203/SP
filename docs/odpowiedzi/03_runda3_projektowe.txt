@@ -1,0 +1,121 @@
+ODPOWIEDZI PROJEKTOWE, RUNDA 3 (99/100)
+
+## 21. Rasy
+201. Ile ras grywalnych łącznie? → 9 lub więcej
+202. Ile frakcji na rasę? → Niektóre rasy kilka frakcji, inne jedną
+203. Ile frakcji łącznie na start kampanii? → 10–12
+204. Kim jest rasa wymyślona od zera? → Mgliste bestie z bagien
+205. Czy rasa wpływa na statystyki bohatera? → Lekko
+206. Czy w świecie są mieszańcy (półelfy, półorkowie)? → Tak, z własnymi problemami społecznymi
+207. Czy rasy różnią się sylwetką na polu bitwy? → Tak: krasnoludy niższe, orkowie więksi
+208. Czy w rasie są różne kultury? → Tak, np. elfy leśne i elfy z miast
+209. Czy wszystkie rasy są dostępne od startu? → Tak, wszystkie
+210. Jak rasy podzielone są na mapie? → Każda rasa w swoim regionie
+
+## 22. Nieumarli
+211. Kim są nieumarli? → Oba: świadome królestwo i bezrozumne hordy
+212. Kto rządzi nieumarłymi? → Zdecyduj ty [notatka: wszystko po trochu]
+213. Skąd się wzięli? → Z klątwy boga
+214. Czy gracz może być nieumarłym? → Oba
+215. Jak nieumarli rekrutują? → Oba
+216. Czego potrzebują zamiast jedzenia? → Zasobu dusz lub esencji
+217. Jak działa ich morale? → Brak morale, ale rozpad oddziału po śmierci dowódcy
+218. Jak traktują ich inne rasy? → Zależy od frakcji i religii
+219. Jak wyglądają ich ziemie? → Martwa kraina, która rośnie wraz z podbojami
+220. Frakcja nieumarłych a kryzys „Powstanie nieumarłych”? → Stała frakcja, a kryzys to osobne zjawisko
+
+## 23. Lista frakcji
+221. Upadłe imperium ludzi? → Imperium rozdarte na dwóch pretendentów (2 frakcje)
+222. Teokracja płomienia: jaka rasa? → Mieszana, połączona wiarą
+223. Klany stepowe: jaka rasa? → Ludzie
+224. Kupiecka republika portowa: jaka rasa? → Mieszana, wiele ras w jednym mieście
+225. Ile frakcji krasnoludów? → Dwie skłócone
+226. Kto zamieszkuje plemiona bagien? → Rasa wymyślona od zera
+227. Elfy? → Obie frakcje
+228. Orkowie? → Zdecyduj ty [notatka: oba]
+229. Jakie dodatkowe frakcje? → Najeźdźcy z mroźnej północy; Pustynny sułtanat; Kult nekromantów ukryty w żywych krajach; Liga wolnych miast; Zakon rycerski jako państwo; Górskie klany [notatka: przyda się jeszcze kilka]
+230. Czy frakcje mają osobowości AI? → Tak: zaborcza, kupiecka, obronna, fanatyczna
+
+## 24. Mechaniki frakcji
+231. Jak głęboko sięgają unikalne mechaniki? → 2–3 mechaniki
+232. Unikalne budynki frakcji? → Tak, 1–2 na frakcję
+233. Różne zasady sukcesji? → Tak: elekcja, prawo siły, wybór kapłanów
+234. Czy frakcje mogą się łączyć w unie? → Tak
+235. Czy frakcje mogą się rozpaść w wojnie domowej? → Tak
+236. Skąd nazwy nowych frakcji z buntów? → Generowane z nazwiska przywódcy i regionu
+237. Czy królestwo gracza może być wielorasowe? → Tak, z napięciami do zarządzania
+238. Czy frakcje mają cele długoterminowe? → Tak, np. odzyskać dawną stolicę
+239. Czy frakcje mają mocne i słabe strony w armii? → Tak, wyraźne
+240. Czy pokonana frakcja może wrócić? → Tak, przez bunty i pretendentów
+
+## 25. Magia
+241. Jakie szkoły magii? → Ogień; Nekromancja; Magia krwi; Natura; Runy krasnoludzkie; Szamanizm; Umysł i iluzje [notatka: więcej! demonologia jeszcze]
+242. Jak działa spaczenie? → Oba
+243. Stosunek frakcji do magii? → Każda inaczej: zakaz, rejestr, kult
+244. Łowcy czarownic? → Tak, jako zakon lub frakcja
+245. Legendarne artefakty? → Tak, unikalne, w ruinach i lochach
+246. Rytuały na mapie strategicznej? → Tak, np. mgła nad armią, zaraza na mieście
+247. Jak bohater uczy się magii? → Wszystko po trochu
+248. Czy ilość magii w świecie się zmienia? → Nie
+249. Jakie czary w bitwie? → Pociski; Obszarowe; Wzmocnienia i klątwy; Przyzwania
+250. Ile czarów dla bohatera? → 10–20
+
+## 26. Religie
+251. Czy religie są przypisane do ras? → Mieszanie
+252. Pobożność bohatera? → Waluta za łaski i błogosławieństwa
+253. Nawracanie prowincji? → Tak, przez kapłanów i świątynie
+254. Herezje i rozłamy? → Tak
+255. Czy bohater może założyć własny kult? → Tak
+256. Święte miejsca do zdobycia? → Tak, z bonusami
+257. Religia nieumarłych? → Kult śmierci
+258. Jak religia wpływa na rozgrywkę? → Oba
+259. Świątynie jako budynki? → Tak
+260. Inkwizycja? → Tak, ściga magów i heretyków
+
+## 27. Odczucie walki
+261. Co jest najważniejsze w walce? → Taktyka i pozycja
+262. Jakie efekty trafienia? → Krótkie zamrożenie klatki; Odrzut; Krew; Drganie ekranu; Mocny dźwięk
+263. Ile krwi? → Dużo
+264. Jak pokazać, skąd wróg uderza? → Oba
+265. Okno parowania? → Zależne od umiejętności bohatera
+266. Czy ciosy wrogów są zapowiadane? → Tak, krótki zamach przed ciosem
+267. Ilu zwykłych żołnierzy pokona bohater? → Kilku naraz z ryzykiem, jak w M&B
+268. Kopnięcia i pchnięcia tarczą? → Tak
+269. Czy można zabić konia? → Tak
+270. Ogień sojuszniczy? → Tak, strzały i czary ranią swoich
+
+## 28. Lordowie i historie
+271. Osobowości lordów? → Cechy: chciwy, honorowy, okrutny, tchórzliwy
+272. Czy lordowie pamiętają gracza? → Tak, pamiętają przysługi i krzywdy
+273. Rywale i nemezis? → Tak, wróg, który ci ucieknie, wraca silniejszy
+274. Czy lordowie mogą zginąć? → Tak, w bitwie i przez egzekucję [notatka: posiadający własne wątki lub kluczową pozycje to nie. reszta tak]
+275. Egzekucje jeńców? → Tak, z poważnymi konsekwencjami
+276. Skąd nowi lordowie? → Oba
+277. Czy towarzysze mogą odejść lub zdradzić? → Tak
+278. Ilu lordów na frakcję? → 10–20
+279. Czy AI oszukuje na mapie? → Nie, gra uczciwie
+280. Co trafia do kroniki? → Bitwy; Śmierci lordów; Upadki miast; Wyczyny gracza; Kryzysy
+
+## 29. Wygląd i dźwięk
+281. Ograniczona paleta kolorów? → Tak, stała paleta, np. 32 kolory
+282. Dynamiczne światło (pochodnie, ogień w nocy)? → Tak
+283. Wygląd mapy strategicznej? → Pixel art z góry, jak bitwy
+284. Ciała na polu bitwy? → Zostają do końca bitwy
+285. Pogoda widoczna na mapie? → Tak
+286. Portrety? → Składane z części (twarz, włosy, blizny)
+287. Charakter muzyki? → Średniowieczne instrumenty
+288. Okrzyki i głosy w bitwie? → Tak, krótkie okrzyki
+289. Edytor herbu? → Tak, dla gracza
+290. Ekran tytułowy? → Animowana scena
+
+## 30. Steam i wydanie
+291. Wsparcie modów? → Później
+292. Osiągnięcia Steam? → Tak
+293. Wczesny dostęp? → Tak
+294. Cena? → 40–80 zł
+295. Zapis w chmurze Steam? → Tak
+296. Darmowe demo? → Tak
+297. Repozytorium kodu? → Prywatne
+298. Który tytuł? → Sztandary Popiołu
+299. Czym gra ma wyróżnić się na tle Mount & Blade? → Zdecyduj ty [notatka: 2 + 3]
+300. Co jeszcze chcesz dodać? → —

@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push('PAGEERR ' + e.message + '\n' + e.stack));
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html');
+  await p.waitForTimeout(800);
+  await p.click('text=Nowa gra');
+  for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300);
+  await p.waitForTimeout(500);
+  await p.evaluate(() => { window.__game().G.speed = 4; window.__game().G.encounterCooldown = 999; });
+  await p.mouse.click(1000, 500);
+  const fps = await p.evaluate(() => new Promise(r => { let n = 0, worst = 0, lt = performance.now(); const t = performance.now(); function f() { const now = performance.now(); worst = Math.max(worst, now - lt); lt = now; n++; if (now - t < 4000) requestAnimationFrame(f); else r({ fps: n / 4, worst }); } requestAnimationFrame(f); }));
+  console.log(JSON.stringify(fps));
+  const prof = await p.evaluate(() => { const T = window.__T; const w = window.__game().WORLD; const t0 = performance.now(); for (let i = 0; i < 200; i++) T.worldTick(w, 0.05); const a = (performance.now() - t0) / 200; const t1 = performance.now(); for (let i = 0; i < 30; i++) renderWorld(w, window.__game().G.view, document.getElementById('game').getContext('2d')); return { tick: a }; }).catch(e => e.message);
+  console.log(JSON.stringify(prof));
+  console.log(errs.join('\n'));
+  await b.close();
+})();

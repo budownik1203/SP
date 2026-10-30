@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push('PAGEERR ' + e.message + e.stack));
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html');
+  await p.waitForSelector('button[data-a=new]'); await p.click('button[data-a=new]'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300); await p.waitForTimeout(500);
+  await p.evaluate(() => { const w = window.__game().WORLD; const P = w.player; const pp = w.parties.find(x=>x.kind==='player');
+    const bd = w.parties.filter(x=>x.kind==='bandit').sort((a,b)=>Math.hypot(a.x-pp.x,a.y-pp.y)-Math.hypot(b.x-pp.x,b.y-pp.y))[0];
+    bd.x = pp.x + 60; bd.y = pp.y + 20; bd.path = []; bd.wait = 999;
+    P.quests.push({ id: 90, kind: 'bandits', giver: 0, target: bd.id, amount: 0, reward: 200, days: 10, text: 'Rozbij bandę ' + bd.name, done: false });
+    const far = w.settlements[w.settlements.length - 1];
+    P.quests.push({ id: 91, kind: 'letter', giver: 0, target: far.id, amount: 0, reward: 150, days: 10, text: 'Zawieź list do ' + far.name, done: false });
+    const vil = w.settlements.find(s=>s.kind==='village');
+    P.quests.push({ id: 92, kind: 'grain', giver: vil.id, target: vil.id, amount: 10, reward: 200, days: 10, text: 'Przywieź zboże do ' + vil.name, done: false });
+  });
+  await p.waitForTimeout(500);
+  await p.screenshot({ path: 'q_map.png' });
+  await p.keyboard.press('KeyJ'); await p.waitForTimeout(300); await p.screenshot({ path: 'q_list.png' });
+  await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  await p.click('text=Ustawienia'); await p.waitForTimeout(200);
+  await p.click('button.tab:has-text("Bitwa")'); await p.waitForTimeout(200); await p.screenshot({ path: 'q_set.png' });
+  await p.click('button.tab:has-text("Obraz")'); await p.selectOption('select[data-in="s:uiScale"]', '1.15'); await p.waitForTimeout(300); await p.screenshot({ path: 'q_set2.png' });
+  console.log(errs.join('\n'));
+  await b.close();
+})();

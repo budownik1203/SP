@@ -10,7 +10,7 @@ Wymaga TypeScript (`tsc`) i Pythona 3.
 
     python3 build.py
 
-Wynik: `dist/sztandary.html` (jeden plik, uruchamiany w przeglądarce).
+Wynik: `dist/sztandary.html` (jeden plik, uruchamiany w przeglądarce). Wydane buildy: `releases/`, dokumentacja: `docs/`, instrukcja dla AI: `CLAUDE.md`.
 
 ## Struktura
 - `src/core.ts` – paleta, matematyka, wejście, dźwięk generowany

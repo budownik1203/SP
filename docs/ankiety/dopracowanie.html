@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dopracowanie 0.15.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+:root{
+  --bg:#e6e8ec; --panel:#f6f7f9; --ink:#1d2029; --muted:#5d6372; --line:#c3c7d0;
+  --accent:#a3262e; --accent-ink:#fff; --gold:#9a6a12; --sel:#f3dfe0; --rec:#7a5410;
+  --now:#a3262e; --later:#9a6a12; --skip:#5d6372;
+  --display:"Pixelify Sans","Courier New",monospace; --body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a;
+  --now:#e0705f; --later:#d9a441; --skip:#9a9eab; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13151b; --panel:#1c1f27; --ink:#e8e6df; --muted:#9a9eab; --line:#343947;
+  --accent:#d9a441; --accent-ink:#17130a; --gold:#d9a441; --sel:#3a2f1a; --rec:#e3b75a;
+  --now:#e0705f; --later:#d9a441; --skip:#9a9eab; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.5 var(--body);padding:20px max(16px,env(safe-area-inset-right,0px)) 60px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;justify-content:space-between;align-items:flex-end}
+h1{font:700 clamp(26px,4vw,36px)/1.05 var(--display);margin:0}
+.sub{color:var(--muted);margin:6px 0 0;font-size:15px;max-width:64ch}
+.sum{display:flex;gap:14px;flex-wrap:wrap;font:500 15px var(--display);font-variant-numeric:tabular-nums}
+.sum span b{font-size:20px}
+.s-now b{color:var(--now)}.s-later b{color:var(--later)}.s-skip b{color:var(--skip)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font:500 15px var(--display);padding:9px 14px;border:0;cursor:pointer;background:var(--panel);color:var(--ink);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line);margin:3px}
+.btn:hover{background:var(--sel)}
+.btn.on{box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.btn:focus-visible,.ch:focus-visible,.sol:focus-visible,textarea:focus-visible,.notebtn:focus-visible{outline:3px dashed var(--gold);outline-offset:3px}
+section h2{font:700 20px var(--display);margin:0 0 4px;display:flex;justify-content:space-between;gap:10px}
+section h2 small{font:500 14px var(--display);color:var(--muted)}
+section .lead{color:var(--muted);font-size:15px;margin:0 0 10px}
+.items{display:grid;gap:12px}
+.it{background:var(--panel);padding:16px 18px;display:grid;gap:12px;border-left:5px solid transparent}
+.it.now{border-left-color:var(--now)}.it.later{border-left-color:var(--later)}.it.skip{border-left-color:var(--skip);opacity:.7}
+.it .t{font-weight:700;font-size:18px}
+.it .d{color:var(--muted);font-size:15px;margin-top:2px}
+.lbl{font:500 13px var(--display);color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.sols{display:grid;gap:8px}
+.sol{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;text-align:left;cursor:pointer;background:var(--bg);color:var(--ink);border:0;padding:10px 12px;font:inherit;font-size:16px;
+  box-shadow:0 -2px 0 0 var(--line),0 2px 0 0 var(--line),-2px 0 0 0 var(--line),2px 0 0 0 var(--line);margin:2px}
+.sol .k{font:500 14px var(--display);color:var(--muted)}
+.sol:hover{background:var(--sel)}
+.sol[aria-pressed="true"]{background:var(--sel);box-shadow:0 -3px 0 0 var(--accent),0 3px 0 0 var(--accent),-3px 0 0 0 var(--accent),3px 0 0 0 var(--accent)}
+.sol[aria-pressed="true"] .k{color:var(--accent)}
+.sol.you{color:var(--muted);font-style:italic}
+.rec{display:inline-block;font:500 12px var(--display);color:var(--rec);letter-spacing:.5px;margin-left:8px;white-space:nowrap}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ch{font:500 14px var(--display);padding:7px 12px;border:0;cursor:pointer;background:var(--bg);color:var(--ink);
+  box-shadow:0 -2px 0 0 var(--line),0 2px 0 0 var(--line),-2px 0 0 0 var(--line),2px 0 0 0 var(--line);margin:2px}
+.ch[aria-pressed="true"].c-now{background:var(--now);color:#fff;box-shadow:none}
+.ch[aria-pressed="true"].c-later{background:var(--later);color:#17130a;box-shadow:none}
+.ch[aria-pressed="true"].c-skip{background:var(--skip);color:#fff;box-shadow:none}
+.notebtn{font:500 13px var(--display);color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline;margin-left:auto}
+textarea{width:100%;min-height:60px;resize:vertical;font:15px/1.45 var(--body);color:var(--ink);background:var(--bg);border:2px solid var(--line);padding:8px 10px}
+.modal{position:fixed;inset:0;background:rgb(0 0 0 / .55);display:grid;place-items:center;z-index:20;padding:16px}
+.modal .box{background:var(--panel);width:min(760px,100%);max-height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:22px}
+.modal h3{font:700 22px var(--display);margin:0}
+.modal textarea{min-height:300px;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
+.modal .r{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.msg{color:var(--gold);font:500 14px var(--display);margin-right:auto}
+.foot{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Dopracowanie · build 0.15.2</h1>
+      <p class="sub">Co zostało do poprawienia, a przy każdym punkcie kilka sposobów rozwiązania (gwiazdka to moja rekomendacja). Zaznacz rozwiązania, które ci pasują (można kilka), potem zdecyduj: teraz, później albo zostawić. Na końcu skopiuj wynik do czatu.</p>
+    </div>
+    <div class="sum" aria-live="polite">
+      <span class="s-now">Teraz <b id="nNow">0</b></span>
+      <span class="s-later">Później <b id="nLater">0</b></span>
+      <span class="s-skip">Zostaw <b id="nSkip">0</b></span>
+      <span>Bez decyzji <b id="nNone">0</b></span>
+    </div>
+  </header>
+  <div class="filters" role="group" aria-label="Filtr">
+    <button class="btn on" data-f="all">Wszystko</button>
+    <button class="btn" data-f="none">Bez decyzji</button>
+    <button class="btn" data-f="now">Naprawić teraz</button>
+    <button class="btn" data-f="later">Później</button>
+    <button class="btn" data-f="skip">Zostawić</button>
+  </div>
+  <div id="list"></div>
+  <div class="foot"><button class="btn" id="reset">Wyczyść wybory</button><button class="btn primary" id="exportBtn">Wyślij wybory</button></div>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mh">
+    <div><h3 id="mh">Twoje wybory</h3><p class="sub">Skopiuj i wklej w czat. Punkty „teraz” zrobię w następnym buildzie, według zaznaczonych rozwiązań.</p></div>
+    <textarea id="out" readonly aria-label="Wybory do skopiowania"></textarea>
+    <div class="r"><span class="msg" id="msg"></span><button class="btn" id="close">Zamknij</button><button class="btn primary" id="copy">Kopiuj</button></div>
+  </div>
+</div>
+<script>
+// [tytuł, opis problemu, rozwiązania[], indeks rekomendowanego]
+const G=[
+["Grafika: lepsza jakość i brud","Twoje życzenie: lepsza grafika, modele i tekstury, wszystko brudniejsze.",[
+["Postacie: więcej detali","Sprajty są małe (ok. 24×32 px), zbroje i hełmy słabo się od siebie różnią.",[
+ "Większe sprajty (ok. 32×40 px) z dorysowanymi detalami: nity, pasy, sprzączki, faktura kolczugi",
+ "Zostawić rozmiar, dodać cieniowanie w 3–4 tonach i obrys zależny od światła",
+ "Więcej klatek animacji (chód 6, zamach 5, śmierć 6) zamiast obecnych 2–4",
+ "Warianty sprzętu frakcji: inne kształty hełmów, tarcz i płaszczy dla każdej kultury"],0],
+["Postacie: brud i zużycie","Postacie są czyste, wyglądają jak nowe nawet po roku wojny.",[
+ "Warstwa brudu na sprajcie: błoto od dołu, plamy krwi, przetarcia na płaszczach",
+ "Brud rośnie z czasem kampanii i liczbą bitew, czyszczenie w mieście (łaźnia)",
+ "Zbroje z rdzą i wgnieceniami zależnie od stanu (zużycia) przedmiotu",
+ "W bitwie krew i błoto dopisują się na żywo po trafieniach i upadkach"],2],
+["Teren bitwy: tekstury","Teren jest dość gładki, nie zmienia się w trakcie walki.",[
+ "Bogatsza tekstura podłoża: kępy trawy, kamienie, gruz, korzenie, kałuże",
+ "Teren brudzi się w trakcie walki: wydeptana trawa, błoto, ślady kopyt, kałuże krwi",
+ "Pora roku na polu: zimą śnieg z błotem, jesienią liście i deszcz",
+ "Porzucony sprzęt i trupy zostają jako część krajobrazu do końca bitwy"],1],
+["Mapa świata: tekstury","Mapa jest czytelna, ale za czysta jak na mroczne klimaty.",[
+ "Przybrudzona paleta terenu i dodatkowa faktura (plamy błota, wydeptane łąki)",
+ "Ślady wozów i koleiny na drogach, wydeptane ścieżki między wioskami",
+ "Pogorzeliska i ślady bitew zostające na mapie przez kilka dni",
+ "Efekt starej mapy: lekka winieta i ziarno na krawędziach"],0],
+["Osady: budynki","Ikony osad są małe i do siebie podobne.",[
+ "Większe ikony z detalami: łaty na dachach, płoty, stogi, śmietniska, szubienice",
+ "Wygląd zależny od dobrobytu (biedne: ruiny i dziury, bogate: kamień i chorągwie)",
+ "Wygląd zależny od kultury (krasnoludy w skale, orkowie w namiotach z kości)",
+ "Ślady oblężenia i grabieży na ikonie (dym, czarne zgliszcza, wyłamana brama)"],1],
+["Paleta kolorów","Kolory są czyste i dość nasycone.",[
+ "Mniej nasycona, cieplejsza paleta (brązy, oliwki, rdza), jak w Darkest Dungeon",
+ "Chłodniejsza, szaro-niebieska paleta (mgła, popiół)",
+ "Różna paleta zależna od regionu i pory roku",
+ "Filtr kolorów w ustawieniach (klasyczny, brudny, ponury)"],2],
+["Efekty: dym, kurz, popiół","Cząsteczek jest mało, scena wydaje się pusta.",[
+ "Kurz spod nóg i kopyt, przy szarży gęsta chmura",
+ "Dym z pożarów i machin, iskry przy trafieniach w stal",
+ "Popiół w powietrzu w krainie Morvatha i po bitwach",
+ "Mgła poranna snująca się po polu"],0],
+["Ilustracje scen i portrety","Sceny w osadach i portrety mają niską rozdzielczość.",[
+ "Sceny w osadach w podwójnej rozdzielczości z większą liczbą detali i postaci",
+ "Portrety z brudem, bliznami, zarostem i zmęczeniem po bitwach",
+ "Animowane sceny (dym z kominów, migające pochodnie, ruch ludzi)",
+ "Ilustracje wydarzeń w kronice i przy ważnych momentach"],1],
+["Interfejs","Ramki okien są czyste i równe.",[
+ "Plamy, zacieki i przetarcia na pergaminie i drewnie",
+ "Okna jak zniszczone księgi i mapy z przypalonymi brzegami",
+ "Zostawić czytelny interfejs, brud tylko w grze"],0],
+]],
+["Do sprawdzenia w graniu","Działa w testach automatycznych, ale trzeba to ocenić ręcznie.",[
+["Tempo marszu na większej mapie","Mapa jest o 1/3 większa, więc podróż trwa dłużej.",[
+ "Przyspieszyć wszystkie oddziały o ok. 25% (proporcje zostają)",
+ "Przyspieszyć tylko ruch po drogach (drogi stają się ważne)",
+ "Dodać ×16 i zostawić prędkości",
+ "Zostawić, większa mapa ma trwać dłużej"],0],
+["Balans frakcji","Orkowie rosną z 17 do ok. 30 osad, krasnoludowie spadają do ok. 8.",[
+ "Frakcja przegrywająca dostaje mocniejsze garnizony i szybszą rekrutację",
+ "Sąsiedzi silnej frakcji chętniej zawierają przeciw niej sojusze",
+ "Zmęczenie wojną: frakcja z wieloma zdobyczami ma bunty i niższe morale",
+ "Zostawić, niech świat toczy się sam"],1],
+["Zamki przechodzące z rąk do rąk","Przy granicach twierdze potrafią zmieniać właściciela co kilka dni.",[
+ "Świeżo zdobyta twierdza dostaje kilkanaście dni ochrony (odbudowa murów)",
+ "Zdobywca zostawia większą załogę",
+ "Oblężenie musi trwać dłużej, zanim AI ruszy do szturmu",
+ "Wszystkie trzy"],3],
+["Zdrady lordów","Wypada 0–2 zdrad na rok gry.",[
+ "Częstsze: szybszy spadek lojalności przy przegranych i bez lenna",
+ "Zdrady ogłaszane wcześniej plotkami (gracz może zareagować)",
+ "Zostawić rzadko, ma to być ważne wydarzenie"],1],
+["Muzyka i dźwięki","Nie były odsłuchane.",[
+ "Ty sprawdzasz i opisujesz, co brzmi źle",
+ "Dodać w ustawieniach odsłuch każdego nastroju (karczma, bitwa, noc)",
+ "Zastąpić syntezę gotowymi nagraniami (pliki dźwiękowe w grze)"],1],
+["Wydajność przy ×8","Świat liczy ok. 75 oddziałów naraz.",[
+ "Oddziały daleko od gracza liczone rzadziej (co kilka godzin gry)",
+ "Ustawienie gęstości świata (mało / normalnie / dużo oddziałów)",
+ "Obie"],2],
+]],
+["Drobne błędy wizualne","Widoczne na zrzutach ekranu.",[
+["Ikona drużyny na nazwie miasta","Gdy stoisz w mieście, ikona drużyny nakłada się na jego nazwę.",[
+ "Drużyna w mieście chowa się, a nad miastem pojawia się mały herb gracza",
+ "Napis miasta przesuwa się pod ikonę drużyny",
+ "Ikona drużyny staje obok bramy"],0],
+["Imiona lordów na nazwach osad","Napisy armii lordów nachodzą na nazwy wiosek i miast.",[
+ "Imiona lordów tylko po najechaniu, liczebność zawsze",
+ "Automatyczne rozsuwanie napisów, żeby się nie nakładały",
+ "Imię nad postacią, a nie pod nią"],1],
+["Nazwy krain przykrywają wioski","Np. „Korona Aurelii” zasłania nazwę wioski pod spodem.",[
+ "Nazwy krain tylko przy dużym oddaleniu i w widoku całej mapy",
+ "Nazwy krain bledsze i za napisami osad",
+ "Przesunąć nazwy krain w puste miejsca"],0],
+["Schodkowe rzeki","Przy dużym przybliżeniu rzeki wyglądają jak schodki z kratek.",[
+ "Rysować rzekę gładką linią przez środki pól (wygląd), przejście zostaje po polach",
+ "Szersze rzeki z rozmytymi brzegami i trzcinami",
+ "Zostawić pikselowy styl"],0],
+["Jednolite Góry Khazgrim","Pasmo to równa ściana identycznych szczytów.",[
+ "Różne wielkości i kształty szczytów, przełęcze i doliny w środku pasma",
+ "Ośnieżone tylko najwyższe szczyty, niższe skaliste i porośnięte",
+ "Węższe pasmo z większą liczbą dolin i wiosek krasnoludów"],0],
+["Mały tekst na mapie","Przy nowej rozdzielczości napisy na mapie są drobne.",[
+ "Napisy mapy skalują się niezależnie od przybliżenia (zawsze czytelne)",
+ "Suwak wielkości napisów na mapie w ustawieniach",
+ "Obie"],2],
+]],
+["Uproszczenia do rozbudowania","Działa, ale prościej, niż mogłoby.",[
+["Godło na sztandarach","Herb zmienia kolory i wzór, ale godła nie widać na sztandarach.",[
+ "Godło na sztandarze drużyny na mapie i na chorążych w bitwie",
+ "Godło też na tarczach i tabardach twoich żołnierzy",
+ "Godło na banerach twoich zamków i miast"],0],
+["Wygląd z kreatora w bitwie","Fryzury, blizny i malunki widać tylko na portrecie.",[
+ "Przenieść fryzurę, brodę i malunki na sprajt bohatera",
+ "Tylko gdy nie ma hełmu (z hełmem bez zmian)",
+ "Zostawić, w bitwie postać jest za mała"],0],
+["Bunt lordów","Lord tylko przechodzi do wroga z ziemiami.",[
+ "Buntownicy tworzą własną frakcję z pretendentem do tronu",
+ "Bunt jako wojna domowa: gracz może poprzeć jedną ze stron",
+ "Zostawić przejście do wroga"],1],
+["Wątek główny","3 krótkie etapy bez scenek i rozmów.",[
+ "Dłuższy wątek z rozmowami i ilustrowanymi scenami",
+ "Wybory w wątku (np. sojusz z mrokiem albo krucjata)",
+ "Osobne wątki dla każdej frakcji",
+ "Zostawić krótki"],1],
+["Prolog i samouczek","Uczy tylko ruchu, ciosu, bloku i rozkazów.",[
+ "Dłuższy prolog: walka konna, łuk, rozkazy formacji",
+ "Drugi samouczek na mapie: handel, rekrutacja, zadania",
+ "Zostawić krótki, reszta przez podpowiedzi"],2],
+["Bandy z obejrzanych zleceń","Samo obejrzenie oferty bez przyjęcia też tworzy nową bandę.",[
+ "Banda pojawia się dopiero po przyjęciu zadania",
+ "Oferta pokazuje tylko istniejące bandy w okolicy",
+ "Zostawić (więcej bandytów to więcej akcji)"],0],
+["Dalekie zadania od lordów","Są tylko dwa: zdobądź zamek i przekonaj lorda.",[
+ "Złup wioskę wroga",
+ "Pojmaj wskazanego lorda",
+ "Odbij oblężony zamek sojusznika",
+ "Wyprawa do lochu po artefakt"],0],
+["Karawany i chłopi","Brakuje eskorty i kar za napad.",[
+ "Eskorta karawany jako zadanie z miasta",
+ "Napad na karawanę: kara relacji z miastem i frakcją, list gończy",
+ "Odbijanie porwanych chłopów z rąk bandytów",
+ "Wszystkie trzy"],3],
+]],
+["Zapisy","",[
+["Stare zapisy","Zapisy sprzed 0.15 nie wczytają się na nowej mapie.",[
+ "Nic nie robić (nowa gra)",
+ "Przenieść postać ze starego zapisu do nowego świata (bohater, ekwipunek, kompani)"],1],
+]],
+];
+const ITEMS=[];G.forEach((g,gi)=>g[2].forEach((it,ii)=>ITEMS.push({gi,id:gi+"-"+ii,t:it[0],d:it[1],o:it[2],r:it[3]})));
+const LBL={now:"Naprawić teraz",later:"Później",skip:"Zostawić"};
+const YOU="Zdecyduj ty";
+let S={},F="all";
+try{S=JSON.parse(localStorage.getItem("dopr0152b")||"{}")||{}}catch(e){S={}}
+const save=()=>{try{localStorage.setItem("dopr0152b",JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function counts(){const c={now:0,later:0,skip:0,none:0};for(const it of ITEMS){c[(S[it.id]||{}).v||"none"]++}
+  $("nNow").textContent=c.now;$("nLater").textContent=c.later;$("nSkip").textContent=c.skip;$("nNone").textContent=c.none}
+function itemHtml(it){
+  const st=S[it.id]||{},v=st.v||"",sel=st.s||[];
+  const opts=[...it.o,YOU];
+  return `<div class="it ${v}" data-id="${it.id}"><div><div class="t">${esc(it.t)}</div><div class="d">${esc(it.d)}</div></div>
+  <div class="lbl">Rozwiązania (możesz zaznaczyć kilka)</div>
+  <div class="sols">${opts.map((o,i)=>`<button class="sol${i===it.o.length?" you":""}" data-s="${i}" aria-pressed="${sel.includes(i)}"><span class="k">${i+1}</span><span>${esc(o)}${i===it.r?`<span class="rec">★ rekomendowane</span>`:""}</span></button>`).join("")}</div>
+  <div class="row">${["now","later","skip"].map(k=>`<button class="ch c-${k}" data-v="${k}" aria-pressed="${v===k}">${LBL[k]}</button>`).join("")}<button class="notebtn" data-n>${st.n?"Edytuj notatkę":"Dodaj notatkę"}</button></div>
+  <div ${st.open||st.n?"":"hidden"} data-box><textarea aria-label="Notatka: ${esc(it.t)}" placeholder="Własny pomysł albo doprecyzowanie…">${esc(st.n||"")}</textarea></div></div>`;
+}
+function render(){
+  $("list").innerHTML=G.map((g,gi)=>{
+    const its=ITEMS.filter(it=>it.gi===gi&&(F==="all"||((S[it.id]||{}).v||"none")===F));
+    if(!its.length)return"";
+    return `<section><h2>${esc(g[0])}<small>${its.length}</small></h2>${g[1]?`<p class="lead">${esc(g[1])}</p>`:""}<div class="items">${its.map(itemHtml).join("")}</div></section>`}).join("")||`<p class="sub">Brak punktów w tym filtrze.</p>`;
+  counts();
+}
+function refreshItem(el,id){const it=ITEMS.find(x=>x.id===id);const tmp=document.createElement("div");tmp.innerHTML=itemHtml(it);el.replaceWith(tmp.firstElementChild)}
+$("list").addEventListener("click",e=>{
+  const el=e.target.closest(".it");if(!el)return;const id=el.dataset.id;const st=S[id]||(S[id]={});
+  const sol=e.target.closest(".sol");
+  if(sol){const i=+sol.dataset.s;st.s=st.s||[];st.s=st.s.includes(i)?st.s.filter(x=>x!==i):[...st.s,i];
+    if(st.s.length&&!st.v)st.v="now";save();refreshItem(el,id);counts();return}
+  const ch=e.target.closest(".ch");
+  if(ch){st.v=st.v===ch.dataset.v?"":ch.dataset.v;save();if(F!=="all"){render();return}refreshItem(el,id);counts();return}
+  if(e.target.closest("[data-n]")){const box=el.querySelector("[data-box]");box.hidden=false;st.open=true;save();box.querySelector("textarea").focus()}
+});
+$("list").addEventListener("input",e=>{if(e.target.tagName!=="TEXTAREA")return;const id=e.target.closest(".it").dataset.id;(S[id]||(S[id]={})).n=e.target.value;save()});
+document.querySelector(".filters").addEventListener("click",e=>{const b=e.target.closest("[data-f]");if(!b)return;F=b.dataset.f;document.querySelectorAll("[data-f]").forEach(x=>x.classList.toggle("on",x===b));render()});
+$("reset").onclick=()=>{if(confirm("Wyczyścić wszystkie wybory i notatki?")){S={};save();render()}};
+function buildText(){
+  let s="DOPRACOWANIE 0.15.2: WYBORY\n";
+  for(const k of ["now","later","skip",""]){
+    const its=ITEMS.filter(it=>((S[it.id]||{}).v||"")===k);if(!its.length)continue;
+    s+=`\n## ${k?LBL[k]:"Bez decyzji"} (${its.length})\n`;
+    for(const it of its){const st=S[it.id]||{};const n=(st.n||"").trim();
+      const sols=(st.s||[]).map(i=>i===it.o.length?YOU:it.o[i]);
+      s+=`- ${it.t}${sols.length?` → ${sols.join("; ")}`:""}${n?` [notatka: ${n.replace(/\s+/g," ")}]`:""}\n`}
+  }
+  return s;
+}
+$("exportBtn").onclick=()=>{$("out").value=buildText();$("msg").textContent="";$("modal").hidden=false;$("copy").focus()};
+$("close").onclick=()=>$("modal").hidden=true;
+$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").hidden=true});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("modal").hidden)$("modal").hidden=true});
+$("copy").onclick=()=>{const t=$("out").value;const ok=()=>$("msg").textContent="Skopiowano. Wklej w czat.";
+  try{navigator.clipboard.writeText(t).then(ok,()=>{$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."})}catch(e){$("out").select();$("msg").textContent="Zaznaczono tekst, skopiuj Ctrl+C."}};
+render();
+</script>
+</body></html>
