@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.17.1";
+const BUILD = "Build 0.17.2";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -164,7 +164,7 @@ function battleHud(dt: number) {
     $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
     const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
     const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
-    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
+    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.thrustMode && !h.mounted ? `Tryb: PCHNIĘCIE (R)${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}` : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir === "T" && !h.mounted ? h.nextSide : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
     // zasoby: tylko te, których używają umiejętności
     const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
     $("res").innerHTML = (["faith", "mana", "fury"] as Res[]).filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round((H2 as any)[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp((H2 as any)[r], 0, 100)}%"></i></div>`).join("")

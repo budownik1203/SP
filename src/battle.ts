@@ -17,7 +17,7 @@ const KEYDEF: [string, string, string, string][] = [
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
   ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-  ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["over", "KeyR", "Cios z góry / kopia", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+  ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
   ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
@@ -255,6 +255,7 @@ class Battle {
   lastAbility = "";
   fx: AbilityFx[] = [];
   fogged = false;
+  thrustMode = false;
   engines: SiegeEngine[] = [];
   trebT = 6; stoneT = 2; oilT = 12; boulders: { x: number; y: number; t: number }[] = [];
   alliesManual = false;
@@ -1025,6 +1026,8 @@ class Battle {
       else if (h.loadout === 0 && H.bowDmg > 0) { h.loadout = 1; this.say(H.xbow ? "Broń: kusza" : "Broń: łuk"); }
       else { h.loadout = 0; h.weaponKey = H.weapon; h.hasShield = H.shield; this.say(`Broń: ${WEAPONS[H.weapon].name}`); }
     }
+    // R: przełącznik pchnięcie / cięcie (pieszo; konno R trzymane opuszcza kopię)
+    if (I.hit(KB("stance")) && !h.mounted && h.loadout === 0) { this.thrustMode = !this.thrustMode; this.say(this.thrustMode ? "Tryb: pchnięcie" : "Tryb: cięcie"); }
     const mode = this.atkMode();
     if (mode === "screen") { const gst = I.gesture(170); if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T"); }
     else if (mode === "mouse" && !this.cmdOpen) {
@@ -1077,7 +1080,7 @@ class Battle {
     h.stamina = Math.max(0, h.stamina);
     if (this.heroCfg) this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
 
-    h.couched = h.mounted && h.weaponKey === "lance" && I.held(KB("over")) && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
+    h.couched = h.mounted && h.weaponKey === "lance" && (I.held(KB("stance")) || I.held(KB("over"))) && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
     if (this.cmdOpen) { h.blocking = false; return; }
     // umiejętności: 1–3, opatrunek: 4
     for (let i = 0; i < 3; i++) if (I.hit("Digit" + (i + 1))) castHeroAbility(this, i);
@@ -1095,6 +1098,7 @@ class Battle {
       if (I.mPressed[0]) {
         const km = this.atkMode() === "keys";
         let d: Dir = km ? h.nextSide : this.loadDir;
+        if (!h.mounted) { if (this.thrustMode) d = "T"; else if (d === "T") d = h.nextSide; }   // R: tryb pchnięcia albo cięcia
         if (h.mounted && (km || d === "T" || d === "O")) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
         this.startWindup(h, d); h.key2 = "mouse";
       } else if (I.hit(KB("over")) && !h.mounted) { this.startWindup(h, "O"); h.key2 = KB("over"); }

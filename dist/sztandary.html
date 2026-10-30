@@ -4399,7 +4399,7 @@ const KEYDEF = [
     ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
     ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"],
     ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-    ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["over", "KeyR", "Cios z góry / kopia", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+    ["dodge", "Space", "Odskok", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
     ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
@@ -4604,6 +4604,7 @@ class Battle {
         this.lastAbility = "";
         this.fx = [];
         this.fogged = false;
+        this.thrustMode = false;
         this.engines = [];
         this.trebT = 6;
         this.stoneT = 2;
@@ -6118,6 +6119,11 @@ class Battle {
                 this.say(`Broń: ${WEAPONS[H.weapon].name}`);
             }
         }
+        // R: przełącznik pchnięcie / cięcie (pieszo; konno R trzymane opuszcza kopię)
+        if (I.hit(KB("stance")) && !h.mounted && h.loadout === 0) {
+            this.thrustMode = !this.thrustMode;
+            this.say(this.thrustMode ? "Tryb: pchnięcie" : "Tryb: cięcie");
+        }
         const mode = this.atkMode();
         if (mode === "screen") {
             const gst = I.gesture(170);
@@ -6217,7 +6223,7 @@ class Battle {
         h.stamina = Math.max(0, h.stamina);
         if (this.heroCfg)
             this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
-        h.couched = h.mounted && h.weaponKey === "lance" && I.held(KB("over")) && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
+        h.couched = h.mounted && h.weaponKey === "lance" && (I.held(KB("stance")) || I.held(KB("over"))) && h.rspeed > h.maxRide * 0.5 && h.state === "idle";
         if (this.cmdOpen) {
             h.blocking = false;
             return;
@@ -6251,6 +6257,12 @@ class Battle {
             if (I.mPressed[0]) {
                 const km = this.atkMode() === "keys";
                 let d = km ? h.nextSide : this.loadDir;
+                if (!h.mounted) {
+                    if (this.thrustMode)
+                        d = "T";
+                    else if (d === "T")
+                        d = h.nextSide;
+                } // R: tryb pchnięcia albo cięcia
                 if (h.mounted && (km || d === "T" || d === "O"))
                     d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
                 this.startWindup(h, d);
@@ -18147,7 +18159,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, F: kopniak, R: cios z góry / kopia, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
         new: () => showCreator(),
         cont: () => loadSave(SAVE_AUTO),
@@ -20884,7 +20896,7 @@ function showSettings(back) {
     if (SETT.tab === "map")
         body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + rng("mapText", "Wielkość napisów na mapie", 0.6, 1.6, 0.1) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
     if (SETT.tab === "battle")
-        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, V z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
     if (SETT.tab === "sound")
         body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Muzyka", 0, 1, 0.05) + rng("fxVol", "Efekty (walka, otoczenie)", 0, 1, 0.05) + rng("voiceVol", "Głosy", 0, 1, 0.05) + rng("uiVol", "Interfejs (kliknięcia, strony)", 0, 1, 0.05) + `<p class="tip">Muzyka zmienia się z regionem, porą dnia i miejscem w osadzie. W bitwie narasta z walką i brzmi inaczej przeciw każdej rasie.</p>`;
     if (SETT.tab === "keys")
@@ -21238,7 +21250,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.17.1";
+const BUILD = "Build 0.17.2";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -21482,7 +21494,7 @@ function battleHud(dt) {
         $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
         const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
         const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
-        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
+        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.thrustMode && !h.mounted ? `Tryb: PCHNIĘCIE (R)${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}` : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir === "T" && !h.mounted ? h.nextSide : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
         // zasoby: tylko te, których używają umiejętności
         const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
         $("res").innerHTML = ["faith", "mana", "fury"].filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round(H2[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp(H2[r], 0, 100)}%"></i></div>`).join("")
