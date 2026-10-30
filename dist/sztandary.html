@@ -410,6 +410,11 @@ span.up{color:#7fbf5a}span.down{color:#d0503c}
   linear-gradient(180deg,rgba(40,24,10,.18),rgba(40,24,10,0)) 71% 0/3px 46px no-repeat}
 /* przetarcia na drewnianych przyciskach */
 button{background-image:linear-gradient(transparent 70%,rgba(0,0,0,.12)),repeating-linear-gradient(100deg,transparent 0 11px,rgba(255,230,190,.04) 11px 12px,transparent 12px 23px)}
+/* B19: obóz */
+.camp-scr{max-width:44em}
+.campst{display:flex;flex-wrap:wrap;gap:.3em .9em;font-size:.9em;margin:.2em 0 .4em}.campst .bad{color:#d0503c}
+.ctrow{display:flex;flex-wrap:wrap;align-items:center;gap:.3em .5em;padding:.25em 0;border-bottom:1px solid #2a221a}.ctrow b{min-width:9em}
+.ctask{display:inline-flex;flex-wrap:wrap;gap:2px}
 </style>
 
 <div id="wrap">
@@ -4240,6 +4245,21 @@ function makeBattleMap(t, night, opt = { season: 1, region: "grass", rain: false
                 M.obstacles.push({ x, y, r: 0, img: BUSH, tall: false });
         }
     }
+    if (opt.fort && t !== "siege" && t !== "arena") { // obóz z palisadą: płot wokół twoich pozycji, przejścia w środku i na skrzydłach
+        let k = 0;
+        for (let y = 300; y <= 700; y += 21) {
+            if (Math.abs(y - 500) < 24 || Math.abs(y - 360) < 12 || Math.abs(y - 640) < 12)
+                continue;
+            M.obstacles = M.obstacles.filter((o) => dist(o.x, o.y, 480, y) > 14);
+            M.obstacles.push({ x: 480, y, r: 8, img: fence(k++), tall: false, cover: true });
+        }
+        for (let x = 300; x < 480; x += 21)
+            for (const y of [300, 700]) {
+                M.obstacles = M.obstacles.filter((o) => dist(o.x, o.y, x, y) > 14);
+                M.obstacles.push({ x, y, r: 8, img: fence(k++), tall: false, cover: true });
+            }
+        M.obstacles.push({ x: 330, y: 450, r: 0, img: PROPS.fire, tall: false });
+    }
     if (t === "siege") {
         for (let i = 0; i < 6; i++)
             tryPlace(rr(1180, 1540), rr(80, 920), 10, PROPS.house || ROCKS[0], 30);
@@ -4654,7 +4674,7 @@ class Battle {
         this.lastKillT = 0;
         this.cfg = cfg;
         this.fogged = !!cfg.fog;
-        this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain });
+        this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain, fort: !!cfg.campFort });
         if (this.map.wall) {
             const W2 = this.map.wall;
             W2.gateHp = W2.gateMax = 1800;
@@ -11628,7 +11648,7 @@ function partySpeed(w, p) {
         if (w.player.equip.horse)
             sp += 0.25;
         sp += w.player.skills.tracking * 0.03;
-        sp *= 1.12 * (1 + perk(w.player, "mapSpeed"));
+        sp *= 1.12 * (1 + perk(w.player, "mapSpeed")) * fatigueSpeedK(w.player);
     } // lekka przewaga gracza w pościgu
     if (p.kind === "caravan" || p.kind === "villagers")
         sp *= 0.8;
@@ -11706,6 +11726,7 @@ function dailyTick(w) {
         w.scars = w.scars.filter((sc) => w.day - sc.day < (sc.kind === "burn" ? 9 : 6));
     // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
     dailyPolitics(w);
+    campDaily(w);
     // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
     // osady
     for (const s of w.settlements) {
@@ -12021,6 +12042,11 @@ function addScar(w, x, y, kind, size = 1) {
 }
 function aiBattle(w, a, b) {
     addScar(w, (a.x + b.x) / 2, (a.y + b.y) / 2, "battle", (troopCount(a.troops) + troopCount(b.troops)) / 120);
+    {
+        const L = w.scars;
+        L[L.length - 1].f1 = a.faction;
+        L[L.length - 1].f2 = b.faction;
+    }
     const pa = partyPower(w, a) * rr(0.8, 1.2), pb = partyPower(w, b) * rr(0.8, 1.2);
     const [win, lose] = pa >= pb ? [a, b] : [b, a];
     const ratio = Math.min(pa, pb) / Math.max(pa, pb, 0.01);
@@ -12099,7 +12125,7 @@ function partyAI(w, p, hours) {
         for (const o of w.parties) {
             if (o === p || !hostile(w, p, o))
                 continue;
-            const d = dist(p.x, p.y, o.x, o.y);
+            const d = dist(p.x, p.y, o.x, o.y) * (o.kind === "player" && G.camping && isNight(w) ? 0.5 : 1); // ognisko w nocy widać z daleka
             if (d > sight)
                 continue;
             if (o.kind === "player" && w.player.captive)
@@ -15394,12 +15420,12 @@ function renderWorld(w, v, g) {
             }
         }
         if (pp) {
-            const x = pp.x - sx, y = pp.y - sy;
-            const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, 12);
+            const x = pp.x - sx, y = pp.y - sy, R = G.camping ? 30 : 12;
+            const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, R);
             gr.addColorStop(0, `rgba(170,110,40,${0.3 * dark / 0.6})`);
             gr.addColorStop(1, "rgba(170,110,40,0)");
             g.fillStyle = gr;
-            g.fillRect(x - 14, y - 18, 28, 28);
+            g.fillRect(x - R - 2, y - R - 6, R * 2 + 4, R * 2 + 4);
         }
         g.globalCompositeOperation = "source-over";
     }
@@ -16249,6 +16275,68 @@ function drawSceneBase(kind, seed, culture, night, extra, M) {
             g.fillRect(160, 78, 4, 1);
             break;
         }
+        case "bivouac": { // obóz drużyny: namioty, ognisko, ludzie wokół ognia, konie, wóz, chorągiew; palisada przy dłuższym postoju
+            const tentC = orc ? [PAL.dirtL, PAL.dirt] : dwarf ? [PAL.stone, PAL.slate] : undead ? [PAL.dusk, PAL.ink] : [PAL.bone, PAL.ash];
+            const tent = (x, y, w) => { for (let j = 0; j < w / 2; j++) {
+                g.fillStyle = j % 3 === 0 ? tentC[1] : tentC[0];
+                g.fillRect(x + j, y - j, w - j * 2, 1);
+            } g.fillStyle = PAL.ink; g.fillRect(x + w / 2 - 2, y - 6, 4, 6); g.fillStyle = PAL.woodD; g.fillRect(x + w / 2, y - w / 2 - 2, 1, 3); };
+            if (extra === 1) {
+                g.fillStyle = PAL.woodD;
+                for (let x = 0; x < Wd; x += 3) {
+                    const hh = 10 + ((x * 7) % 4);
+                    g.fillRect(x, 60 - hh, 2, hh);
+                    g.fillStyle = PAL.wood;
+                    g.fillRect(x, 60 - hh, 1, hh);
+                    g.fillStyle = PAL.woodD;
+                }
+                g.fillStyle = PAL.ink;
+                g.fillRect(90, 48, 20, 12);
+            }
+            tent(14, 62, 26);
+            tent(52, 58, 22);
+            tent(132, 60, 24);
+            tent(166, 63, 28);
+            g.fillStyle = PAL.woodD;
+            g.fillRect(118, 34, 1, 30);
+            g.fillStyle = PAL.red;
+            g.fillRect(119, 35, 10, 7);
+            g.fillRect(119, 42, 7, 2); // chorągiew
+            for (let k = 0; k < 2; k++) {
+                const x = 176 + k * 10;
+                g.fillStyle = PAL.ink;
+                g.fillRect(x - 1, 64, 9, 6);
+                g.fillStyle = k ? PAL.dirt : PAL.woodD;
+                g.fillRect(x, 65, 7, 4);
+                g.fillRect(x + 5, 62, 3, 3);
+                g.fillStyle = PAL.dirtD;
+                g.fillRect(x, 69, 1, 4);
+                g.fillRect(x + 6, 69, 1, 4);
+            } // konie
+            g.fillStyle = PAL.ink;
+            g.fillRect(4, 66, 22, 8);
+            g.fillStyle = PAL.wood;
+            g.fillRect(5, 67, 20, 5);
+            g.fillStyle = PAL.bone;
+            g.fillRect(6, 63, 18, 4);
+            g.fillStyle = PAL.black;
+            g.fillRect(8, 72, 3, 3);
+            g.fillRect(19, 72, 3, 3); // wóz
+            fire(100, 72);
+            for (let k = 0; k < 7; k++) {
+                const a = (k / 7) * Math.PI * 2;
+                figure(Math.round(100 + Math.cos(a) * 22), Math.round(78 + Math.sin(a) * 5), pick(people), chance(0.4), chance(0.3));
+            }
+            g.fillStyle = PAL.steel;
+            g.fillRect(60, 74, 1, 8);
+            g.fillRect(63, 75, 1, 7);
+            g.fillRect(58, 74, 7, 1); // kozioł z bronią
+            g.fillStyle = PAL.ink;
+            g.fillRect(144, 74, 7, 4);
+            g.fillStyle = PAL.steelD;
+            g.fillRect(145, 72, 5, 3); // kocioł
+            break;
+        }
         case "battlefield": { // pobojowisko: trupy, połamane drzewca, przewrócone chorągwie, dym, wrony
             for (let k = 0; k < 26; k++) {
                 const x = Math.round(rr(4, 196)), y = Math.round(rr(62, 82));
@@ -16536,7 +16624,15 @@ function animateScene(cv, base) {
                         g.fillRect(Math.round(cx - r / 2 + Math.sin(ph * 4 + cx) * 3 + ph * 10), Math.round(cy - ph * 34), r, r);
                     }
                 g.globalAlpha = 1;
-                for (const [fx, fy] of M.fires) { // migające ognie
+                for (const [fx, fy] of M.fires) { // migające ognie i dym
+                    for (let j = 0; j < 4; j++) {
+                        const ph = (t * 0.3 + j / 4 + fx * 0.01) % 1;
+                        g.globalAlpha = (1 - ph) * 0.3;
+                        g.fillStyle = PAL.ash;
+                        const r = 2 + Math.round(ph * 5);
+                        g.fillRect(Math.round(fx * 2 - r / 2 + Math.sin(ph * 5 + fx) * 4), Math.round(fy * 2 - 14 - ph * 40), r, r);
+                    }
+                    g.globalAlpha = 1;
                     const fl = Math.floor(t * 9 + fx) % 3;
                     g.fillStyle = PAL.redL;
                     g.fillRect(fx * 2 - 4, fy * 2 - 6 - fl, 9, 6 + fl);
@@ -17054,15 +17150,17 @@ function mapUpdate(dt) {
         }
         G.pan.t = -9;
     }
-    if (I.hit(KB("camp"))) {
+    if (I.hit(KB("camp")) && !screenOpen()) {
         if (p.path.length) {
             p.path = [];
             toast("Postój.");
         }
         else {
-            G.camping = !G.camping;
-            p.state = G.camping ? "camp" : "idle";
-            toast(G.camping ? "Rozbijasz obóz. Czas płynie, rany goją się szybciej." : "Zwijacie obóz.");
+            if (!G.camping) {
+                G.camping = true;
+                p.state = "camp";
+            }
+            showCamp();
         }
     }
     // czas płynie tylko w ruchu, w obozie lub podczas czekania
@@ -17092,6 +17190,7 @@ function mapUpdate(dt) {
     const prevDay = w.day;
     moveParty(w, p, hours);
     worldTick(w, hours);
+    campTick(w, hours, moving);
     if (moving)
         maybeTravelEvent(hours);
     if (w.day !== prevDay) {
@@ -17298,7 +17397,7 @@ function launchBattle(ctx, cfgExtra = {}) {
     const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
     const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
     const cfg = {
-        terrain: terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
+        campFort: G.camping && CS().fort, terrain: terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
         player: { name: P.name, faction: P.crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: (P.squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
         enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
         siegeDefender: ctx.kind === "siege" ? 1 : undefined,
@@ -17346,7 +17445,7 @@ function launchBattle(ctx, cfgExtra = {}) {
         b.hero.shieldHp *= 1 + perk(P, "shieldHp");
     for (const u of b.units)
         if (u.team === 0 && !u.hero)
-            u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB"), 20, 100);
+            u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100); // zmęczenie osłabia ducha
     for (const u of b.units)
         if (u.team === 1 && !u.def.undead)
             u.morale -= perk(P, "dread");
@@ -17461,8 +17560,14 @@ function applyBattleResult(r, auto = false) {
         arenaFinished(r);
         return;
     }
-    if (ctx.kind !== "escape")
+    if (ctx.kind !== "escape") {
         addScar(w, p.x, p.y + 4, "battle", 1.2);
+        const sc = w.scars[w.scars.length - 1];
+        sc.f1 = P.crest || P.status === "król" ? PLAYER_FACTION : P.liege || 9;
+        sc.f2 = ctx.enemies[0]?.faction || 6;
+        sc.seen = 1;
+        addFatigue(P, 12);
+    }
     // straty własne i sojuszników
     distributeLosses([p], r.ours, true);
     distributeLosses(ctx.allies, r.allies, true);
@@ -18470,6 +18575,7 @@ function refreshMapHud() {
     <span class="hb" title="Ludzie / limit">${ic("man")} ${n}/${partyLimit(w)}${p.troops.some((t) => t.wounded) ? ` <span class="muted">(${p.troops.reduce((s, t) => s + t.wounded, 0)} rann.)</span>` : ""}</span>
     <span class="hb ${days < 2 ? "bad" : ""}" title="Jedzenie (dni zapasu)">${ic("food")} ${food} <span class="muted">(${days} dni)</span></span>
     <span class="hb ${P.morale < 35 ? "bad" : ""}" title="Morale">${ic("heart")} ${Math.round(P.morale)}</span>
+    <span class="hb ${fatigueOf(P) > 70 ? "bad" : ""}" title="Zmęczenie drużyny: od 50% wolniejszy marsz i słabsze morale w bitwie, powyżej 85% dezercje. Odpoczynek w obozie albo w osadzie.">${ic("tent")} ${Math.round(fatigueOf(P))}%</span>${sickCount(P) ? `<span class="hb bad" title="Chorzy: ${sickList(P).map((x) => `${x.n} (${DISEASES[x.kind].name})`).join(", ")}. Leczy opieka w obozie, zioła i odpoczynek w mieście.">${ic("drop")} ${sickCount(P)} chor.</span>` : ""}
     <span class="hb" title="Zdrowie bohatera"><span class="minibar"><i style="width:${hpK * 100}%"></i></span></span>
     ${P.attrPts || P.skillPts ? `<span class="hb gold pulse" title="Nowe punkty w oknie postaci (C)">${ic("star")} ${P.attrPts + P.skillPts} pkt</span>` : ""}
     <span class="hb muted">${ic("banner")} ${status}</span><span class="hb muted">${BUILD}</span>`;
@@ -18484,7 +18590,7 @@ function refreshMapHud() {
     const sp = document.getElementById("mh-speed");
     const cm = P.campMode || "rest";
     if (sp)
-        sp.innerHTML = `${[1, 2, 4, 8].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp">${ic("tent")} ${G.camping ? "Zwiń obóz" : "Obóz"}</button>${G.camping ? `<span class="campm">${[["rest", "Odpoczynek", "heart"], ["train", "Trening", "sword"], ["guard", "Wartownicy", "eye"]].map(([k, n, i]) => `<button class="mini ${cm === k ? "on" : ""}" data-sp="cm:${k}" title="${k === "rest" ? "rany goją się szybko" : k === "train" ? "żołnierze zbierają doświadczenie, zużywa zboże" : "nikt was nie zaskoczy"}">${ic(i)} ${n}</button>`).join("")}</span>` : ""}`;
+        sp.innerHTML = `${[1, 2, 4, 8].map((s) => `<button class="mini ${G.speed === s ? "on" : ""}" data-sp="${s}">×${s}</button>`).join("")}<button class="mini ${G.camping ? "on" : ""}" data-sp="camp" title="Ekran obozu: zadania, warta, rozmowy przy ognisku">${ic("tent")} Obóz</button>${G.camping ? `<button class="mini" data-sp="uncamp">Zwiń</button>` : ""}`;
 }
 // Dłuższe dymki: skład armii, szybkość, relacje, odległość w dniach marszu.
 function tipDays(x, y) { const w = WORLD, p = playerParty(w); const d = dist(x, y, p.x, p.y) / Math.max(0.5, partySpeed(w, p)) / (24 * HOURS_PER_SEC * 2.2); return d < 0.5 ? "pół dnia drogi" : `${Math.max(1, Math.round(d))} dni drogi`; }
@@ -18704,8 +18810,10 @@ function settlementPane(s, hostileS) {
           ${harvest ? `<p class="tip">${ic("food")} ${harvest} · zboże w spichlerzu: ${Math.floor(s.stock.grain || 0)} · podatek dla pana: ok. ${fiefIncome(w, s) * 7}/tydzień</p>` : ""}
           <div class="ppl">${ppl.map((r, i) => `<button class="mini" data-a="chat" data-v="${i}">${ic("man")} ${r.name} <span class="muted">${r.role}</span></button>`).join("")}</div><p class="tip" id="chatline"></p>${lordHere ? `<div class="row"><span>${lord.title} ${lord.name} przebywa na zamku.</span><button class="mini" data-a="talkLord" data-v="${lord.id}">Rozmawiaj</button></div>` : ""}
           ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}
+          ${s.kind !== "castle" ? `<div class="row"><span>${ic("food")} Zielarka sprzedaje zioła na gorączkę i biegunkę. Masz: ${P.herbs || 0}.</span><button class="mini" data-a="herbs" ${P.gold >= 18 ? "" : "disabled"}>Kup 3 (18)</button></div>` : ""}
           ${s.kind === "town" ? `<div class="row"><span>${ic("drop")} Łaźnia: gorąca woda, ług i balia. Twoja drużyna: brud ${Math.round(grimeOf(P) * 100)}%${P.gore > 0.05 ? `, zaschnięta krew` : ""}.</span><button class="mini" data-a="bath" ${P.gold >= bathCost(s) && grimeOf(P) > 0.08 ? "" : "disabled"}>Umyj się (${bathCost(s)})</button></div>` : ""}`,
-                acts: { bath: () => { if (P.gold < bathCost(s))
+                acts: { herbs: () => { if (P.gold < 18)
+                        return; P.gold -= 18; P.herbs = (P.herbs || 0) + 3; sfx.coin(); re(); }, bath: () => { if (P.gold < bathCost(s))
                         return; P.gold -= bathCost(s); P.grime = 0.03; P.gore = 0; P.morale = Math.min(100, (P.morale ?? 70) + 3); sfx.coin(); toast("Woda w balii robi się czarna. Ludzie wychodzą czyści i w lepszym humorze.", PAL.gold); re(); }, talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e)
                         e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
             };
@@ -20892,7 +21000,7 @@ function showSettings(back) {
     const tabs = [["game", "Rozgrywka", "star"], ["map", "Mapa", "eye"], ["battle", "Bitwa", "sword"], ["sound", "Dźwięk", "mug"], ["view", "Obraz", "sun"], ["keys", "Klawisze", "scroll"]];
     let body = "";
     if (SETT.tab === "game")
-        body = sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + sel("density", "Gęstość świata (liczba oddziałów na mapie)", [[0.6, "rzadki: płynniej"], [1, "normalny"], [1.4, "gęsty: więcej życia"]]) + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie") + chk("loadScreens", "Ekrany ładowania z cytatami i wskazówkami") + `<div class="opt"><span>Podpowiedzi przy pierwszym użyciu</span><button class="mini" data-a="tipsReset">Pokaż ponownie</button></div>`;
+        body = chk("autoCamp", "Obóz o zmroku", "zmęczona drużyna sama staje na noc i rusza o świcie") + sel("autosaveDays", "Autozapis", [[1, "codziennie"], [2, "co 2 dni"], [5, "co 5 dni"], [0, "wyłączony"]]) + chk("pauseOnEvent", "Wstrzymaj marsz, gdy pojawi się groźny wróg") + sel("density", "Gęstość świata (liczba oddziałów na mapie)", [[0.6, "rzadki: płynniej"], [1, "normalny"], [1.4, "gęsty: więcej życia"]]) + chk("toastsOn", "Wydarzenia z kroniki jako komunikaty na mapie") + chk("loadScreens", "Ekrany ładowania z cytatami i wskazówkami") + `<div class="opt"><span>Podpowiedzi przy pierwszym użyciu</span><button class="mini" data-a="tipsReset">Pokaż ponownie</button></div>`;
     if (SETT.tab === "map")
         body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + rng("mapText", "Wielkość napisów na mapie", 0.6, 1.6, 0.1) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
     if (SETT.tab === "battle")
@@ -20920,7 +21028,7 @@ function showSettings(back) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
         tab: (v) => { SETT.tab = v; showSettings(back); },
-        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:autoCamp": (v) => apply("autoCamp", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
         "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:palette": (v) => apply("palette", v), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
@@ -20955,8 +21063,10 @@ function travelEvents() {
     const food = () => FOOD_KEYS.find((k) => (P.goods[k] || 0) > 0);
     return [
         { id: "wounded", scene: "camp", title: "Ranny wędrowiec", text: "Przy drodze leży mężczyzna z przestrzeloną nogą. Bandyci zabrali mu wszystko poza życiem.", ch: [
-                { label: "Opatrz go i daj jedzenie (−1 żywność, honor +1)", need: () => !!food(), act: () => { P.goods[food()]--; P.honor += 1; near.relation += 3; return `Wędrowiec błogosławi cię. W ${near.name} usłyszą o tym (relacja +3).`; } },
-                { label: "Przeszukaj go — może coś jednak ukrył (honor −2)", act: () => { P.honor -= 2; const g = rr(5, 30) | 0; P.gold += g; return `Znajdujesz ${g} denarów zaszytych w bucie. Patrzy na ciebie bez słowa.`; } },
+                { label: "Opatrz go i daj jedzenie (−1 żywność, honor +1)", need: () => !!food(), act: () => { P.goods[food()]--; P.honor += 1; near.relation += 3; if (chance(0.7))
+                        addEcho("saved", 3 + Math.floor(rr(0, 5))); return `Wędrowiec błogosławi cię. W ${near.name} usłyszą o tym (relacja +3).`; } },
+                { label: "Przeszukaj go — może coś jednak ukrył (honor −2)", act: () => { P.honor -= 2; const g = rr(5, 30) | 0; P.gold += g; if (chance(0.6))
+                        addEcho("robbed", 2 + Math.floor(rr(0, 4))); return `Znajdujesz ${g} denarów zaszytych w bucie. Patrzy na ciebie bez słowa.`; } },
                 { label: "Jedź dalej", act: () => "Zostawiasz go wroną." },
             ] },
         { id: "cart", scene: "camp", title: "Porzucony wóz", text: "Przewrócony wóz kupiecki, koło złamane, woźnica zniknął. Plandeka jeszcze się rusza na wietrze.", ch: [
@@ -20970,7 +21080,8 @@ function travelEvents() {
                 { label: "Omiń szerokim łukiem", act: () => "Lepiej nie kusić losu." },
             ] },
         { id: "deserters", scene: "camp", title: "Dezerterzy", text: "Kilku obdartych żołnierzy z obciętymi naszywkami prosi, by przyjąć ich na służbę. Za żołd i miskę strawy.", when: () => troopCount(p.troops) + 4 < partyLimit(w), ch: [
-                { label: "Przyjmij ich (honor −1)", act: () => { const f = pick([1, 2, 3, 4]); const k = RECRUITS[FACTIONS[f].culture]?.town?.[1] || "m_sword"; addTroops(p.troops, k, 3 + (rr(0, 3) | 0)); P.honor -= 1; return `Dołączają do ciebie jako ${UNITS[k].name}.`; } },
+                { label: "Przyjmij ich (honor −1)", act: () => { const f = pick([1, 2, 3, 4]); const k = RECRUITS[FACTIONS[f].culture]?.town?.[1] || "m_sword"; addTroops(p.troops, k, 3 + (rr(0, 3) | 0)); P.honor -= 1; if (chance(0.4))
+                        addEcho("deserters", 3 + Math.floor(rr(0, 5)), { type: k, n: 3 }); return `Dołączają do ciebie jako ${UNITS[k].name}.`; } },
                 { label: "Odpraw ich", act: () => "Odchodzą, klnąc pod nosem." },
             ] },
         { id: "shrine", scene: "shrine", title: "Kapliczka przy drodze", text: "Mała kapliczka, świeczki, kilka monet na kamieniu. Ktoś modlił się tu niedawno.", ch: [
@@ -21006,6 +21117,75 @@ function travelEvents() {
                 { label: "Zapalcie pochodnie i trzymajcie wartę", act: () => { P.morale -= 2; return "Do świtu nikt nie zmrużył oka, ale wilki odeszły."; } },
                 { label: "Na nie! (walka z wilkami)", act: () => { const foes = []; addTroops(foes, "x_wolf", 4 + (rr(0, 4) | 0)); setTimeout(() => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: foes, title: "Wilki" }), 50); return "Ludzie dobywają broni."; } },
             ] },
+        { id: "cache", scene: "ruins", title: "Skrytka pod kamieniem", text: "Przy starym kamieniu granicznym ziemia jest świeżo poruszona. Ktoś coś tu zakopał, i to niedawno.", ch: [
+                { label: "Kopcie", act: () => { if (chance(0.2)) {
+                        P.hp = Math.max(1, P.hp - 12);
+                        return "Żmija w dołku! Ukąszenie pali jak ogień. Skrzynka jest pusta.";
+                    } const g = 30 + (rr(0, 90) | 0); P.gold += g; if (chance(0.35)) {
+                        const it = pick(baseItems().filter((x) => x.tier <= 2 && x.slot !== "horse"));
+                        if (it) {
+                            P.items.push(it.id);
+                            return `Skrzynka przemytników: ${g} denarów i ${it.name}.`;
+                        }
+                    } return `Skrzynka przemytników: ${g} denarów.`; } },
+                { label: "Zostaw, to może być czyjaś przynęta", act: () => "Ruszacie dalej. Ktoś będzie zawiedziony." },
+            ] },
+        { id: "oldmap", scene: "ruins", title: "Mapa w dziupli", text: "W dziupli spróchniałego dębu leży zwinięty pergamin owinięty w natłuszczoną skórę.", ch: [
+                { label: "Rozwiń mapę", act: () => { const pl = w.places.filter((x) => !w.explored[cidx(x.cx, x.cy)] || !x.seen).sort((a, b) => dist(a.cx * WCELL, a.cy * WCELL, p.x, p.y) - dist(b.cx * WCELL, b.cy * WCELL, p.x, p.y))[0]; if (!pl)
+                        return "Mapa jest stara. Wszystko, co pokazuje, już znasz."; pl.seen = true; for (let dy = -3; dy <= 3; dy++)
+                        for (let dx = -3; dx <= 3; dx++) {
+                            const X = pl.cx + dx, Y = pl.cy + dy;
+                            if (X >= 0 && Y >= 0 && X < WGW && Y < WGH)
+                                w.explored[cidx(X, Y)] = 1;
+                        } return `Na mapie zaznaczono miejsce: ${pl.name}. Widać je teraz na twojej mapie.`; } },
+            ] },
+        { id: "pilgrims", scene: "shrine", title: "Pielgrzymi", text: "Gromada pielgrzymów w szarych płaszczach zmierza do kaplicy. Starzec prosi o jałmużnę i o eskortę przez las.", ch: [
+                { label: "Daj jałmużnę (−20 denarów, honor +1)", need: () => P.gold >= 20, act: () => { P.gold -= 20; P.honor += 1; if (chance(0.7))
+                        addEcho("pilgrims", 2 + Math.floor(rr(0, 4))); return "Starzec kreśli nad tobą znak świtu."; } },
+                { label: "Odprowadź ich kawałek (4 godziny, wiara +10)", act: () => { for (let i = 0; i < 4; i++)
+                        worldTick(w, 1); P.faith = Math.min(100, P.faith + 10); P.honor += 1; addEcho("pilgrims", 2 + Math.floor(rr(0, 4))); return "Śpiewają całą drogę. Twoi ludzie też w końcu zaczynają nucić."; } },
+                { label: "Nie mamy czasu", act: () => "" },
+            ] },
+        { id: "pits", scene: "camp", title: "Wilcze doły", text: "Zwiadowca zatrzymuje kolumnę: na trakcie świeżo przysypane gałęzie. Doły z zaostrzonymi palami. Ktoś tu poluje na ludzi.", ch: [
+                { label: "Obejdźcie lasem (3 godziny, zmęczenie)", act: () => { for (let i = 0; i < 3; i++)
+                        worldTick(w, 1); addFatigue(P, 8); return "Krzaki, błoto i przekleństwa. Ale wszyscy cali."; } },
+                { label: "Przejdźcie ostrożnie traktem", act: () => { if (chance(0.45 - P.skills.tracking * 0.05)) {
+                        for (const t of p.troops)
+                            if (t.n - t.wounded > 0 && chance(0.4))
+                                t.wounded++;
+                        return "Ktoś wpada w dół. Krzyk, krew, dwóch rannych.";
+                    } return "Przeprowadzasz kolumnę po krawędzi. Udało się."; } },
+            ] },
+        { id: "bridge", scene: "village", title: "Zerwany most", text: "Most na strumieniu ktoś podpalił. Zostały osmalone pale i zimna, rwąca woda.", when: () => !w.blight[cellOf(p.x, p.y)], ch: [
+                { label: "Szukajcie brodu (4 godziny)", act: () => { for (let i = 0; i < 4; i++)
+                        worldTick(w, 1); return "Bród jest milę w górę rzeki. Mokre buty, ale cała drużyna."; } },
+                { label: "Przeprawcie się wpław", act: () => { addFatigue(P, 10); if (chance(0.35)) {
+                        const k = FOOD_KEYS.find((x) => (P.goods[x] || 0) > 1);
+                        if (k) {
+                            P.goods[k] = Math.floor(P.goods[k] / 2);
+                            return "Nurt porywa juki. Połowa zapasów płynie do morza.";
+                        }
+                    } return "Lodowata woda. Ludzie szczękają zębami do wieczora."; } },
+            ] },
+        { id: "lorddes", scene: "camp", title: "Zbiegowie z armii", text: "Z lasu wychodzi kilku poranionych żołnierzy w cudzych barwach. Uciekli z obozu lorda, mówią, że tam głód i baty.", ch: [
+                { label: "Wypytaj o ich armię", act: () => { const L = w.lords.filter((x) => x.alive && x.party >= 0 && partyById(w, x.party)).sort((a, b) => { const pa = partyById(w, a.party), pb = partyById(w, b.party); return dist(pa.x, pa.y, p.x, p.y) - dist(pb.x, pb.y, p.x, p.y); })[0]; if (!L)
+                        return "Nic sensownego nie wiedzą."; const lp = partyById(w, L.party); w.explored[cellOf(lp.x, lp.y)] = 1; return `${L.title} ${L.name} (${factionShort(L.faction)}): ${troopCount(lp.troops)} ludzi, obóz koło ${nearestSettlement(w, lp.x, lp.y).name}. Morale podłe.`; } },
+                { label: "Odeślij ich do ich pana (honor +1)", act: () => { P.honor += 1; return "Odprowadzają ich twoi ludzie. Nikt im nie zazdrości."; } },
+                { label: "Przegoń", act: () => "" },
+            ] },
+        { id: "comet", scene: "shrine", title: "Kometa", text: "Nocą przez niebo ciągnie się czerwony ogon. Ludzie klękają, ktoś krzyczy, że to koniec świata.", when: () => isNight(w), ch: [
+                { label: "Przemów do ludzi: to znak zwycięstwa (charyzma)", act: () => { if (chance(0.35 + P.attr.cha * 0.05)) {
+                        P.morale = Math.min(100, P.morale + 10);
+                        return "Wierzą ci. Do rana śpiewają pieśni bojowe.";
+                    } P.morale -= 5; return "Nie wierzą. Kilku modli się do rana."; } },
+                { label: "Każ się modlić (wiara +10, morale −2)", act: () => { P.faith = Math.min(100, P.faith + 10); P.morale -= 2; return "Długa, cicha noc."; } },
+            ] },
+        { id: "ghosts", scene: "cemetery", title: "Procesja duchów", text: "We mgle przechodzi bezgłośna kolumna: rycerze w dawnych zbrojach, z twarzami jak dym. Ostatni odwraca głowę i patrzy prosto na ciebie.", when: () => isNight(w) || !!w.fog, ch: [
+                { label: "Pozdrów ich mieczem (sława +3)", act: () => { P.renown += 3; return "Duch unosi dłoń. Mgła się rozwiewa, a ludzie mówią o tobie z nowym szacunkiem."; } },
+                { label: "Odwróć wzrok i każ iść dalej", act: () => { P.morale -= 3; return "Nikt nie odzywa się przez godzinę."; } },
+                { label: "Idź za nimi", act: () => { const pl = w.places.find((x) => (x.kind === "ruins" || x.kind === "cemetery") && x.cleared <= 0); if (!pl)
+                        return "Procesja znika w mokradłach."; pl.seen = true; w.explored[cidx(pl.cx, pl.cy)] = 1; return `Ślady procesji prowadzą do: ${pl.name}. Zaznaczasz to miejsce na mapie.`; } },
+            ] },
         { id: "whispers", scene: "cemetery", title: "Szepty w szarej ziemi", text: "Na skażonej ziemi Morvath mgła układa się w twarze. Ktoś szepcze twoje imię.", when: () => !!w.blight[cellOf(p.x, p.y)], ch: [
                 { label: "Odpowiedz szeptom (spaczenie +8, mana)", act: () => { P.corruption = Math.min(100, (P.corruption || 0) + 8); P.renown += 2; return "Głos obiecuje moc. Coś w tobie się zmienia."; } },
                 { label: "Każ ludziom się modlić i odejdźcie", act: () => { P.morale -= 3; return "Szepty milkną, ale nikt nie śpi spokojnie."; } },
@@ -21016,11 +21196,11 @@ function maybeTravelEvent(hours) {
     const w = WORLD;
     if (screenOpen() || G.state !== "map" || w.evCd > w.day * 24 + w.hour)
         return;
-    if (!chance(hours * 0.035))
+    if (!chance(hours * 0.045))
         return;
     const list = travelEvents().filter((e) => !e.when || e.when(w));
-    const ev = pick(list);
-    w.evCd = w.day * 24 + w.hour + 30;
+    const ev = dueEcho() || pick(list); // echa dawnych wyborów mają pierwszeństwo
+    w.evCd = w.day * 24 + w.hour + 40; // wydarzenie mniej więcej co 2–3 dni marszu
     const acts = {};
     ev.ch.forEach((c, i) => { acts["e" + i] = () => { const r = c.act(); closeScreen(); if (r)
         toast(r, PAL.gold); refreshMapHud(); }; });
@@ -21249,8 +21429,580 @@ function armyFormation() {
 }
 
 "use strict";
+// Podróż i obóz (Build 0.19): zmęczenie, choroby, ekran obozu z zadaniami, rozmowy przy ognisku, warta i nocne napady,
+// palisada przy dłuższym postoju, polowanie i zbieractwo zależne od krainy, przeszukiwanie pobojowisk, echa wydarzeń z drogi.
+function CS() {
+    const P = WORLD.player;
+    return (P.camp || (P.camp = { tasks: {}, hero: "rest", since: 0, fort: false, acc: {}, talkDay: -1, was: false }));
+}
+function fatigueOf(P) { return clamp(P.fatigue || 0, 0, 100); }
+function addFatigue(P, v) { P.fatigue = clamp(fatigueOf(P) + v, 0, 100); }
+function sickList(P) { var _a; return ((_a = P).sick || (_a.sick = [])); }
+function sickCount(P) { return sickList(P).reduce((s, x) => s + x.n, 0); }
+const DISEASES = {
+    fever: { name: "gorączka bagienna", death: 0.02, text: "Komary z bagien przyniosły gorączkę." },
+    plague: { name: "zaraza Morvatha", death: 0.05, text: "Szara ziemia Morvatha zatruwa oddech. Ludzie kaszlą krwią." },
+    flux: { name: "czerwonka", death: 0.03, text: "Brudna woda w obozie. W latrynach kolejka." },
+    frost: { name: "odmrożenia", death: 0.015, text: "Mróz kąsa palce i stopy." },
+};
+// Szybkość marszu przy zmęczeniu: od 50% zaczyna spadać, przy 100% o jedną trzecią.
+function fatigueSpeedK(P) { const f = fatigueOf(P); return f <= 50 ? 1 : 1 - (f - 50) / 150; }
+// Zadania w obozie: każdy kompan robi coś innego.
+const CAMP_TASKS = [
+    ["rest", "Odpoczynek", "szybciej wraca do sił"],
+    ["watch", "Warta", "chroni przed nocnym napadem"],
+    ["hunt", "Polowanie", "mięso, zależnie od krainy i tropienia"],
+    ["forage", "Zbieractwo", "zioła, grzyby, chrust (las i bagna)"],
+    ["train", "Musztra rekrutów", "doświadczenie dla żołnierzy"],
+    ["heal", "Opieka nad chorymi", "leczy rannych i chorych"],
+    ["repair", "Naprawa sprzętu", "do ok. 70% stanu"],
+    ["scout", "Zwiad", "odkrywa okolicę i wrogów"],
+];
+const HERO_TASKS = [["rest", "Odpoczynek", "zdrowie i siły"], ["practice", "Ćwiczenia", "doświadczenie bohatera"], ["hunt", "Polowanie", "mięso"], ["watch", "Warta", "pilnujesz obozu"]];
+function defaultTask(role) { return /medyk|kapłan/.test(role) ? "heal" : /zwiad|łuczn/.test(role) ? "hunt" : /inżynier/.test(role) ? "repair" : /rycerz|obrońca/.test(role) ? "train" : /rębajło/.test(role) ? "watch" : "rest"; }
+function campTask(c) { const T = CS().tasks; return T[c.id] || (T[c.id] = defaultTask(c.role)); }
+function campHasWatch(P) { return CS().hero === "watch" || P.companions.some((c) => !(c.away > WORLD.day) && campTask(c) === "watch") || P.campMode === "guard"; }
+// Zwierzyna i zbieractwo według terenu i krainy.
+function gameAt(w, x, y) {
+    const i = cellOf(x, y);
+    if (w.blight[i])
+        return 0;
+    const t = w.terr[i];
+    const reg = regionOf(w, x / WCELL, y / WCELL);
+    let g = t === T_FOREST ? 1.4 : t === T_SWAMP ? 0.9 : t === T_HILL ? 0.8 : t === T_MOUNT ? 0.4 : 0.7;
+    if (reg === "steppe")
+        g *= 0.9;
+    if (reg === "north")
+        g *= 0.85;
+    if (season(w) === 3)
+        g *= 0.55;
+    return g;
+}
+function forageAt(w, x, y) {
+    const i = cellOf(x, y);
+    if (w.blight[i])
+        return 0;
+    const t = w.terr[i];
+    return (t === T_FOREST ? 1.2 : t === T_SWAMP ? 1 : 0.35) * (season(w) === 3 ? 0.3 : season(w) === 2 ? 1.3 : 1);
+}
+// Godzina po godzinie: zmęczenie w marszu, praca obozu, nocne napady, auto-obóz o zmroku, pobojowiska po drodze.
+function campTick(w, hours, moving) {
+    const P = w.player, p = playerParty(w), C = CS();
+    if (!p || P.captive)
+        return;
+    const inTown = w.settlements.some((s) => dist(s.cx * WCELL + 4, s.cy * WCELL + 4, p.x, p.y) < 14);
+    const night = isNight(w), win = season(w) === 3;
+    if (moving) {
+        let f = 0.75 + (night ? 0.6 : 0) + (w.rain ? 0.35 : 0) + (win ? 0.35 : 0) + (w.storm ? 0.3 : 0);
+        if (P.equip.horse)
+            f -= 0.12;
+        f *= 1 - P.skills.leadership * 0.03;
+        addFatigue(P, f * hours);
+        C.since = 0;
+        C.fort = false;
+    }
+    else if (G.camping) {
+        C.since += hours;
+        const rest = (inTown ? 10 : 6) + (C.hero === "rest" ? 1.5 : 0) + (C.fort ? 1 : 0);
+        addFatigue(P, -rest * hours);
+        if (!inTown)
+            campWork(w, hours);
+        if (!C.fort && !inTown && C.since >= 24) {
+            C.fort = true;
+            toast("Obóz stoi od doby. Ludzie stawiają palisadę i porządne namioty.", PAL.gold);
+        }
+        if (!inTown && night && !campHasWatch(P) && chance(hours * 0.014 * (C.fort ? 0.25 : 1))) {
+            nightAmbush(w);
+            return;
+        }
+    }
+    else
+        addFatigue(P, -2 * hours);
+    // koniec obozu: raport
+    if (C.was && !G.camping)
+        campReport(w);
+    C.was = G.camping;
+    // auto-obóz o zmroku: marsz staje, obóz do świtu, potem drużyna rusza dalej tą samą drogą
+    if (moving && settings.autoCamp !== false && !inTown && w.hour >= 21 && w.hour < 22 && fatigueOf(P) >= 30) {
+        if (G.autoCampDay !== w.day) {
+            G.autoCampDay = w.day;
+            const path = p.path.slice(), target = G.target;
+            p.path = [];
+            G.camping = true;
+            p.state = "camp";
+            G.waitHours = (24 - w.hour) + 5;
+            pendingAfterWait = () => { if (path.length) {
+                p.path = path;
+                G.target = target;
+                p.state = "move";
+                toast("Świt. Zwijacie obóz i ruszacie dalej.");
+            } };
+            toast(`Zapada zmrok, ludzie są zmęczeni (${Math.round(fatigueOf(P))}%). Obóz do świtu. Klik na mapie przerywa.`, PAL.bone);
+            refreshMapHud();
+        }
+    }
+    // pobojowisko po drodze
+    if (!G.camping)
+        checkBattlefield(w);
+}
+function campWork(w, hours) {
+    var _a;
+    const P = w.player, p = playerParty(w), C = CS(), A = C.acc;
+    const add = (k, v) => { A[k] = (A[k] || 0) + v; };
+    const workers = P.companions.filter((c) => !(c.away > w.day) && c.hp > c.maxHp * 0.25);
+    const tasks = workers.map((c) => campTask(c));
+    if (C.hero !== "rest" && C.hero !== "watch")
+        tasks.push(C.hero === "practice" ? "practice" : C.hero);
+    const night = isNight(w);
+    for (const t of tasks) {
+        if (t === "hunt" && !night) {
+            const k = gameAt(w, p.x, p.y) * (0.32 + P.skills.tracking * 0.06);
+            add("meatF", k * hours);
+        }
+        if (t === "forage" && !night) {
+            const k = forageAt(w, p.x, p.y);
+            add("herbF", k * 0.22 * hours);
+            add("grainF", k * 0.2 * hours);
+        }
+        if (t === "train") {
+            for (const tr of p.troops)
+                tr.xp += 2.5 * Math.max(1, tr.n - tr.wounded) * hours * (1 + perk(P, "trainB"));
+            add("trainH", hours);
+        }
+        if (t === "practice")
+            add("xpF", hours * (4 + P.level));
+        if (t === "heal") {
+            for (const tr of p.troops)
+                if (tr.wounded) {
+                    const h = Math.min(tr.wounded, Math.floor(rr(0, 1) + 0.08 * hours * tr.wounded + 0.04 * hours));
+                    tr.wounded -= h;
+                    add("healed", h);
+                }
+            for (const s of sickList(P)) {
+                const k = Math.min(s.n, Math.floor(rr(0, 1) + hours * 0.06 * (1 + (P.herbs > 0 ? 1 : 0)) * Math.max(1, s.n)));
+                if (k > 0) {
+                    s.n -= k;
+                    add("cured", k);
+                    if (P.herbs > 0 && chance(0.3))
+                        P.herbs--;
+                }
+            }
+        }
+        if (t === "repair") {
+            const cond = ((_a = P).cond || (_a.cond = {}));
+            const cap = workers.some((c) => c.role === "inżynier") ? 80 : 70;
+            for (const sl of Object.keys(P.equip))
+                if (P.equip[sl] && sl !== "horse" && (cond[sl] ?? 100) < cap) {
+                    cond[sl] = Math.min(cap, (cond[sl] ?? 100) + 0.6 * hours);
+                    add("repair", 0.6 * hours);
+                }
+        }
+        if (t === "scout") {
+            add("scoutH", hours);
+            if (A.scoutH >= 4) {
+                A.scoutH = 0;
+                const r = 26;
+                const cx = Math.floor(p.x / WCELL), cy = Math.floor(p.y / WCELL);
+                for (let dy = -r; dy <= r; dy++)
+                    for (let dx = -r; dx <= r; dx++)
+                        if (dx * dx + dy * dy <= r * r) {
+                            const X = cx + dx, Y = cy + dy;
+                            if (X >= 0 && Y >= 0 && X < WGW && Y < WGH)
+                                w.explored[cidx(X, Y)] = 1;
+                        }
+                const foe = w.parties.find((o) => o !== p && hostile(w, p, o) && dist(o.x, o.y, p.x, p.y) < r * WCELL);
+                if (foe && !A.warned) {
+                    A.warned = 1;
+                    toast(`Zwiadowcy: ${foe.name} (${troopCount(foe.troops)} ludzi) kręci się w okolicy.`, PAL.redL);
+                }
+            }
+        }
+    }
+    // z ułamków robią się całe zdobycze
+    const take = (f, key, into) => { const n = Math.floor(A[f] || 0); if (n > 0) {
+        A[f] -= n;
+        into(n);
+        add(key, n);
+    } };
+    take("meatF", "meat", (n) => { P.goods.meat = (P.goods.meat || 0) + n; });
+    take("grainF", "grain", (n) => { P.goods.grain = (P.goods.grain || 0) + n; });
+    take("herbF", "herbs", (n) => { P.herbs = (P.herbs || 0) + n; });
+    take("xpF", "xp", (n) => { const L = []; gainXp(P, n, L); L.filter((l) => /Awans/.test(l)).forEach((l) => toast(l, PAL.gold)); });
+}
+function campReport(w) {
+    const C = CS(), A = C.acc, P = w.player;
+    const parts = [];
+    if (A.meat)
+        parts.push(`upolowano ${A.meat} mięsa`);
+    if (A.grain)
+        parts.push(`zebrano ${A.grain} jadła z lasu`);
+    if (A.herbs)
+        parts.push(`${A.herbs} ziół`);
+    if (A.healed)
+        parts.push(`opatrzono ${A.healed} rannych`);
+    if (A.cured)
+        parts.push(`wyleczono ${A.cured} chorych`);
+    if (A.repair)
+        parts.push(`naprawiono sprzęt`);
+    if (A.trainH)
+        parts.push(`musztra ${Math.round(A.trainH)} godz.`);
+    if (A.xp)
+        parts.push(`ćwiczenia: +${A.xp} doświadczenia`);
+    if (parts.length)
+        addLogMsg(`Obóz zwinięty: ${parts.join(", ")}. Zmęczenie ${Math.round(fatigueOf(P))}%.`, PAL.gold);
+    C.acc = {};
+    C.since = 0;
+    C.fort = false;
+}
+// Nocny napad: bez warty zbóje albo bestie wpadają do obozu.
+function nightAmbush(w) {
+    const p = playerParty(w);
+    let o = w.parties.filter((x) => (x.kind === "bandit" || x.kind === "monster" || x.kind === "undead") && dist(x.x, x.y, p.x, p.y) < 260).sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y))[0];
+    if (!o) {
+        if (!chance(0.5))
+            return;
+        o = spawnBandits(w, p.x + rr(-30, 30), p.y + rr(-30, 30), 6 + Math.floor(rr(0, 8)));
+        if (!o)
+            return;
+        o.name = "Nocni napastnicy";
+    }
+    o.x = p.x + rr(-8, 8);
+    o.y = p.y + rr(-8, 8);
+    toast("Nikt nie trzymał warty. Krzyk w ciemności, płonące namioty. Napad!", PAL.redL);
+    sfx.drum?.(0.8);
+    meetParty(o, true);
+}
+// Codziennie: choroby, skutki zmęczenia, grabieżcy pobojowisk.
+function campDaily(w) {
+    const P = w.player, p = playerParty(w);
+    if (!p || P.captive)
+        return;
+    const inTown = w.settlements.some((s) => dist(s.cx * WCELL + 4, s.cy * WCELL + 4, p.x, p.y) < 14);
+    const L = sickList(P), i = cellOf(p.x, p.y), n = healthyCount(p.troops);
+    const infect = (kind, ch) => {
+        if (!chance(ch) || n < 3)
+            return;
+        const k = Math.max(1, Math.round(n * rr(0.05, 0.14)));
+        const e = L.find((x) => x.kind === kind);
+        if (e)
+            e.n += k;
+        else
+            L.push({ kind, n: k });
+        addLogMsg(`${DISEASES[kind].text} Choruje ${k} ludzi (${DISEASES[kind].name}).`, PAL.redL);
+    };
+    const healer = P.companions.some((c) => /medyk|kapłan/.test(c.role)), med = P.skills.medicine * 0.1 + (healer ? 0.35 : 0);
+    if (!inTown) {
+        if (w.terr[i] === T_SWAMP)
+            infect("fever", 0.25 * (1 - med));
+        if (w.blight[i] && p.faction !== 5 && w.player.race !== "undead")
+            infect("plague", 0.18 * (1 - med));
+        if (CS().since >= 48 && !CS().fort)
+            infect("flux", 0.15 * (1 - med));
+        if (season(w) === 3 && fatigueOf(P) > 50)
+            infect("frost", 0.2 * (1 - med));
+    }
+    // chorzy nie walczą (liczą się jako ranni), część umiera; w mieście zdrowieją szybko
+    let total = L.reduce((s, x) => s + x.n, 0), died = 0;
+    for (const s of L) {
+        if (inTown) {
+            s.n -= Math.ceil(s.n * 0.45);
+            continue;
+        }
+        const d = Math.floor(s.n * DISEASES[s.kind].death * (1 - med) + rr(0, 0.6));
+        if (d > 0) {
+            died += d;
+            s.n -= d;
+            applyLosses(p.troops, d / Math.max(1, troopCount(p.troops)));
+        }
+        if (chance(0.25))
+            s.n = Math.max(0, s.n - 1); // część wychodzi z choroby sama
+    }
+    P.sick = L.filter((x) => x.n > 0);
+    total = sickCount(P);
+    if (died)
+        addLogMsg(`Choroba zabiera ${died} ${died === 1 ? "człowieka" : "ludzi"}.`, PAL.redL);
+    // chorzy liczą się jako ranni: rannych jest co najmniej tylu, ilu chorych
+    let need = total - p.troops.reduce((s, t) => s + t.wounded, 0);
+    for (const t of p.troops) {
+        if (need <= 0)
+            break;
+        const k = Math.min(need, t.n - t.wounded);
+        if (k > 0) {
+            t.wounded += k;
+            need -= k;
+        }
+    }
+    // skrajne zmęczenie: dezercje
+    if (fatigueOf(P) > 85) {
+        P.morale -= 4;
+        if (chance(0.5)) {
+            addLogMsg("Ludzie padają z nóg. W nocy kilku zniknęło razem z kocami.", PAL.redL);
+            desert(w, 0.04);
+        }
+    }
+    // grabieżcy pobojowisk
+    for (const sc of (w.scars || []))
+        if (sc.kind === "battle" && w.day - sc.day < 3 && !sc.looters && chance(0.25) && w.parties.filter((x) => x.kind === "bandit").length < 28) {
+            sc.looters = 1;
+            const b = spawnBandits(w, sc.x + rr(-20, 20), sc.y + rr(-20, 20), 5 + Math.floor(rr(0, 7)));
+            if (b)
+                b.name = "Grabieżcy pobojowisk";
+        }
+}
+// ---------- Pobojowisko ----------
+function checkBattlefield(w) {
+    const p = playerParty(w);
+    if (screenOpen() || G.state !== "map")
+        return;
+    for (const sc of (w.scars || [])) {
+        if (sc.kind !== "battle" || sc.seen || w.day - sc.day > 4 || dist(sc.x, sc.y, p.x, p.y) > 16)
+            continue;
+        sc.seen = 1;
+        showBattlefield(sc);
+        return;
+    }
+}
+function showBattlefield(sc) {
+    const w = WORLD, P = w.player, p = playerParty(w);
+    p.path = [];
+    const age = Math.max(0, Math.round(w.day - sc.day));
+    const fA = sc.f1 || 0, fB = sc.f2 || 0;
+    const who = fA && fB ? `${factionShort(fA)} i ${factionShort(fB)}` : "nieznane wojska";
+    const night = isNight(w);
+    const search = () => {
+        const hours = 3 + Math.floor(rr(0, 3));
+        for (let h = 0; h < hours; h++)
+            worldTick(w, 1);
+        const lines = [];
+        if (chance(night ? 0.42 : 0.25)) { // hieny cmentarne
+            closeScreen();
+            const foes = [];
+            addTroops(foes, "u_ghoul", 4 + Math.floor(rr(0, 5)));
+            toast("Między trupami coś się rusza. Ghule żerują na pobojowisku!", PAL.redL);
+            setTimeout(() => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: foes, title: "Hieny cmentarne" }, { night: true, terrain: "plains" }), 60);
+            return;
+        }
+        const loot = baseItems().filter((it) => it.tier <= 2 && (it.slot === "weapon" || it.slot === "body" || it.slot === "head" || it.slot === "shield"));
+        const nItems = 1 + Math.floor(rr(0, 3));
+        for (let k = 0; k < nItems && loot.length; k++) {
+            const it = pick(loot);
+            P.items.push(it.id);
+            lines.push(`Zdobyczny sprzęt: ${it.name} (pogięty, do naprawy).`);
+        }
+        if (chance(0.55)) {
+            const f = chance(0.5) ? fA : fB;
+            const cul = FACTIONS[f]?.culture;
+            const k = RECRUITS[cul]?.village?.[0];
+            if (k && cul !== "undead" && troopCount(p.troops) + 2 < partyLimit(w)) {
+                const n = 2 + Math.floor(rr(0, 4));
+                addTroops(p.troops, k, n);
+                const t = p.troops.find((x) => x.type === k);
+                if (t)
+                    t.wounded += n;
+                lines.push(`${n} rannych (${UNITS[k].name}) prosi, by ich zabrać. Dołączają do ciebie.`);
+            }
+        }
+        if (chance(0.45)) {
+            const lords = w.lords.filter((L) => L.alive && L.party >= 0 && (L.faction === fA || L.faction === fB) && partyById(w, L.party));
+            const L = lords.length ? pick(lords) : null;
+            if (L) {
+                const lp = partyById(w, L.party);
+                const s = nearestSettlement(w, lp.x, lp.y);
+                w.explored[cellOf(lp.x, lp.y)] = 1;
+                lines.push(`List przy goniecu: ${L.title} ${L.name} ciągnie z ${troopCount(lp.troops)} ludźmi w okolice ${s.name}.`);
+            }
+        }
+        if (chance(0.12)) {
+            const g = 120 + Math.floor(rr(0, 230));
+            P.gold += g;
+            lines.push(`Ciało rycerza z sygnetem rodu. Rodzina zapłaci okup: ${g} denarów.`);
+        }
+        else if (chance(0.6)) {
+            const g = 10 + Math.floor(rr(0, 40));
+            P.gold += g;
+            lines.push(`Sakiewki poległych: ${g} denarów.`);
+        }
+        P.honor -= 1;
+        closeScreen();
+        showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("battlefield", Math.round(sc.x + sc.y), FACTIONS[fA]?.culture || "aurelia", isNight(w), 0), "scene-img")}</div><h1>Łupy z pobojowiska</h1><p>${hours} godzin grzebania w błocie i krwi.</p><ul>${lines.map((l) => `<li>${l}</li>`).join("") || "<li>Nic, co warto zabrać.</li>"}</ul><div class="btns"><button data-a="ok">Dalej</button></div></div>`, { ok: () => { closeScreen(); refreshMapHud(); } }, "dialog-scr");
+    };
+    const bury = () => { for (let h = 0; h < 5; h++)
+        worldTick(w, 1); P.honor += 2; P.morale -= 3; P.faith = Math.min(100, P.faith + 10); closeScreen(); toast("Kopiecie wspólny grób i odmawiacie modlitwę. Ludzie są ponurzy, ale bogowie patrzą łaskawie.", PAL.gold); refreshMapHud(); };
+    showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("battlefield", Math.round(sc.x * 3 + sc.y), FACTIONS[fA]?.culture || "aurelia", night, 0), "scene-img")}</div>
+    <h1>Pobojowisko</h1><p>${age ? `${age} ${age === 1 ? "dzień" : "dni"} temu` : "Dziś"} starły się tu ${who}. Wrony nie nadążają. Między ciałami leży porzucona broń, ktoś jeszcze jęczy.${night ? " Noc: łatwiej o ghule." : ""}</p>
+    <div class="choices"><button class="choice" data-a="s"><span class="key">1</span>Przeszukaj pole (3–5 godzin; broń, ranni, listy, okup; ryzyko hien cmentarnych)</button>
+    <button class="choice" data-a="b"><span class="key">2</span>Pochowaj poległych (5 godzin; honor +2, wiara, morale −3)</button>
+    <button class="choice" data-a="x"><span class="key">3</span>Jedź dalej</button></div></div>`, { s: search, b: bury, x: () => { closeScreen(); } }, "dialog-scr");
+}
+// ---------- Ekran obozu ----------
+function showCamp() {
+    const w = WORLD, P = w.player, p = playerParty(w), C = CS();
+    const night = isNight(w);
+    const inTown = w.settlements.some((s) => dist(s.cx * WCELL + 4, s.cy * WCELL + 4, p.x, p.y) < 14);
+    if (inTown) {
+        toast("W osadzie odpoczywasz w karczmie (zakładka Odpocznij).");
+        return;
+    }
+    const cul = nearestSettlement(w, p.x, p.y).culture;
+    const scene = drawScene("bivouac", Math.floor(p.x + p.y), cul, night, C.fort ? 1 : 0);
+    const comps = P.companions.filter((c) => !(c.away > w.day));
+    const sel = (id, cur, list) => `<span class="ctask">${list.map(([k, n, tip]) => `<button class="mini ${cur === k ? "on" : ""}" data-a="t" data-v="${id}:${k}" title="${tip}">${n}</button>`).join("")}</span>`;
+    const game = gameAt(w, p.x, p.y), forage = forageAt(w, p.x, p.y);
+    const sick = sickList(P).filter((x) => x.n > 0);
+    const watch = campHasWatch(P);
+    const fat = Math.round(fatigueOf(P));
+    const talkReady = C.talkDay !== w.day && comps.length > 0;
+    const re = () => showCamp();
+    const rest = (h) => { closeScreen(); G.camping = true; p.state = "camp"; p.path = []; G.waitHours = h; pendingAfterWait = null; refreshMapHud(); };
+    showScr(`<div class="dialog frame camp-scr">
+    <div class="scene">${pic(scene, "scene-img")}</div>
+    <h1>${ic("tent")} Obóz${C.fort ? " z palisadą" : ""}</h1>
+    <div class="campst"><span class="${fat > 70 ? "bad" : ""}">Zmęczenie <b>${fat}%</b></span><span class="${watch ? "" : "bad"}">${watch ? "Warta wystawiona" : "Brak warty: nocą grozi napad"}</span><span>Zwierzyna: ${game > 1.1 ? "obfita" : game > 0.6 ? "jest" : game > 0 ? "skąpa" : "brak (martwa ziemia)"}</span><span>Zioła: ${forage > 0.9 ? "dużo" : forage > 0.4 ? "trochę" : "mało"}</span><span>Zapas ziół: ${P.herbs || 0}</span>${sick.length ? `<span class="bad">Chorzy: ${sick.map((s) => `${s.n} (${DISEASES[s.kind].name})`).join(", ")}</span>` : ""}${C.since ? `<span>Obóz stoi ${Math.round(C.since)} godz.${C.fort ? "" : " (palisada po dobie)"}</span>` : ""}</div>
+    <h2>Zadania</h2>
+    <div class="ctrow"><b>${esc(P.name)}</b>${sel("hero", C.hero, HERO_TASKS)}</div>
+    ${comps.map((c) => `<div class="ctrow"><b>${esc(c.name)}</b> <span class="muted">${c.role}</span>${sel(c.id, campTask(c), CAMP_TASKS)}</div>`).join("") || `<p class="muted">Bez kompanów pracuje tylko twoja drużyna: odpoczynek i warta z szeregów (${P.companions.length ? "" : "zatrudnij kompanów w karczmach"}).</p>`}
+    <div class="choices">
+      <button class="choice" data-a="talk" ${talkReady ? "" : "disabled"}><span class="key">1</span>Usiądź przy ognisku i porozmawiaj${talkReady ? "" : " (raz na noc, potrzebni kompani)"}</button>
+      <button class="choice" data-a="r4"><span class="key">2</span>Krótki postój: 4 godziny</button>
+      <button class="choice" data-a="r8"><span class="key">3</span>Odpoczynek: 8 godzin</button>
+      <button class="choice" data-a="rd"><span class="key">4</span>Do świtu</button>
+      <button class="choice" data-a="ri"><span class="key">5</span>Zostańcie, aż każę ruszać</button>
+      <button class="choice alt" data-a="x"><span class="key">6</span>${G.camping ? "Zwiń obóz" : "Zamknij"}</button>
+    </div></div>`, {
+        t: (v) => { const [id, k] = v.split(":"); if (id === "hero")
+            C.hero = k;
+        else
+            C.tasks[id] = k; if (k === "watch")
+            P.campMode = "guard"; re(); },
+        talk: () => { C.talkDay = w.day; campfireTalk(); },
+        r4: () => rest(4), r8: () => rest(8),
+        rd: () => { const h = w.hour < 6 ? 6 - w.hour : 24 - w.hour + 6; rest(h); },
+        ri: () => { closeScreen(); G.camping = true; p.state = "camp"; p.path = []; G.waitHours = 0; refreshMapHud(); },
+        x: () => { closeScreen(); if (G.camping) {
+            G.camping = false;
+            G.waitHours = 0;
+            p.state = "idle";
+            toast("Zwijacie obóz.");
+        } refreshMapHud(); },
+    }, "dialog-scr");
+}
+// ---------- Rozmowy przy ognisku ----------
+function campfireTalk() {
+    const w = WORLD, P = w.player;
+    const comps = P.companions.filter((c) => !(c.away > w.day));
+    if (!comps.length)
+        return;
+    const a = pick(comps), b = comps.length > 1 ? pick(comps.filter((c) => c !== a)) : null;
+    const bond = (c, v) => { var _a; const B = ((_a = P).bond || (_a.bond = {})); B[c.id] = clamp((B[c.id] || 0) + v, -100, 100); };
+    const fn = (c) => c.name.split(" ")[0];
+    const near = nearestSettlement(w, playerParty(w).x, playerParty(w).y);
+    const T = [
+        { text: `${fn(a)} grzebie patykiem w żarze. „Myślisz czasem o tym, ilu ludzi zabiliśmy? Ja przestałem liczyć po pierwszej zimie.”`, ch: [
+                ["„Liczę każdego. Żeby nie zapomnieć, po co walczymy.” (honor +1)", () => { P.honor += 1; bond(a, 4); return `${fn(a)} kiwa głową. Długo milczy.`; }],
+                ["„Liczą się żywi. Reszta to robota dla wron.”", () => { bond(a, /rycerz|kapłan/.test(a.role) ? -4 : 3); return `${fn(a)} parska śmiechem bez radości.`; }],
+                ["„Śpij. Jutro długi marsz.”", () => "Ogień trzaska. Nikt już nic nie mówi."],
+            ] },
+        { text: `${fn(a)} wyjmuje zza pazuchy wytarty list. „Z domu. Pisze, że ojciec umarł. Mógłbym... nie, nieważne.”`, ch: [
+                ["Daj mu 30 denarów dla rodziny (morale +4)", () => { if (P.gold < 30)
+                        return "Nie masz tyle przy sobie. Klepiesz go po ramieniu."; P.gold -= 30; P.morale = Math.min(100, P.morale + 4); bond(a, 8); return `${fn(a)} chowa monety. „Nie zapomnę ci tego.”`; }],
+                ["„Wszyscy kogoś straciliśmy.”", () => { bond(a, 1); return "Kiwa głową i składa list."; }],
+            ] },
+        { text: `${b ? `${fn(a)} i ${fn(b)} kłócą się o to, kto lepiej walczył w ostatniej bitwie. Ludzie zaczynają stawiać zakłady.` : `${fn(a)} chwali się, że w ostatniej bitwie powalił trzech naraz.`}`, ch: [
+                ["Pozwól im się zmierzyć na pięści (morale +6)", () => { P.morale = Math.min(100, P.morale + 6); if (b) {
+                        bond(a, 2);
+                        bond(b, 2);
+                    } return "Szybka bójka, dużo śmiechu, jeden wybity ząb. Obóz ożywa."; }],
+                ["Przerwij kłótnię", () => { if (b) {
+                        bond(a, -1);
+                        bond(b, -1);
+                    } return "Rozchodzą się, mrucząc pod nosem."; }],
+            ] },
+        { text: `Weteran opowiada przy ognisku o dawnych wojnach: o królu, który oddał koronę za życie syna, i o zamku, który zjadł własną załogę.`, ch: [
+                ["Słuchaj do końca (morale +3)", () => { P.morale = Math.min(100, P.morale + 3); return "Ludzie słuchają z otwartymi ustami. Nawet kucharz zapomina o kotle."; }],
+                ["Zapytaj o okolicę", () => rumor(near, w.day)],
+            ] },
+        { text: `${fn(a)} mówi cicho: „Ludzie gadają, że za mało płacisz. Że idziemy na rzeź dla cudzej chwały.”`, ch: [
+                ["Obiecaj premię po następnym zwycięstwie (morale +5)", () => { P.morale = Math.min(100, P.morale + 5); P.promisedBonus = 1; return "Wieść rozchodzi się po obozie szybciej niż dym."; }],
+                ["„Kto chce odejść, niech odchodzi teraz.”", () => { P.morale -= 2; if (chance(0.4))
+                        desert(w, 0.03); return "Kilku zbiera manatki. Reszta zostaje z twardszymi minami."; }],
+                ["Wypłać od ręki po 2 denary na głowę", () => { const c = troopCount(playerParty(w).troops) * 2; if (P.gold < c)
+                        return "Sakiewka za lekka. Musisz ich jakoś przekonać słowem."; P.gold -= c; P.morale = Math.min(100, P.morale + 10); return `Wydajesz ${c} denarów. Śpiewy do późnej nocy.`; }],
+            ] },
+        { text: `${fn(a)} patrzy w gwiazdy. „W ${near.name} miałem kiedyś dziewczynę. Albo ona miała mnie. Jak myślisz, czeka jeszcze?”`, ch: [
+                ["„Wojna się kiedyś skończy.”", () => { bond(a, 3); return `${fn(a)} uśmiecha się pierwszy raz od tygodnia.`; }],
+                ["„Nie czeka. Nikt na nas nie czeka.”", () => { bond(a, -3); P.morale -= 1; return "Odwraca się na bok i udaje, że śpi."; }],
+            ] },
+        { text: `Ktoś przyniósł z lasu dzban mocnej śliwowicy. ${fn(a)} już nalewa.`, ch: [
+                ["Pij z ludźmi (morale +7, rano zmęczenie)", () => { P.morale = Math.min(100, P.morale + 7); addFatigue(P, 12); bond(a, 3); return "Śpiewy, przechwałki, ktoś wpada do ogniska. Rano będzie bolało."; }],
+                ["Zabroń, rano marsz", () => { P.morale -= 2; return "Dzban ląduje w krzakach. Ktoś na pewno go jeszcze odnajdzie."; }],
+            ] },
+        { text: `${fn(a)} szepcze: „Widziałem w lesie światła. Nie pochodnie. Coś, co mrugało jak oczy.”`, ch: [
+                ["Podwój wartę na tę noc", () => { P.campMode = "guard"; return "Nikt nie śpi spokojnie, ale do świtu nic się nie dzieje."; }],
+                ["„To błędne ogniki. Śpij.”", () => { if (chance(0.25)) {
+                        addLogMsg("Rano dwóch wartowników nie wróciło z obchodu.", PAL.redL);
+                        applyLosses(playerParty(w).troops, 2 / Math.max(1, troopCount(playerParty(w).troops)));
+                    } return "Śmiejesz się, ale sam długo patrzysz w ciemność."; }],
+            ] },
+        { text: `${b ? `${fn(b)} pyta ${fn(a)}, skąd ma tę bliznę. ${fn(a)} zaczyna opowieść, która z każdym zdaniem robi się bardziej nieprawdopodobna.` : `${fn(a)} opowiada, skąd ma bliznę na ramieniu. Historia rośnie z każdym łykiem.`}`, ch: [
+                ["Śmiej się razem z nimi (morale +3)", () => { P.morale = Math.min(100, P.morale + 3); bond(a, 2); if (b)
+                        bond(b, 2); return "Obóz ryczy ze śmiechu."; }],
+                ["Opowiedz swoją historię (sława +2)", () => { P.renown += 2; return "Ludzie słuchają w ciszy. Jutro ktoś opowie to w karczmie."; }],
+            ] },
+        { text: `${fn(a)} ostrzy broń w milczeniu. W końcu mówi: „Kiedyś cię zostawię. Nie dziś. Ale chcę, żebyś wiedział, że to nie z tchórzostwa.”`, ch: [
+                ["„Jak przyjdzie czas, rozstaniemy się w zgodzie.”", () => { bond(a, 5); return `${fn(a)} podaje ci rękę. Uścisk jest mocny.`; }],
+                ["„Odejdziesz, kiedy ci każę.”", () => { bond(a, -6); return `${fn(a)} wraca do ostrzenia. Szybciej niż przedtem.`; }],
+            ] },
+    ];
+    const ev = pick(T);
+    const acts = {};
+    ev.ch.forEach(([, f], i) => { acts["c" + i] = () => { const r = f(); closeScreen(); if (r)
+        toast(r, PAL.gold); showCamp(); }; });
+    const cs = a;
+    showScr(`<div class="dialog frame">${dialogHtml({ left: playerPortrait(), right: drawPortrait(cs.look, PAL.bone), title: "Przy ognisku", sub: `${cs.name} · ${cs.role}`, speech: ev.text, choices: ev.ch.map(([l], i) => ({ a: "c" + i, label: l })) })}</div>`, acts, "dialog-scr");
+    grunt?.(cs.look.race === "orc" ? "orc" : cs.look.race === "dwarf" ? "dwarf" : "human");
+}
+// ---------- Echa wydarzeń: konsekwencje wracają po kilku dniach ----------
+function addEcho(kind, days, data = {}) { const w = WORLD; (w.echoes || (w.echoes = [])).push({ kind, day: WORLD.day + days, data }); }
+function dueEcho() {
+    const w = WORLD, P = WORLD.player, p = playerParty(WORLD);
+    const L = (w.echoes || []);
+    const e = L.find((x) => x.day <= WORLD.day);
+    if (!e)
+        return null;
+    w.echoes = L.filter((x) => x !== e);
+    if (e.kind === "saved")
+        return { id: "echo-saved", scene: "camp", title: "Znajoma twarz", text: "Na rozstajach czeka mężczyzna, którego kiedyś opatrzyłeś przy drodze. Teraz jest zdrowy i prowadzi muła.", ch: [
+                { label: "Przyjmij podarunek", act: () => { const g = 40 + Math.floor(rr(0, 60)); P.gold += g; P.goods.meat = (P.goods.meat || 0) + 2; return `„Za to, że nie zostawiłeś mnie wronom.” ${g} denarów i suszone mięso.`; } },
+                { label: "Poproś, by wskazał bezpieczną drogę", act: () => { const r = 30, cx = Math.floor(p.x / WCELL), cy = Math.floor(p.y / WCELL); for (let dy = -r; dy <= r; dy++)
+                        for (let dx = -r; dx <= r; dx++) {
+                            const X = cx + dx, Y = cy + dy;
+                            if (X >= 0 && Y >= 0 && X < WGW && Y < WGH)
+                                WORLD.explored[cidx(X, Y)] = 1;
+                        } return "Rysuje patykiem w błocie mapę okolicy: brody, kryjówki zbójców, studnie."; } },
+            ] };
+    if (e.kind === "robbed")
+        return { id: "echo-robbed", scene: "camp", title: "Bracia ograbionego", text: "Drogę zastępuje kilku chłopów z widłami i kosami. Na przedzie stoi ten, którego ograbiłeś przy drodze. „To on!”", ch: [
+                { label: "Oddaj dwa razy tyle (−60 denarów, honor +2)", need: () => P.gold >= 60, act: () => { P.gold -= 60; P.honor += 2; return "Biorą pieniądze i odchodzą, spluwając ci pod nogi."; } },
+                { label: "Rozpędź ich (walka)", act: () => { const foes = []; addTroops(foes, "b_bandit", 6 + Math.floor(rr(0, 5))); P.honor -= 1; setTimeout(() => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: foes, title: "Zemsta chłopów" }), 50); return "Widły przeciw stali."; } },
+            ] };
+    if (e.kind === "pilgrims")
+        return { id: "echo-pilgrims", scene: "shrine", title: "Błogosławieństwo pielgrzymów", text: "Pielgrzymi, którym pomogłeś, wracają z kaplicy. Przynoszą poświęconą wodę i wieść: na drodze przed wami czają się zbóje.", ch: [
+                { label: "Podziękuj (morale +5, wiara)", act: () => { P.morale = Math.min(100, P.morale + 5); P.faith = Math.min(100, P.faith + 15); const b = WORLD.parties.filter((o) => o.kind === "bandit").sort((x, y) => dist(x.x, x.y, p.x, p.y) - dist(y.x, y.y, p.x, p.y))[0]; if (b)
+                        WORLD.explored[cellOf(b.x, b.y)] = 1; return b ? `Zbóje (${b.name}) kryją się niedaleko. Widzisz ich na mapie.` : "Droga przed wami jest czysta."; } },
+            ] };
+    if (e.kind === "deserters")
+        return { id: "echo-des", scene: "camp", title: "Pościg", text: "Konni z barwami lorda dopadają was na trakcie. „Szukamy dezerterów. Podobno przyjąłeś ich do siebie.”", ch: [
+                { label: "Wydaj ich (relacja z frakcją +)", act: () => { const k = e.data?.type; const t = playerParty(WORLD).troops.find((x) => x.type === k); if (t)
+                        t.n = Math.max(0, t.n - (e.data?.n || 3)); playerParty(WORLD).troops = playerParty(WORLD).troops.filter((x) => x.n > 0); P.honor -= 1; return "Dezerterzy idą na szubienicę. Patrzą na ciebie, dopóki ich nie wyprowadzą."; } },
+                { label: "Wyprzyj się (perswazja)", act: () => { if (chance(0.4 + P.attr.cha * 0.04))
+                        return "Wierzą ci. Albo udają, że wierzą."; P.renown -= 3; return "Nie wierzą. Odjeżdżają, ale twoje imię trafi do raportu."; } },
+            ] };
+    return null;
+}
+
+"use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.18";
+const BUILD = "Build 0.19";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -21260,7 +22012,7 @@ const input = new Input();
 input.attach(canvas);
 const sfx = new Sfx();
 buildSprites();
-const settings = {
+const settings = { autoCamp: true,
     damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
     musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
     questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
@@ -21650,9 +22402,20 @@ $("maphud").addEventListener("click", (e) => {
             return;
         }
         if (t.dataset.sp === "camp") {
-            G.camping = !G.camping;
-            playerParty(WORLD).path = [];
-            playerParty(WORLD).state = G.camping ? "camp" : "idle";
+            const pp = playerParty(WORLD);
+            pp.path = [];
+            if (!G.camping) {
+                G.camping = true;
+                pp.state = "camp";
+            }
+            showCamp();
+            return;
+        }
+        if (t.dataset.sp === "uncamp") {
+            G.camping = false;
+            G.waitHours = 0;
+            playerParty(WORLD).state = "idle";
+            toast("Zwijacie obóz.");
         }
         else
             G.speed = Number(t.dataset.sp);

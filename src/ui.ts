@@ -264,6 +264,20 @@ function drawSceneBase(kind: string, seed: number, culture: Culture | string, ni
       g.fillStyle = PAL.bone; g.fillRect(30, 76, 6, 2); g.fillRect(160, 78, 4, 1);
       break;
     }
+    case "bivouac": {   // obóz drużyny: namioty, ognisko, ludzie wokół ognia, konie, wóz, chorągiew; palisada przy dłuższym postoju
+      const tentC = orc ? [PAL.dirtL, PAL.dirt] : dwarf ? [PAL.stone, PAL.slate] : undead ? [PAL.dusk, PAL.ink] : [PAL.bone, PAL.ash];
+      const tent = (x: number, y: number, w: number) => { for (let j = 0; j < w / 2; j++) { g.fillStyle = j % 3 === 0 ? tentC[1] : tentC[0]; g.fillRect(x + j, y - j, w - j * 2, 1); } g.fillStyle = PAL.ink; g.fillRect(x + w / 2 - 2, y - 6, 4, 6); g.fillStyle = PAL.woodD; g.fillRect(x + w / 2, y - w / 2 - 2, 1, 3); };
+      if (extra === 1) { g.fillStyle = PAL.woodD; for (let x = 0; x < Wd; x += 3) { const hh = 10 + ((x * 7) % 4); g.fillRect(x, 60 - hh, 2, hh); g.fillStyle = PAL.wood; g.fillRect(x, 60 - hh, 1, hh); g.fillStyle = PAL.woodD; } g.fillStyle = PAL.ink; g.fillRect(90, 48, 20, 12); }
+      tent(14, 62, 26); tent(52, 58, 22); tent(132, 60, 24); tent(166, 63, 28);
+      g.fillStyle = PAL.woodD; g.fillRect(118, 34, 1, 30); g.fillStyle = PAL.red; g.fillRect(119, 35, 10, 7); g.fillRect(119, 42, 7, 2);   // chorągiew
+      for (let k = 0; k < 2; k++) { const x = 176 + k * 10; g.fillStyle = PAL.ink; g.fillRect(x - 1, 64, 9, 6); g.fillStyle = k ? PAL.dirt : PAL.woodD; g.fillRect(x, 65, 7, 4); g.fillRect(x + 5, 62, 3, 3); g.fillStyle = PAL.dirtD; g.fillRect(x, 69, 1, 4); g.fillRect(x + 6, 69, 1, 4); }   // konie
+      g.fillStyle = PAL.ink; g.fillRect(4, 66, 22, 8); g.fillStyle = PAL.wood; g.fillRect(5, 67, 20, 5); g.fillStyle = PAL.bone; g.fillRect(6, 63, 18, 4); g.fillStyle = PAL.black; g.fillRect(8, 72, 3, 3); g.fillRect(19, 72, 3, 3);   // wóz
+      fire(100, 72);
+      for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2; figure(Math.round(100 + Math.cos(a) * 22), Math.round(78 + Math.sin(a) * 5), pick(people), chance(0.4), chance(0.3)); }
+      g.fillStyle = PAL.steel; g.fillRect(60, 74, 1, 8); g.fillRect(63, 75, 1, 7); g.fillRect(58, 74, 7, 1);   // kozioł z bronią
+      g.fillStyle = PAL.ink; g.fillRect(144, 74, 7, 4); g.fillStyle = PAL.steelD; g.fillRect(145, 72, 5, 3);   // kocioł
+      break;
+    }
     case "battlefield": {   // pobojowisko: trupy, połamane drzewca, przewrócone chorągwie, dym, wrony
       for (let k = 0; k < 26; k++) { const x = Math.round(rr(4, 196)), y = Math.round(rr(62, 82)); g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 9, 4); g.fillStyle = pick([PAL.dirt, PAL.steelD, PAL.red, PAL.slate, PAL.dirtD]); g.fillRect(x, y, 7, 2); g.fillStyle = PAL.skinD; g.fillRect(x + 7, y, 2, 2); g.fillStyle = PAL.bloodD; g.fillRect(x + rr(-2, 6), y + 2, 4, 1); }
       for (let k = 0; k < 10; k++) { const x = Math.round(rr(4, 196)), y = Math.round(rr(56, 80)); g.fillStyle = PAL.woodD; for (let j = 0; j < 12; j++) g.fillRect(x + Math.round(j * 0.6), y - j, 1, 1); g.fillStyle = PAL.steel; g.fillRect(x + 7, y - 13, 1, 2); }
@@ -387,7 +401,9 @@ function animateScene(cv: HTMLCanvasElement, base: HTMLCanvasElement) {
           g.fillRect(Math.round(cx - r / 2 + Math.sin(ph * 4 + cx) * 3 + ph * 10), Math.round(cy - ph * 34), r, r);
         }
         g.globalAlpha = 1;
-        for (const [fx, fy] of M.fires as [number, number][]) {   // migające ognie
+        for (const [fx, fy] of M.fires as [number, number][]) {   // migające ognie i dym
+          for (let j = 0; j < 4; j++) { const ph = (t * 0.3 + j / 4 + fx * 0.01) % 1; g.globalAlpha = (1 - ph) * 0.3; g.fillStyle = PAL.ash; const r = 2 + Math.round(ph * 5); g.fillRect(Math.round(fx * 2 - r / 2 + Math.sin(ph * 5 + fx) * 4), Math.round(fy * 2 - 14 - ph * 40), r, r); }
+          g.globalAlpha = 1;
           const fl = Math.floor(t * 9 + fx) % 3;
           g.fillStyle = PAL.redL; g.fillRect(fx * 2 - 4, fy * 2 - 6 - fl, 9, 6 + fl);
           g.fillStyle = PAL.gold; g.fillRect(fx * 2 - 2 + (fl === 1 ? 1 : 0), fy * 2 - 10 - fl, 5, 6);

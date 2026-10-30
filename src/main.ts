@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.18";
+const BUILD = "Build 0.19";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -12,7 +12,7 @@ input.attach(canvas);
 const sfx = new Sfx();
 buildSprites();
 
-const settings: Settings = {
+const settings: Settings = { autoCamp: true,
   damageNumbers: true, gesture: false, music: true, volume: 0.8, battleSize: 100,
   musicVol: 0.6, shake: 1, killSlow: true, blood: 1, hpBars: "near", tells: false, dirHint: true,
   questMarkers: true, questArrows: true, partyNames: "lords", autosaveDays: 2, uiScale: 1, toastsOn: true, pauseOnEvent: true, fewLog: true, minimap: true,
@@ -278,7 +278,8 @@ $("maphud").addEventListener("click", (e) => {
   sfx.ui();
   if (t.dataset.sp) {
     if (t.dataset.sp.startsWith("cm:")) { (WORLD.player as any).campMode = t.dataset.sp.slice(3); refreshMapHud(); return; }
-    if (t.dataset.sp === "camp") { G.camping = !G.camping; playerParty(WORLD).path = []; playerParty(WORLD).state = G.camping ? "camp" : "idle"; }
+    if (t.dataset.sp === "camp") { const pp = playerParty(WORLD); pp.path = []; if (!G.camping) { G.camping = true; pp.state = "camp"; } showCamp(); return; }
+    if (t.dataset.sp === "uncamp") { G.camping = false; G.waitHours = 0; playerParty(WORLD).state = "idle"; toast("Zwijacie obóz."); }
     else G.speed = Number(t.dataset.sp);
     refreshMapHud();
   }

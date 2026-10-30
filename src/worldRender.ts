@@ -809,7 +809,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
       g.fillStyle = `rgba(200,150,60,${dark})`;
       for (let k = 0; k < (s.kind === "village" ? 2 : 5); k++) { const hh = hashInt(s.seed + k); g.fillRect(Math.round(x - 8 + (hh % 16)), Math.round(y - 6 + ((hh >>> 5) % 10)), 1, 1); }
     }
-    if (pp) { const x = pp.x - sx, y = pp.y - sy; const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, 12); gr.addColorStop(0, `rgba(170,110,40,${0.3 * dark / 0.6})`); gr.addColorStop(1, "rgba(170,110,40,0)"); g.fillStyle = gr; g.fillRect(x - 14, y - 18, 28, 28); }
+    if (pp) { const x = pp.x - sx, y = pp.y - sy, R = G.camping ? 30 : 12; const gr = g.createRadialGradient(x, y - 4, 0, x, y - 4, R); gr.addColorStop(0, `rgba(170,110,40,${0.3 * dark / 0.6})`); gr.addColorStop(1, "rgba(170,110,40,0)"); g.fillStyle = gr; g.fillRect(x - R - 2, y - R - 6, R * 2 + 4, R * 2 + 4); }
     g.globalCompositeOperation = "source-over";
   }
   // zaraza Morvath: szary welon i fioletowe drobiny nad skażoną ziemią

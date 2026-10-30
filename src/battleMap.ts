@@ -23,7 +23,7 @@ interface BattleMap {
   arenaR?: number;
 }
 
-interface MapOpts { season: number; region: string; rain: boolean; }
+interface MapOpts { season: number; region: string; rain: boolean; fort?: boolean; }
 function makeBattleMap(t: Terrain, night: boolean, opt: MapOpts = { season: 1, region: "grass", rain: false }): BattleMap {
   const w = t === "arena" ? 640 : 1600, h = t === "arena" ? 400 : 1000;
   const gw = Math.ceil(w / CELL), gh = Math.ceil(h / CELL);
@@ -225,6 +225,12 @@ function makeBattleMap(t: Terrain, night: boolean, opt: MapOpts = { season: 1, r
     for (let i = 0; i < 5; i++) { const x = rr(150, 1450); tryPlace(x, roadAt(x) + (chance(0.5) ? -26 : 26), 0, PROPS.pike, 6, false); }
     if (chance(0.6)) { const x = rr(200, 1400); tryPlace(x, roadAt(x) - 40, 5, PROPS.gallows, 10); }
     for (let i = 0; i < 70; i++) { const x = rr(0, w), y = rr(0, h); if (cellAt(x, y) === 0) M.obstacles.push({ x, y, r: 0, img: BUSH, tall: false }); }
+  }
+  if (opt.fort && t !== "siege" && t !== "arena") {   // obóz z palisadą: płot wokół twoich pozycji, przejścia w środku i na skrzydłach
+    let k = 0;
+    for (let y = 300; y <= 700; y += 21) { if (Math.abs(y - 500) < 24 || Math.abs(y - 360) < 12 || Math.abs(y - 640) < 12) continue; M.obstacles = M.obstacles.filter((o) => dist(o.x, o.y, 480, y) > 14); M.obstacles.push({ x: 480, y, r: 8, img: fence(k++), tall: false, cover: true }); }
+    for (let x = 300; x < 480; x += 21) for (const y of [300, 700]) { M.obstacles = M.obstacles.filter((o) => dist(o.x, o.y, x, y) > 14); M.obstacles.push({ x, y, r: 8, img: fence(k++), tall: false, cover: true }); }
+    M.obstacles.push({ x: 330, y: 450, r: 0, img: PROPS.fire, tall: false });
   }
   if (t === "siege") {
     for (let i = 0; i < 6; i++) tryPlace(rr(1180, 1540), rr(80, 920), 10, PROPS.house || ROCKS[0], 30);

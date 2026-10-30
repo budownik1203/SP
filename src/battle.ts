@@ -27,7 +27,7 @@ interface Settings {
   fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
-  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean; palette?: "region" | "warm" | "cold";
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean; palette?: "region" | "warm" | "cold"; autoCamp?: boolean;
 }
 
 interface HeroCfg {
@@ -47,7 +47,7 @@ interface BattleConfig {
   maxPerSide?: number;
   title?: string;
   allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
-  tutorial?: boolean; dmgTaken?: number;
+  tutorial?: boolean; dmgTaken?: number; campFort?: boolean;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -269,7 +269,7 @@ class Battle {
   constructor(cfg: BattleConfig, public input: Input, public sfx: Sfx, public settings: Settings) {
     this.cfg = cfg;
     this.fogged = !!cfg.fog;
-    this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain });
+    this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain, fort: !!cfg.campFort });
     if (this.map.wall) {
       const W2 = this.map.wall; W2.gateHp = W2.gateMax = 1800;
       const atk = cfg.siegeDefender === 0 ? 1 : 0; void atk;

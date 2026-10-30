@@ -711,7 +711,7 @@ function partySpeed(w: World, p: Party): number {
   sp += (cav / n) * 1.6;
   sp -= (wounded / n) * 1.6;
   if (season(w) === 3) sp *= 0.85;   // zima: śnieg spowalnia
-  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12 * (1 + perk(w.player, "mapSpeed")); }   // lekka przewaga gracza w pościgu
+  if (p.kind === "player") { if (w.player.equip.horse) sp += 0.25; sp += w.player.skills.tracking * 0.03; sp *= 1.12 * (1 + perk(w.player, "mapSpeed")) * fatigueSpeedK(w.player); }   // lekka przewaga gracza w pościgu
   if (p.kind === "caravan" || p.kind === "villagers") sp *= 0.8;
   if (p.kind === "monster") sp *= 1.15;
   if (p.kind === "undead") sp *= 0.85;
@@ -764,6 +764,7 @@ function dailyTick(w: World) {
   if ((w as any).scars) (w as any).scars = ((w as any).scars as Scar[]).filter((sc) => w.day - sc.day < (sc.kind === "burn" ? 9 : 6));
   // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
   dailyPolitics(w);
+  campDaily(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
   // osady
   for (const s of w.settlements) {
@@ -947,6 +948,7 @@ function addScar(w: World, x: number, y: number, kind: Scar["kind"], size = 1) {
 }
 function aiBattle(w: World, a: Party, b: Party) {
   addScar(w, (a.x + b.x) / 2, (a.y + b.y) / 2, "battle", (troopCount(a.troops) + troopCount(b.troops)) / 120);
+  { const L = (w as any).scars as any[]; L[L.length - 1].f1 = a.faction; L[L.length - 1].f2 = b.faction; }
   const pa = partyPower(w, a) * rr(0.8, 1.2), pb = partyPower(w, b) * rr(0.8, 1.2);
   const [win, lose] = pa >= pb ? [a, b] : [b, a];
   const ratio = Math.min(pa, pb) / Math.max(pa, pb, 0.01);
@@ -990,7 +992,7 @@ function partyAI(w: World, p: Party, hours: number) {
   const myPow = pw(p);
   if (p.state !== "siege") for (const o of w.parties) {
     if (o === p || !hostile(w, p, o)) continue;
-    const d = dist(p.x, p.y, o.x, o.y);
+    const d = dist(p.x, p.y, o.x, o.y) * (o.kind === "player" && G.camping && isNight(w) ? 0.5 : 1);   // ognisko w nocy widać z daleka
     if (d > sight) continue;
     if (o.kind === "player" && w.player.captive) continue;
     const op = pw(o);

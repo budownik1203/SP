@@ -166,7 +166,7 @@ function mapUpdate(dt: number) {
     }
     G.pan.t = -9;
   }
-  if (I.hit(KB("camp"))) { if (p.path.length) { p.path = []; toast("Postój."); } else { G.camping = !G.camping; p.state = G.camping ? "camp" : "idle"; toast(G.camping ? "Rozbijasz obóz. Czas płynie, rany goją się szybciej." : "Zwijacie obóz."); } }
+  if (I.hit(KB("camp")) && !screenOpen()) { if (p.path.length) { p.path = []; toast("Postój."); } else { if (!G.camping) { G.camping = true; p.state = "camp"; } showCamp(); } }
   // czas płynie tylko w ruchu, w obozie lub podczas czekania
   const moving = p.path.length > 0;
   if (!moving) checkArrival();
@@ -183,6 +183,7 @@ function mapUpdate(dt: number) {
   const prevDay = w.day;
   moveParty(w, p, hours);
   worldTick(w, hours);
+  campTick(w, hours, moving);
   if (moving) maybeTravelEvent(hours);
   if (w.day !== prevDay) { refreshMapHud(); if (settings.autosaveDays > 0 && w.day - G.lastAuto >= settings.autosaveDays) { G.lastAuto = w.day; autosave(); } }
   G.encounterCooldown = Math.max(0, G.encounterCooldown - hours);
@@ -315,7 +316,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
-    terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
+    campFort: G.camping && CS().fort, terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
     player: { name: P.name, faction: (P as any).crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
     enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
@@ -352,7 +353,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   b.heroDmg *= 1 + perk(P, "meleeDmg");
   b.pk = { ...(P.perks || {}) };
   if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
-  for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB"), 20, 100);
+  for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100);   // zmęczenie osłabia ducha
   for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
   G.state = "battle";
   hideMapHud();
@@ -426,7 +427,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   let sackNext: (() => void) | null = null;
   const lootItems: string[] = [];
   if (ctx.kind === "arena") { arenaFinished(r); return; }
-  if (ctx.kind !== "escape") addScar(w, p.x, p.y + 4, "battle", 1.2);
+  if (ctx.kind !== "escape") { addScar(w, p.x, p.y + 4, "battle", 1.2); const sc = ((w as any).scars as any[])[((w as any).scars as any[]).length - 1]; sc.f1 = (P as any).crest || P.status === "król" ? PLAYER_FACTION : P.liege || 9; sc.f2 = ctx.enemies[0]?.faction || 6; sc.seen = 1; addFatigue(P, 12); }
   // straty własne i sojuszników
   distributeLosses([p], r.ours, true);
   distributeLosses(ctx.allies, r.allies, true);
