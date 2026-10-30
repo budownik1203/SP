@@ -591,6 +591,7 @@ class Battle {
     this.eorders[1] = newOrder(z1.x - 30, z1.y); this.eorders[2] = newOrder(z1.x - 30, z1.y - 150); this.eorders[3] = newOrder(z1.x + 40, z1.y);
     this.eorders[4] = newOrder(z1.x, z1.y + 170); this.eorders[5] = newOrder(z1.x + 10, z1.y);
     this.eorders[6] = { ...newOrder(z1.x, z1.y, "loose"), mode: "hold" };
+    if (!arena) setupLord(this);
     if (arena) { for (const k in this.orders) { this.orders[k].ax = z0.x + 20; this.orders[k].ay = z0.y; } for (const k in this.eorders) { this.eorders[k].ax = z1.x; this.eorders[k].ay = z1.y; this.eorders[k].mode = "charge"; } }
     if (cfg.terrain === "siege") {
       const W2 = this.map.wall, defTeam = siegeDef;
@@ -1572,6 +1573,7 @@ class Battle {
     const s = this.vol(d.x);
     if (src) src.kills++;
     if (src?.hero && !d.hero) heroKillStreak(this, src, d);
+    bearerFalls(this, d);
     if (src?.team === 0 && this.heroCfg && d.def.undead) this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
     if (this.archery && d.key === "x_dummy") { this.archery.score++; this.floater(d.x, d.y - 26, "TRAFIONY!", PAL.gold, true); this.crowd(d.x, d.y, 3); }
     if (d.hero && this.P("cheat") && !this.cheatUsed) { this.cheatUsed = true; d.hp = 1; this.shout("Jeszcze nie!", PAL.gold); return; }
@@ -1795,6 +1797,7 @@ class Battle {
     }
     if (u.state === "stagger" || u.state === "kick") { u.moving = false; if (u.mounted) this.ride(u, u.x + Math.cos(u.heading) * 30, u.y + Math.sin(u.heading) * 30, 0, dt); return; }
     if ((u.def.ability || u.compAb) && !u.hero) unitAbilityAI(this, u, dt);
+    if (lordAI(this, u, dt)) return;
 
     const walled = this.map.wall && u.team === (this.cfg.siegeDefender ?? 1) && !this.map.wall.broken; // obrońcy za murami nie mają dokąd uciekać
     if (!u.def.undead && !u.fleeing && u.morale < (walled ? 4 : 18) && !this.cfg.arena && u.lifeT <= 0) {
@@ -2419,7 +2422,7 @@ class Battle {
       const d = Math.hypot(dx, dy), m = a.radius + b.radius - 1;
       if (d < m && d > 0.001) {
         for (const [r, f] of [[a, b], [b, a]] as [Unit, Unit][]) {
-          if (r.mounted && !f.mounted && r.team !== f.team && r.rspeed > 55 && f.trampleT <= 0 && !f.def.poise && f.active) {
+          if (r.mounted && !f.mounted && r.team !== f.team && r.rspeed > 55 && f.trampleT <= 0 && !f.def.poise && f.active && !(f.hasShield && this.inFormation(f) && this.ordersOf(f.team, f.squad)?.formation === "wall")) {
             f.trampleT = 0.8;
             const k2 = r.rspeed / r.maxRide, s = this.vol(f.x);
             this.sfx.trample(s.v, s.pan);

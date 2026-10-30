@@ -323,6 +323,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
     maxPerSide: settings.battleSize,
     title: ctx.title,
+    ...({ lordTrait: (() => { const e = ctx.enemies.find((x) => x.lord !== undefined && x.lord >= 0); const L = e ? lordById(w, e.lord!) : null; return L && L.faction !== 5 ? L.personality : undefined; })() } as any),
     dmgTaken: w.diff && w.diff.dmg !== 1 ? w.diff.dmg : undefined,
     ...cfgExtra,
   };

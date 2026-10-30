@@ -5531,6 +5531,8 @@ class Battle {
         this.eorders[4] = newOrder(z1.x, z1.y + 170);
         this.eorders[5] = newOrder(z1.x + 10, z1.y);
         this.eorders[6] = { ...newOrder(z1.x, z1.y, "loose"), mode: "hold" };
+        if (!arena)
+            setupLord(this);
         if (arena) {
             for (const k in this.orders) {
                 this.orders[k].ax = z0.x + 20;
@@ -7437,6 +7439,7 @@ class Battle {
             src.kills++;
         if (src?.hero && !d.hero)
             heroKillStreak(this, src, d);
+        bearerFalls(this, d);
         if (src?.team === 0 && this.heroCfg && d.def.undead)
             this.heroCfg.faith = Math.min(100, this.heroCfg.faith + 2);
         if (this.archery && d.key === "x_dummy") {
@@ -7884,6 +7887,8 @@ class Battle {
         }
         if ((u.def.ability || u.compAb) && !u.hero)
             unitAbilityAI(this, u, dt);
+        if (lordAI(this, u, dt))
+            return;
         const walled = this.map.wall && u.team === (this.cfg.siegeDefender ?? 1) && !this.map.wall.broken; // obrońcy za murami nie mają dokąd uciekać
         if (!u.def.undead && !u.fleeing && u.morale < (walled ? 4 : 18) && !this.cfg.arena && u.lifeT <= 0) {
             // przy przewadze wroga część się poddaje (więcej jeńców), reszta ucieka
@@ -9010,7 +9015,7 @@ class Battle {
                 const d = Math.hypot(dx, dy), m = a.radius + b.radius - 1;
                 if (d < m && d > 0.001) {
                     for (const [r, f] of [[a, b], [b, a]]) {
-                        if (r.mounted && !f.mounted && r.team !== f.team && r.rspeed > 55 && f.trampleT <= 0 && !f.def.poise && f.active) {
+                        if (r.mounted && !f.mounted && r.team !== f.team && r.rspeed > 55 && f.trampleT <= 0 && !f.def.poise && f.active && !(f.hasShield && this.inFormation(f) && this.ordersOf(f.team, f.squad)?.formation === "wall")) {
                             f.trampleT = 0.8;
                             const k2 = r.rspeed / r.maxRide, s = this.vol(f.x);
                             this.sfx.trample(s.v, s.pan);
@@ -9893,6 +9898,139 @@ function masterActs(w, s, re) {
             return; P.gold -= 600; P.learned.push("rage"); const free = P.abilities.indexOf(""); if (free >= 0)
             P.abilities[free] = "rage"; toast("Mistrz uczy cię wpadać w szał. Umiejętność Szał (przypisz ją w oknie postaci).", PAL.gold); re(); },
     };
+}
+
+"use strict";
+// Lordowie i bestie w bitwie (Build 0.32): lord jest większy, ma gwardię i chorążego, zachowuje się według
+// charakteru (honorowy wyzywa bohatera, okrutny budzi postrach, ostrożny trzyma się z tyłu, chciwy ucieka);
+// wilki olbrzymy skaczą i obalają.
+const TRAIT_SAY = { honorowy: "wychodzi przed szereg i szuka ciebie wzrokiem", chciwy: "trzyma się z tyłu, za plecami swoich", okrutny: "każe wznieść pale i obiecuje, że jeńców nie będzie", ostrożny: "stoi za łucznikami i czeka" };
+function lordTrait(b) { return b.cfg.lordTrait || null; }
+// przygotowanie: gwardia, chorąży, rozkazy dowódcy według charakteru
+function setupLord(b) {
+    const tr = lordTrait(b);
+    const c = b.commanders.find((u) => u.team === 1);
+    if (!c || !tr)
+        return;
+    c.big = true;
+    c.maxHp = c.hp = Math.round(c.maxHp * 1.25);
+    const guards = b.units.filter((u) => u.team === 1 && u !== c && !u.mounted === !c.mounted && !u.def.bow && !u.def.ability).sort((p, q) => q.def.tier - p.def.tier).slice(0, 6);
+    guards.forEach((g, i) => { g.guard = true; g.squad = 5; g.x = c.x + rr(-20, 20); g.y = c.y + rr(-20, 20); if (i === 0)
+        g.bearer = true; });
+    const o = b.eorders[5];
+    if (!o)
+        return;
+    if (tr === "honorowy" || tr === "okrutny")
+        o.mode = "charge";
+    else {
+        o.mode = "hold";
+        o.ax = Math.min(b.mw - 40, o.ax + 70);
+    }
+    b.say(`${(b.cfg.enemy.name || "Lord")} ${TRAIT_SAY[tr]}.`, PAL.bone, true);
+}
+function lordAI(b, u, dt) {
+    const h = b.hero, U = u;
+    if (u.def.key === "x_direwolf")
+        return beastLeap(b, u, dt);
+    if (u.team !== 1)
+        return false;
+    if (u.commander) {
+        const tr = lordTrait(b);
+        if (!tr)
+            return false;
+        if (tr === "honorowy" && h?.active && !U.challenged && dist(u.x, u.y, h.x, h.y) < 150) {
+            U.challenged = 1;
+            b.duelT = b.time + 15;
+            u.target = h;
+            b.say(`${b.cfg.enemy.name}: „Ty i ja. Nikt się nie wtrąca!”`, PAL.gold, true);
+            b.shout("Pojedynek!", PAL.gold);
+        }
+        if (tr === "honorowy" && (b.duelT || 0) > b.time && h?.active)
+            u.target = h;
+        if (tr === "okrutny")
+            for (const x of b.units)
+                if (x.active && x.team === 0 && !x.hero && !x.def.undead && Math.abs(x.x - u.x) < 70 && Math.abs(x.y - u.y) < 60)
+                    x.morale -= dt * 3;
+        if (tr === "chciwy" && u.hp < u.maxHp * 0.45 && !u.fleeing) {
+            u.fleeing = true;
+            b.say(`${b.cfg.enemy.name} rzuca się do ucieczki!`, PAL.gold, true);
+            for (const x of b.units)
+                if (x.active && x.team === 1 && !x.def.undead)
+                    x.morale -= 15;
+        }
+        return false;
+    }
+    if (U.guard) {
+        const c = b.commanders.find((x) => x.team === 1 && x.active);
+        if (!c) {
+            U.guard = false;
+            return false;
+        }
+        const duel = (b.duelT || 0) > b.time;
+        if (duel && h && (!u.target || u.target === h || !u.target.active)) {
+            u.target = null;
+            u.retarget = 0.5;
+            u.moving = false;
+            u.vx *= 0.8;
+            u.vy *= 0.8;
+            u.wantFace = Math.atan2(h.y - u.y, h.x - u.x);
+            return true;
+        } // gwardia patrzy, nie wtrąca się
+        if (!duel && h?.active && dist(h.x, h.y, c.x, c.y) < 75) {
+            u.target = h;
+            return false;
+        }
+        const far = dist(u.x, u.y, c.x, c.y) > 45, busy = u.target && u.target.active && dist(u.x, u.y, u.target.x, u.target.y) < 36;
+        if (far && !busy && u.state === "idle") {
+            b.steer(u, c.x + rr(-12, 12), c.y + rr(-12, 12), u.def.speed, dt);
+            return true;
+        }
+    }
+    return false;
+}
+// padający sztandar łamie ducha
+function bearerFalls(b, d) {
+    if (!d.bearer || d.team !== 1 || !d.guard)
+        return;
+    b.floater(d.x, d.y - 40, "SZTANDAR PADA", PAL.gold, true);
+    b.say("Chorąży lorda pada. Sztandar w błocie!", PAL.gold, true);
+    for (const x of b.units)
+        if (x.active && x.team === 1 && !x.def.undead && dist(x.x, x.y, d.x, d.y) < 160)
+            x.morale -= 14;
+}
+// wilk olbrzym: skok i obalenie
+function beastLeap(b, u, dt) {
+    const U = u, t = u.target;
+    if (U.leapT > 0) {
+        U.leapT -= dt;
+        if (t && t.active && dist(u.x, u.y, t.x, t.y) < 12 && !U.leapHit) {
+            U.leapHit = 1;
+            b.damage(t, 18, u, false, "pierce", true);
+            if (t.active && !t.mounted) {
+                b.stagger(t, t.hero ? 0.8 : 1.3);
+                b.floater(t.x, t.y - 34, "OBALONY", PAL.redL, t.hero);
+            }
+            if (t.mounted && chance(0.3))
+                b.dismount(t);
+        }
+        return U.leapT > 0;
+    }
+    if (!t || !t.active || (U.leapCd || 0) > b.time)
+        return false;
+    const d = dist(u.x, u.y, t.x, t.y);
+    if (d < 35 || d > 80 || u.state !== "idle")
+        return false;
+    U.leapCd = b.time + rr(5, 8);
+    U.leapT = 0.35;
+    U.leapHit = 0;
+    const a = Math.atan2(t.y - u.y, t.x - u.x);
+    u.vx = Math.cos(a) * 230;
+    u.vy = Math.sin(a) * 230;
+    u.face = u.wantFace = a;
+    const s = b.vol(u.x);
+    b.sfx.trample(s.v * 0.6, s.pan);
+    b.dust(u.x, u.y, 4);
+    return true;
 }
 
 "use strict";
@@ -10947,6 +11085,20 @@ function weaponAngle(b, u) {
     }
 }
 function drawUnit(b, g, u, sx, sy) {
+    if (!u.big) {
+        drawUnitInner(b, g, u, sx, sy);
+        return;
+    }
+    // lord: o ok. 15% większy
+    const fx = Math.round(u.x - sx), fy = Math.round(u.y - sy);
+    g.save();
+    g.translate(fx, fy);
+    g.scale(1.15, 1.15);
+    g.translate(-fx, -fy);
+    drawUnitInner(b, g, u, sx, sy);
+    g.restore();
+}
+function drawUnitInner(b, g, u, sx, sy) {
     if (u.state === "down") {
         drawCorpse(g, { x: u.x, y: u.y, img: u.spr.frames[0][0], flip: false, rot: 1, undead: false, bones: false, t: 1, pooled: true }, sx, sy);
         return;
@@ -18583,6 +18735,7 @@ function launchBattle(ctx, cfgExtra = {}) {
         siegeDefender: ctx.kind === "siege" ? 1 : undefined,
         maxPerSide: settings.battleSize,
         title: ctx.title,
+        ...{ lordTrait: (() => { const e = ctx.enemies.find((x) => x.lord !== undefined && x.lord >= 0); const L = e ? lordById(w, e.lord) : null; return L && L.faction !== 5 ? L.personality : undefined; })() },
         dmgTaken: w.diff && w.diff.dmg !== 1 ? w.diff.dmg : undefined,
         ...cfgExtra,
     };
@@ -25626,7 +25779,7 @@ function companionExtraActs(w, re) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.31";
+const BUILD = "Build 0.32";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;

@@ -396,6 +396,14 @@ function weaponAngle(b: Battle, u: Unit): { a: number; ext: number } {
 }
 
 function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, sy: number) {
+  if (!(u as any).big) { drawUnitInner(b, g, u, sx, sy); return; }
+  // lord: o ok. 15% większy
+  const fx = Math.round(u.x - sx), fy = Math.round(u.y - sy);
+  g.save(); g.translate(fx, fy); g.scale(1.15, 1.15); g.translate(-fx, -fy);
+  drawUnitInner(b, g, u, sx, sy);
+  g.restore();
+}
+function drawUnitInner(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, sy: number) {
   if (u.state === "down") { drawCorpse(g, { x: u.x, y: u.y, img: u.spr.frames[0][0], flip: false, rot: 1, undead: false, bones: false, t: 1, pooled: true }, sx, sy); return; }
   const alpha = u.hidden ? 0.45 : u.lifeT > 0 && u.lifeT < 9000 ? 0.75 + Math.sin(b.real * 8) * 0.1 : 1;
   g.globalAlpha = alpha;

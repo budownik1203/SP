@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.31** (30 października 2026).
+Stan na **Build 0.32** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -75,7 +75,7 @@ czego używa.
 
 ## 4. Mapa kodu (`src/`, ok. 16 tys. linii)
 
-Kolejność sklejania: core, sprites, units, audio, battleMap, battle, herofeel, abilities, battleRender, world,
+Kolejność sklejania: core, sprites, units, audio, battleMap, battle, herofeel, warlords, abilities, battleRender, world,
 politics, skills, worldRender, ui, campaign, screens, camp, craft, siege, tactics, kingdom, intel,
 renown, retinue, main.
 
@@ -88,6 +88,7 @@ renown, retinue, main.
 | `battleMap.ts` | generowanie pól bitwy: teren, sezon, region, uliczki miasta, palisada obozu, mury |
 | `battle.ts` | klasa `Battle` i `Unit`: symulacja, AI, rozkazy (`cmdMenu`, `cmdChoose`), oblężenia, `KEYDEF` (wszystkie klawisze), `resolveHit`, `damage`, `kill`, wynik |
 | `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany); B30: koniec serii (`isSeriesEnd`, `seriesEndMods`), ciężki zamach przez kilku (`cleaveCount`, `cleaveK`), uderzenie tarczą (`shieldBash`), zaparta drzewcowa (`braceTick`), postawa elit (`hasPosture`, `breakPosture`, `drawPosture`), idealny unik (`perfectDodge`), ciosy nie do zablokowania (`rollUnblockable`), zapowiedzi (`drawTelegraphs`), odbijanie strzał (`deflectArrow`), uderzenie o przeszkodę (`slamCheck`), egzekucje (`tryExecute`, klawisz kopniaka F), seria zabójstw (`heroKillStreak`), krytyki (`critRoll`); B31: mistrzostwo broni (`masteryXp`, `masteryLevel`, `addMastery`, `masteryPk`, trafienia liczone w `b.mastHits`), ruchy specjalne klas (`SPECIALS`, `weaponSpecial`, klawisz 5), broń rzucana (`THROWN`, przedmioty `t_knives`/`t_axes`/`t_javelins` w slocie drugiej broni, `heroThrow` klawisz 6, `throwTick` podnoszenie), szał (`ABILITIES.rage`, `castRage`, `raging`), mistrz broni w mieście i zamku (`masterHtml`, `masterActs`) |
+| `warlords.ts` | B32: lord w bitwie: charakter (`lordTrait` z `cfg.lordTrait` = osobowość lorda), `setupLord` (powiększenie `big`, gwardia `guard` w oddziale 5, chorąży), `lordAI` (honorowy wyzywa bohatera i gwardia się nie wtrąca, okrutny obniża morale wokół, chciwy ucieka przy 45% zdrowia, ostrożny i chciwy stoją z tyłu), `bearerFalls` (padający sztandar), `beastLeap` (wilk olbrzym skacze i obala); rysowanie powiększenia w `drawUnit` (`battleRender.ts`) |
 | `abilities.ts` | umiejętności bohatera (1–3), kule ognia (`explodeFire`) |
 | `battleRender.ts` | rysowanie bitwy, noc, deszcz, mgła, tonowanie, celownik |
 | `world.ts` | `World`, generowanie świata, A* (`findPath`), AI oddziałów (`partyAI`), `dailyTick`, ekonomia, `BUILDINGS`, `COMPANIONS`, `partyLimit`, `heroMaxHp` |
@@ -150,7 +151,7 @@ wypisując na końcu `errors N` (błędy strony). Uruchomienie: `node tests/b23.
 
 - Regresja po każdym buildzie: `t11` (bot gra 14 dni kampanii), `b8`, `b19`, `b22`, `b23`, `b24`,
   `b25`, `b26`, `b27`, `b29` (seria ciosów prawdziwymi kliknięciami myszy). Szybkie i najważniejsze:
-  `t11`, `b23`, `b24`, `b26`, `b29`, `b30`.
+  `t11`, `b23`, `b24`, `b26`, `b29`, `b30`, `b31`, `b32`.
 - `b8`: tryb „duel” zawsze kończy się `NOAFTER` (test odnawia zdrowie bohatera, który nie atakuje), tak
   było też przed B30, to nie regresja.
 - Znane niestabilności: `b8` (obrona, losowi lordowie) i `t11` (czasem timeout klikania) bywają
@@ -177,7 +178,9 @@ zrzuca jeźdźców, pasek postawy elit, oficerów i lordów, idealny unik, zapow
 odbijanie strzał parowaniem, uderzenie o przeszkodę, egzekucje (F), seria zabójstw, krytyki, więcej ćwiartowania ·
 B31 mistrzostwo broni (poziomy 0–5: krótszy zamach, szersze parowanie, krótsza przerwa po serii, dłuższa
 seria od 4), ruch specjalny każdej klasy broni (od 2. poziomu), broń rzucana zamiast drugiej broni, szał
-jako umiejętność, mistrz broni (lekcje, nauka szału), ćwiczenia w obozie podnoszą mistrzostwo.
+jako umiejętność, mistrz broni (lekcje, nauka szału), ćwiczenia w obozie podnoszą mistrzostwo ·
+B32 lordowie w bitwie: o 15% więksi i wytrzymalsi, z gwardią i chorążym, zachowanie według charakteru;
+wilki olbrzymy skaczą i obalają; szarża konna nie przewraca tarczowników w murze tarcz.
 Szczegóły każdego buildu są w GDD.
 
 ## 8. Co dalej (backlog z ankiet, kolejność według priorytetów użytkownika)
@@ -200,10 +203,12 @@ e. **Umiejętności:** sloty 1–3 (drzewka i nauczone), 5 (ruch broni) i 6 (rzu
    z ukrytymi parami-synergiami; runy wkuwane w broń w kuźni (zatrucie, krwawienie, ogłuszenie); cios
    z odskoku i łańcuch odskoków jako węzły drzewek.
 f. ~~Mistrzostwo broni~~ (B31). Zostało: mistrzowskie uderzenie jako ulepszenie z mistrzostwa, nauka na arenie.
-g. **Lordowie** o 10–15% więksi, z gwardią i chorążym; cechy w bitwie (odważny, ostrożny, okrutny,
-   honorowy i kilka innych); bestie z wzorcami ataków (wilk olbrzym, troll i ogr, upiór, abominacja).
-h. **Konno:** szarża przewraca piechotę poza tarczownikami w szyku, broń drzewcowa zrzuca jeźdźca, cięcie
-   z konia mocniejsze przy prędkości, koń może się przewrócić (bohater spada, ogłuszony).
+g. ~~Lordowie z gwardią, chorążym i charakterem; skok wilka olbrzyma~~ (B32). Zostało: więcej cech lordów
+   (np. odważny niezależnie od osobowości, przebiegły z zasadzką), potwory jeszcze nieistniejące w grze
+   (troll, ogr, upiór przenikający, abominacja z szarżą) jako nowe jednostki.
+h. ~~Konno~~: szarża przewraca piechotę (było, od B32 bez tarczowników w murze tarcz), drzewcowa zrzuca
+   jeźdźca (B30), cięcie z konia mocniejsze przy prędkości (było), koń pada (było: `dismount`, ogłuszenie).
+   **Walka bohaterem z ankiet jest w większości zrobiona.** Następne: konie (punkt 1), potem reszta.
 
 Potem reszta backlogu:
 
