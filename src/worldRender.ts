@@ -343,7 +343,8 @@ function oldMapOverlay(g: CanvasRenderingContext2D) {
 function settlementIcon(s: Settlement, w: World): HTMLCanvasElement {
   const wealth = s.prosperity < 35 ? 0 : s.prosperity > 72 ? 2 : 1;
   const sieged = s.siegeBy.length > 0, raided = s.raided > 0;
-  const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture].join(":");
+  const wd = Math.floor(wallDmg(s) / 34);   // wyrwy w murach zostają po oblężeniu
+  const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture, wd].join(":");
   let c = SICON.get(key);
   if (c) return c;
   const [col, , trim] = factionCol(s.faction);
@@ -473,6 +474,10 @@ function settlementIcon(s: Settlement, w: World): HTMLCanvasElement {
     if (sieged) { burnt(4, 12, 12, 10); burnt(30, 10, 12, 12); burnt(10, 26, 8, 6); }
     if (poor && !orc && !dwarf) { P.r(10, 22, 3, 3, null); P.r(36, 26, 2, 3, PAL.ink); }
     if (raided) burnt(4, 10, 40, 14);
+  }
+  if (wd > 0 && s.kind !== "village") {   // wyrwy w murach po ostrzale
+    const gaps = s.kind === "town" ? [[12, 21], [35, 23]] : [[7, 15], [27, 18]];
+    gaps.slice(0, wd).forEach(([gx, gy]) => { P.r(gx, gy, 4, 7, null); P.r(gx - 1, gy + 7, 6, 2, PAL.stone); P.p(gx + 1, gy + 6, PAL.slate); P.p(gx - 2, gy + 8, PAL.ash); });
   }
   c = P.toCanvas(true, true);
   SICON.set(key, c);

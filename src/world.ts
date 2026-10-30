@@ -782,6 +782,7 @@ function dailyTick(w: World) {
     if (s.kind !== "village" && !s.siegeBy.length && troopCount(s.garrison) < (s.kind === "town" ? 42 : 30) + ((s as any).build?.mury ? 15 : 0) + (und ? 20 : 0) && chance(und ? 0.6 : 0.3)) fillGarrison(w, s, und ? 3 : 2);
     if (s.tournament > 0) s.tournament--;
     if (s.kind === "town" && s.faction !== 5 && s.tournament === 0 && chance(0.015)) { s.tournament = 6; chron(w, `W ${s.name} ogłoszono turniej. Nagroda: 600 denarów.`, PAL.gold); }
+    siegeDaily(w, s);
     // oblężenie AI
     if (s.siegeBy.length) {
       s.siegeBy = s.siegeBy.filter((id) => { const p = partyById(w, id); return p && p.siege === s.id && atWar(w, p.faction, s.faction); });
@@ -906,7 +907,7 @@ function caravanNext(w: World, p: Party, at: Settlement) {
 function aiAssault(w: World, s: Settlement) {
   const att = s.siegeBy.map((id) => partyById(w, id)).filter(Boolean);
   const ap = att.reduce((sum, p) => sum + partyPower(w, p), 0);
-  const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.7 : 1);   // martwi nie głodują, krasnoludzkie twierdze w skale
+  const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.7 : 1) * (1 - wallDmg(s) / 250);   // martwi nie głodują, krasnoludzkie twierdze w skale; wyrwy osłabiają obronę
   const win = ap * rr(0.75, 1.25) > dp;
   const lossA = clamp((dp / Math.max(1, ap)) * 0.45, 0.05, 0.9), lossD = clamp((ap / Math.max(1, dp)) * 0.5, 0.1, 1);
   for (const p of att) applyLosses(p.troops, win ? lossA : Math.min(0.9, lossA * 1.4));

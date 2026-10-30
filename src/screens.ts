@@ -799,18 +799,20 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
             ${hasEngineer() ? `<p class="tip">${ic("hammer")} Inżynier w drużynie: możesz budować wieżę i trebusz. W bitwie T: strzał z trebusza w miejsce kursora.</p>` : `<p class="tip">${ic("hammer")} Bez inżyniera (kompan) zbudujesz tylko taran. Szukaj krasnoludzkiego sapera w karczmach.</p>`}
             <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : e.k !== "ram" && !hasEngineer() ? `<button class="mini" disabled>Potrzebny inżynier</button>` : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
             <p class="tip">Każdy dzień oczekiwania posuwa budowę zaznaczonych machin. Bez taranu brama ledwo drgnie.</p>
-            <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button><button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
+            <p>${ic("castle")} Stan murów: <b>${wallWord(s)}</b>${wallDmg(s) ? ` (${Math.round(wallDmg(s))}%)` : ""}. Wyrwy zostaną otwarte na początku szturmu.</p>
+            <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button>${SW().q.mine >= 5 ? `<button data-a="mineGo">Wejdź podkopem nocą</button>` : ""}<button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
             : `<p>Oblężenie zablokuje dostawy i da czas na zbicie drabin. Obrońcy mają przewagę murów.</p><div class="btns"><button data-a="besiege">Rozpocznij oblężenie</button></div>`}
           <p class="tip">Twoja siła: ${Math.round(partyPower(w, p))} · obrońcy: ${Math.round(troopPower(s.garrison) * 1.6 + lordsInside.reduce((a, l) => a + partyPower(w, l), 0))} (z murami)</p>`,
         acts: {
           besiege: () => { s.siegeBy.push(p.id); p.siege = s.id; if (s.siegeBy.length === 1) s.siegeDays = 0; chron(w, `${P.name} oblega ${s.name}.`, PAL.redL); re(); },
           eng: (k) => { SW().on[k] = !SW().on[k]; re(); },
-          waitDay: () => { closeScreen(); G.waitHours = 24; G.camping = true; p.state = "camp"; pendingAfterWait = () => { s.siegeDays = Math.max(s.siegeDays, 1); for (const e of ENGINES) if (SW().on[e.k] && SW().q[e.k] < e.days) { SW().q[e.k]++; if (SW().q[e.k] >= e.days) toast(`${e.name}: gotowe.`, PAL.gold); } enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
+          waitDay: () => { closeScreen(); G.waitHours = 24; G.camping = true; p.state = "camp"; pendingAfterWait = () => { s.siegeDays = Math.max(s.siegeDays, 1); for (const e of ENGINES) if (SW().on[e.k] && SW().q[e.k] < e.days) { SW().q[e.k]++; if (SW().q[e.k] >= e.days) toast(`${e.name}: gotowe.`, PAL.gold); } if (playerSiegeDay(s)) return; enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
+          mineGo: () => { closeScreen(); mineAssault(s); },
           lift: () => { s.siegeBy = s.siegeBy.filter((id) => id !== p.id); p.siege = undefined; (P as any).siegeWork = null; closeScreen(); },
           assault: () => {
             const enemies = lordsInside;
             const q = SW().q;
-            launchBattle({ kind: "siege", enemies, allies: nearbyAlliesOf(s), settlement: s, enemyTroops: s.garrison, title: `Szturm na ${s.name}` }, { engines: { ram: q.ram >= 1, tower: q.tower >= 2, trebuchet: q.treb >= 2 } });
+            launchBattle({ kind: "siege", enemies, allies: nearbyAlliesOf(s), settlement: s, enemyTroops: s.garrison, title: `Szturm na ${s.name}` }, { engines: { ram: q.ram >= 1, tower: q.tower >= 2, trebuchet: q.treb >= 2 }, wallDmg: wallDmg(s) });
           },
         },
       };
@@ -822,12 +824,15 @@ function hasEngineer() { return WORLD.player.companions.some((c) => c.role === "
 const ENGINES = [
   { k: "ram", name: "Taran", days: 1, desc: "Pchany pod bramę, rozbija ją w kilka uderzeń." },
   { k: "tower", name: "Wieża oblężnicza", days: 2, desc: "Podjeżdża pod mur i opuszcza pomost." },
-  { k: "treb", name: "Trebusz", days: 2, desc: "Głazy rozbijają obrońców na murach i bramę." },
+  { k: "treb", name: "Trebusz", days: 2, desc: "Głazy rozbijają obrońców na murach i bramę. Każdy dzień ostrzału kruszy mury." },
+  { k: "cata", name: "Katapulta", days: 2, desc: "Lżejsza od trebusza, bez inżyniera. Codziennie nadkrusza mury." },
+  { k: "mine", name: "Podkop", days: 5, desc: "Chodnik pod mur. Gotowy podkop pozwala wejść nocą do środka z małym oddziałem. Inżynier kopie dwa razy szybciej." },
 ];
 // Postęp budowy machin dla bieżącego oblężenia gracza.
 function SW(): { sid: number; q: Record<string, number>; on: Record<string, boolean> } {
   const P = WORLD.player as any, sid = SET.id;
-  if (!P.siegeWork || P.siegeWork.sid !== sid) P.siegeWork = { sid, q: { ram: 0, tower: 0, treb: 0 }, on: {} };
+  if (!P.siegeWork || P.siegeWork.sid !== sid) P.siegeWork = { sid, q: { ram: 0, tower: 0, treb: 0, cata: 0, mine: 0 }, on: {} };
+  for (const k of ["cata", "mine"]) P.siegeWork.q[k] ??= 0;
   return P.siegeWork;
 }
 function nearbyAlliesOf(s: Settlement): Party[] { const w = WORLD, p = playerParty(w); return w.parties.filter((o) => o.kind === "lord" && !hostile(w, p, o) && atWar(w, o.faction, s.faction) && dist(o.x, o.y, s.cx * WCELL, s.cy * WCELL) < 40); }

@@ -1,8 +1,8 @@
 // Mapa bitwy: teren według miejsca starcia (równina, las, wzgórza, bagno, rzeka, wybrzeże, ruiny), oblężenie i arena.
 // Siatka komórek 8 px: 0 zwykła, 1 wolna (bagno, bród), 2 zablokowana (głęboka woda, mur), 5 drabina, 6 brama.
 
-type Terrain = "plains" | "forest" | "hills" | "swamp" | "river" | "coast" | "ruins" | "arena" | "siege" | "village" | "bridge" | "ravine";
-const TERRAIN_NAME: Record<Terrain, string> = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz" };
+type Terrain = "plains" | "forest" | "hills" | "swamp" | "river" | "coast" | "ruins" | "arena" | "siege" | "village" | "bridge" | "ravine" | "streets";
+const TERRAIN_NAME: Record<Terrain, string> = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz", streets: "Uliczki miasta" };
 const CELL = 8;
 
 interface Area { x: number; y: number; r: number; }
@@ -200,7 +200,7 @@ function makeBattleMap(t: Terrain, night: boolean, opt: MapOpts = { season: 1, r
   if (t !== "arena") {
     for (const f of M.forests) for (let i = 0; i < f.r * (t === "forest" ? 0.9 : 0.5); i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r; if (clearings.some((c) => dist(c.x, c.y, f.x + Math.cos(a) * r, f.y + Math.sin(a) * r) < c.r)) continue; tryPlace(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 6, t === "swamp" ? pick(DEADTREES) : pick([TREES[0], TREES[1], TREES[2], TREES[2], DEADTREES[0]]), 10); }
     const centerFree = (x: number, y: number) => y > 300 && y < 700 && x > 250 && x < 1350;
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < (t === "streets" ? 0 : 90); i++) {
       const x = rr(20, w - 20), y = rr(20, h - 15);
       if (centerFree(x, y) && !chance(0.08)) continue;
       if (t === "siege" && x > 900) continue;
@@ -210,6 +210,15 @@ function makeBattleMap(t: Terrain, night: boolean, opt: MapOpts = { season: 1, r
       for (let i = 0; i < 18; i++) tryPlace(rr(300, 1300), rr(150, 850), 7, pick(ROCKS), 12);
       // murki: osłona przed strzałami
       for (let i = 0; i < 26; i++) { const x = rr(420, 1180), y = rr(200, 800); if (tryPlace(x, y, 9, lowWall(i), 6)) M.obstacles[M.obstacles.length - 1].cover = true; }
+    }
+    if (t === "streets") {   // uliczki: kwartały domów z wąskimi przejściami, barykady z wozów, kilka pożarów
+      let k = 0; const burn: V[] = [];
+      for (let bx = 520; bx <= 1300; bx += 66) for (let by = 120; by <= 900; by += 56) {
+        if (Math.abs(by - roadAt(bx)) < 34 || (bx - 520) % 198 === 132) continue;   // główna ulica i przecznice
+        if (tryPlace(bx + rr(-4, 4), by + rr(-3, 3), 13, chance(0.15) ? burntHouse() : PROPS.house, 1)) { const o = M.obstacles[M.obstacles.length - 1]; if (o.img !== PROPS.house) burn.push({ x: o.x, y: o.y - 18 }); }
+      }
+      for (let i = 0; i < 10; i++) { const x = rr(620, 1200), y = chance(0.5) ? rr(470, 530) : rr(150, 850); if (tryPlace(x, y, 8, fence(k++), 4)) M.obstacles[M.obstacles.length - 1].cover = true; }
+      (M as any).burning = burn;
     }
     if (t === "village") {
       for (let i = 0; i < 16; i++) tryPlace(rr(560, 1040) + (i % 2 ? 0 : rr(-40, 40)), rr(260, 740), 13, PROPS.house, 20);

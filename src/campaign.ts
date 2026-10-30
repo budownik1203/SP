@@ -367,7 +367,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   if (b.phase === "deploy") { b.cmdOpen = true; b.say("Rozstawienie: ustaw oddziały (wybierz numer, PPM przeciągnij linię). Enter lub Spacja: do boju!", PAL.gold, true); }
   // sojusznicy słuchają tylko przy dobrej relacji z ich panem (albo gdy jesteś władcą lub marszałkiem)
   b.cfg.allyObey = P.status === "król" || ctx.allies.every((a) => a.lord == null || a.lord < 0 || (w.lords[a.lord]?.relation ?? 0) >= 10);
-  const intro = ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
+  const intro = (ctx as any).streets ? `Walka w uliczkach ${ctx.settlement.name}! Mieszczanie i resztki załogi bronią każdego domu.` : ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
   b.say(intro, PAL.bone, true);
   b.shout(ctx.title, PAL.gold);
   sfx.battleCry(1);
@@ -494,6 +494,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
       if (ctx.place.kind === "camp" || ctx.place.kind === "cemetery") { lootGold += 150; P.gold += 150; P.renown += 10; }
     }
     if (ctx.kind === "siege" && ctx.settlement && ctx.defend) { const s = ctx.settlement; s.siegeBy = []; s.siegeDays = 0; s.relation += 15; P.renown += 30; lines.push(`Oblężenie ${s.name} przełamane!`); chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold); }
+    else if (ctx.kind === "siege" && ctx.settlement && !ctx.defend && ctx.settlement.kind === "town" && !(ctx as any).streets && (troopCount(ctx.settlement.garrison) > 0 || chance(0.5))) { const st = ctx.settlement; lines.push("Mury zdobyte! Ale reszta załogi i mieszczanie barykadują uliczki."); sackNext = () => launchStreets(st); }
     else if (ctx.kind === "siege" && ctx.settlement) { siegeWon(ctx.settlement, lines); setTimeout(() => sfx.fanfare(), 1800); if (ctx.settlement.kind !== "village") sackNext = () => showSack(ctx.settlement); }
     if ((ctx as any).sally && ctx.settlement) { const s = ctx.settlement; for (const e of ctx.enemies) { e.siege = undefined; } s.siegeBy = []; s.siegeDays = 0; lines.push(`Nocny wypad rozbił obóz oblegających. ${s.name} wolne!`); P.renown += 25; chron(w, `${P.name} rozbija nocnym wypadem oblężenie ${s.name}.`, PAL.gold); }
     if (ctx.onWin) ctx.onWin(lines);
@@ -518,6 +519,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   plotCheckKing(w, lines);
   // muzyka po bitwie: fanfara i krótki motyw zwycięstwa albo lament po klęsce
   { if (r.win) { sfx.fanfare(); MOOD_HOLD.m = "victory"; MOOD_HOLD.until = performance.now() + 22000; } else { MOOD_HOLD.m = "lament"; MOOD_HOLD.until = performance.now() + 45000; } }
+  if ((ctx as any).after) { const f = (ctx as any).after as (win: boolean) => void, prev = sackNext; sackNext = () => { f(r.win); if (prev) prev(); }; }
   showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
   G.battle = null;
 }

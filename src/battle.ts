@@ -48,7 +48,7 @@ interface BattleConfig {
   maxPerSide?: number;
   title?: string;
   allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
-  tutorial?: boolean; dmgTaken?: number; campFort?: boolean; paint?: Record<number, { main: string; trim: string; charge: string }>;
+  tutorial?: boolean; dmgTaken?: number; campFort?: boolean; wallDmg?: number; paint?: Record<number, { main: string; trim: string; charge: string }>;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -290,6 +290,7 @@ class Battle {
     for (let i = 0; i < 220; i++) this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
     UNIT_PAINT = cfg.paint || null;   // obowiązuje przez całą bitwę (także posiłki z odwodu)
     this.spawnAll();
+    if (this.map.wall && cfg.wallDmg) { const n = Math.min(2, Math.floor(cfg.wallDmg / 34)); const spots = [220, 780, 300, 700]; for (let i = 0; i < n; i++) this.openBreach(spots[i] + rr(-30, 30), true); if (n) this.say(n > 1 ? "Ostrzał zrobił w murze dwie wyrwy." : "Ostrzał zrobił w murze wyrwę.", PAL.gold, true); }
     if (cfg.arena?.archery) {   // łucznictwo: słomiane tarcze w różnych odległościach
       this.units = this.units.filter((u) => u.team === 0);
       const h = this.hero; h.x = this.mw / 2 - 150; h.y = this.mh / 2; h.loadout = 1; h.ammo = 12; this.heroAmmoMax = 12; if (!h.bowDmg) h.bowDmg = 40;
@@ -321,8 +322,40 @@ class Battle {
     this.say("Drabina przystawiona do muru!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL);
     const s = this.vol(W2.x0); this.sfx.thunk(s.v, s.pan); this.dust(W2.x0 - 6, ly, 8); this.relayoutT = 0;
   }
+  // Wyrwa w murze w miejscu y: przejście przez mur, ranni obrońcy na tym odcinku.
+  openBreach(y: number, quiet = false) {
+    const W2 = this.map.wall; if (!W2) return;
+    const key = Math.round(y / 40), br = ((W2 as any).breaches ||= []) as number[];
+    if (br.includes(key * 40) || Math.abs(key * 40 - W2.gateY) < 40) return;
+    br.push(key * 40);
+    for (let yy = key * 40 - 10; yy <= key * 40 + 10; yy += CELL) for (let x = W2.x0; x <= W2.x1; x += CELL) { const cx = Math.floor(x / CELL), cy = Math.floor(yy / CELL); if (cy >= 0 && cy < this.map.gh) this.map.grid[cy * this.map.gw + cx] = 1; }
+    this.map.barrier.crossings.push({ y: key * 40, h: 10 });
+    if (!quiet) { this.say("Wyrwa w murze!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL, true); this.shout("Wyrwa!"); this.shake(5); }
+    this.relayoutT = 0;
+  }
+  oilT2 = 7;
   updateSiege(dt: number) {
     const W2 = this.map.wall, defT = this.cfg.siegeDefender ?? 1, atkT = 1 - defT;
+    // wrzący olej z blanków na tych, którzy tłoczą się pod murem
+    this.oilT2 -= dt;
+    const foot = (u: Unit) => u.team === atkT && u.active && u.x > W2.x0 - 34 && u.x < W2.x0 + 2;
+    const defOnWall = this.units.filter((u) => u.team === defT && u.active && this.onWall(u));
+    if (this.oilT2 <= 0) {   // kociołki z olejem także na odcinkach z drabinami i wyrwami
+      this.oilT2 = rr(7, 11);
+      if (defOnWall.length >= 2) {
+        const tg = this.units.filter(foot);
+        let best: Unit | null = null, bn = 0;
+        for (const u of tg) { const n = tg.filter((v) => dist(u.x, u.y, v.x, v.y) < 18).length; if (n > bn) { bn = n; best = u; } }
+        if (best && bn >= 3) {
+          const bx = best.x, by = best.y;
+          this.say(defT === 0 ? "Twoi ludzie leją wrzący olej z blanków!" : "Wrzący olej leje się z murów!", defT === 0 ? PAL.gold : PAL.redL);
+          for (const u of this.units) if (u.team === atkT && u.active && dist(u.x, u.y, bx, by) < 18) { this.damage(u, 28 + rr(0, 14), null, false, "blunt", true); u.burnT = Math.max(u.burnT, 2.5); if (u.active) u.morale -= 8; }
+          for (let i = 0; i < 26; i++) this.parts.push({ x: bx + rr(-12, 12), y: by + rr(-6, 6), z: rr(10, 40), vx: rr(-10, 10), vy: rr(-5, 5), vz: rr(-30, 10), life: rr(0.4, 0.9), max: 0.9, col: pick([PAL.gold, PAL.redL, PAL.dirtD]), kind: "fire" });
+          this.smoke(bx, by, 6, 5);
+          const s = this.vol(bx); this.sfx.scream(s.v, s.pan);
+        }
+      }
+    }
     // balista na murach
     this.ballistaT -= dt;
     if (this.ballistaT <= 0) {

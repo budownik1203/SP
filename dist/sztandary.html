@@ -4107,7 +4107,7 @@ const MOODS = {
 "use strict";
 // Mapa bitwy: teren według miejsca starcia (równina, las, wzgórza, bagno, rzeka, wybrzeże, ruiny), oblężenie i arena.
 // Siatka komórek 8 px: 0 zwykła, 1 wolna (bagno, bród), 2 zablokowana (głęboka woda, mur), 5 drabina, 6 brama.
-const TERRAIN_NAME = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz" };
+const TERRAIN_NAME = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz", streets: "Uliczki miasta" };
 const CELL = 8;
 function makeBattleMap(t, night, opt = { season: 1, region: "grass", rain: false }) {
     const w = t === "arena" ? 640 : 1600, h = t === "arena" ? 400 : 1000;
@@ -4403,7 +4403,7 @@ function makeBattleMap(t, night, opt = { season: 1, region: "grass", rain: false
                 tryPlace(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 6, t === "swamp" ? pick(DEADTREES) : pick([TREES[0], TREES[1], TREES[2], TREES[2], DEADTREES[0]]), 10);
             }
         const centerFree = (x, y) => y > 300 && y < 700 && x > 250 && x < 1350;
-        for (let i = 0; i < 90; i++) {
+        for (let i = 0; i < (t === "streets" ? 0 : 90); i++) {
             const x = rr(20, w - 20), y = rr(20, h - 15);
             if (centerFree(x, y) && !chance(0.08))
                 continue;
@@ -4420,6 +4420,26 @@ function makeBattleMap(t, night, opt = { season: 1, region: "grass", rain: false
                 if (tryPlace(x, y, 9, lowWall(i), 6))
                     M.obstacles[M.obstacles.length - 1].cover = true;
             }
+        }
+        if (t === "streets") { // uliczki: kwartały domów z wąskimi przejściami, barykady z wozów, kilka pożarów
+            let k = 0;
+            const burn = [];
+            for (let bx = 520; bx <= 1300; bx += 66)
+                for (let by = 120; by <= 900; by += 56) {
+                    if (Math.abs(by - roadAt(bx)) < 34 || (bx - 520) % 198 === 132)
+                        continue; // główna ulica i przecznice
+                    if (tryPlace(bx + rr(-4, 4), by + rr(-3, 3), 13, chance(0.15) ? burntHouse() : PROPS.house, 1)) {
+                        const o = M.obstacles[M.obstacles.length - 1];
+                        if (o.img !== PROPS.house)
+                            burn.push({ x: o.x, y: o.y - 18 });
+                    }
+                }
+            for (let i = 0; i < 10; i++) {
+                const x = rr(620, 1200), y = chance(0.5) ? rr(470, 530) : rr(150, 850);
+                if (tryPlace(x, y, 8, fence(k++), 4))
+                    M.obstacles[M.obstacles.length - 1].cover = true;
+            }
+            M.burning = burn;
         }
         if (t === "village") {
             for (let i = 0; i < 16; i++)
@@ -4860,6 +4880,7 @@ class Battle {
         this.furyMul = 1;
         this.heroSpeed = 1;
         this.light = null;
+        this.oilT2 = 7;
         this.heroAmmoMax = 30;
         this.castFlash = null;
         this.pk = {};
@@ -4925,6 +4946,14 @@ class Battle {
             this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
         UNIT_PAINT = cfg.paint || null; // obowiązuje przez całą bitwę (także posiłki z odwodu)
         this.spawnAll();
+        if (this.map.wall && cfg.wallDmg) {
+            const n = Math.min(2, Math.floor(cfg.wallDmg / 34));
+            const spots = [220, 780, 300, 700];
+            for (let i = 0; i < n; i++)
+                this.openBreach(spots[i] + rr(-30, 30), true);
+            if (n)
+                this.say(n > 1 ? "Ostrzał zrobił w murze dwie wyrwy." : "Ostrzał zrobił w murze wyrwę.", PAL.gold, true);
+        }
         if (cfg.arena?.archery) { // łucznictwo: słomiane tarcze w różnych odległościach
             this.units = this.units.filter((u) => u.team === 0);
             const h = this.hero;
@@ -4987,9 +5016,67 @@ class Battle {
         this.dust(W2.x0 - 6, ly, 8);
         this.relayoutT = 0;
     }
+    // Wyrwa w murze w miejscu y: przejście przez mur, ranni obrońcy na tym odcinku.
+    openBreach(y, quiet = false) {
+        var _a;
+        const W2 = this.map.wall;
+        if (!W2)
+            return;
+        const key = Math.round(y / 40), br = ((_a = W2).breaches || (_a.breaches = []));
+        if (br.includes(key * 40) || Math.abs(key * 40 - W2.gateY) < 40)
+            return;
+        br.push(key * 40);
+        for (let yy = key * 40 - 10; yy <= key * 40 + 10; yy += CELL)
+            for (let x = W2.x0; x <= W2.x1; x += CELL) {
+                const cx = Math.floor(x / CELL), cy = Math.floor(yy / CELL);
+                if (cy >= 0 && cy < this.map.gh)
+                    this.map.grid[cy * this.map.gw + cx] = 1;
+            }
+        this.map.barrier.crossings.push({ y: key * 40, h: 10 });
+        if (!quiet) {
+            this.say("Wyrwa w murze!", (this.cfg.siegeDefender ?? 1) === 1 ? PAL.gold : PAL.redL, true);
+            this.shout("Wyrwa!");
+            this.shake(5);
+        }
+        this.relayoutT = 0;
+    }
     updateSiege(dt) {
         var _a, _b;
         const W2 = this.map.wall, defT = this.cfg.siegeDefender ?? 1, atkT = 1 - defT;
+        // wrzący olej z blanków na tych, którzy tłoczą się pod murem
+        this.oilT2 -= dt;
+        const foot = (u) => u.team === atkT && u.active && u.x > W2.x0 - 34 && u.x < W2.x0 + 2;
+        const defOnWall = this.units.filter((u) => u.team === defT && u.active && this.onWall(u));
+        if (this.oilT2 <= 0) { // kociołki z olejem także na odcinkach z drabinami i wyrwami
+            this.oilT2 = rr(7, 11);
+            if (defOnWall.length >= 2) {
+                const tg = this.units.filter(foot);
+                let best = null, bn = 0;
+                for (const u of tg) {
+                    const n = tg.filter((v) => dist(u.x, u.y, v.x, v.y) < 18).length;
+                    if (n > bn) {
+                        bn = n;
+                        best = u;
+                    }
+                }
+                if (best && bn >= 3) {
+                    const bx = best.x, by = best.y;
+                    this.say(defT === 0 ? "Twoi ludzie leją wrzący olej z blanków!" : "Wrzący olej leje się z murów!", defT === 0 ? PAL.gold : PAL.redL);
+                    for (const u of this.units)
+                        if (u.team === atkT && u.active && dist(u.x, u.y, bx, by) < 18) {
+                            this.damage(u, 28 + rr(0, 14), null, false, "blunt", true);
+                            u.burnT = Math.max(u.burnT, 2.5);
+                            if (u.active)
+                                u.morale -= 8;
+                        }
+                    for (let i = 0; i < 26; i++)
+                        this.parts.push({ x: bx + rr(-12, 12), y: by + rr(-6, 6), z: rr(10, 40), vx: rr(-10, 10), vy: rr(-5, 5), vz: rr(-30, 10), life: rr(0.4, 0.9), max: 0.9, col: pick([PAL.gold, PAL.redL, PAL.dirtD]), kind: "fire" });
+                    this.smoke(bx, by, 6, 5);
+                    const s = this.vol(bx);
+                    this.sfx.scream(s.v, s.pan);
+                }
+            }
+        }
         // balista na murach
         this.ballistaT -= dt;
         if (this.ballistaT <= 0) {
@@ -12014,6 +12101,7 @@ function dailyTick(w) {
             s.tournament = 6;
             chron(w, `W ${s.name} ogłoszono turniej. Nagroda: 600 denarów.`, PAL.gold);
         }
+        siegeDaily(w, s);
         // oblężenie AI
         if (s.siegeBy.length) {
             s.siegeBy = s.siegeBy.filter((id) => { const p = partyById(w, id); return p && p.siege === s.id && atWar(w, p.faction, s.faction); });
@@ -12230,7 +12318,7 @@ function caravanNext(w, p, at) {
 function aiAssault(w, s) {
     const att = s.siegeBy.map((id) => partyById(w, id)).filter(Boolean);
     const ap = att.reduce((sum, p) => sum + partyPower(w, p), 0);
-    const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.7 : 1); // martwi nie głodują, krasnoludzkie twierdze w skale
+    const dp = (troopPower(s.garrison) * 2.1 + 8) * (s.faction === 5 ? 1.45 : s.faction === 3 ? 1.7 : 1) * (1 - wallDmg(s) / 250); // martwi nie głodują, krasnoludzkie twierdze w skale; wyrwy osłabiają obronę
     const win = ap * rr(0.75, 1.25) > dp;
     const lossA = clamp((dp / Math.max(1, ap)) * 0.45, 0.05, 0.9), lossD = clamp((ap / Math.max(1, dp)) * 0.5, 0.1, 1);
     for (const p of att)
@@ -14787,7 +14875,8 @@ function oldMapOverlay(g) {
 function settlementIcon(s, w) {
     const wealth = s.prosperity < 35 ? 0 : s.prosperity > 72 ? 2 : 1;
     const sieged = s.siegeBy.length > 0, raided = s.raided > 0;
-    const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture].join(":");
+    const wd = Math.floor(wallDmg(s) / 34); // wyrwy w murach zostają po oblężeniu
+    const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture, wd].join(":");
     let c = SICON.get(key);
     if (c)
         return c;
@@ -15120,6 +15209,10 @@ function settlementIcon(s, w) {
         }
         if (raided)
             burnt(4, 10, 40, 14);
+    }
+    if (wd > 0 && s.kind !== "village") { // wyrwy w murach po ostrzale
+        const gaps = s.kind === "town" ? [[12, 21], [35, 23]] : [[7, 15], [27, 18]];
+        gaps.slice(0, wd).forEach(([gx, gy]) => { P.r(gx, gy, 4, 7, null); P.r(gx - 1, gy + 7, 6, 2, PAL.stone); P.p(gx + 1, gy + 6, PAL.slate); P.p(gx - 2, gy + 8, PAL.ash); });
     }
     c = P.toCanvas(true, true);
     SICON.set(key, c);
@@ -17749,7 +17842,7 @@ function launchBattle(ctx, cfgExtra = {}) {
     }
     // sojusznicy słuchają tylko przy dobrej relacji z ich panem (albo gdy jesteś władcą lub marszałkiem)
     b.cfg.allyObey = P.status === "król" || ctx.allies.every((a) => a.lord == null || a.lord < 0 || (w.lords[a.lord]?.relation ?? 0) >= 10);
-    const intro = ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
+    const intro = ctx.streets ? `Walka w uliczkach ${ctx.settlement.name}! Mieszczanie i resztki załogi bronią każdego domu.` : ctx.kind === "siege" && ctx.defend ? `Wróg pod murami ${ctx.settlement.name}! Trzymajcie blanki i bramę.` : ctx.kind === "siege" ? `Szturm na ${ctx.settlement.name}! Drabiny pod murami, taran przy bramie.` : ctx.kind === "arena" ? "Arena. Walczysz do nokautu." : `${TERRAIN_NAME[cfg.terrain]}${night ? ", noc" : ""}${cfg.rain ? ", deszcz" : ""}. ${troopCount(enemyTroops)} wrogów przeciw ${healthyTroops(p.troops).reduce((s, t) => s + t.n, 0) + 1 + cfg.player.companions.length + allies.reduce((s, a) => s + a.troops.reduce((q, t) => q + t.n, 0), 0)} twoim.`;
     b.say(intro, PAL.bone, true);
     b.shout(ctx.title, PAL.gold);
     sfx.battleCry(1);
@@ -18008,6 +18101,11 @@ function applyBattleResult(r, auto = false) {
             lines.push(`Oblężenie ${s.name} przełamane!`);
             chron(w, `${P.name} przełamuje oblężenie ${s.name}.`, PAL.gold);
         }
+        else if (ctx.kind === "siege" && ctx.settlement && !ctx.defend && ctx.settlement.kind === "town" && !ctx.streets && (troopCount(ctx.settlement.garrison) > 0 || chance(0.5))) {
+            const st = ctx.settlement;
+            lines.push("Mury zdobyte! Ale reszta załogi i mieszczanie barykadują uliczki.");
+            sackNext = () => launchStreets(st);
+        }
         else if (ctx.kind === "siege" && ctx.settlement) {
             siegeWon(ctx.settlement, lines);
             setTimeout(() => sfx.fanfare(), 1800);
@@ -18072,6 +18170,11 @@ function applyBattleResult(r, auto = false) {
             MOOD_HOLD.m = "lament";
             MOOD_HOLD.until = performance.now() + 45000;
         }
+    }
+    if (ctx.after) {
+        const f = ctx.after, prev = sackNext;
+        sackNext = () => { f(r.win); if (prev)
+            prev(); };
     }
     showAftermath(r, lootGold, lootItems, lines, sackNext || undefined);
     G.battle = null;
@@ -19475,7 +19578,8 @@ function settlementPane(s, hostileS) {
             ${hasEngineer() ? `<p class="tip">${ic("hammer")} Inżynier w drużynie: możesz budować wieżę i trebusz. W bitwie T: strzał z trebusza w miejsce kursora.</p>` : `<p class="tip">${ic("hammer")} Bez inżyniera (kompan) zbudujesz tylko taran. Szukaj krasnoludzkiego sapera w karczmach.</p>`}
             <h2>Machiny oblężnicze</h2><div class="engines">${ENGINES.map((e) => { const st = SW().q[e.k]; const done = st >= e.days; const queued = SW().on[e.k]; return `<div class="eng ${done ? "done" : ""}"><b>${e.name}</b><span class="muted">${e.desc}</span><span>${done ? "<span class='gold'>Gotowe</span>" : `${st}/${e.days} dni`}</span>${done ? "" : e.k !== "ram" && !hasEngineer() ? `<button class="mini" disabled>Potrzebny inżynier</button>` : `<button class="mini ${queued ? "on" : ""}" data-a="eng" data-v="${e.k}">${queued ? "W budowie" : "Buduj"}</button>`}</div>`; }).join("")}</div>
             <p class="tip">Każdy dzień oczekiwania posuwa budowę zaznaczonych machin. Bez taranu brama ledwo drgnie.</p>
-            <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button><button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
+            <p>${ic("castle")} Stan murów: <b>${wallWord(s)}</b>${wallDmg(s) ? ` (${Math.round(wallDmg(s))}%)` : ""}. Wyrwy zostaną otwarte na początku szturmu.</p>
+            <div class="btns"><button data-a="assault" ${s.siegeDays >= 1 ? "" : "disabled"}>Szturm!</button>${SW().q.mine >= 5 ? `<button data-a="mineGo">Wejdź podkopem nocą</button>` : ""}<button class="alt" data-a="waitDay">Czekaj dzień</button><button class="alt" data-a="lift">Odstąp</button></div>`
                     : `<p>Oblężenie zablokuje dostawy i da czas na zbicie drabin. Obrońcy mają przewagę murów.</p><div class="btns"><button data-a="besiege">Rozpocznij oblężenie</button></div>`}
           <p class="tip">Twoja siła: ${Math.round(partyPower(w, p))} · obrońcy: ${Math.round(troopPower(s.garrison) * 1.6 + lordsInside.reduce((a, l) => a + partyPower(w, l), 0))} (z murami)</p>`,
                 acts: {
@@ -19487,12 +19591,14 @@ function settlementPane(s, hostileS) {
                             SW().q[e.k]++;
                             if (SW().q[e.k] >= e.days)
                                 toast(`${e.name}: gotowe.`, PAL.gold);
-                        } enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
+                        } if (playerSiegeDay(s))
+                        return; enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
+                    mineGo: () => { closeScreen(); mineAssault(s); },
                     lift: () => { s.siegeBy = s.siegeBy.filter((id) => id !== p.id); p.siege = undefined; P.siegeWork = null; closeScreen(); },
                     assault: () => {
                         const enemies = lordsInside;
                         const q = SW().q;
-                        launchBattle({ kind: "siege", enemies, allies: nearbyAlliesOf(s), settlement: s, enemyTroops: s.garrison, title: `Szturm na ${s.name}` }, { engines: { ram: q.ram >= 1, tower: q.tower >= 2, trebuchet: q.treb >= 2 } });
+                        launchBattle({ kind: "siege", enemies, allies: nearbyAlliesOf(s), settlement: s, enemyTroops: s.garrison, title: `Szturm na ${s.name}` }, { engines: { ram: q.ram >= 1, tower: q.tower >= 2, trebuchet: q.treb >= 2 }, wallDmg: wallDmg(s) });
                     },
                 },
             };
@@ -19504,13 +19610,18 @@ function hasEngineer() { return WORLD.player.companions.some((c) => c.role === "
 const ENGINES = [
     { k: "ram", name: "Taran", days: 1, desc: "Pchany pod bramę, rozbija ją w kilka uderzeń." },
     { k: "tower", name: "Wieża oblężnicza", days: 2, desc: "Podjeżdża pod mur i opuszcza pomost." },
-    { k: "treb", name: "Trebusz", days: 2, desc: "Głazy rozbijają obrońców na murach i bramę." },
+    { k: "treb", name: "Trebusz", days: 2, desc: "Głazy rozbijają obrońców na murach i bramę. Każdy dzień ostrzału kruszy mury." },
+    { k: "cata", name: "Katapulta", days: 2, desc: "Lżejsza od trebusza, bez inżyniera. Codziennie nadkrusza mury." },
+    { k: "mine", name: "Podkop", days: 5, desc: "Chodnik pod mur. Gotowy podkop pozwala wejść nocą do środka z małym oddziałem. Inżynier kopie dwa razy szybciej." },
 ];
 // Postęp budowy machin dla bieżącego oblężenia gracza.
 function SW() {
+    var _a;
     const P = WORLD.player, sid = SET.id;
     if (!P.siegeWork || P.siegeWork.sid !== sid)
-        P.siegeWork = { sid, q: { ram: 0, tower: 0, treb: 0 }, on: {} };
+        P.siegeWork = { sid, q: { ram: 0, tower: 0, treb: 0, cata: 0, mine: 0 }, on: {} };
+    for (const k of ["cata", "mine"])
+        (_a = P.siegeWork.q)[k] ?? (_a[k] = 0);
     return P.siegeWork;
 }
 function nearbyAlliesOf(s) { const w = WORLD, p = playerParty(w); return w.parties.filter((o) => o.kind === "lord" && !hostile(w, p, o) && atWar(w, o.faction, s.faction) && dist(o.x, o.y, s.cx * WCELL, s.cy * WCELL) < 40); }
@@ -22805,8 +22916,178 @@ function lordSpoils(P, L, lines, lootItems) {
 }
 
 "use strict";
+// Oblężenia (Build 0.22): ostrzał i trwałe zniszczenia murów, kapitulacja głodujących obrońców, wypady,
+// podkop jako trzecia droga do twierdzy, walka w uliczkach po zdobyciu murów miasta, olej i kamienie z blanków.
+function wallDmg(s) { return clamp(s.wallDmg || 0, 0, 100); }
+function addWallDmg(s, v) { s.wallDmg = clamp(wallDmg(s) + v, 0, 100); }
+function wallWord(s) { const d = wallDmg(s); return d >= 68 ? "mury w gruzach, dwie wyrwy" : d >= 34 ? "wyrwa w murze" : d >= 12 ? "mury nadkruszone" : "mury całe"; }
+// Codziennie przy każdej osadzie z murami: naprawa, ostrzał AI, kapitulacja, wypady przeciw AI.
+function siegeDaily(w, s) {
+    if (s.kind === "village")
+        return;
+    if (!s.siegeBy.length) {
+        if (wallDmg(s) > 0)
+            addWallDmg(s, -2);
+        return;
+    } // naprawa trwa tygodnie
+    const player = s.siegeBy.includes(w.pid);
+    if (!player && s.siegeDays >= 3)
+        addWallDmg(s, 5); // AI stawia machiny i ostrzeliwuje mury
+    const att = s.siegeBy.map((id) => partyById(w, id)).filter(Boolean);
+    const ap = att.reduce((a, p) => a + partyPower(w, p), 0), gp = troopPower(s.garrison);
+    // kapitulacja: po wyczerpaniu zapasów i przy słabej załodze
+    if (!player && s.faction !== 5 && s.siegeDays > siegeStores(s) + 3 && gp * 2 < ap && chance(0.3)) {
+        const leader = att.sort((a, b) => partyPower(w, b) - partyPower(w, a))[0];
+        chron(w, `Głodująca załoga ${s.name} otwiera bramy przed ${leader.name}.`, PAL.redL, "siege");
+        s.garrison = s.garrison.map((t) => ({ ...t, n: Math.ceil(t.n * 0.3) }));
+        captureSettlement(w, s, leader.faction, leader.lord ?? -1);
+        fillGarrison(w, s, 8);
+        for (const p of att) {
+            p.siege = undefined;
+            p.state = "idle";
+            p.wait = 0;
+        }
+        s.siegeBy = [];
+        s.siegeDays = 0;
+        return;
+    }
+    // wypad obrońców na obóz AI
+    if (!player && gp * 1.4 > ap * 0.55 && chance(0.15)) {
+        const tgt = pick(att);
+        const k = gp / Math.max(1, gp + partyPower(w, tgt));
+        applyLosses(tgt.troops, clamp(k * 0.35, 0.05, 0.4));
+        applyLosses(s.garrison, clamp((1 - k) * 0.25, 0.04, 0.3));
+        chron(w, `Wypad z ${s.name}: obrońcy uderzają nocą na obóz ${tgt.name}.`, PAL.bone, "siege");
+    }
+}
+// Gracz czeka dzień pod murami: ostrzał z machin, czasem wypad obrońców albo propozycja kapitulacji.
+function playerSiegeDay(s) {
+    const w = WORLD, P = w.player, p = playerParty(w), q = SW().q;
+    let dmg = 0;
+    if (q.treb >= 2)
+        dmg += 10;
+    if (q.cata >= 2)
+        dmg += 7;
+    if (dmg) {
+        addWallDmg(s, dmg);
+        if (chance(0.5))
+            applyLosses(s.garrison, 0.02);
+        toast(`Ostrzał przez cały dzień: ${wallWord(s)}.`, PAL.gold);
+    }
+    if (q.mine > 0 && q.mine < ENGINES.find((e) => e.k === "mine").days && hasEngineer())
+        q.mine = Math.min(5, q.mine + 1); // inżynier kopie dwa razy szybciej
+    const gp = troopPower(s.garrison), mp = partyPower(w, p);
+    // kapitulacja
+    if (s.faction !== 5 && s.siegeDays > siegeStores(s) + 1 && gp < mp * 0.8 && chance(0.4)) {
+        showCapitulation(s);
+        return true;
+    }
+    // wypad
+    if (gp > mp * 0.35 && troopCount(s.garrison) > 12 && chance(0.15)) {
+        sallyAgainstPlayer(s);
+        return true;
+    }
+    return false;
+}
+function showCapitulation(s) {
+    const w = WORLD, P = w.player;
+    showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene("siege", s.seed, s.culture, isNight(w)), "scene-img")}</div>
+    <h1>Białe płótno na murach</h1><p>Z bramy ${s.name} wychodzi wychudzony herold. „Zapasy się skończyły. Kasztelan pyta o warunki: wolne wyjście dla załogi z bronią, a miasto jest twoje.”</p>
+    <div class="choices"><button class="choice" data-a="ok"><span class="key">1</span>Przyjmij warunki (honor +2, bez szturmu)</button>
+    <button class="choice" data-a="hard"><span class="key">2</span>Żądaj poddania bez broni (załoga trafia do niewoli, honor −1)</button>
+    <button class="choice alt" data-a="no"><span class="key">3</span>Odrzuć: niech głodują dalej</button></div></div>`, {
+        ok: () => { closeScreen(); const lines = []; P.honor += 2; s.relation += 10; chron(w, `${s.name} kapituluje przed ${P.name}. Załoga odchodzi z bronią.`, PAL.gold, "siege"); s.garrison = []; siegeWon(s, lines); lines.forEach((l) => toast(l, PAL.gold)); showSack(s); },
+        hard: () => { closeScreen(); const lines = []; P.honor -= 1; const p = playerParty(w); for (const t of s.garrison)
+            addTroops(p.prisoners, t.type, Math.max(0, t.n - t.wounded)); s.garrison = []; chron(w, `${s.name} poddaje się ${P.name} bez warunków.`, PAL.gold, "siege"); siegeWon(s, lines); lines.forEach((l) => toast(l, PAL.gold)); showSack(s); },
+        no: () => { closeScreen(); enterSettlement(s); SET.tab = "siege"; renderSettlement(); },
+    }, "dialog-scr");
+}
+function sallyAgainstPlayer(s) {
+    const w = WORLD;
+    const sally = [];
+    for (const t of s.garrison) {
+        const n = Math.floor((t.n - t.wounded) * 0.45);
+        if (n > 0) {
+            addTroops(sally, t.type, n);
+            removeTroops(s.garrison, t.type, n);
+        }
+    }
+    if (troopCount(sally) < 4) {
+        for (const t of sally)
+            addTroops(s.garrison, t.type, t.n);
+        return;
+    }
+    toast(`Wypad! Obrońcy ${s.name} uderzają nocą na wasz obóz.`, PAL.redL);
+    sfx.horn?.(0.9);
+    const ctx = { kind: "field", enemies: [], allies: [], enemyTroops: sally, title: `Wypad z ${s.name}` };
+    ctx.after = (win) => {
+        for (const t of sally)
+            if (t.n > 0)
+                addTroops(s.garrison, t.type, t.n); // ocaleli wracają za mury
+        if (!win) {
+            const P = w.player;
+            if (P.siegeWork)
+                P.siegeWork.q = { ram: 0, tower: 0, treb: 0, cata: 0, mine: 0 };
+            toast("Obrońcy podpalili wasze machiny. Budowa od nowa.", PAL.redL);
+        }
+    };
+    launchBattle(ctx, { night: true, terrain: "plains", campFort: true });
+}
+// Podkop: po wykopaniu nocą wchodzisz z małym oddziałem do środka twierdzy.
+function mineAssault(s) {
+    const w = WORLD;
+    const inner = [];
+    for (const t of s.garrison) {
+        const n = Math.ceil((t.n - t.wounded) * 0.4);
+        if (n > 0) {
+            addTroops(inner, t.type, n);
+            removeTroops(s.garrison, t.type, n);
+        }
+    }
+    toast("Ostatnie uderzenia kilofem. Ziemia się zapada, jesteście pod dziedzińcem!", PAL.gold);
+    const ctx = { kind: "field", enemies: [], allies: [], enemyTroops: inner, title: `Podkop pod ${s.name}` };
+    ctx.after = (win) => {
+        for (const t of inner)
+            if (t.n > 0)
+                addTroops(s.garrison, t.type, t.n);
+        if (win) {
+            const lines = [];
+            s.garrison = s.garrison.map((t) => ({ ...t, n: Math.floor(t.n * 0.2) })).filter((t) => t.n > 0);
+            chron(w, `${w.player.name} zdobywa ${s.name} podkopem.`, PAL.gold, "siege");
+            siegeWon(s, lines);
+            lines.forEach((l) => toast(l, PAL.gold));
+            setTimeout(() => showSack(s), 30);
+        }
+        else {
+            SW().q.mine = 0;
+            toast("Podkop zawalony. Obrońcy zasypali chodnik.", PAL.redL);
+        }
+    };
+    launchBattle(ctx, { night: true, terrain: "streets", maxPerSide: 30 });
+}
+// Walka w uliczkach: po zdobyciu murów miasta reszta załogi i mieszczanie bronią się między domami.
+function launchStreets(s) {
+    const w = WORLD;
+    const def = s.garrison.filter((t) => t.n - t.wounded > 0).map((t) => ({ ...t, n: t.n - t.wounded, wounded: 0 }));
+    s.garrison = [];
+    const mil = RECRUITS[s.culture]?.village?.[0];
+    if (mil && s.faction !== 5)
+        addTroops(def, mil, 6 + Math.round(s.prosperity / 10));
+    if (troopCount(def) < 3) {
+        const lines = [];
+        siegeWon(s, lines);
+        lines.forEach((l) => toast(l, PAL.gold));
+        showSack(s);
+        return;
+    }
+    toast(`Mury padły, ale ${s.name} się nie poddaje. Walka w uliczkach!`, PAL.redL);
+    sfx.horn?.(1);
+    launchBattle({ kind: "siege", enemies: [], allies: [], settlement: s, enemyTroops: def, title: `Uliczki ${s.name}`, streets: true }, { terrain: "streets", siegeDefender: undefined });
+}
+
+"use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.21.1";
+const BUILD = "Build 0.22";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -23537,6 +23818,7 @@ function spriteSheet(keys, scale = 3) {
     g2.drawImage(c, 0, 0, o.width, o.height);
     return o.toDataURL();
 }
+window.__T2 = { launchStreets, mineAssault, sallyAgainstPlayer, showCapitulation, playerSiegeDay };
 window.__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP)
         renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER)
         g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) {
