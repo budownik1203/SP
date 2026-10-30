@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.21";
+const BUILD = "Build 0.21.1";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -84,10 +84,10 @@ function toggleFullscreen() {
 
 // Mapa świata: płynne przybliżanie kółkiem (wiele stopni, przejście klatka po klatce).
 const MAPZ: [number, number][] = []; for (let wd = 320; wd <= 1600; wd += 32) MAPZ.push([wd, Math.round(wd * ASPECT)]);
-// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 2,8 w bitwie
+// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 1,6 w bitwie (dużo jednostek, kamera dalej)
 const wantMapW = clamp(Math.round($("wrap").clientWidth / 2.4 / 32) * 32, 480, 1120);
 let mapZ = Math.max(0, MAPZ.findIndex((z) => z[0] >= wantMapW)), mapZT = mapZ;
-zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 2.8) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 2.8) ? i : bi, 1);
+zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 1.6) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 1.6) ? i : bi, 3);
 function setRes(nw: number, nh: number) {
   if (nw === W && nh === H) return;
   const cam = G.state === "battle" && G.battle ? G.battle.cam : G.view.cam;

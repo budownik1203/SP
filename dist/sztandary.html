@@ -480,7 +480,7 @@ button{background-image:linear-gradient(transparent 70%,rgba(0,0,0,.12)),repeati
 let W = 480, H = 270;
 // Rozdzielczość wewnętrzna: szerokości stałe, wysokość z proporcji okna (gra wypełnia cały ekran).
 let ASPECT = 9 / 16;
-const ZOOMS = [[384, 216], [480, 270], [640, 360], [800, 450], [960, 540]];
+const ZOOMS = [[384, 216], [480, 270], [640, 360], [800, 450], [960, 540], [1120, 630], [1280, 720]];
 // Stała, zgniła paleta (Build B4): oliwki, brązy, szarości, mocny kontrast. 35 kolorów.
 const PAL = {
     black: "#0a0908", ink: "#15120e", dusk: "#221d18", slate: "#332e28",
@@ -22806,7 +22806,7 @@ function lordSpoils(P, L, lines, lootItems) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.21";
+const BUILD = "Build 0.21.1";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -22924,10 +22924,10 @@ function toggleFullscreen() {
 const MAPZ = [];
 for (let wd = 320; wd <= 1600; wd += 32)
     MAPZ.push([wd, Math.round(wd * ASPECT)]);
-// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 2,8 w bitwie
+// domyślne przybliżenie zależy od ekranu: ok. 2,4 piksela ekranu na piksel gry na mapie, ok. 1,6 w bitwie (dużo jednostek, kamera dalej)
 const wantMapW = clamp(Math.round($("wrap").clientWidth / 2.4 / 32) * 32, 480, 1120);
 let mapZ = Math.max(0, MAPZ.findIndex((z) => z[0] >= wantMapW)), mapZT = mapZ;
-zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 2.8) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 2.8) ? i : bi, 1);
+zoomIdx = ZOOMS.reduce((bi, z, i) => Math.abs(z[0] - $("wrap").clientWidth / 1.6) < Math.abs(ZOOMS[bi][0] - $("wrap").clientWidth / 1.6) ? i : bi, 3);
 function setRes(nw, nh) {
     if (nw === W && nh === H)
         return;
