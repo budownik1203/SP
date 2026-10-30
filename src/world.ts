@@ -1,7 +1,7 @@
 // Świat: generowanie mapy (teren, rzeki, drogi), osady, frakcje, lordowie, oddziały, ekonomia, wojny, kronika.
 
 const WCELL = 8;
-const WGW = 320, WGH = 200;              // komórki mapy świata (2560×1600 px)
+const WGW = 427, WGH = 267;              // komórki mapy świata (3416×2136 px), B18: o 1/3 większa
 const T_SEA = 0, T_PLAIN = 1, T_FOREST = 2, T_HILL = 3, T_MOUNT = 4, T_SWAMP = 5, T_RIVER = 6, T_BEACH = 7;
 const TERR_NAME = ["Morze", "Równina", "Las", "Wzgórza", "Góry", "Bagno", "Rzeka", "Wybrzeże"];
 const HOURS_PER_SEC = 0.8;               // 1 dzień = 30 s przy normalnej prędkości
@@ -250,20 +250,20 @@ function regionOf(w: World, cx: number, cy: number): string {
 }
 function steppeAt(cx: number, cy: number) { cx /= MS; cy /= MS; return cx > 100 && cx < 200 && cy > 94 + (cx > 180 ? 10 : 0); }
 // Osady: stolice i część twierdz w stałych miejscach, reszta rozstawiona w krainie frakcji w dużych odstępach.
-// Na frakcję: 3 miasta, 4 zamki, 10 wiosek (każda wioska należy do swojego miasta lub zamku).
+// Na frakcję: 5 miast, 6 zamków, 16 wiosek (każda wioska należy do swojego miasta lub zamku).
 const SETTLEMENT_PLAN: { f: number; cx: number; cy: number; rx: number; ry: number; fixed: [SKind, string, number, number][]; towns: string[]; castles: string[]; villages: string[] }[] = [
-  { f: 1, cx: 40, cy: 82, rx: 36, ry: 38, fixed: [["town", "Aurelion", 40, 74], ["town", "Valmora", 30, 104], ["castle", "Strażnica Świtu", 62, 90], ["castle", "Wieża Mew", 22, 48]], towns: ["Solmira"], castles: ["Zamek Lilii", "Twierdza Brzegowa"], villages: ["Dębniki", "Złota Łąka", "Rybaki", "Winnice", "Makowo", "Pszeniczna", "Jabłonka", "Owcza Dolina", "Młyńsko", "Białe Brzegi"] },
-  { f: 2, cx: 106, cy: 28, rx: 44, ry: 22, fixed: [["town", "Varusgrad", 92, 30], ["town", "Kassia", 128, 22], ["castle", "Żelazna Wieża", 110, 52], ["castle", "Orli Szaniec", 72, 16]], towns: ["Novium"], castles: ["Kamienny Obóz", "Strażnica Legatów"], villages: ["Obozowo", "Kamionka", "Brzozy", "Wilcze Pole", "Żołnierska Wola", "Zbrojnica", "Kopacze", "Kolonia", "Smolna", "Cyprysy"] },
-  { f: 3, cx: 206, cy: 84, rx: 26, ry: 44, fixed: [["town", "Khazgrim", 204, 70], ["town", "Durnhold", 214, 104], ["castle", "Brama Gromu", 190, 88], ["castle", "Kamienna Straż", 200, 44]], towns: ["Karak Druun"], castles: ["Kuźnia Przodków", "Strażnica Runów"], villages: ["Miedziana Dolina", "Kowalnia", "Głęboka Sztolnia", "Rudna", "Węglowo", "Srebrna Żyła", "Kamieniołom", "Grota Piwna", "Mszysta Hala", "Kopalnia Gromu"] },
-  { f: 4, cx: 148, cy: 120, rx: 50, ry: 24, fixed: [["town", "Ghrakkar", 150, 122], ["town", "Krwawy Bród", 176, 128], ["castle", "Kościany Gród", 124, 104], ["castle", "Czaszkowa Skała", 108, 130]], towns: ["Ugrakh"], castles: ["Kieł Stepu", "Krwawe Ostrogi"], villages: ["Obóz Wilków", "Czarne Namioty", "Błotne Szałasy", "Dymiące Ogniska", "Kościste Koło", "Stado Bawołów", "Pasterski Kurhan", "Suche Studnie", "Popielne Pastwiska", "Wronie Gniazdo"] },
-  { f: 5, cx: 196, cy: 24, rx: 36, ry: 20, fixed: [["town", "Morvath", 202, 20], ["town", "Popielisko", 168, 16], ["castle", "Wieża Lamentu", 184, 40], ["castle", "Czarna Cytadela", 224, 28]], towns: ["Nekropol"], castles: ["Kostnica", "Mglista Wieża"], villages: ["Grobowo", "Szare Mogiły", "Zgniła Grobla", "Wronie Pole", "Kurhany", "Trumniki", "Popielnik", "Zimne Krzyże", "Martwy Młyn", "Cicha Dolina"] },
+  { f: 1, cx: 40, cy: 82, rx: 36, ry: 38, fixed: [["town", "Aurelion", 40, 74], ["town", "Valmora", 30, 104], ["castle", "Strażnica Świtu", 62, 90], ["castle", "Wieża Mew", 22, 48]], towns: ["Solmira", "Lumen", "Bielgród"], castles: ["Zamek Lilii", "Twierdza Brzegowa", "Gniazdo Sokołów", "Zamek Białej Róży"], villages: ["Dębniki", "Złota Łąka", "Rybaki", "Winnice", "Makowo", "Pszeniczna", "Jabłonka", "Owcza Dolina", "Młyńsko", "Białe Brzegi", "Lniska", "Krzyżanka", "Słoneczna Polana", "Cisowa Wola", "Dzwonnica", "Miodowo"] },
+  { f: 2, cx: 106, cy: 28, rx: 44, ry: 22, fixed: [["town", "Varusgrad", 92, 30], ["town", "Kassia", 128, 22], ["castle", "Żelazna Wieża", 110, 52], ["castle", "Orli Szaniec", 72, 16]], towns: ["Novium", "Castra Nova", "Ferrum"], castles: ["Kamienny Obóz", "Strażnica Legatów", "Wilcza Strażnica", "Brama Legionu"], villages: ["Obozowo", "Kamionka", "Brzozy", "Wilcze Pole", "Żołnierska Wola", "Zbrojnica", "Kopacze", "Kolonia", "Smolna", "Cyprysy", "Weteranów Pole", "Kwatera", "Garnizonowo", "Stara Droga", "Marsowe Błonie", "Palisady"] },
+  { f: 3, cx: 206, cy: 84, rx: 26, ry: 44, fixed: [["town", "Khazgrim", 204, 70], ["town", "Durnhold", 214, 104], ["castle", "Brama Gromu", 190, 88], ["castle", "Kamienna Straż", 200, 44]], towns: ["Karak Druun", "Hammerdal", "Grimstok"], castles: ["Kuźnia Przodków", "Strażnica Runów", "Twierdza Kowadła", "Wieża Dzwonów"], villages: ["Miedziana Dolina", "Kowalnia", "Głęboka Sztolnia", "Rudna", "Węglowo", "Srebrna Żyła", "Kamieniołom", "Grota Piwna", "Mszysta Hala", "Kopalnia Gromu", "Huta Brodaczy", "Piwna Studnia", "Ruda Ziemia", "Głazowo", "Wąwóz Echa", "Lodowa Grań"] },
+  { f: 4, cx: 148, cy: 120, rx: 50, ry: 24, fixed: [["town", "Ghrakkar", 150, 122], ["town", "Krwawy Bród", 176, 128], ["castle", "Kościany Gród", 124, 104], ["castle", "Czaszkowa Skała", 108, 130]], towns: ["Ugrakh", "Mrakhul", "Szczęka Gór"], castles: ["Kieł Stepu", "Krwawe Ostrogi", "Wilczy Kieł", "Gród Kości Bawołu"], villages: ["Obóz Wilków", "Czarne Namioty", "Błotne Szałasy", "Dymiące Ogniska", "Kościste Koło", "Stado Bawołów", "Pasterski Kurhan", "Suche Studnie", "Popielne Pastwiska", "Wronie Gniazdo", "Krwawe Wodopoje", "Sępie Gniazdo", "Ogniste Kamienie", "Wycie Nocy", "Trawy Dzików", "Kurhan Wodza"] },
+  { f: 5, cx: 196, cy: 24, rx: 36, ry: 20, fixed: [["town", "Morvath", 202, 20], ["town", "Popielisko", 168, 16], ["castle", "Wieża Lamentu", 184, 40], ["castle", "Czarna Cytadela", 224, 28]], towns: ["Nekropol", "Szarogród", "Cmentarne Wrota"], castles: ["Kostnica", "Mglista Wieża", "Wieża Szeptów", "Grobowa Twierdza"], villages: ["Grobowo", "Szare Mogiły", "Zgniła Grobla", "Wronie Pole", "Kurhany", "Trumniki", "Popielnik", "Zimne Krzyże", "Martwy Młyn", "Cicha Dolina", "Pustkowo", "Czarne Wierzby", "Gnijące Łąki", "Kostne Pole", "Żałobnica", "Zapomniane Groby"] },
 ];
 const LORD_PLAN: Record<number, { names: string[]; title: string }> = {
-  1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow", "Ida Solmir", "Konrad Brzeg"], title: "Sir" },
-  2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn", "Tiber Ostra", "Livia Grank"], title: "Legat" },
-  3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień", "Dvalgar Runiczny", "Thora Miedziana"], title: "Than" },
-  4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki", "Brakka Stepowa", "Muzg Kościożerca"], title: "Wódz" },
-  5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej", "Grawen Bezoki", "Ilsa Szronowa"], title: "Upiór" },
+  1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow", "Ida Solmir", "Konrad Brzeg", "Gerwin Rosa", "Bianka Dzwon"], title: "Sir" },
+  2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn", "Tiber Ostra", "Livia Grank", "Aurel Fesk", "Nerva Tullo"], title: "Legat" },
+  3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień", "Dvalgar Runiczny", "Thora Miedziana", "Bragi Kowadło", "Sigrun Ruda"], title: "Than" },
+  4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki", "Brakka Stepowa", "Muzg Kościożerca", "Krug Skórołup", "Yazra Wilczyca"], title: "Wódz" },
+  5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej", "Grawen Bezoki", "Ilsa Szronowa", "Morgat Pustooki", "Wdowa Szarej Mgły"], title: "Upiór" },
 };
 const PERSONALITIES: Lord["personality"][] = ["honorowy", "chciwy", "okrutny", "ostrożny"];
 
@@ -426,7 +426,7 @@ function generateWorld(seed: number, player: PlayerState): World {
   const roadBetween = (a: Settlement, b: Settlement) => {
     const key = Math.min(a.id, b.id) + ":" + Math.max(a.id, b.id);
     if (linked.has(key)) return; linked.add(key);
-    const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 120000, true);
+    const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 220000, true);
     for (const c of path) {
       if (w.terr[c] === T_MOUNT) w.terr[c] = T_HILL;
       if (w.terr[c] === T_SEA) continue;
@@ -449,19 +449,19 @@ function generateWorld(seed: number, player: PlayerState): World {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = cidx(x + dx, y + dy); if (terrAt(w, x + dx, y + dy) === T_RIVER) w.road[n] = 3; }
   }
   // spójność: każde miasto połączone ze stolicą Aurelii
-  for (const s of w.settlements) if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 120000).length === 0) roadBetween(s, w.settlements[0]);
+  for (const s of w.settlements) if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 220000).length === 0) roadBetween(s, w.settlements[0]);
   // najbliższa osada każdej komórki (terytoria)
   computeNearest(w);
   // martwa ziemia wokół Morvath
   recomputeBlight(w);
   // miejsca specjalne
-  const placeKinds: SpecialPlace["kind"][] = ["ruins", "ruins", "ruins", "ruins", "ruins", "lair", "lair", "lair", "lair", "shrine", "shrine", "shrine", "shrine", "camp", "camp", "camp", "camp", "camp", "camp", "cemetery", "cemetery", "cemetery", "cemetery"];
+  const placeKinds: SpecialPlace["kind"][] = [...Array(8).fill("ruins"), ...Array(7).fill("lair"), ...Array(7).fill("shrine"), ...Array(10).fill("camp"), ...Array(7).fill("cemetery")];
   const placeNames: Record<SpecialPlace["kind"], string[]> = {
-    ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża", "Zatopiona Kaplica"],
-    lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii", "Nora Dzików"],
-    shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu", "Studnia Pielgrzymów"],
-    camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników", "Stepowy Obóz Rabusiów", "Spalony Młyn"],
-    cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości", "Stare Kurhany"],
+    ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża", "Zatopiona Kaplica", "Rozbity Klasztor", "Wieża Czarnoksiężnika", "Gród Bez Imienia"],
+    lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii", "Nora Dzików", "Pieczara Trolla", "Bagienna Nora", "Skalne Legowisko"],
+    shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu", "Studnia Pielgrzymów", "Krzyż Rozdroży", "Święty Dąb", "Pustelnia Świtu"],
+    camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników", "Stepowy Obóz Rabusiów", "Spalony Młyn", "Dezerterski Szaniec", "Wilcza Polana", "Opuszczona Karczma", "Stara Kopalnia"],
+    cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości", "Stare Kurhany", "Masowy Grób", "Cmentarz Wisielców", "Krypta Rodu Valmont"],
   };
   const usedNames = new Set<string>();
   // obszar osiągalny ze stolicy (zalewanie), żeby miejsca nie trafiały na odcięte wyspy
@@ -512,9 +512,9 @@ function generateWorld(seed: number, player: PlayerState): World {
   const pp = newParty(w, "player", player.name, PLAYER_FACTION, startTown.cx * WCELL + 12, startTown.cy * WCELL + 14);
   w.pid = pp.id;
   // bandyci i bestie na start
-  for (let i = 0; i < 7; i++) spawnFromPlace(w, "camp");
-  for (let i = 0; i < 3; i++) spawnFromPlace(w, "lair");
-  for (let i = 0; i < 3; i++) spawnFromPlace(w, "cemetery");
+  for (let i = 0; i < 10; i++) spawnFromPlace(w, "camp");
+  for (let i = 0; i < 5; i++) spawnFromPlace(w, "lair");
+  for (let i = 0; i < 5; i++) spawnFromPlace(w, "cemetery");
   chron(w, "Rok Popiołu. Korona Aureliańska i Legion Varusa toczą wojnę o Dolinę. Martwe Królestwo budzi się na północy.", PAL.bone);
   return w;
 }
@@ -748,7 +748,7 @@ function moveParty(w: World, p: Party, hours: number) {
 }
 function goTo(w: World, p: Party, x: number, y: number) {
   const from = cellOf(p.x, p.y), to = cellOf(x, y);
-  p.path = findPath(w, from, to, 25000);
+  p.path = findPath(w, from, to, 45000);
   return p.path.length > 0;
 }
 
@@ -812,9 +812,9 @@ function dailyTick(w: World) {
   }
   // bandyci, bestie, karawany
   const count = (k: PartyKind) => w.parties.filter((p) => p.kind === k).length;
-  for (let k = 0; k < 3; k++) if (count("bandit") < 16 * densityK() && chance(0.6)) spawnFromPlace(w, "camp");
-  if (count("monster") < 6 * densityK() && chance(0.3)) spawnFromPlace(w, "lair");
-  if (count("undead") < 7 * densityK() && chance(0.3)) spawnFromPlace(w, "cemetery");
+  for (let k = 0; k < 3; k++) if (count("bandit") < 24 * densityK() && chance(0.6)) spawnFromPlace(w, "camp");
+  if (count("monster") < 9 * densityK() && chance(0.3)) spawnFromPlace(w, "lair");
+  if (count("undead") < 10 * densityK() && chance(0.3)) spawnFromPlace(w, "cemetery");
   livingWorldDaily(w);
   for (const p of w.places) if (p.cleared > 0) p.cleared--;
   // lordowie: uzupełnienia w domu
@@ -879,7 +879,7 @@ function caravanPlan(w: World, p: Party, at: Settlement) {
   let best: { t: Settlement; k: string; gain: number } | null = null;
   for (const t of w.settlements) {
     if (t.kind !== "town" || t === at || t.siegeBy.length || atWar(w, t.faction, p.faction)) continue;
-    const d = dist(t.cx, t.cy, at.cx, at.cy); if (d > 110) continue;
+    const d = dist(t.cx, t.cy, at.cx, at.cy); if (d > 146) continue;
     for (const k of GOOD_KEYS) { const gain = (price(w, t, k) - price(w, at, k)) * Math.min(30, at.stock[k] * 0.3) / (20 + d); if (!best || gain > best.gain) best = { t, k, gain }; }
   }
   return best;
@@ -1123,7 +1123,7 @@ function worldTick(w: World, hours: number) {
   for (const p of w.parties.slice()) {
     if (!w.parties.includes(p)) continue;
     const A = p as any;
-    const far = pp && p !== pp && Math.abs(p.x - pp.x) + Math.abs(p.y - pp.y) > 110 * WCELL;
+    const far = pp && p !== pp && Math.abs(p.x - pp.x) + Math.abs(p.y - pp.y) > 146 * WCELL;
     if (far && (WTICK + p.id) % 3 !== 0) { A.acc = (A.acc || 0) + hours; continue; }
     const hh = hours + (A.acc || 0); A.acc = 0;
     partyAI(w, p, hh);

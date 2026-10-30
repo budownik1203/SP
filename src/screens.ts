@@ -12,7 +12,7 @@ function serializeWorld(w: World) {
   o.parties = w.parties.map((p) => { const c: any = { ...p }; delete c.trail; delete c.trailD; return c; });
   return JSON.stringify(o);
 }
-const MAP_VERSION = 5;   // 5: ręcznie zaprojektowana kraina (B15)
+const MAP_VERSION = 6;   // 5: ręcznie zaprojektowana kraina (B15), 6: kraina o 1/3 większa (B18)
 function deserializeWorld(json: string): World {
   const o = JSON.parse(json);
   if ((o.version || 0) < MAP_VERSION) throw new Error("oldmap");
@@ -980,14 +980,14 @@ function offerQuest(s: Settlement): Quest | null {
     return { id, kind: "bandits", giver: s.id, target: -1, amount: 0, reward: 200 + n * 12, days: 12, text: `${nm} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false, spawn: { k: "monster", x: at.x, y: at.y, n, name: nm } } as any;
   }
   if (kind === "escort") {
-    const t = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !atWar(w, x.faction, s.faction) && !playerAtWarWith(w, x.faction) && dist(x.cx, x.cy, s.cx, s.cy) < 110).sort((a, b) => dist(a.cx, a.cy, s.cx, s.cy) - dist(b.cx, b.cy, s.cx, s.cy)).slice(0, 3).find((_, i, arr) => i === h % arr.length);
+    const t = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !atWar(w, x.faction, s.faction) && !playerAtWarWith(w, x.faction) && dist(x.cx, x.cy, s.cx, s.cy) < 146).sort((a, b) => dist(a.cx, a.cy, s.cx, s.cy) - dist(b.cx, b.cy, s.cx, s.cy)).slice(0, 3).find((_, i, arr) => i === h % arr.length);
     if (t) return { id, kind: "escort", giver: s.id, target: -1, amount: t.id, reward: Math.round(150 + dist(s.cx, s.cy, t.cx, t.cy) * 5), days: 20, text: `Eskortuj karawanę z ${s.name} do ${t.name}. Trzymaj się blisko, na traktach grasują zbóje.`, done: false, spawn: { k: "caravan", to: t.id } } as any;
     kind = "letter";
   }
   if (kind === "letter") {
     // list do miasta własnej frakcji (albo sąsiedniego, niewrogiego)
     const cands = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !playerAtWarWith(w, x.faction) && !atWar(w, x.faction, s.faction)).sort((a, b) => (a.faction === s.faction ? 0 : 60) + dist(a.cx, a.cy, s.cx, s.cy) - ((b.faction === s.faction ? 0 : 60) + dist(b.cx, b.cy, s.cx, s.cy)));
-    const own = cands.filter((x) => x.faction === s.faction && dist(x.cx, x.cy, s.cx, s.cy) < 90), near = own.length ? own : cands.filter((x) => dist(x.cx, x.cy, s.cx, s.cy) < 70);
+    const own = cands.filter((x) => x.faction === s.faction && dist(x.cx, x.cy, s.cx, s.cy) < 120), near = own.length ? own : cands.filter((x) => dist(x.cx, x.cy, s.cx, s.cy) < 90);
     const t = near[h % Math.max(1, near.length)];
     if (!t) return null;
     return { id, kind: "letter", giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };

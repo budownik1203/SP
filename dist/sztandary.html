@@ -10638,7 +10638,7 @@ function silhouette(img, col) {
 "use strict";
 // Świat: generowanie mapy (teren, rzeki, drogi), osady, frakcje, lordowie, oddziały, ekonomia, wojny, kronika.
 const WCELL = 8;
-const WGW = 320, WGH = 200; // komórki mapy świata (2560×1600 px)
+const WGW = 427, WGH = 267; // komórki mapy świata (3416×2136 px), B18: o 1/3 większa
 const T_SEA = 0, T_PLAIN = 1, T_FOREST = 2, T_HILL = 3, T_MOUNT = 4, T_SWAMP = 5, T_RIVER = 6, T_BEACH = 7;
 const TERR_NAME = ["Morze", "Równina", "Las", "Wzgórza", "Góry", "Bagno", "Rzeka", "Wybrzeże"];
 const HOURS_PER_SEC = 0.8; // 1 dzień = 30 s przy normalnej prędkości
@@ -10905,20 +10905,20 @@ function regionOf(w, cx, cy) {
 }
 function steppeAt(cx, cy) { cx /= MS; cy /= MS; return cx > 100 && cx < 200 && cy > 94 + (cx > 180 ? 10 : 0); }
 // Osady: stolice i część twierdz w stałych miejscach, reszta rozstawiona w krainie frakcji w dużych odstępach.
-// Na frakcję: 3 miasta, 4 zamki, 10 wiosek (każda wioska należy do swojego miasta lub zamku).
+// Na frakcję: 5 miast, 6 zamków, 16 wiosek (każda wioska należy do swojego miasta lub zamku).
 const SETTLEMENT_PLAN = [
-    { f: 1, cx: 40, cy: 82, rx: 36, ry: 38, fixed: [["town", "Aurelion", 40, 74], ["town", "Valmora", 30, 104], ["castle", "Strażnica Świtu", 62, 90], ["castle", "Wieża Mew", 22, 48]], towns: ["Solmira"], castles: ["Zamek Lilii", "Twierdza Brzegowa"], villages: ["Dębniki", "Złota Łąka", "Rybaki", "Winnice", "Makowo", "Pszeniczna", "Jabłonka", "Owcza Dolina", "Młyńsko", "Białe Brzegi"] },
-    { f: 2, cx: 106, cy: 28, rx: 44, ry: 22, fixed: [["town", "Varusgrad", 92, 30], ["town", "Kassia", 128, 22], ["castle", "Żelazna Wieża", 110, 52], ["castle", "Orli Szaniec", 72, 16]], towns: ["Novium"], castles: ["Kamienny Obóz", "Strażnica Legatów"], villages: ["Obozowo", "Kamionka", "Brzozy", "Wilcze Pole", "Żołnierska Wola", "Zbrojnica", "Kopacze", "Kolonia", "Smolna", "Cyprysy"] },
-    { f: 3, cx: 206, cy: 84, rx: 26, ry: 44, fixed: [["town", "Khazgrim", 204, 70], ["town", "Durnhold", 214, 104], ["castle", "Brama Gromu", 190, 88], ["castle", "Kamienna Straż", 200, 44]], towns: ["Karak Druun"], castles: ["Kuźnia Przodków", "Strażnica Runów"], villages: ["Miedziana Dolina", "Kowalnia", "Głęboka Sztolnia", "Rudna", "Węglowo", "Srebrna Żyła", "Kamieniołom", "Grota Piwna", "Mszysta Hala", "Kopalnia Gromu"] },
-    { f: 4, cx: 148, cy: 120, rx: 50, ry: 24, fixed: [["town", "Ghrakkar", 150, 122], ["town", "Krwawy Bród", 176, 128], ["castle", "Kościany Gród", 124, 104], ["castle", "Czaszkowa Skała", 108, 130]], towns: ["Ugrakh"], castles: ["Kieł Stepu", "Krwawe Ostrogi"], villages: ["Obóz Wilków", "Czarne Namioty", "Błotne Szałasy", "Dymiące Ogniska", "Kościste Koło", "Stado Bawołów", "Pasterski Kurhan", "Suche Studnie", "Popielne Pastwiska", "Wronie Gniazdo"] },
-    { f: 5, cx: 196, cy: 24, rx: 36, ry: 20, fixed: [["town", "Morvath", 202, 20], ["town", "Popielisko", 168, 16], ["castle", "Wieża Lamentu", 184, 40], ["castle", "Czarna Cytadela", 224, 28]], towns: ["Nekropol"], castles: ["Kostnica", "Mglista Wieża"], villages: ["Grobowo", "Szare Mogiły", "Zgniła Grobla", "Wronie Pole", "Kurhany", "Trumniki", "Popielnik", "Zimne Krzyże", "Martwy Młyn", "Cicha Dolina"] },
+    { f: 1, cx: 40, cy: 82, rx: 36, ry: 38, fixed: [["town", "Aurelion", 40, 74], ["town", "Valmora", 30, 104], ["castle", "Strażnica Świtu", 62, 90], ["castle", "Wieża Mew", 22, 48]], towns: ["Solmira", "Lumen", "Bielgród"], castles: ["Zamek Lilii", "Twierdza Brzegowa", "Gniazdo Sokołów", "Zamek Białej Róży"], villages: ["Dębniki", "Złota Łąka", "Rybaki", "Winnice", "Makowo", "Pszeniczna", "Jabłonka", "Owcza Dolina", "Młyńsko", "Białe Brzegi", "Lniska", "Krzyżanka", "Słoneczna Polana", "Cisowa Wola", "Dzwonnica", "Miodowo"] },
+    { f: 2, cx: 106, cy: 28, rx: 44, ry: 22, fixed: [["town", "Varusgrad", 92, 30], ["town", "Kassia", 128, 22], ["castle", "Żelazna Wieża", 110, 52], ["castle", "Orli Szaniec", 72, 16]], towns: ["Novium", "Castra Nova", "Ferrum"], castles: ["Kamienny Obóz", "Strażnica Legatów", "Wilcza Strażnica", "Brama Legionu"], villages: ["Obozowo", "Kamionka", "Brzozy", "Wilcze Pole", "Żołnierska Wola", "Zbrojnica", "Kopacze", "Kolonia", "Smolna", "Cyprysy", "Weteranów Pole", "Kwatera", "Garnizonowo", "Stara Droga", "Marsowe Błonie", "Palisady"] },
+    { f: 3, cx: 206, cy: 84, rx: 26, ry: 44, fixed: [["town", "Khazgrim", 204, 70], ["town", "Durnhold", 214, 104], ["castle", "Brama Gromu", 190, 88], ["castle", "Kamienna Straż", 200, 44]], towns: ["Karak Druun", "Hammerdal", "Grimstok"], castles: ["Kuźnia Przodków", "Strażnica Runów", "Twierdza Kowadła", "Wieża Dzwonów"], villages: ["Miedziana Dolina", "Kowalnia", "Głęboka Sztolnia", "Rudna", "Węglowo", "Srebrna Żyła", "Kamieniołom", "Grota Piwna", "Mszysta Hala", "Kopalnia Gromu", "Huta Brodaczy", "Piwna Studnia", "Ruda Ziemia", "Głazowo", "Wąwóz Echa", "Lodowa Grań"] },
+    { f: 4, cx: 148, cy: 120, rx: 50, ry: 24, fixed: [["town", "Ghrakkar", 150, 122], ["town", "Krwawy Bród", 176, 128], ["castle", "Kościany Gród", 124, 104], ["castle", "Czaszkowa Skała", 108, 130]], towns: ["Ugrakh", "Mrakhul", "Szczęka Gór"], castles: ["Kieł Stepu", "Krwawe Ostrogi", "Wilczy Kieł", "Gród Kości Bawołu"], villages: ["Obóz Wilków", "Czarne Namioty", "Błotne Szałasy", "Dymiące Ogniska", "Kościste Koło", "Stado Bawołów", "Pasterski Kurhan", "Suche Studnie", "Popielne Pastwiska", "Wronie Gniazdo", "Krwawe Wodopoje", "Sępie Gniazdo", "Ogniste Kamienie", "Wycie Nocy", "Trawy Dzików", "Kurhan Wodza"] },
+    { f: 5, cx: 196, cy: 24, rx: 36, ry: 20, fixed: [["town", "Morvath", 202, 20], ["town", "Popielisko", 168, 16], ["castle", "Wieża Lamentu", 184, 40], ["castle", "Czarna Cytadela", 224, 28]], towns: ["Nekropol", "Szarogród", "Cmentarne Wrota"], castles: ["Kostnica", "Mglista Wieża", "Wieża Szeptów", "Grobowa Twierdza"], villages: ["Grobowo", "Szare Mogiły", "Zgniła Grobla", "Wronie Pole", "Kurhany", "Trumniki", "Popielnik", "Zimne Krzyże", "Martwy Młyn", "Cicha Dolina", "Pustkowo", "Czarne Wierzby", "Gnijące Łąki", "Kostne Pole", "Żałobnica", "Zapomniane Groby"] },
 ];
 const LORD_PLAN = {
-    1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow", "Ida Solmir", "Konrad Brzeg"], title: "Sir" },
-    2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn", "Tiber Ostra", "Livia Grank"], title: "Legat" },
-    3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień", "Dvalgar Runiczny", "Thora Miedziana"], title: "Than" },
-    4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki", "Brakka Stepowa", "Muzg Kościożerca"], title: "Wódz" },
-    5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej", "Grawen Bezoki", "Ilsa Szronowa"], title: "Upiór" },
+    1: { names: ["Edrik Valmont", "Maren Sorel", "Teodor Brann", "Alwin Morrow", "Ida Solmir", "Konrad Brzeg", "Gerwin Rosa", "Bianka Dzwon"], title: "Sir" },
+    2: { names: ["Corvus Mallo", "Severa Dru", "Mallius Kato", "Drusa Venn", "Tiber Ostra", "Livia Grank", "Aurel Fesk", "Nerva Tullo"], title: "Legat" },
+    3: { names: ["Borin Młotodzierżca", "Hilda Żelazna", "Grumli Szary", "Orvik Kamień", "Dvalgar Runiczny", "Thora Miedziana", "Bragi Kowadło", "Sigrun Ruda"], title: "Than" },
+    4: { names: ["Gorz Łamacz Czaszek", "Mokra Kieł", "Ugash Rzeźnik", "Throg Jednooki", "Brakka Stepowa", "Muzg Kościożerca", "Krug Skórołup", "Yazra Wilczyca"], title: "Wódz" },
+    5: { names: ["Valdris", "Selra Bladoręka", "Oszron", "Mardun Kościej", "Grawen Bezoki", "Ilsa Szronowa", "Morgat Pustooki", "Wdowa Szarej Mgły"], title: "Upiór" },
 };
 const PERSONALITIES = ["honorowy", "chciwy", "okrutny", "ostrożny"];
 function generateWorld(seed, player) {
@@ -11197,7 +11197,7 @@ function generateWorld(seed, player) {
         if (linked.has(key))
             return;
         linked.add(key);
-        const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 120000, true);
+        const path = findPath(w, cidx(a.cx, a.cy), cidx(b.cx, b.cy), 220000, true);
         for (const c of path) {
             if (w.terr[c] === T_MOUNT)
                 w.terr[c] = T_HILL;
@@ -11243,20 +11243,20 @@ function generateWorld(seed, player) {
         }
     // spójność: każde miasto połączone ze stolicą Aurelii
     for (const s of w.settlements)
-        if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 120000).length === 0)
+        if (findPath(w, cidx(s.cx, s.cy), cidx(w.settlements[0].cx, w.settlements[0].cy), 220000).length === 0)
             roadBetween(s, w.settlements[0]);
     // najbliższa osada każdej komórki (terytoria)
     computeNearest(w);
     // martwa ziemia wokół Morvath
     recomputeBlight(w);
     // miejsca specjalne
-    const placeKinds = ["ruins", "ruins", "ruins", "ruins", "ruins", "lair", "lair", "lair", "lair", "shrine", "shrine", "shrine", "shrine", "camp", "camp", "camp", "camp", "camp", "camp", "cemetery", "cemetery", "cemetery", "cemetery"];
+    const placeKinds = [...Array(8).fill("ruins"), ...Array(7).fill("lair"), ...Array(7).fill("shrine"), ...Array(10).fill("camp"), ...Array(7).fill("cemetery")];
     const placeNames = {
-        ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża", "Zatopiona Kaplica"],
-        lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii", "Nora Dzików"],
-        shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu", "Studnia Pielgrzymów"],
-        camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników", "Stepowy Obóz Rabusiów", "Spalony Młyn"],
-        cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości", "Stare Kurhany"],
+        ruins: ["Ruiny Starego Opactwa", "Zapadła Twierdza", "Kurhan Pierwszych Królów", "Spalona Wieża", "Zatopiona Kaplica", "Rozbity Klasztor", "Wieża Czarnoksiężnika", "Gród Bez Imienia"],
+        lair: ["Wilcze Leże", "Jaskinia Wargów", "Gniazdo Bestii", "Nora Dzików", "Pieczara Trolla", "Bagienna Nora", "Skalne Legowisko"],
+        shrine: ["Kapliczka Świętej Ilvy", "Kamień Runiczny", "Ołtarz Popiołu", "Studnia Pielgrzymów", "Krzyż Rozdroży", "Święty Dąb", "Pustelnia Świtu"],
+        camp: ["Obóz Zbójców", "Kryjówka Rzezimieszków", "Leśny Obóz Banitów", "Jaskinia Przemytników", "Stepowy Obóz Rabusiów", "Spalony Młyn", "Dezerterski Szaniec", "Wilcza Polana", "Opuszczona Karczma", "Stara Kopalnia"],
+        cemetery: ["Przeklęty Cmentarz", "Kopce Zarazy", "Pole Kości", "Stare Kurhany", "Masowy Grób", "Cmentarz Wisielców", "Krypta Rodu Valmont"],
     };
     const usedNames = new Set();
     // obszar osiągalny ze stolicy (zalewanie), żeby miejsca nie trafiały na odcięte wyspy
@@ -11336,11 +11336,11 @@ function generateWorld(seed, player) {
     const pp = newParty(w, "player", player.name, PLAYER_FACTION, startTown.cx * WCELL + 12, startTown.cy * WCELL + 14);
     w.pid = pp.id;
     // bandyci i bestie na start
-    for (let i = 0; i < 7; i++)
+    for (let i = 0; i < 10; i++)
         spawnFromPlace(w, "camp");
-    for (let i = 0; i < 3; i++)
+    for (let i = 0; i < 5; i++)
         spawnFromPlace(w, "lair");
-    for (let i = 0; i < 3; i++)
+    for (let i = 0; i < 5; i++)
         spawnFromPlace(w, "cemetery");
     chron(w, "Rok Popiołu. Korona Aureliańska i Legion Varusa toczą wojnę o Dolinę. Martwe Królestwo budzi się na północy.", PAL.bone);
     return w;
@@ -11686,7 +11686,7 @@ function moveParty(w, p, hours) {
 }
 function goTo(w, p, x, y) {
     const from = cellOf(p.x, p.y), to = cellOf(x, y);
-    p.path = findPath(w, from, to, 25000);
+    p.path = findPath(w, from, to, 45000);
     return p.path.length > 0;
 }
 // Codzienny przebieg świata: żołd, jedzenie, produkcja, rekrutacja, dyplomacja, oblężenia.
@@ -11793,11 +11793,11 @@ function dailyTick(w) {
     // bandyci, bestie, karawany
     const count = (k) => w.parties.filter((p) => p.kind === k).length;
     for (let k = 0; k < 3; k++)
-        if (count("bandit") < 16 * densityK() && chance(0.6))
+        if (count("bandit") < 24 * densityK() && chance(0.6))
             spawnFromPlace(w, "camp");
-    if (count("monster") < 6 * densityK() && chance(0.3))
+    if (count("monster") < 9 * densityK() && chance(0.3))
         spawnFromPlace(w, "lair");
-    if (count("undead") < 7 * densityK() && chance(0.3))
+    if (count("undead") < 10 * densityK() && chance(0.3))
         spawnFromPlace(w, "cemetery");
     livingWorldDaily(w);
     for (const p of w.places)
@@ -11913,7 +11913,7 @@ function caravanPlan(w, p, at) {
         if (t.kind !== "town" || t === at || t.siegeBy.length || atWar(w, t.faction, p.faction))
             continue;
         const d = dist(t.cx, t.cy, at.cx, at.cy);
-        if (d > 110)
+        if (d > 146)
             continue;
         for (const k of GOOD_KEYS) {
             const gain = (price(w, t, k) - price(w, at, k)) * Math.min(30, at.stock[k] * 0.3) / (20 + d);
@@ -12352,7 +12352,7 @@ function worldTick(w, hours) {
         if (!w.parties.includes(p))
             continue;
         const A = p;
-        const far = pp && p !== pp && Math.abs(p.x - pp.x) + Math.abs(p.y - pp.y) > 110 * WCELL;
+        const far = pp && p !== pp && Math.abs(p.x - pp.x) + Math.abs(p.y - pp.y) > 146 * WCELL;
         if (far && (WTICK + p.id) % 3 !== 0) {
             A.acc = (A.acc || 0) + hours;
             continue;
@@ -17998,7 +17998,7 @@ function serializeWorld(w) {
     o.parties = w.parties.map((p) => { const c = { ...p }; delete c.trail; delete c.trailD; return c; });
     return JSON.stringify(o);
 }
-const MAP_VERSION = 5; // 5: ręcznie zaprojektowana kraina (B15)
+const MAP_VERSION = 6; // 5: ręcznie zaprojektowana kraina (B15), 6: kraina o 1/3 większa (B18)
 function deserializeWorld(json) {
     const o = JSON.parse(json);
     if ((o.version || 0) < MAP_VERSION)
@@ -19370,7 +19370,7 @@ function offerQuest(s) {
         return { id, kind: "bandits", giver: s.id, target: -1, amount: 0, reward: 200 + n * 12, days: 12, text: `${nm} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false, spawn: { k: "monster", x: at.x, y: at.y, n, name: nm } };
     }
     if (kind === "escort") {
-        const t = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !atWar(w, x.faction, s.faction) && !playerAtWarWith(w, x.faction) && dist(x.cx, x.cy, s.cx, s.cy) < 110).sort((a, b) => dist(a.cx, a.cy, s.cx, s.cy) - dist(b.cx, b.cy, s.cx, s.cy)).slice(0, 3).find((_, i, arr) => i === h % arr.length);
+        const t = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !atWar(w, x.faction, s.faction) && !playerAtWarWith(w, x.faction) && dist(x.cx, x.cy, s.cx, s.cy) < 146).sort((a, b) => dist(a.cx, a.cy, s.cx, s.cy) - dist(b.cx, b.cy, s.cx, s.cy)).slice(0, 3).find((_, i, arr) => i === h % arr.length);
         if (t)
             return { id, kind: "escort", giver: s.id, target: -1, amount: t.id, reward: Math.round(150 + dist(s.cx, s.cy, t.cx, t.cy) * 5), days: 20, text: `Eskortuj karawanę z ${s.name} do ${t.name}. Trzymaj się blisko, na traktach grasują zbóje.`, done: false, spawn: { k: "caravan", to: t.id } };
         kind = "letter";
@@ -19378,7 +19378,7 @@ function offerQuest(s) {
     if (kind === "letter") {
         // list do miasta własnej frakcji (albo sąsiedniego, niewrogiego)
         const cands = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !playerAtWarWith(w, x.faction) && !atWar(w, x.faction, s.faction)).sort((a, b) => (a.faction === s.faction ? 0 : 60) + dist(a.cx, a.cy, s.cx, s.cy) - ((b.faction === s.faction ? 0 : 60) + dist(b.cx, b.cy, s.cx, s.cy)));
-        const own = cands.filter((x) => x.faction === s.faction && dist(x.cx, x.cy, s.cx, s.cy) < 90), near = own.length ? own : cands.filter((x) => dist(x.cx, x.cy, s.cx, s.cy) < 70);
+        const own = cands.filter((x) => x.faction === s.faction && dist(x.cx, x.cy, s.cx, s.cy) < 120), near = own.length ? own : cands.filter((x) => dist(x.cx, x.cy, s.cx, s.cy) < 90);
         const t = near[h % Math.max(1, near.length)];
         if (!t)
             return null;
@@ -21250,7 +21250,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.17.2";
+const BUILD = "Build 0.18";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
