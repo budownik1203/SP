@@ -1,0 +1,37 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => { errs.push(e.message); console.log('ERR', e.message); });
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html'); await p.waitForTimeout(800);
+  await p.click('text=Nowa gra'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300);
+  await p.click('#ftip button').catch(() => {});
+  const setup = await p.evaluate(() => { const w = window.__game().WORLD; const P0 = w.parties.find(x => x.id === w.pid);
+    P0.troops = [{ type: 'a_knight', n: 30, wounded: 0, xp: 0 }, { type: 'a_archer', n: 30, wounded: 0, xp: 0 }, { type: 'a_sergeant', n: 40, wounded: 0, xp: 0 }];
+    const s = w.settlements.find(x => x.kind === 'town' && x.faction === 2); P0.x = s.cx * 8 + 4; P0.y = s.cy * 8 + 4; w.player.companions.push(window.__T.makeCompanion('brakk'));
+    w.player.liege = 1; w.player.status = 'najemnik'; w.player.contractDays = 30; s.garrison = [{type:'v_levy',n:25,wounded:0,xp:0}]; for (const o of w.parties) if (o.kind==='lord' && Math.hypot(o.x-s.cx*8,o.y-s.cy*8)<40) { o.x += 400; } s.wallDmg = 70; s.siegeBy.push(P0.id); P0.siege = s.id; s.siegeDays = 3; window.__T.enterSettlement(s); return s.id; });
+  await p.waitForTimeout(500); await p.click('#ftip button').catch(() => {});
+  await p.click('#ui button[data-a="tab"][data-v="siege"]').catch(e => console.log('no siege tab')); await p.waitForTimeout(400);
+  await p.screenshot({ path: '/tmp/claude-0/t/b22_siege.png' });
+  await p.click('#ui button[data-a="assault"]'); await p.waitForTimeout(1200); await p.click('#ftip button').catch(() => {});
+  const br = await p.evaluate(() => { const b = window.__battle(); return { br: (b.map.wall.breaches || []).length, ter: b.cfg.terrain }; });
+  console.log('assault', JSON.stringify(br));
+  await p.keyboard.press('Enter');
+  await p.evaluate(() => { const b = window.__battle(); b.hero.hp = b.hero.maxHp = 99999; for (const o of Object.values(b.orders || {})) if (o) o.mode = 'charge'; for (let i = 0; i < 8000 && b.phase === 'fight'; i++) b.update(0.05); });
+  await p.waitForTimeout(800);
+  console.log('dbg', await p.evaluate(() => { const b = window.__battle(); return b ? JSON.stringify({ ph: b.phase, paused: b.paused, a: b.units.filter(u => u.team === 0 && u.active).length, d: b.units.filter(u => u.team === 1 && u.active).length, res: b.reserves.map(r => r.length), gate: b.map.wall.gateHp }) : 'nob'; }));
+  console.log('after1', await p.evaluate(() => (document.querySelector('#ui h1')?.textContent || '') + ' | ' + window.__game().G.state));
+  await p.click('#ui button:has-text("Dalej")').catch(() => {}); await p.waitForTimeout(1500); await p.click('#ftip button').catch(() => {});
+  console.log('streets', await p.evaluate(() => { const b = window.__battle(); return b ? b.cfg.terrain + ' ' + b.units.filter(u => u.team === 1).length : 'none ' + window.__game().G.state; }));
+  await p.screenshot({ path: '/tmp/claude-0/t/b22_streets.png' });
+  await p.keyboard.press('Enter');
+  await p.evaluate(() => { const b = window.__battle(); if (!b) return; b.hero.hp = b.hero.maxHp = 99999; for (const o of Object.values(b.orders || {})) if (o) o.mode = 'charge'; for (let i = 0; i < 8000 && b.phase === 'fight'; i++) b.update(0.05); });
+  await p.waitForTimeout(800);
+  console.log('after2', await p.evaluate(() => document.querySelector('#ui h1')?.textContent));
+  await p.click('#ui button:has-text("Dalej")').catch(() => {}); await p.waitForTimeout(800);
+  console.log('sack', await p.evaluate(() => document.querySelector('#ui h1')?.textContent));
+  // AI daily: wall repair, capitulation
+  const ai = await p.evaluate(() => { const w = window.__game().WORLD; const s = w.settlements.find(x => x.kind === 'castle' && x.faction === 3); s.wallDmg = 40; window.__T.worldTick(w, 48); return s.wallDmg; });
+  console.log('repair', ai);
+  console.log('errors', errs.length);
+  await b.close();
+})();

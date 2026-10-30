@@ -1,0 +1,23 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] }); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => { errs.push(e.message); console.log('ERR', e.message); });
+  await p.goto('file:///home/claude/sztandary/dist/sztandary.html'); await p.waitForTimeout(800);
+  await p.click('text=Nowa gra'); for (let i = 0; i < 4; i++) await p.click('#ui button[data-a="next"]'); await p.uncheck('#ui input[data-in="prologue"]'); await p.click('text=Ruszaj w świat'); await p.waitForTimeout(1300);
+  await p.click('#ftip button').catch(() => {});
+  await p.mouse.click(700, 500); await p.evaluate(() => { window.__game().G.speed = 4; }); await p.waitForTimeout(4000);
+  const m1 = await p.evaluate(() => window.__game().sfx ? window.__game().sfx.mood : 'n/a');
+  console.log('mood map', m1);
+  await p.evaluate(() => { const w = window.__game().WORLD; const s = w.settlements[0]; window.__T.enterSettlement(s); });
+  await p.waitForTimeout(400); await p.click('#ftip button').catch(() => {});
+  await p.click('#ui button[data-a="tab"][data-v="tavern"]'); await p.waitForTimeout(300); await p.click('#ftip button').catch(() => {});
+  await p.click('#ui button[data-a="bard"]'); await p.waitForTimeout(6000);
+  await p.screenshot({ path: '/tmp/claude-0/t/b21_bard.png' });
+  await p.click('#ui button[data-a="ok"]'); await p.waitForTimeout(300);
+  await p.evaluate(() => { const w = window.__game().WORLD; const e = w.parties.find(x => x.kind === 'lord' && x.faction === 2); window.__T.launchBattle({ kind: 'field', enemies: [e], allies: [], title: 'T' }, { deploy: false }); });
+  await p.waitForTimeout(1000); await p.click('#ftip button').catch(() => {}); await p.keyboard.press('Enter');
+  await p.waitForTimeout(6000);
+  console.log('battle mood', await p.evaluate(() => window.__battle().bmood));
+  console.log('errors', errs.length);
+  await b.close();
+})();
