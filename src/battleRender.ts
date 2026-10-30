@@ -488,9 +488,11 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
       drawCharge(g, playerCharge(), fx + 1 + (flip ? 1 : 0), py + 1, ft || PAL.bone);
       g.fillStyle = SQUAD_COLORS[u.squad] || PAL.bone; g.fillRect(fx, py + 7, 8, 1);
     } else {
-      g.fillStyle = u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
+      const painted = u.team === 0 && !!u.look.charge;
+      g.fillStyle = painted && u.look.tabard ? u.look.tabard.main : u.team === 0 ? SQUAD_COLORS[u.squad] || PAL.bone : u.look.tabard ? u.look.tabard.main : PAL.red;
       g.fillRect(fx, py, 8, 6); g.fillRect(fx + (flip ? 0 : 1), py + 6, 6, 1);
-      if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
+      if (painted) { drawCharge(g, u.look.charge!, fx + 1 + (flip ? 1 : 0), py, u.look.tabard?.trim || PAL.bone); g.fillStyle = SQUAD_COLORS[u.squad] || PAL.bone; g.fillRect(fx, py + 6, 8, 1); }
+      else if (u.team === 0 && u.squad <= 9) pxText(g, String(u.squad), fx + 3, py, PAL.ink);
     }
   }
   if (u.carry >= 0) {   // drabina niesiona na ramieniu
@@ -520,7 +522,7 @@ function drawUnit(b: Battle, g: CanvasRenderingContext2D, u: Unit, sx: number, s
 
 // Tarcze w kształtach kultur: Aurelia trójkątna (heater), legion prostokątny scutum, krasnoludy okrągłe z żelaznym okuciem,
 // orkowie ze skóry i kości z kolcami, bandyci i najemnicy z nierównych desek.
-function drawShieldShape(g: CanvasRenderingContext2D, cul: string, x: number, y: number, main: string, trim: string, id: number) {
+function drawShieldShape(g: CanvasRenderingContext2D, cul: string, x: number, y: number, main: string, trim: string, id: number, charge?: string) {
   const R = (c: string, a: number, b: number, w: number, h: number) => { g.fillStyle = c; g.fillRect(x + a, y + b, w, h); };
   if (cul === "varus") {
     R(PAL.ink, -4, -6, 9, 13); R(main, -3, -5, 7, 11); R(PAL.steel, -3, -5, 7, 1); R(PAL.steel, -3, 5, 7, 1);
@@ -543,6 +545,7 @@ function drawShieldShape(g: CanvasRenderingContext2D, cul: string, x: number, y:
     R(PAL.woodD, 2, -4, 1, 8); R(cul === "aurelia" ? PAL.gold : PAL.steel, -3, -4, 7, 1);
     R(trim, 0, -3, 1, 7); R(trim, -2, -1, 5, 1); R(PAL.steelL, 0, -1, 1, 1);
   }
+  if (charge) { R(main, -2, -3, 5, 5); drawCharge(g, charge, x - 2, y - 3, trim); }   // godło oddziału
   if (hashInt(id) % 3 === 0) R(PAL.dirtD, -3, 2, 2, 2);   // błoto i zadrapania
   if (hashInt(id) % 4 === 1) R(PAL.ink, 1, -3, 1, 2);
 }
@@ -581,7 +584,7 @@ function drawGear(b: Battle, g: CanvasRenderingContext2D, u: Unit, hand: V, wa: 
     const main = u.look.tabard ? u.look.tabard.main : u.team === 0 ? PAL.red : PAL.dusk;
     const trim = u.look.tabard ? u.look.tabard.trim : PAL.bone;
     void F;
-    drawShieldShape(g, u.look.culture || "", sxp, syp, main, trim, u.id);
+    drawShieldShape(g, u.look.culture || "", sxp, syp, main, trim, u.id, u.look.charge);
   }
   if (w.claws) {
     if (u.state === "strike" || u.state === "windup") {
@@ -830,7 +833,7 @@ function drawShieldAt(g: CanvasRenderingContext2D, u: Unit, p: V, blocking: bool
   const sxp = Math.round(p.x), syp = Math.round(p.y);
   const main = u.look.tabard ? u.look.tabard.main : u.team === 0 ? PAL.red : PAL.dusk;
   const trim = u.look.tabard ? u.look.tabard.trim : PAL.bone;
-  drawShieldShape(g, u.look.culture || "", sxp, syp - (blocking ? 1 : 0), main, trim, u.id);
+  drawShieldShape(g, u.look.culture || "", sxp, syp - (blocking ? 1 : 0), main, trim, u.id, u.look.charge);
   const wear = 1 - u.shieldHp / (140 + u.def.tier * 30);   // pęknięcia tarczy
   if (wear > 0.35) { g.fillStyle = PAL.ink; g.fillRect(sxp - 2, syp - 3, 1, 2); g.fillRect(sxp - 1, syp - 1, 1, 2); g.fillRect(sxp, syp + 1, 1, 2); }
   if (wear > 0.7) { g.fillRect(sxp + 2, syp - 4, 1, 3); g.fillRect(sxp + 1, syp - 1, 1, 1); g.fillRect(sxp + 2, syp + 1, 1, 2); }

@@ -221,6 +221,7 @@ function checkEncounters() {
   }
 }
 
+function enemyFaction0(ctx: BattleCtx) { return ctx.enemies[0]?.faction ?? (ctx.place?.kind === "cemetery" ? 5 : ctx.place?.kind === "lair" ? 7 : 6); }
 // ---------- Brud i zużycie (Build 0.17) ----------
 // Brud rośnie z dniami w drodze i z każdą bitwą; łaźnia w mieście go zmywa. Rdza i wgniecenia zależą od stanu zbroi.
 function grimeOf(P: PlayerState) { return clamp((P as any).grime ?? 0.2, 0, 1); }
@@ -316,7 +317,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
-    campFort: G.camping && CS().fort, terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
+    campFort: G.camping && CS().fort, paint: squadPaint(P), terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
     player: { name: P.name, faction: (P as any).crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
     enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
@@ -352,6 +353,8 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   b.heroStamina *= Math.max(0.6, 1 - weightPenalty(P) * 0.015);
   b.heroDmg *= 1 + perk(P, "meleeDmg");
   b.pk = { ...(P.perks || {}) };
+  for (const id of Object.values(P.equip)) { const fx = id && ITEMS[id] && (ITEMS[id] as any).fx; if (fx) for (const k in fx) b.pk[k] = (b.pk[k] || 0) + fx[k]; }
+  b.pk.moraleB = (b.pk.moraleB || 0) + trophyBonus(P);
   if (b.hero) b.hero.shieldHp *= 1 + perk(P, "shieldHp");
   for (const u of b.units) if (u.team === 0 && !u.hero) u.morale = clamp(40 + P.morale * 0.6 + P.skills.leadership * 2 + perk(P, "moraleB") - Math.max(0, fatigueOf(P) - 30) * 0.4, 15, 100);   // zmęczenie osłabia ducha
   for (const u of b.units) if (u.team === 1 && !u.def.undead) u.morale -= perk(P, "dread");
@@ -452,6 +455,8 @@ function applyBattleResult(r: BattleResult, auto = false) {
     lootGold = Math.round((ctx.enemies.reduce((s, e) => s + e.gold, 0) * 0.8 + enemyPow * 6 * (1 + P.skills.trade * 0.03)) * (1 + perk(P, "lootB")) * (w.diff?.gold ?? 1));
     if (perk(P, "hunter") && ctx.enemies.some((e) => e.kind === "monster")) { P.goods.meat = (P.goods.meat || 0) + 3; lines.push("Myśliwy: oprawiasz bestie, +3 mięsa."); }
     { const pool = baseItems().filter((it) => it.tier <= (enemyPow > 30 ? 3 : 2) && it.slot !== "horse"); const n = Math.min(5, Math.floor(enemyPow / 12) + (chance(0.5) ? 1 : 0)); for (let i = 0; i < n; i++) if (chance(0.55)) { const id = qid(pick(pool).id, chance(0.6) ? 0 : chance(0.9) ? 1 : 2); ensureItem(id); lootItems.push(id); } }   // łupy z pola: zwykle zardzewiałe
+    beastLoot(P, enemyFaction0(ctx), r.theirs.reduce((s2, c) => s2 + c.killed, 0), lines);
+    if ((ctx.place && (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery")) && chance(0.3)) { const unk = PATTERNS.filter((x) => !knownPatterns(P).includes(x.base)); if (unk.length) { const pt = pick(unk); learnPattern(P, pt.base); lines.push(`Wśród szczątków leży zniszczona księga kowalska. Poznajesz wzór: ${pt.name}.`); } }
     if (ctx.place && ctx.place.kind === "ruins") plotRuins(w, ctx.place, lines);
     if (ctx.place && ctx.place.kind === "ruins") { lootGold += 300; P.skillPts++; lines.push("W ruinach znajdujesz starą księgę. +1 punkt drzewka umiejętności."); if (chance(0.15)) { const u = pick(UNIQUES.filter((x) => !WORLD.player.items.includes(x))); if (u) { lootItems.push(u); lines.push(`W krypcie leży coś niezwykłego: ${ITEMS[u].name}!`); } } else lootItems.push(pick(baseItems().filter((it) => it.tier >= 2 && it.tier <= 4 && it.slot !== "horse")).id); }
     P.gold += lootGold;
@@ -461,6 +466,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
     for (const e of ctx.enemies) {
       if (e.lord !== undefined) {
         const L = lordById(w, e.lord);
+        lordSpoils(P, L, lines, lootItems);
         if (chance(0.5)) { L.captive = PLAYER_FACTION; lines.push(`${L.title} ${L.name} jest twoim jeńcem.`); chron(w, `${P.name} pojmał: ${L.title} ${L.name}.`, PAL.gold); lordRel(w, L, -10, "wziąłeś go do niewoli"); }
         else chron(w, `${P.name} rozbija armię: ${e.name}.`, PAL.gold);
       } else if (e.kind === "bandit" || e.kind === "undead" || e.kind === "monster") chron(w, `${P.name} rozbija: ${e.name} w pobliżu ${nearestSettlement(w, e.x, e.y).name}.`);

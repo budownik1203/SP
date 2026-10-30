@@ -29,6 +29,7 @@ const STREES: SkillTree[] = [
   { id: "faith", name: "Wiara", attr: "cha", excl: "dark", desc: "Modlitwa i święty ogień. Wyklucza Mrok." },
   { id: "magic", name: "Magia", attr: "int", desc: "Ogień i przepływ many. Każde zaklęcie grozi spaczeniem." },
   { id: "dark", name: "Mrok", attr: "int", excl: "faith", desc: "Klątwy, krew i duchy. Wyklucza Wiarę." },
+  { id: "smith", name: "Kowalstwo", attr: "str", desc: "Kuźnia: lepsza jakość, mniej materiału, rzadkie kruszce, naprawa w drodze i legendarne arcydzieła." },
 ];
 type NX = Partial<SkillNode>;
 const NODES: SkillNode[] = [];
@@ -222,6 +223,27 @@ N("dark", "deathless", "Bez śmierci", "Raz na bitwę: śmiertelny cios zostawia
 N("dark", "shadow", "Cień Morvath", "Lordowie Morvath są wobec ciebie przychylniejsi.", 5, 2, { int: 10 }, ["dread"], { perks: { morvath: 1 }, icon: "moon" });
 N("dark", "dlord", "Pan Mroku", "Mana, klątwy i kradzież życia +30%.", 6, 1, { int: 12 }, ["necro", "deathless", "shadow"], { perks: { mana: 0.3, curseB: 0.3, lifeSteal: 0.03 }, icon: "crown" });
 N("dark", "rite", "Rytuał krwi", "Krwawy rytuał kosztuje mniej zdrowia.", 6, 0, { int: 11 }, ["deathless"], { perks: { bloodB: 0.3 }, icon: "drop" });
+// ---- Kowalstwo (siła i intelekt) ----
+N("smith", "sm1", "Czeladnik", "Kujesz dobrą jakość. +5% szans na udaną robotę.", 0, 1, { str: 4 }, [], { perks: { craftQ: 0.05 }, icon: "hammer" });
+N("smith", "smeco", "Oszczędna ręka", "Przedmioty zużywają 10% mniej materiału.", 0, 0, { int: 4 }, [], { perks: { craftMat: 0.1 }, icon: "coin" });
+N("smith", "smfast", "Rytm młota", "Kucie trwa o 15% krócej.", 0, 2, { str: 4 }, [], { perks: { craftTime: 0.15 }, icon: "wind" });
+N("smith", "smrep", "Polowa kuźnia", "Naprawa w obozie o 10% wyżej, zestawy starczają na dłużej.", 1, 0, { str: 5 }, ["smeco", "sm1"], { perks: { repairCap: 0.1, kitB: 0.3 }, icon: "tent" });
+N("smith", "smdis", "Rozbiórka", "Rozbierając sprzęt odzyskujesz o 20% więcej materiału.", 1, 1, { int: 5 }, ["sm1"], { perks: { dismantle: 0.2 }, icon: "hammer" });
+N("smith", "smbar", "Targ u kowala", "Kowale liczą ci o 10% mniej.", 1, 2, { cha: 4, str: 4 }, ["smfast", "sm1"], { perks: { smithB: 0.1 }, icon: "coin" });
+N("smith", "silverwork", "Srebrnik", "Umiesz kuć ze srebra: broń srebrna rani nieumarłych o 35% mocniej.", 2, 0, { int: 6 }, ["smrep", "smdis"], { perks: { silverwork: 1 }, icon: "star" });
+N("smith", "smweap", "Płatnerz broni", "Wykuta broń +6% obrażeń.", 2, 1, { str: 6 }, ["smdis", "smbar"], { perks: { weaponsmith: 0.06 }, icon: "sword" });
+N("smith", "smarm", "Płatnerz zbroi", "Wykuta zbroja +6% pancerza.", 2, 2, { str: 6, end: 5 }, ["smbar"], { perks: { armorer: 0.06 }, icon: "shield" });
+N("smith", "dwarfwork", "Krasnoludzki sekret", "Umiesz kuć z rudy krasnoludów (+20% siły przedmiotu).", 3, 0, { str: 7, int: 6 }, ["silverwork"], { perks: { dwarfwork: 1 }, icon: "hammer" });
+N("smith", "masterForge", "Mistrz kuźni", "Kujesz jakość mistrzowską.", 3, 1, { str: 7, int: 6 }, ["smweap", "smarm", "silverwork"], { perks: { masterForge: 1, craftQ: 0.05 }, icon: "crown" });
+N("smith", "smbow", "Łuczarz", "Wykute łuki i kusze +8% siły.", 3, 2, { agi: 6, int: 5 }, ["smarm", "smweap"], { perks: { bowyer: 0.08 }, icon: "bow" });
+N("smith", "smeco2", "Skąpiec kuźni", "Kolejne 10% mniej materiału.", 4, 0, { int: 7 }, ["dwarfwork"], { perks: { craftMat: 0.1 }, icon: "coin" });
+N("smith", "smq2", "Pewna ręka", "+8% szans na udaną robotę.", 4, 1, { str: 8 }, ["masterForge"], { perks: { craftQ: 0.08 }, icon: "hammer" });
+N("smith", "smfit", "Szyte na miarę", "Własny sprzęt leży lepiej: +2 pancerza.", 4, 2, { str: 7, end: 6 }, ["smbow", "masterForge"], { perks: { armorB: 0.02 }, icon: "shield" });
+N("smith", "blackwork", "Czarna kuźnia", "Umiesz kuć z czarnej stali Morvatha. Moc za cenę spaczenia.", 5, 0, { int: 8 }, ["smeco2", "smq2"], { perks: { blackwork: 1 }, icon: "skull" });
+N("smith", "smfast2", "Żar bez dymu", "Kucie o kolejne 20% krótsze.", 5, 1, { str: 9 }, ["smq2"], { perks: { craftTime: 0.2 }, icon: "fire" });
+N("smith", "smweap2", "Ostrze z duszą", "Wykuta broń i zbroja kolejne +6%.", 5, 2, { str: 9 }, ["smfit", "smq2"], { perks: { weaponsmith: 0.06, armorer: 0.06 }, icon: "sword" });
+N("smith", "legendForge", "Legendarny kowal", "Kujesz arcydzieła: przedmioty, o których śpiewają bardowie.", 6, 1, { str: 11, int: 8 }, ["smfast2", "blackwork", "smweap2"], { perks: { legendForge: 1, craftQ: 0.05 }, icon: "crown" });
+N("smith", "smfame", "Sława kuźni", "Twoje wyroby sprzedają się drożej, kowale cię szanują.", 6, 0, { cha: 6 }, ["blackwork"], { perks: { smithB: 0.1, tradeB: 0.05 }, icon: "star" });
 const NODE = (id: string) => NODES.find((n) => n.id === id);
 
 function treeExcluded(P: PlayerState, t: SkillTree) { return !!t.excl && P.nodes.some((id) => NODE(id).tree === t.excl); }
@@ -258,4 +280,4 @@ function applyNode(P: PlayerState, n: SkillNode) {
   if (n.smite2) P.abLevels.smite = 2;
   if (n.skills?.ironflesh) P.hp += 8;
 }
-function perk(P: PlayerState, k: string) { return P.perks?.[k] || 0; }
+function perk(P: PlayerState, k: string) { return (P.perks?.[k] || 0) + equipFx(P, k); }

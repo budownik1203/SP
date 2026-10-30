@@ -33,6 +33,7 @@ interface Look {
   culture?: string;           // kształty hełmów, tarcz i płaszczy zależne od kultury
   rust?: number;              // 0..1 rdza na stali (zużycie przedmiotu)
   dents?: number;             // liczba wgnieceń
+  charge?: string;            // godło oddziału na tarczy i proporcu
   stubble?: number;           // 0..1 zarost (portret)
   tired?: number;             // 0..1 zmęczenie (portret)
   bscars?: number;            // świeże blizny z bitew (portret)

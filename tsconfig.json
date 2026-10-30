@@ -29,6 +29,7 @@
     "src/campaign.ts",
     "src/screens.ts",
     "src/camp.ts",
+    "src/craft.ts",
     "src/main.ts"
   ]
 }

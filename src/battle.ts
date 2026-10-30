@@ -12,6 +12,7 @@ const SQUAD_NAMES: Record<number, string> = { 1: "Piechota", 2: "Strzelcy", 3: "
 const SQUAD_COLORS: Record<number, string> = { 1: PAL.redL, 2: PAL.moss, 3: PAL.gold, 4: PAL.bone, 5: PAL.purpleL, 6: PAL.steelL, 7: PAL.dirtL, 8: PAL.ash };
 
 // Klawisze do przypisania: id, domyślny klawisz, opis, gdzie działa.
+let UNIT_PAINT: Record<number, { main: string; trim: string; charge: string }> | null = null;
 const KEYDEF: [string, string, string, string][] = [
   ["char", "KeyC", "Okno postaci", "Mapa"], ["inv", "KeyI", "Ekwipunek", "Mapa"], ["party", "KeyP", "Armia", "Mapa"], ["fac", "KeyF", "Frakcje", "Mapa"],
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
@@ -47,7 +48,7 @@ interface BattleConfig {
   maxPerSide?: number;
   title?: string;
   allyObey?: boolean; deploy?: boolean; keep?: boolean; sally?: boolean;
-  tutorial?: boolean; dmgTaken?: number; campFort?: boolean;
+  tutorial?: boolean; dmgTaken?: number; campFort?: boolean; paint?: Record<number, { main: string; trim: string; charge: string }>;
 }
 interface Casualty { type: string; killed: number; wounded: number; }
 interface BattleResult {
@@ -163,7 +164,9 @@ class Unit {
     this.dir = pick<Dir>(["L", "R", "O", "T"]);
     const variant = Math.floor(rnd() * 48);
     this.look = look || troopLook(this.def, variant, faction);
-    this.spr = spritesFor(this.look, look ? "custom:" + this.id : `${key}:${faction}:${variant}`);
+    const paint = !look && team === 0 && UNIT_PAINT ? UNIT_PAINT[squad] : undefined;   // barwy oddziału gracza
+    if (paint && (paint.main || paint.trim || (paint.charge && paint.charge !== "none"))) this.look = applyPaint(this.look, paint);
+    this.spr = spritesFor(this.look, look ? "custom:" + this.id : `${key}:${faction}:${variant}${paint ? ":p" + paint.main + paint.trim + paint.charge : ""}`);
     if (this.def.mount) this.mount(this.def.mount, faction);
     this.name = this.def.name;
   }
@@ -285,6 +288,7 @@ class Battle {
     this.decals = d; this.dg = dg;
     this.makeOverlays();
     for (let i = 0; i < 220; i++) this.ash.push({ x: rr(0, 640), y: rr(0, 360), s: rr(4, 13), p: rr(0.3, 1), c: chance(0.7) ? PAL.ash : PAL.boneHi });
+    UNIT_PAINT = cfg.paint || null;   // obowiązuje przez całą bitwę (także posiłki z odwodu)
     this.spawnAll();
     if (cfg.arena?.archery) {   // łucznictwo: słomiane tarcze w różnych odległościach
       this.units = this.units.filter((u) => u.team === 0);
@@ -1393,6 +1397,7 @@ class Battle {
       if (a.hp < a.maxHp * 0.5) dmg *= 1 + this.P("berserk");
       if (angFromD > 2.1) dmg *= 1 + this.P("backstab");
       if (d.def.undead) dmg *= 1 + this.P("undeadB");
+      if (d.look.race === "wolf") dmg *= 1 + this.P("beastB");
       if ((a as any).dodgeBuff > this.time) { dmg *= 1 + this.P("dodgeStrike"); (a as any).dodgeBuff = 0; }
     }
     if (a.team === 0 && !a.hero && d.def.undead) dmg *= 1 + this.P("crusade");

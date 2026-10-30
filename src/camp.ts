@@ -27,7 +27,7 @@ const CAMP_TASKS: [string, string, string][] = [
   ["forage", "Zbieractwo", "zioła, grzyby, chrust (las i bagna)"],
   ["train", "Musztra rekrutów", "doświadczenie dla żołnierzy"],
   ["heal", "Opieka nad chorymi", "leczy rannych i chorych"],
-  ["repair", "Naprawa sprzętu", "do ok. 70% stanu"],
+  ["repair", "Naprawa sprzętu", "do ok. 70% stanu, zużywa zestawy naprawcze (kowal)"],
   ["scout", "Zwiad", "odkrywa okolicę i wrogów"],
 ];
 const HERO_TASKS: [string, string, string][] = [["rest", "Odpoczynek", "zdrowie i siły"], ["practice", "Ćwiczenia", "doświadczenie bohatera"], ["hunt", "Polowanie", "mięso"], ["watch", "Warta", "pilnujesz obozu"]];
@@ -107,7 +107,11 @@ function campWork(w: World, hours: number) {
       for (const tr of p.troops) if (tr.wounded) { const h = Math.min(tr.wounded, Math.floor(rr(0, 1) + 0.08 * hours * tr.wounded + 0.04 * hours)); tr.wounded -= h; add("healed", h); }
       for (const s of sickList(P)) { const k = Math.min(s.n, Math.floor(rr(0, 1) + hours * 0.06 * (1 + ((P as any).herbs > 0 ? 1 : 0)) * Math.max(1, s.n))); if (k > 0) { s.n -= k; add("cured", k); if ((P as any).herbs > 0 && chance(0.3)) (P as any).herbs--; } }
     }
-    if (t === "repair") { const cond = ((P as any).cond ||= {}) as Record<string, number>; const cap = workers.some((c) => c.role === "inżynier") ? 80 : 70; for (const sl of Object.keys(P.equip)) if (P.equip[sl as ESlot] && sl !== "horse" && (cond[sl] ?? 100) < cap) { cond[sl] = Math.min(cap, (cond[sl] ?? 100) + 0.6 * hours); add("repair", 0.6 * hours); } }
+    if (t === "repair" && (P as any).kits > 0) {   // zestaw naprawczy zużywa się: jeden na ok. 25 punktów stanu
+      const cond = ((P as any).cond ||= {}) as Record<string, number>; const cap = (workers.some((c) => c.role === "inżynier") ? 80 : 70) + perk(P, "repairCap") * 100;
+      for (const sl of Object.keys(P.equip)) if (P.equip[sl as ESlot] && sl !== "horse" && (cond[sl] ?? 100) < cap) { const d = Math.min(cap - (cond[sl] ?? 100), 0.8 * hours); cond[sl] = (cond[sl] ?? 100) + d; add("repair", d); add("kitUse", d / (25 * (1 + perk(P, "kitB")))); }
+      while ((A.kitUse || 0) >= 1 && (P as any).kits > 0) { A.kitUse -= 1; (P as any).kits--; add("kitsUsed", 1); }
+    }
     if (t === "scout") { add("scoutH", hours); if (A.scoutH >= 4) { A.scoutH = 0; const r = 26; const cx = Math.floor(p.x / WCELL), cy = Math.floor(p.y / WCELL); for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) { const X = cx + dx, Y = cy + dy; if (X >= 0 && Y >= 0 && X < WGW && Y < WGH) w.explored[cidx(X, Y)] = 1; } const foe = w.parties.find((o) => o !== p && hostile(w, p, o) && dist(o.x, o.y, p.x, p.y) < r * WCELL); if (foe && !A.warned) { A.warned = 1; toast(`Zwiadowcy: ${foe.name} (${troopCount(foe.troops)} ludzi) kręci się w okolicy.`, PAL.redL); } } }
   }
   // z ułamków robią się całe zdobycze
@@ -125,7 +129,7 @@ function campReport(w: World) {
   if (A.herbs) parts.push(`${A.herbs} ziół`);
   if (A.healed) parts.push(`opatrzono ${A.healed} rannych`);
   if (A.cured) parts.push(`wyleczono ${A.cured} chorych`);
-  if (A.repair) parts.push(`naprawiono sprzęt`);
+  if (A.repair) parts.push(`naprawiono sprzęt${A.kitsUsed ? ` (zużyte zestawy: ${A.kitsUsed})` : ""}`);
   if (A.trainH) parts.push(`musztra ${Math.round(A.trainH)} godz.`);
   if (A.xp) parts.push(`ćwiczenia: +${A.xp} doświadczenia`);
   if (parts.length) addLogMsg(`Obóz zwinięty: ${parts.join(", ")}. Zmęczenie ${Math.round(fatigueOf(P))}%.`, PAL.gold);
