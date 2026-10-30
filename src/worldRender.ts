@@ -4,6 +4,8 @@ let WMAP: HTMLCanvasElement = null as any;
 let WBORDER: HTMLCanvasElement = null as any;
 let WBORDER_VER = -1;
 let WFOG: HTMLCanvasElement = null as any;
+let WSNOW: HTMLCanvasElement = null as any;
+let WOLD: HTMLCanvasElement | null = null;
 let QM: ReturnType<typeof questMarks> = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map<string, HTMLCanvasElement>();
 const PICON = new Map<string, HTMLCanvasElement>();
@@ -44,6 +46,8 @@ function renderWorldMap(w: World) {
   const stone = [C(PAL.slate), C(PAL.stone), C(PAL.ash), C(PAL.bone)];
   const sand = [C("#5b4a32"), C("#6f5c3d"), C("#867049")];
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const MUD = C("#2b2318"), TRAMPLE = C("#5a4a33");
+  const mixC = (a: number[], b: number[], k: number) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
   const E = mapElev(w), SD = seaDist(w);
   const elev = (px: number, py: number) => {
     const fx = px / WCELL - 0.5, fy = py / WCELL - 0.5, x0 = clamp(Math.floor(fx), 0, WGW - 2), y0 = clamp(Math.floor(fy), 0, WGH - 2), ax = clamp(fx - x0, 0, 1), ay = clamp(fy - y0, 0, 1);
@@ -112,6 +116,14 @@ function renderWorldMap(w: World) {
     const rm = RM[y * PW + x];
     if (rm === 2 && t !== T_SEA) { col = riverW[clamp(Math.floor(n * 1.8 + th * 0.9 - 0.2), 0, 2)]; if (((x + y * 3 + Math.floor(n * 10)) % 23) === 0) col = C("#6f8f84"); }
     else if (rm === 1 && t !== T_SEA) col = [col[0] * 0.55 + 14, col[1] * 0.5 + 10, col[2] * 0.45 + 6];
+    // brudniejsza paleta: plamy błota, wydeptane łąki przy osadach, przygaszone i cieplejsze barwy
+    if (t !== T_SEA && rm !== 2) {
+      if (t !== T_MOUNT && vnoise(x + 700, y + 300, 16) > 0.7 && th > 0.45) col = mixC(col, MUD, 0.45);
+      const ns = w.settlements[w.nearest[i]];
+      if (ns && t === T_PLAIN) { const d = Math.hypot(ns.cx - cx, ns.cy - cy); if (d < 4.5 && vnoise(x + 50, y + 90, 9) + th * 0.35 > 0.62 + d * 0.06) col = mixC(col, TRAMPLE, 0.4); }
+      const lum = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11;
+      col = [Math.min(255, (col[0] * 0.82 + lum * 0.18) * 1.03), col[1] * 0.82 + lum * 0.18, (col[2] * 0.82 + lum * 0.18) * 0.93];
+    }
     const k = (y * PW + x) * 4;
     im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255;
   }
@@ -147,6 +159,12 @@ function renderWorldMap(w: World) {
         pxLine(g, x, y, x + dx * WCELL, y + dy * WCELL, bridge ? PAL.wood : "#7a6648");
         pxLine(g, x + 1, y, x + 1 + dx * WCELL, y + dy * WCELL, bridge ? PAL.woodD : PAL.dirtL);
         if (bridge) { g.fillStyle = PAL.woodD; g.fillRect(x - 1, y - 1, 1, 3); g.fillRect(x + 2, y - 1, 1, 3); }
+        else {   // koleiny od wozów: ciemne przerywane ślady i kałuże
+          const hh = hashInt(i * 17 + j);
+          g.fillStyle = "#3a2e20";
+          for (let q = 1; q < WCELL; q += 2 + (hh >>> q) % 2) g.fillRect(x + Math.round(dx * q) + (q % 4 < 2 ? 0 : 1), y + Math.round(dy * q), 1, 1);
+          if (hh % 23 === 0) { g.fillStyle = "#33463f"; g.fillRect(x + dx * 4, y + dy * 4, 2, 1); }
+        }
       }
     }
   }
@@ -154,6 +172,23 @@ function renderWorldMap(w: World) {
   for (let i = 0; i < w.road.length; i++) if (w.road[i] === 3) {
     const x = (i % WGW) * WCELL, y = Math.floor(i / WGW) * WCELL;
     for (let k = 0; k < 7; k++) { g.fillStyle = k % 2 ? PAL.stone : PAL.ash; g.fillRect(x + 1 + ((k * 3) % 6), y + 1 + ((k * 5) % 6), 2, 1); }
+  }
+  // wydeptane ścieżki między wioskami a najbliższą osadą, tam gdzie nie ma drogi
+  for (const st of w.settlements) {
+    if (st.kind !== "village") continue;
+    let best: Settlement | null = null, bd = 1e9;
+    for (const o of w.settlements) { if (o === st) continue; const d = Math.hypot(o.cx - st.cx, o.cy - st.cy); if (d < bd && d < 34) { bd = d; best = o; } }
+    if (!best) continue;
+    const x0 = st.cx * WCELL + 4, y0 = st.cy * WCELL + 4, x1 = best.cx * WCELL + 4, y1 = best.cy * WCELL + 4;
+    const L = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / L, ny = (x1 - x0) / L, hs = hashInt(st.id * 97);
+    for (let q = 6; q < L - 6; q += 1) {
+      const u = q / L, wob = Math.sin(u * Math.PI * 2 + (hs % 7)) * Math.min(12, L * 0.08) + (vnoise(q, hs % 1000, 14) - 0.5) * 6;
+      const px = Math.round(x0 + (x1 - x0) * u + nx * wob), py = Math.round(y0 + (y1 - y0) * u + ny * wob);
+      const ci = cidx(clamp(px >> 3, 0, WGW - 1), clamp(py >> 3, 0, WGH - 1));
+      if (w.terr[ci] === T_SEA || w.terr[ci] === T_MOUNT || w.road[ci] === 1 || RM[py * PW + px] === 2) continue;
+      if ((q + (hs % 3)) % 5 === 4) continue;   // przerywana
+      g.fillStyle = q % 3 ? "#56452f" : "#463826"; g.fillRect(px, py, 1, 1);
+    }
   }
   // detale: drzewa, góry, wzgórza, trzciny, fale
   const tree = (x: number, y: number, dead: boolean, dark: boolean) => {
@@ -209,6 +244,19 @@ function renderWorldMap(w: World) {
   }
   WMAP = cv;
   WFOG = mkCanvas(WGW, WGH)[0];
+  // warstwa śniegu na zimę: gęściej na północy i w górach, błoto przy drogach zostaje ciemne
+  const [sc, sg] = mkCanvas(PW, PH);
+  const sim = sg.createImageData(PW, PH);
+  for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+    const cx = x >> 3, cy = y >> 3, i = cidx(cx, cy), t = w.terr[i];
+    if (t === T_SEA || RM[y * PW + x] === 2 || w.road[i] === 1) continue;
+    const th = (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+    const north = 1 - cy / WGH, dens = 0.12 + north * 0.4 + (t === T_MOUNT ? 0.35 : t === T_HILL ? 0.15 : 0) - (steppeAt(cx, cy) ? 0.2 : 0);
+    const n = vnoise(x + 31, y + 17, 20) * 0.6 + th * 0.4;
+    if (n > 1 - dens) { const k = (y * PW + x) * 4; const v2 = n > 1.08 - dens * 0.4 ? 168 : 132; sim.data[k] = v2; sim.data[k + 1] = v2 + 2; sim.data[k + 2] = v2 + 6; sim.data[k + 3] = 200; }
+  }
+  sg.putImageData(sim, 0, 0);
+  WSNOW = sc;
 }
 
 function renderBorders(w: World) {
@@ -233,54 +281,198 @@ function renderBorders(w: World) {
   WBORDER_VER = w.ownerVersion;
 }
 
+// Pobojowiska (stratowana ziemia, ciała, wrony, popiół w powietrzu) i pogorzeliska (czarne plamy, żar, dym). Bledną przez kilka dni.
+function drawScars(w: World, g: CanvasRenderingContext2D, sx: number, sy: number, t: number) {
+  const L = ((w as any).scars || []) as Scar[];
+  const now = w.day + w.hour / 24;
+  for (const sc of L) {
+    const x = sc.x - sx, y = sc.y - sy;
+    if (x < -30 || y < -30 || x > W + 30 || y > H + 30 || !w.explored[cidx(clamp(sc.x >> 3, 0, WGW - 1), clamp(sc.y >> 3, 0, WGH - 1))]) continue;
+    const age = now - sc.day, life = sc.kind === "burn" ? 9 : 6, k = clamp(1 - age / life, 0, 1);
+    if (k <= 0) continue;
+    const hs = hashInt(Math.round(sc.x * 7 + sc.y * 13)), R = Math.round(8 * sc.size);
+    g.globalAlpha = 0.25 + k * 0.6;
+    for (let i = 0; i < 26 * sc.size; i++) {
+      const h2 = hashInt(hs + i * 31), a = (h2 % 628) / 100, r = Math.sqrt(((h2 >>> 10) % 100) / 100) * R;
+      const px = Math.round(x + Math.cos(a) * r * 1.4), py = Math.round(y + Math.sin(a) * r * 0.7);
+      if (sc.kind === "burn") { g.fillStyle = i % 4 ? PAL.black : PAL.dusk; g.fillRect(px, py, 2, 1); }
+      else { g.fillStyle = i % 5 === 0 ? PAL.bloodD : i % 3 ? "#2a2117" : PAL.dirtD; g.fillRect(px, py, i % 2 ? 2 : 1, 1); if (i % 9 === 0 && k > 0.3) { g.fillStyle = PAL.bone; g.fillRect(px, py - 1, 1, 1); } }
+    }
+    if (sc.kind === "burn" && k > 0.35) {   // żar i dym
+      g.fillStyle = Math.floor(t * 5 + hs) % 2 ? PAL.redL : PAL.gold; g.fillRect(Math.round(x + (hs % 6) - 3), Math.round(y), 1, 1);
+      for (let j = 0; j < 4; j++) { const ph = (t * 0.3 + j / 4 + (hs % 10) / 10) % 1; g.globalAlpha = (1 - ph) * 0.45 * k; g.fillStyle = j % 2 ? PAL.slate : PAL.stone; g.fillRect(Math.round(x - 2 + Math.sin(ph * 5 + j) * 3 + ph * 6), Math.round(y - 3 - ph * 18), 2, 2); }
+    }
+    if (sc.kind === "battle") {   // wrony krążą, popiół i dym nad pobojowiskiem
+      for (let j = 0; j < 3; j++) { const a = t * (0.8 + j * 0.2) + j * 2.1; g.globalAlpha = 0.8 * k; g.fillStyle = PAL.black; const cx2 = Math.round(x + Math.cos(a) * (6 + j * 3)), cy2 = Math.round(y - 10 - j * 2 + Math.sin(a) * 3); g.fillRect(cx2 - 1, cy2, 3, 1); g.fillRect(cx2, cy2 - (Math.floor(t * 6 + j) % 2), 1, 1); }
+      for (let j = 0; j < 5; j++) { const ph = (t * 0.15 + j / 5 + (hs % 7) / 7) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * 0.5 * k; g.fillStyle = PAL.ash; g.fillRect(Math.round(x - 8 + ((hs >>> j) % 16) + ph * 5), Math.round(y - 2 - ph * 14), 1, 1); }
+    }
+  }
+  g.globalAlpha = 1;
+}
+// Efekt starej mapy: winieta, brunatne przybrudzenie i ziarno przy krawędziach.
+function oldMapOverlay(g: CanvasRenderingContext2D) {
+  if (!WOLD || WOLD.width !== W || WOLD.height !== H) {
+    const [c, cg] = mkCanvas(W, H);
+    const gr = cg.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+    gr.addColorStop(0, "rgba(40,28,14,0)"); gr.addColorStop(0.7, "rgba(40,28,14,0.18)"); gr.addColorStop(1, "rgba(18,12,6,0.55)");
+    cg.fillStyle = gr; cg.fillRect(0, 0, W, H);
+    const im = cg.getImageData(0, 0, W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const e = Math.max(Math.abs(x / W - 0.5), Math.abs(y / H - 0.5)) * 2;   // 0 środek, 1 krawędź
+      if (e < 0.55) continue;
+      const hh = hashInt(x * 7919 + y * 104729);
+      if ((hh % 1000) / 1000 > (e - 0.55) * 0.9) continue;
+      const k = (y * W + x) * 4, dark = hh % 3 === 0;
+      im.data[k] = dark ? 20 : 120; im.data[k + 1] = dark ? 14 : 100; im.data[k + 2] = dark ? 8 : 70; im.data[k + 3] = Math.max(im.data[k + 3], dark ? 110 : 60);
+    }
+    cg.putImageData(im, 0, 0);
+    WOLD = c;
+  }
+  g.drawImage(WOLD, 0, 0);
+}
+
+// Ikony osad (Build 0.17): większe, z detalami (łaty na dachach, płoty, stogi, śmietniska, szubienice),
+// zależne od dobrobytu (bieda: dziury i ruiny, bogactwo: kamień i chorągwie), od kultury
+// (krasnoludy w skale, orkowie w namiotach z kości, nieumarli w czarnym kamieniu) i ze śladami oblężenia i grabieży.
 function settlementIcon(s: Settlement, w: World): HTMLCanvasElement {
-  const key = s.id + ":" + s.faction + ":" + (s.raided > 0 ? 1 : 0);
+  const wealth = s.prosperity < 35 ? 0 : s.prosperity > 72 ? 2 : 1;
+  const sieged = s.siegeBy.length > 0, raided = s.raided > 0;
+  const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture].join(":");
   let c = SICON.get(key);
   if (c) return c;
-  const [col, shade, trim] = factionCol(s.faction);
-  const undead = s.culture === "undead", dwarf = s.culture === "dwarf", orc = s.culture === "orc";
-  const roof = undead ? PAL.slate : orc ? PAL.dirt : dwarf ? PAL.stone : PAL.red;
-  const roofD = undead ? PAL.dusk : orc ? PAL.dirtD : dwarf ? PAL.slate : PAL.bloodD;
-  const wall = undead ? PAL.stone : orc ? PAL.wood : PAL.ash;
-  const P = new Pix(s.kind === "town" ? 34 : s.kind === "castle" ? 26 : 26, s.kind === "village" ? 18 : 28);
-  const house = (x: number, y: number, w2: number, h2: number) => {
-    P.r(x, y, w2, h2, orc ? PAL.wood : PAL.bone); P.r(x + w2 - 1, y, 1, h2, PAL.dirt);
-    for (let k = 0; k < 3; k++) P.r(x - 1 + k, y - 1 - k, w2 + 2 - k * 2, 1, k === 2 ? roofD : roof);
-    P.p(x + 1, y + h2 - 2, PAL.ink);
-    if (orc) { P.p(x + Math.floor(w2 / 2), y - 4, PAL.bone); }
+  const [col, , trim] = factionCol(s.faction);
+  const cul = s.culture;
+  const undead = cul === "undead", dwarf = cul === "dwarf", orc = cul === "orc";
+  const big = s.kind === "town", W2 = big ? 48 : s.kind === "castle" ? 38 : 36, H2 = big ? 42 : s.kind === "castle" ? 38 : 26;
+  const P = new Pix(W2, H2);
+  const hs = (k: number) => hashInt(s.seed * 7 + k * 131);
+  const rich = wealth === 2, poor = wealth === 0;
+  const wallC = undead ? PAL.slate : dwarf ? PAL.stone : rich ? PAL.ash : PAL.stone;
+  const wallD = undead ? PAL.dusk : PAL.slate;
+  const burnt = (x: number, y: number, w2: number, h2: number) => { for (let yy = y; yy < y + h2; yy++) for (let xx = x; xx < x + w2; xx++) if (P.has(xx, yy) && hashInt(xx * 31 + yy * 17 + s.seed) % 3 !== 0) P.p(xx, yy, hashInt(xx + yy * 7) % 4 ? PAL.black : PAL.dusk); };
+
+  // --- budynki ---
+  const house = (x: number, y: number, w2: number, h2: number, k: number) => {
+    if (orc) {   // namiot ze skór na kościanych tyczkach
+      for (let r = 0; r < h2 + 2; r++) { const half = Math.floor((r * (w2 + 1)) / (h2 + 2) / 2); P.r(x + Math.floor(w2 / 2) - half, y - 2 + r, half * 2 + 1, 1, r % 3 === 0 ? PAL.dirt : PAL.dirtL); }
+      P.p(x + Math.floor(w2 / 2), y - 3, PAL.boneHi); P.p(x + Math.floor(w2 / 2) - 1, y - 4, PAL.bone); P.p(x + Math.floor(w2 / 2) + 1, y - 4, PAL.bone);
+      P.r(x + Math.floor(w2 / 2), y + h2 - 2, 1, 2, PAL.ink);
+      if (hs(k) % 2) P.p(x + 1, y + h2 - 1, PAL.bone);   // czaszka przy wejściu
+      return;
+    }
+    const stoneH = rich || undead;
+    const wallCol = stoneH ? (undead ? PAL.stone : PAL.ash) : PAL.bone;
+    P.r(x, y, w2, h2, wallCol); P.r(x + w2 - 1, y, 1, h2, stoneH ? PAL.slate : PAL.dirtL);
+    if (!stoneH) { P.r(x, y, w2, 1, PAL.woodD); P.r(x, y + h2 - 1, w2, 1, PAL.woodD); P.r(x + Math.floor(w2 / 2), y, 1, h2, PAL.woodD); }   // mur pruski
+    else if (!undead) for (let yy = y + 1; yy < y + h2; yy += 2) P.p(x + (yy % 4 === 1 ? 1 : 2), yy, PAL.stone);
+    const thatch = s.kind === "village" && !rich;
+    const roof = undead ? PAL.slate : thatch ? PAL.goldD : PAL.red, roofD = undead ? PAL.dusk : thatch ? PAL.dirt : PAL.bloodD;
+    for (let r = 0; r < 4; r++) P.r(x - 1 + r, y - 1 - r, w2 + 2 - r * 2, 1, r === 3 ? roofD : r % 2 ? roof : thatch ? PAL.dirtL : roof);
+    if (thatch) for (let xx = x; xx < x + w2; xx += 2) P.p(xx, y - 1, PAL.dirt);   // strzecha
+    if (hs(k) % 3 === 0) P.r(x + 1 + (hs(k) >>> 3) % Math.max(1, w2 - 3), y - 2, 2, 1, thatch ? PAL.wood : PAL.rust);   // łata na dachu
+    if (poor && hs(k + 5) % 2 === 0) { P.p(x + 1 + (hs(k) >>> 5) % Math.max(1, w2 - 2), y - 2, PAL.ink); P.p(x + 2 + (hs(k) >>> 5) % Math.max(1, w2 - 3), y - 3, PAL.ink); }   // dziura w dachu
+    P.r(x + 1, y + h2 - 3, 1, 3, PAL.ink);   // drzwi
+    if (w2 > 4) P.p(x + w2 - 3, y + 1, undead ? PAL.purpleL : PAL.goldD);   // okienko
+    if (h2 > 4 && !undead && hs(k + 2) % 2 === 0) { P.r(x + w2 - 2, y - 5, 1, 2, PAL.slate); }   // komin
   };
+  const fence = (x: number, y: number, len: number) => { P.r(x, y, len, 1, PAL.woodD); for (let xx = x; xx < x + len; xx += 2) P.r(xx, y - 1, 1, 3, poor && hashInt(xx * 3 + s.seed) % 3 === 0 ? null : PAL.wood); };
+  const stack = (x: number, y: number) => { P.r(x, y - 2, 4, 3, PAL.goldD); P.r(x + 1, y - 3, 2, 1, PAL.gold); P.p(x + 3, y - 1, PAL.dirt); P.r(x, y + 1, 4, 1, PAL.dirtD); };
+  const midden = (x: number, y: number) => { P.r(x, y - 1, 4, 2, PAL.dirtD); P.p(x + 1, y - 2, PAL.dirt); P.p(x + 2, y - 1, PAL.bone); P.p(x, y, PAL.moss); };
+  const gallows = (x: number, y: number) => { P.r(x, y - 9, 1, 10, PAL.woodD); P.r(x, y - 9, 5, 1, PAL.woodD); P.p(x + 1, y - 8, PAL.woodD); P.r(x + 4, y - 8, 1, 2, PAL.ink); P.r(x + 3, y - 6, 3, 3, PAL.dirt); P.r(x + 4, y - 3, 1, 2, PAL.dirtD); };
   const tower = (x: number, y: number, h2: number) => {
-    P.r(x, y, 4, h2, wall); P.r(x + 3, y, 1, h2, PAL.slate);
-    P.r(x - 1, y - 1, 6, 1, wall); P.p(x - 1, y - 2, wall); P.p(x + 1, y - 2, wall); P.p(x + 4, y - 2, wall);
-    P.p(x + 1, y + 2, PAL.ink);
+    P.r(x, y, 5, h2, wallC); P.r(x + 4, y, 1, h2, wallD); P.r(x, y, 1, h2, undead ? PAL.slate : PAL.bone);
+    P.r(x - 1, y - 1, 7, 1, wallC); P.p(x - 1, y - 2, wallC); P.p(x + 2, y - 2, wallC); P.p(x + 5, y - 2, wallC);
+    P.p(x + 2, y + 3, PAL.ink); P.p(x + 2, y + 4, PAL.ink);
+    if (rich) { P.r(x - 1, y - 6, 7, 1, PAL.red); P.r(x, y - 7, 5, 1, PAL.red); P.r(x + 1, y - 8, 3, 1, PAL.bloodD); P.p(x + 2, y - 9, PAL.gold); }   // stożkowy dach
+    if (poor && hashInt(x + s.seed) % 2 === 0) { P.p(x + 1, y - 2, null); P.p(x + 5, y - 1, null); P.r(x + 3, y + 1, 2, 2, PAL.ink); }   // wykruszony mur
   };
-  const flag = (x: number, y: number) => { P.r(x, y, 1, 7, PAL.woodD); P.r(x + 1, y, 4, 3, col); P.r(x + 1, y + 3, 3, 1, col); P.p(x + 2, y + 1, trim); };
+  const banner = (x: number, y: number, len = 6) => { P.r(x, y, 1, len + 3, PAL.woodD); P.r(x + 1, y, 3, len, col); P.p(x + 2, y + 1, trim); P.p(x + 1, y + len, col); P.p(x + 3, y + len, col); };
+  const flag = (x: number, y: number) => { P.r(x, y, 1, 8, PAL.woodD); P.r(x + 1, y, 5, 3, col); P.r(x + 1, y + 3, 4, 1, col); P.p(x + 3, y + 1, trim); };
+
   if (s.kind === "village") {
-    P.r(1, 12, 10, 4, s.raided ? PAL.dirtD : PAL.dirtL); for (let x = 1; x < 11; x += 2) P.r(x, 12, 1, 4, s.raided ? PAL.ink : PAL.moss);
-    house(12, 9, 5, 4); house(18, 11, 5, 4); house(7, 6, 5, 4);
-    P.r(0, 16, 25, 1, PAL.woodD);
-    flag(21, 1);
-    if (s.raided) { P.r(12, 8, 6, 2, PAL.ink); P.r(18, 10, 5, 2, PAL.ink); }
+    if (dwarf) {   // osada wykuta w skale: drzwi w zboczu, kominy z dymem
+      for (let y = 4; y < 22; y++) { const half = Math.min(17, 4 + (y - 4) * 1.1); P.r(18 - half, y, half * 2, 1, (y + Math.floor(half)) % 5 === 0 ? PAL.slate : y < 8 ? PAL.ash : PAL.stone); }
+      for (const dx of [8, 16, 25]) { P.r(dx, 15, 3, 6, PAL.ink); P.p(dx + 1, 14, PAL.ink); P.r(dx - 1, 14, 1, 7, PAL.goldD); P.p(dx + 3, 17, PAL.gold); }
+      P.r(12, 7, 1, 3, PAL.slate); P.r(22, 9, 1, 3, PAL.slate);
+      P.r(2, 22, 32, 1, PAL.dirtD); stack(29, 21);
+    } else if (orc) {
+      house(3, 12, 8, 7, 1); house(14, 10, 9, 8, 2); house(25, 13, 7, 6, 3);
+      P.r(11, 20, 1, 4, PAL.wood); P.r(10, 19, 3, 2, PAL.bone); P.p(11, 20, PAL.black);   // pal z czaszką
+      midden(28, 22); P.r(0, 23, 36, 1, PAL.dirtD);
+    } else {
+      P.r(1, 17, 12, 5, poor ? PAL.dirtD : PAL.dirtL); for (let x = 1; x < 13; x += 2) P.r(x, 17, 1, 5, poor ? PAL.ink : PAL.moss);   // zagon
+      house(14, 13, 6, 5, 1); house(22, 15, 6, 5, 2); house(8, 9, 6, 5, 3);
+      if (rich) house(28, 10, 5, 5, 4);
+      fence(0, 23, 20); stack(30, 21); if (!rich) midden(2, 14);
+      P.r(0, 24, 36, 1, PAL.woodD);
+      flag(31, 1);
+    }
+    if (raided) { burnt(6, 4, 30, 18); P.r(10, 20, 3, 1, PAL.redL); }
   } else if (s.kind === "castle") {
-    P.r(3, 12, 20, 12, wall); P.r(3, 23, 20, 1, PAL.slate);
-    for (let x = 3; x < 23; x += 2) P.p(x, 11, wall);
-    tower(1, 9, 15); tower(20, 9, 15);
-    P.r(9, 4, 8, 16, wall); P.r(16, 4, 1, 16, PAL.slate); for (let x = 9; x < 17; x += 2) P.p(x, 3, wall);
-    P.r(12, 18, 3, 6, PAL.ink); P.p(11, 8, PAL.ink); P.p(14, 8, PAL.ink);
-    flag(12, 0);
-  } else {
-    P.r(1, 14, 32, 12, wall); P.r(1, 25, 32, 1, PAL.slate); for (let x = 1; x < 33; x += 2) P.p(x, 13, wall);
-    tower(0, 11, 15); tower(29, 11, 15); tower(14, 12, 14);
-    house(5, 8, 5, 5); house(11, 6, 4, 5); house(20, 7, 6, 5); house(25, 9, 4, 4);
-    P.r(15, 21, 3, 5, PAL.ink);
-    if (s.capital) { P.r(16, 1, 5, 12, wall); P.r(20, 1, 1, 12, PAL.slate); P.p(18, 4, PAL.ink); flag(18, -6 + 6); }
-    else flag(16, 3);
-    if (undead) { P.p(6, 3, PAL.purpleL); P.p(26, 4, PAL.purpleL); }
+    if (dwarf) {   // twierdza w skale: brama w zboczu, żelazne wrota, runy
+      for (let y = 6; y < 36; y++) { const half = Math.min(19, 5 + (y - 6) * 0.9); P.r(19 - half, y, half * 2, 1, (y * 3 + Math.floor(half)) % 7 === 0 ? PAL.slate : y < 12 ? PAL.ash : PAL.stone); }
+      P.r(13, 22, 12, 14, PAL.slate); P.r(14, 23, 10, 13, sieged ? PAL.ink : PAL.steelD); for (let x = 15; x < 24; x += 3) P.r(x, 23, 1, 13, PAL.steel); P.r(13, 21, 12, 1, PAL.gold);
+      P.p(9, 18, PAL.gold); P.p(29, 18, PAL.gold); P.p(19, 15, PAL.goldD);
+      tower(3, 14, 22); tower(30, 14, 22);
+      flag(18, 0);
+    } else if (orc) {   // obóz-warownia: palisada z zaostrzonych pali i kości
+      for (let x = 1; x < 37; x += 2) { const h3 = 12 + (hashInt(x + s.seed) % 3); P.r(x, 34 - h3, 2, h3, x % 4 === 1 ? PAL.wood : PAL.woodD); P.p(x, 33 - h3, PAL.bone); }
+      house(10, 12, 9, 8, 1); house(21, 10, 10, 9, 2);
+      P.r(16, 26, 6, 8, PAL.ink); P.r(15, 25, 8, 1, PAL.bone); P.p(16, 24, PAL.boneHi); P.p(21, 24, PAL.boneHi);
+      banner(4, 6, 7); banner(33, 6, 7);
+    } else {
+      P.r(4, 16, 30, 18, wallC); P.r(4, 33, 30, 1, wallD); P.r(4, 16, 1, 18, undead ? PAL.slate : PAL.bone);
+      for (let y = 18; y < 33; y += 3) for (let x = 6 + (y % 2) * 2; x < 33; x += 5) P.p(x, y, wallD);   // spoiny kamieni
+      for (let x = 4; x < 34; x += 2) P.p(x, 15, wallC);
+      tower(1, 12, 22); tower(32, 12, 22);
+      P.r(12, 5, 14, 22, wallC); P.r(25, 5, 1, 22, wallD); P.r(12, 5, 1, 22, undead ? PAL.slate : PAL.bone); for (let x = 12; x < 26; x += 2) P.p(x, 4, wallC);
+      P.p(15, 10, PAL.ink); P.p(15, 11, PAL.ink); P.p(21, 10, PAL.ink); P.p(21, 11, PAL.ink);
+      // brama: wyłamana przy oblężeniu
+      if (sieged) { P.r(16, 26, 6, 8, PAL.ink); P.p(16, 30, PAL.wood); P.p(21, 28, PAL.wood); P.r(14, 33, 3, 1, PAL.woodD); P.r(21, 34, 3, 1, PAL.woodD); }
+      else { P.r(16, 26, 6, 8, PAL.woodD); P.r(16, 26, 6, 1, PAL.ink); for (let x = 17; x < 22; x += 2) P.r(x, 27, 1, 7, PAL.wood); P.r(16, 29, 6, 1, PAL.steelD); }
+      if (rich || s.owner === -2) { banner(5, 17, 8); banner(29, 17, 8); }
+      if (undead) { P.p(15, 10, PAL.purpleL); P.p(21, 10, PAL.purpleL); P.r(2, 35, 3, 2, PAL.bone); }
+      flag(18, 0);
+    }
+    if (sieged) { burnt(2, 14, 12, 10); burnt(24, 20, 10, 9); }
+    if (poor && !dwarf && !orc) { P.r(8, 16, 3, 3, null); P.r(28, 22, 2, 4, PAL.ink); }   // wyrwy w murze
+  } else {   // miasto
+    if (orc) {
+      for (let x = 1; x < 47; x += 2) { const h3 = 11 + (hashInt(x + s.seed) % 4); P.r(x, 40 - h3, 2, h3, x % 4 === 1 ? PAL.wood : PAL.woodD); P.p(x, 39 - h3, PAL.bone); }
+      house(5, 15, 9, 8, 1); house(16, 11, 11, 10, 2); house(29, 14, 9, 8, 3); house(38, 18, 7, 6, 4);
+      P.r(21, 32, 6, 8, PAL.ink); P.r(20, 31, 8, 1, PAL.bone);
+      gallows(40, 30); banner(3, 4, 8); banner(43, 4, 8);
+    } else if (dwarf) {
+      for (let y = 4; y < 40; y++) { const half = Math.min(24, 6 + (y - 4) * 0.9); P.r(24 - half, y, half * 2, 1, (y * 5 + Math.floor(half)) % 9 === 0 ? PAL.slate : y < 10 ? PAL.ash : PAL.stone); }
+      for (const [dx, dy] of [[10, 26], [18, 20], [30, 22], [36, 28]]) { P.r(dx, dy, 3, 5, PAL.ink); P.r(dx - 1, dy - 1, 5, 1, PAL.goldD); P.p(dx + 1, dy + 1, PAL.gold); }
+      P.r(18, 31, 12, 9, PAL.slate); P.r(19, 32, 10, 8, sieged ? PAL.ink : PAL.steelD); P.r(18, 30, 12, 1, PAL.gold);
+      for (const cx2 of [14, 26, 34]) P.r(cx2, 6 + (cx2 % 5), 1, 4, PAL.slate);
+      tower(3, 20, 19); tower(40, 20, 19);
+      flag(23, 0);
+    } else {
+      P.r(1, 22, 46, 18, wallC); P.r(1, 39, 46, 1, wallD); P.r(1, 22, 1, 18, undead ? PAL.slate : PAL.bone);
+      for (let y = 24; y < 39; y += 3) for (let x = 3 + (y % 2) * 2; x < 46; x += 5) P.p(x, y, wallD);
+      for (let x = 1; x < 47; x += 2) P.p(x, 21, wallC);
+      house(6, 15, 6, 6, 1); house(13, 12, 5, 7, 2); house(25, 13, 7, 6, 3); house(34, 15, 5, 5, 4); house(19, 16, 4, 5, 5);
+      if (rich) { house(39, 12, 5, 5, 6); P.r(29, 3, 4, 10, PAL.ash); P.r(28, 2, 6, 1, PAL.ash); P.p(30, 1, PAL.gold); P.p(31, 0, PAL.gold); }   // kamienice i dzwonnica
+      tower(0, 18, 21); tower(42, 18, 21); tower(21, 19, 20);
+      if (sieged) { P.r(21, 31, 6, 9, PAL.ink); P.p(21, 35, PAL.wood); P.r(19, 39, 3, 1, PAL.woodD); P.r(27, 38, 2, 1, PAL.woodD); }
+      else { P.r(21, 31, 6, 9, PAL.woodD); for (let x = 22; x < 27; x += 2) P.r(x, 32, 1, 8, PAL.wood); P.r(21, 34, 6, 1, PAL.steelD); }
+      gallows(37, 30);
+      if (!rich) midden(7, 38);
+      if (s.capital) { P.r(16, 1, 6, 17, wallC); P.r(21, 1, 1, 17, wallD); P.p(18, 5, PAL.ink); P.p(18, 9, PAL.ink); for (let x = 16; x < 22; x += 2) P.p(x, 0, wallC); }
+      if (rich || s.capital) { banner(3, 23, 9); banner(43, 23, 9); }
+      if (undead) { P.p(8, 18, PAL.purpleL); P.p(27, 16, PAL.purpleL); P.p(36, 18, PAL.purpleL); }
+    }
+    if (sieged) { burnt(4, 12, 12, 10); burnt(30, 10, 12, 12); burnt(10, 26, 8, 6); }
+    if (poor && !orc && !dwarf) { P.r(10, 22, 3, 3, null); P.r(36, 26, 2, 3, PAL.ink); }
+    if (raided) burnt(4, 10, 40, 14);
   }
   c = P.toCanvas(true, true);
   SICON.set(key, c);
   return c;
 }
+
 
 function placeIcon(kind: SpecialPlace["kind"], cleared: boolean): HTMLCanvasElement {
   const key = kind + cleared;
@@ -434,7 +626,9 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   v.cam.x = sx; v.cam.y = sy;
   g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
   g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
+  if (season(w) === 3 && WSNOW) g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H);
   if (settings.borders !== false) g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
+  drawScars(w, g, sx, sy, v.time);
   const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
   const t = v.time;
   // fale morza (animacja)
@@ -465,7 +659,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     if (x0 < -80 || x0 > W + 80 || y0 < -40 || y0 > H + 40) continue;
     const kk = st.kind === "village" ? LBLK : LBLK + 1, tw = (st.name.length * 4 + 4) * kk;
     LBL.push([x0 + 5 - tw / 2 - 10, y0 + 9, tw + 12, 9 * kk + 2]);
-    LBL.push([x0 - 14, y0 - 22, 28, 30]);   // sama ikona osady
+    LBL.push([x0 - 22, y0 - 32, 44, 40]);   // sama ikona osady
   }
   const pp0 = playerParty(w);
   const inTown = pp0 && !w.player.captive ? w.settlements.find((st) => dist(st.cx * WCELL + 4, st.cy * WCELL + 4, pp0.x, pp0.y) < 14) : undefined;
@@ -590,8 +784,10 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   if (h < 4.5 || h >= 21.5) dark = 0.7;
   else if (h < 7.5) { const k = sm((h - 4.5) / 3); dark = 0.7 * (1 - k); warm = 0.18 * Math.sin(k * Math.PI); }
   else if (h >= 17.5) { const k = sm((h - 17.5) / 4); dark = 0.7 * k; warm = 0.24 * Math.sin(k * Math.PI); }
+  // paleta zależna od krainy pod kamerą i pory roku (ciepłe brązy na południu, szaro-niebieski chłód na północy i zimą)
   g.globalCompositeOperation = "multiply";
-  g.fillStyle = "#ece4d2"; g.fillRect(0, 0, W, H);
+  g.fillStyle = gradeTint(regionOf(w, (sx + W / 2) / WCELL, (sy + H / 2) / WCELL), season(w), h >= 4 && h < 9); g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = "saturation"; g.globalAlpha = 0.18; g.fillStyle = "#808080"; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
   g.globalCompositeOperation = "source-over";
   if (warm > 0) { g.fillStyle = `rgba(140,70,30,${warm})`; g.fillRect(0, 0, W, H); }
   if (dark > 0) {
@@ -616,18 +812,20 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     const i = cidx(cx, cy); if (!w.blight[i] || !w.explored[i]) continue;
     const hh = hashInt(i * 31);
     g.globalAlpha = 0.1 + Math.sin(t * 0.8 + (hh % 60) * 0.1) * 0.04; g.fillStyle = "#3a2f45"; g.fillRect(cx * WCELL - sx, cy * WCELL - sy, WCELL, WCELL);
+    if (hh % 5 === 1) { const ph = (t * 0.18 + (hh % 77) / 77) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * 0.6; g.fillStyle = hh % 2 ? PAL.ash : PAL.bone; g.fillRect(cx * WCELL - sx + ((hh >>> 3) % 8) + Math.round(ph * 6), cy * WCELL - sy + Math.round(ph * 8), 1, 1); }   // popiół w powietrzu
     if (hh % 7 === 0) { const ph = (t * 0.25 + (hh % 100) / 100) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * 0.7; g.fillStyle = PAL.purpleL; g.fillRect(cx * WCELL - sx + (hh % 8), cy * WCELL - sy + 6 - Math.round(ph * 10), 1, 1); }
   }
   g.globalAlpha = 1;
   // pora roku: zima bieli ziemię i sypie śniegiem
   const sea = season(w);
   if (sea === 3) {
-    g.globalAlpha = 0.11; g.fillStyle = "#dfe6ea"; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
+    g.globalAlpha = 0.07; g.fillStyle = "#c8d0d6"; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
     g.fillStyle = "rgba(235,240,245,0.75)";
     for (let i = 0; i < 90; i++) { const s2 = hashInt(i * 11 + 5); const x = ((s2 % 997) * 3 + Math.sin(t + i) * 8 - t * 8) % W, y = (((s2 >>> 10) % 400) + t * 22) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 1); }
   } else if (sea === 2) { g.globalAlpha = 0.06; g.fillStyle = "#8a5a20"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   // mgła: wolno płynące pasy
-  if (w.fog) for (let k = 0; k < 7; k++) { const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20; g.globalAlpha = 0.16; g.fillStyle = "#c9ccc8"; g.beginPath(); g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+  const morningMist = !w.fog && w.hour >= 5 && w.hour < 8.5;   // poranna mgła snuje się po dolinach
+  if (w.fog || morningMist) for (let k = 0; k < 7; k++) { const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20; g.globalAlpha = morningMist ? 0.09 * Math.sin(((w.hour - 5) / 3.5) * Math.PI) + 0.02 : 0.16; g.fillStyle = "#c9ccc8"; g.beginPath(); g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   // burza: błyskawice
   if ((w as any).storm) { const fl = Math.sin(t * 0.7) > 0.995 || (Math.floor(t * 10) % 97 === 0); if (fl) { g.globalAlpha = 0.35; g.fillStyle = "#e8ecff"; g.fillRect(0, 0, W, H); g.globalAlpha = 1; if (!(w as any).thunderT || t - (w as any).thunderT > 2) { (w as any).thunderT = t; sfx.explode?.(0.35, rr(-0.5, 0.5)); } } }
   // deszcz
@@ -636,6 +834,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
     for (let i = 0; i < 110; i++) { const s = hashInt(i * 7 + 1); const x = ((s % 997) * 3 - t * 40) % W, y = (((s >>> 10) % 400) + t * 200) % H; g.fillRect(Math.round((x + W) % W), Math.round(y), 1, 3); }
   }
   if (settings.questMarkers && settings.questArrows) questArrows(w, g, sx, sy, t);
+  oldMapOverlay(g);
   // chmury cienia
   g.globalAlpha = 0.08;
   g.fillStyle = PAL.ink;

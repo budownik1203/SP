@@ -220,6 +220,17 @@ function checkEncounters() {
   }
 }
 
+// ---------- Brud i zużycie (Build 0.17) ----------
+// Brud rośnie z dniami w drodze i z każdą bitwą; łaźnia w mieście go zmywa. Rdza i wgniecenia zależą od stanu zbroi.
+function grimeOf(P: PlayerState) { return clamp((P as any).grime ?? 0.2, 0, 1); }
+function addGrime(P: PlayerState, dirt: number, gore = 0) { (P as any).grime = clamp(grimeOf(P) + dirt, 0, 1); (P as any).gore = clamp(((P as any).gore || 0) + gore, 0, 1); }
+function wearLook(P: PlayerState): Partial<Look> {
+  const cb = condOf(P, "body"), ch = condOf(P, "head");
+  const worst = Math.min(P.equip.body ? cb : 100, P.equip.head ? ch : 100);
+  const tired = clamp((1 - P.hp / Math.max(1, heroMaxHp(P))) * 0.8 + (P.morale < 40 ? 0.3 : 0) + grimeOf(P) * 0.2, 0, 1);
+  return { dirt: 0.08 + grimeOf(P) * 0.9, blood: (P as any).gore || 0, rust: clamp((100 - worst) / 90, 0, 1), dents: Math.floor((100 - worst) / 14), stubble: clamp(grimeOf(P) * 1.3, 0, 1), tired, bscars: Math.floor((P.battlesWon || 0) / 8) };
+}
+
 // ---------- Siła i skład bitwy ----------
 function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   const it = (s: ESlot) => (P.equip[s] ? ITEMS[P.equip[s]] : null);
@@ -228,7 +239,7 @@ function heroCfgFromPlayer(P: PlayerState): HeroCfg {
   if (P.race === "undead") armor += 0.05;
   armor = Math.min(0.66, armor + perk(P, "armorB"));
   const hd = it("head");
-  const look: Look = { ...P.look, helm: hd?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon"), plume: hd && hd.tier >= 3 ? (P.status === "król" ? PAL.gold : PAL.redL) : undefined };
+  const look: Look = { ...P.look, helm: hd?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon"), plume: hd && hd.tier >= 3 ? (P.status === "król" ? PAL.gold : PAL.redL) : undefined, ...wearLook(P) };
   const horse = it("horse");
   const bow = it("bow");
   const hs = horseStats(P);
@@ -261,7 +272,7 @@ function carryCap(P: PlayerState) { return 10 + P.attr.str * 1.4; }
 function weightPenalty(P: PlayerState) { return Math.max(0, equipWeight(P) - carryCap(P)) * (1 - Math.min(0.9, perk(P, "weightRes"))); }
 function companionCfgs(P: PlayerState): CompanionCfg[] {
   const AB: Record<string, string> = { "kapłanka": "priest", "medyk": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai", "zwiadowca": "whirlai", "czarodziejka": "mage", "inżynier": "rally", "kupcowa": "whirlai" };
-  return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !((c as any).away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
+  return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !((c as any).away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: { ...c.look, dirt: Math.max(c.look.dirt, 0.15 + grimeOf(P) * 0.8), blood: Math.max(c.look.blood, (P as any).gore || 0) }, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
 }
 function healthyTroops(list: Troop[]) { return list.map((t) => ({ type: t.type, n: t.n - t.wounded })).filter((t) => t.n > 0); }
 function battleTerrainAt(w: World, x: number, y: number): Terrain {
@@ -304,7 +315,7 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
   const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
   const cfg: BattleConfig = {
-    terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog,
+    terrain: terrain as Terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
     player: { name: P.name, faction: (P as any).crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: ((P as any).squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
     enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
     siegeDefender: ctx.kind === "siege" ? 1 : undefined,
@@ -415,6 +426,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   let sackNext: (() => void) | null = null;
   const lootItems: string[] = [];
   if (ctx.kind === "arena") { arenaFinished(r); return; }
+  if (ctx.kind !== "escape") addScar(w, p.x, p.y + 4, "battle", 1.2);
   // straty własne i sojuszników
   distributeLosses([p], r.ours, true);
   distributeLosses(ctx.allies, r.allies, true);
@@ -426,7 +438,7 @@ function applyBattleResult(r: BattleResult, auto = false) {
   // doświadczenie oddziałów
   for (const k in r.xp) { const t = p.troops.find((x) => x.type === k); if (t) t.xp += Math.round(r.xp[k]); }
   // zużycie sprzętu i doświadczenie konia
-  if (G.ctx?.kind !== "arena") { const cond = ((P as any).cond ||= {}) as Record<string, number>; for (const sl of Object.keys(P.equip)) if (P.equip[sl as ESlot] && sl !== "horse") cond[sl] = Math.max(5, (cond[sl] ?? 100) - Math.round(rr(2, 6) + (r.heroHp < heroMaxHp(P) * 0.4 ? 4 : 0))); const hz = horseInfo(P); if (hz) hz.xp += 10; }
+  if (G.ctx?.kind !== "arena") { addGrime(P, 0.09, 0.2); const cond = ((P as any).cond ||= {}) as Record<string, number>; for (const sl of Object.keys(P.equip)) if (P.equip[sl as ESlot] && sl !== "horse") cond[sl] = Math.max(5, (cond[sl] ?? 100) - Math.round(rr(2, 6) + (r.heroHp < heroMaxHp(P) * 0.4 ? 4 : 0))); const hz = horseInfo(P); if (hz) hz.xp += 10; }
   // doświadczenie bohatera
   const enemyPow = r.theirs.reduce((s, c) => s + unitPower(c.type) * (c.killed + c.wounded), 0);
   const heroXp = Math.round(enemyPow * 6 + r.heroKills * 12 + (r.win ? 40 : 10));

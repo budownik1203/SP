@@ -150,6 +150,7 @@ button.choice.focus{outline:2px solid var(--gold);background:#3d352a}
 .lords{display:grid;grid-template-columns:repeat(auto-fill,minmax(16em,1fr));gap:.15em .8em;font-size:.9em}
 .sw{display:inline-block;width:.7em;height:.7em;margin-right:.4em;border:1px solid #000;vertical-align:middle}
 .after{max-width:56em}
+.after-scene .scene-img canvas{max-height:22vh;object-fit:cover;object-position:center 75%}
 
 /* ---- B5: ikony, dialogi, drzewka, armia ---- */
 .ic{image-rendering:pixelated;width:1.15em;height:1.15em;vertical-align:-.2em;display:inline-block}
@@ -186,7 +187,7 @@ button.choice:disabled{opacity:.4;cursor:default}
 /* jednostki */
 .uthumb canvas{width:calc(var(--s)*16px);height:calc(var(--s)*20px);image-rendering:pixelated;display:block}
 .uthumb[style] canvas{width:calc(var(--w) * var(--s) / 2);height:auto}
-.uanim{image-rendering:pixelated;background-repeat:no-repeat;animation:walk .6s steps(4) infinite;flex:none}
+.uanim{image-rendering:pixelated;background-repeat:no-repeat;animation:walk .66s steps(6) infinite;flex:none}
 @keyframes walk{to{background-position:var(--sw) 0}}
 @media (prefers-reduced-motion:reduce){.uanim{animation:none}}
 .stars{color:var(--gold);font-size:.8em;letter-spacing:-.05em}
@@ -372,6 +373,43 @@ span.up{color:#7fbf5a}span.down{color:#d0503c}
 .opts3{display:grid;grid-template-columns:repeat(auto-fill,minmax(13em,1fr));gap:.4em}
 .optc{all:unset;cursor:pointer;border:1px solid #3a2e22;background:#1a1510;padding:.4em .5em;display:block}.optc.on{border-color:var(--gold);background:#2a2119}.optc b{color:var(--gold);display:block}.optc small{color:var(--muted);display:block}
 .diffs .opt input[type=range]{width:9em}
+/* B17: zużyte okna: plamy, zacieki, przetarcia; księgi i mapy z przypalonymi brzegami */
+.win>.frame,.win>.card,.win>.dialog,.win>.settle,.parch{position:relative;isolation:isolate}
+.win>.frame::before,.win>.card::before,.win>.dialog::before,.win>.settle::before,.parch::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+ background:
+  radial-gradient(circle at 86% 14%,transparent 15px,rgba(70,45,20,.20) 16px,rgba(70,45,20,.08) 19px,transparent 21px),
+  radial-gradient(ellipse 60px 34px at 9% 82%,rgba(28,16,6,.28),transparent 70%),
+  radial-gradient(ellipse 26px 18px at 64% 92%,rgba(60,14,10,.22),transparent 70%),
+  linear-gradient(180deg,rgba(40,24,10,.22),rgba(40,24,10,0)) 23% 0/2px 70px no-repeat,
+  linear-gradient(180deg,rgba(40,24,10,.18),rgba(40,24,10,0)) 71% 0/3px 46px no-repeat,
+  linear-gradient(180deg,rgba(40,24,10,.14),rgba(40,24,10,0)) 47% 0/2px 30px no-repeat,
+  repeating-linear-gradient(115deg,transparent 0 37px,rgba(255,230,190,.035) 37px 38px,transparent 38px 61px);
+ mix-blend-mode:multiply}
+.parch::before{mix-blend-mode:multiply;opacity:1.2}
+/* przypalone brzegi: ciemny żar przy krawędzi i poszarpane rogi */
+.win>.card,.win>.dialog,.win>.settle,.parch{box-shadow:inset 0 0 0 1px var(--edge),inset 0 0 26px 5px rgba(12,6,2,.7),inset 0 0 3px 1px rgba(150,70,20,.35),0 6px 24px rgba(0,0,0,.6),0 2px 0 #000;
+ clip-path:polygon(0 6px,5px 3px,9px 0,30% 0,31% 3px,33% 0,calc(100% - 12px) 0,calc(100% - 6px) 4px,100% 9px,100% 42%,calc(100% - 3px) 44%,100% 46%,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 3px),calc(100% - 10px) 100%,62% 100%,60% calc(100% - 4px),58% 100%,8px 100%,3px calc(100% - 5px),0 calc(100% - 10px),0 64%,3px 62%,0 60%)}
+.win>.card::after,.win>.dialog::after,.win>.settle::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+ background:radial-gradient(circle at 0 0,rgba(10,5,2,.85),transparent 22px),radial-gradient(circle at 100% 0,rgba(10,5,2,.8),transparent 18px),radial-gradient(circle at 100% 100%,rgba(10,5,2,.85),transparent 26px),radial-gradient(circle at 0 100%,rgba(10,5,2,.75),transparent 16px)}
+/* księga: grzbiet ze szwami po lewej, okucia na rogach */
+.win>.dialog{border-left:9px solid #241a11;background-clip:padding-box}
+.win>.dialog::before{background:
+  repeating-linear-gradient(180deg,transparent 0 9px,rgba(200,170,120,.25) 9px 11px,transparent 11px 18px) 0 0/2px 100% no-repeat,
+  radial-gradient(circle at 86% 14%,transparent 15px,rgba(70,45,20,.20) 16px,rgba(70,45,20,.08) 19px,transparent 21px),
+  radial-gradient(ellipse 60px 34px at 12% 86%,rgba(28,16,6,.28),transparent 70%),
+  linear-gradient(180deg,rgba(40,24,10,.2),rgba(40,24,10,0)) 66% 0/2px 60px no-repeat,
+  repeating-linear-gradient(115deg,transparent 0 37px,rgba(255,230,190,.035) 37px 38px,transparent 38px 61px)}
+/* mapa: delikatne zagięcia */
+.win>.card::before{background:
+  linear-gradient(90deg,transparent calc(50% - 1px),rgba(10,6,2,.18) 50%,rgba(255,230,190,.04) calc(50% + 1px),transparent calc(50% + 3px)),
+  linear-gradient(0deg,transparent calc(50% - 1px),rgba(10,6,2,.14) 50%,transparent calc(50% + 2px)),
+  radial-gradient(circle at 86% 14%,transparent 15px,rgba(70,45,20,.20) 16px,rgba(70,45,20,.08) 19px,transparent 21px),
+  radial-gradient(ellipse 60px 34px at 9% 82%,rgba(28,16,6,.28),transparent 70%),
+  radial-gradient(ellipse 26px 18px at 64% 92%,rgba(60,14,10,.22),transparent 70%),
+  linear-gradient(180deg,rgba(40,24,10,.22),rgba(40,24,10,0)) 23% 0/2px 70px no-repeat,
+  linear-gradient(180deg,rgba(40,24,10,.18),rgba(40,24,10,0)) 71% 0/3px 46px no-repeat}
+/* przetarcia na drewnianych przyciskach */
+button{background-image:linear-gradient(transparent 70%,rgba(0,0,0,.12)),repeating-linear-gradient(100deg,transparent 0 11px,rgba(255,230,190,.04) 11px 12px,transparent 12px 23px)}
 </style>
 
 <div id="wrap">
@@ -608,14 +646,17 @@ class Pix {
                     continue;
                 let [r, gg, b] = rgb(col);
                 if (shade) {
-                    // światło z lewej góry: krawędzie lewa i górna jaśniejsze, prawa i dolna ciemniejsze
+                    // światło z lewej góry, cieniowanie w 4 tonach: blask, ton bazowy, półcień, głęboki cień
                     let f = 1;
                     if (!this.has(x - 1, y) || !this.has(x, y - 1))
-                        f = 1.16;
+                        f = 1.17;
                     if (!this.has(x + 1, y))
-                        f = 0.74;
+                        f = 0.68;
                     else if (!this.has(x, y + 1))
-                        f = 0.82;
+                        f = 0.8;
+                    else if (!this.has(x + 2, y))
+                        f = 0.87;
+                    f *= 1.05 - (y / this.h) * 0.1; // góra postaci jaśniejsza
                     r = Math.min(255, r * f);
                     gg = Math.min(255, gg * f);
                     b = Math.min(255, b * f);
@@ -627,17 +668,27 @@ class Pix {
                 d[k + 3] = 255;
             }
         if (outline) {
+            // obrys zależny od światła: po oświetlonej stronie ciepły brąz, po cienistej prawie czerń
             const solid = (x, y) => x >= 0 && y >= 0 && x < this.w && y < this.h && !!this.px[y * this.w + x];
             for (let y = 0; y < this.h; y++)
                 for (let x = 0; x < this.w; x++) {
                     if (solid(x, y))
                         continue;
-                    if (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)) {
-                        const k = (y * this.w + x) * 4;
+                    const lit = solid(x + 1, y) || solid(x, y + 1), dark = solid(x - 1, y) || solid(x, y - 1);
+                    if (!lit && !dark)
+                        continue;
+                    const k = (y * this.w + x) * 4;
+                    if (dark) {
                         d[k] = 10;
                         d[k + 1] = 9;
                         d[k + 2] = 8;
-                        d[k + 3] = 240;
+                        d[k + 3] = 245;
+                    }
+                    else {
+                        d[k] = 38;
+                        d[k + 1] = 30;
+                        d[k + 2] = 22;
+                        d[k + 3] = 225;
                     }
                 }
         }
@@ -653,82 +704,108 @@ function whiteOf(c) {
     g.fillRect(0, 0, c.width, c.height);
     return w;
 }
+// ---------- Wymiary ras (Build 0.17: płótno 32×40, stopy w wierszu 38) ----------
+const SPR_W = 32, SPR_H = 40, ANK = 36;
+// Chód w 6 klatkach (1–6), 0 to postój. Krok w bok i podskok w fazie przenoszenia nogi.
+const WALK_ST = [0, 0, 1, 2, 0, -1, -2];
+function walkBob(f) { return f === 1 || f === 4 ? -1 : 0; }
 function frameOf(L) {
     const t = L.tall ? -1 : 0;
     if (L.race === "dwarf")
-        return { cx: 12, headTop: 8, headW: 8, headH: 8, top: 16, bot: 25, hw: 6 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
+        return { cx: 16, headTop: 12, headW: 8, headH: 8, top: 21, bot: 31, hw: 7 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
     if (L.race === "orc")
-        return { cx: 12, headTop: 3, headW: 8, headH: 8, top: 11, bot: 22, hw: 6 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
-    return { cx: 12, headTop: 2 + t, headW: 6, headH: 8, top: 11 + t, bot: 21 + t, hw: [4, 5, 6][L.build], legW: 3, legGap: L.build === 2 ? 2 : 1 };
+        return { cx: 16, headTop: 5, headW: 8, headH: 8, top: 14, bot: 27, hw: 7 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
+    return { cx: 16, headTop: 6 + t, headW: 6, headH: 8, top: 15 + t, bot: 28 + t, hw: [5, 6, 7][L.build], legW: L.build === 2 ? 4 : 3, legGap: L.build === 2 ? 2 : 1 };
 }
 // ---------- Materiały ----------
 function matColor(L, x, y, top, shadeRight = false) {
     switch (L.body) {
-        case "mail": return (x + y) % 2 === 0 ? PAL.steel : PAL.steelD;
+        case "mail": { // kolczuga: rzędy kółek przesunięte co wiersz, błysk co kilka oczek
+            const row = (y - top) % 2, k = (x + row) % 2;
+            if (k === 0 && (x * 3 + y * 5) % 7 === 0)
+                return PAL.steelL;
+            return k === 0 ? PAL.steel : PAL.steelD;
+        }
         case "plate": {
             if ((y - top) % 4 === 3)
                 return PAL.steelD;
             return shadeRight ? PAL.steelD : PAL.steel;
         }
-        case "leather": return (y - top) % 5 === 4 ? PAL.woodD : PAL.dirt;
-        case "gambeson": return (x + y) % 3 === 0 ? PAL.ash : PAL.bone;
-        case "rags": return (x * 7 + y * 3) % 5 === 0 ? PAL.dirtD : PAL.dirt;
+        case "leather": return (y - top) % 5 === 4 ? PAL.woodD : (x + y) % 6 === 0 ? PAL.dirtL : PAL.dirt;
+        case "gambeson": return x % 3 === 0 ? PAL.ash : (y - top) % 4 === 2 && x % 3 === 1 ? PAL.ash : PAL.bone; // pikowanie
+        case "rags": return (x * 7 + y * 3) % 5 === 0 ? PAL.dirtD : (x * 5 + y) % 11 === 0 ? PAL.woodD : PAL.dirt;
         case "robe": return L.hood ? L.hood[0] : PAL.dusk;
         default: return PAL.bone;
     }
 }
+const STEEL_SET = new Set([PAL.steel, PAL.steelD, PAL.steelL]);
 // ---------- Ludzie, krasnoludy, orkowie ----------
 function drawMan(L, dir, frame, headless = false, noArms = false) {
-    const P = new Pix(24, 32);
+    const P = new Pix(SPR_W, SPR_H);
     const F = frameOf(L);
     const { cx, top, bot, hw } = F;
-    const bob = frame === 2 ? -1 : 0;
+    const bob = walkBob(frame);
     const ht = F.headTop + bob, tp = top + bob, bt = bot + bob;
     const seed = L.seed;
     const orc = L.race === "orc", dwarf = L.race === "dwarf";
     const robe = L.body === "robe";
+    const cul = L.culture || "";
+    const wear = clamp((L.dirt || 0) * 0.7 + (L.rust || 0) * 0.5, 0, 1);
+    // długość płaszcza zależy od kultury: legion krótki, Aurelia do kostek
+    const capeEnd = cul === "varus" ? bt + 3 : cul === "aurelia" ? ANK + 1 : bt + 7;
     // peleryna z tyłu (widok z przodu i z boku)
     if (L.cape && dir !== 1) {
         if (dir === 0) {
-            for (let y = tp + 1; y <= bt + 6; y++) {
+            for (let y = tp + 1; y <= capeEnd - 1; y++) {
                 P.p(cx - hw - 2, y, L.cape[1]);
                 P.p(cx + hw + 1, y, L.cape[1]);
             }
         }
         else
-            for (let y = tp; y <= bt + 7; y++) {
-                P.r(cx - 5, y, 2, 1, y > bt + 5 && (y + seed) % 2 ? null : L.cape[0]);
+            for (let y = tp; y <= capeEnd; y++) {
+                const ragged = y > capeEnd - 2 && vrand(seed, y * 3) < 0.5;
+                P.r(cx - hw, y, 3, 1, ragged ? null : y % 4 === 0 ? L.cape[1] : L.cape[0]);
             }
     }
     // kołczan na plecach (widok z boku: za plecami)
     if (L.quiver && dir === 2) {
-        P.r(cx - 5, tp - 2, 2, 9, PAL.woodD);
-        P.r(cx - 5, tp - 3, 2, 1, PAL.bone);
-        P.p(cx - 4, tp - 4, PAL.white);
+        P.r(cx - 6, tp - 2, 3, 11, PAL.woodD);
+        P.r(cx - 6, tp + 2, 3, 1, PAL.dirtL);
+        P.r(cx - 6, tp - 3, 3, 1, PAL.bone);
+        P.p(cx - 5, tp - 4, PAL.white);
+        P.p(cx - 6, tp - 4, PAL.redL);
     }
     // ---- nogi ----
     const legTop = bt + 1;
     if (!robe) {
         if (dir === 2) {
-            const st = [0, 2, 0, -2][frame];
+            const st = WALK_ST[frame];
             const legs = [{ x: cx - 2 - st, c: PAL.dirtD, b: PAL.black }, { x: cx - 1 + st, c: L.pants, b: L.boots }];
             for (const lg of legs) {
-                P.r(lg.x, legTop, F.legW - 1, 28 - legTop, lg.c);
-                P.r(lg.x, 28, F.legW, 3, lg.b);
-                P.p(lg.x + F.legW, 30, lg.b);
+                P.r(lg.x, legTop, F.legW - 1, ANK - legTop, lg.c);
+                P.p(lg.x, legTop + Math.floor((ANK - legTop) / 2), PAL.dirtD); // kolano
+                P.r(lg.x, ANK, F.legW, 3, lg.b);
+                P.p(lg.x + F.legW, 38, lg.b);
+                P.r(lg.x, ANK, F.legW, 1, PAL.dirtD); // cholewa
             }
         }
         else {
             for (let side = 0; side < 2; side++) {
-                const lift = (frame === 1 && side === 0) || (frame === 3 && side === 1) ? 1 : 0;
+                const lift = ((frame === 1 || frame === 2) && side === 0) || ((frame === 4 || frame === 5) && side === 1) ? 1 : 0;
                 const x0 = side === 0 ? cx - F.legGap - F.legW : cx + F.legGap;
-                P.r(x0, legTop, F.legW, 28 - legTop - lift, L.pants);
-                P.r(x0 + (side === 0 ? 0 : F.legW - 1), legTop, 1, 28 - legTop - lift, side === 0 ? L.pants : PAL.dirtD);
-                P.r(x0 - (side === 0 ? 1 : 0), 28 - lift, F.legW + 1, 3, L.boots);
-                P.r(x0 - (side === 0 ? 1 : 0), 28 - lift, F.legW + 1, 1, PAL.dirtD);
+                P.r(x0, legTop, F.legW, ANK - legTop - lift, L.pants);
+                P.r(x0 + (side === 0 ? 0 : F.legW - 1), legTop, 1, ANK - legTop - lift, side === 0 ? L.pants : PAL.dirtD);
+                // owijacze / przeszycia na łydce
+                if (!dwarf)
+                    for (let y = legTop + 3; y < ANK - lift; y += 2)
+                        P.p(x0 + (y % 4 === 0 ? 0 : F.legW - 1), y, PAL.dirtD);
+                P.r(x0 - (side === 0 ? 1 : 0), ANK - lift, F.legW + 1, 3, L.boots);
+                P.r(x0 - (side === 0 ? 1 : 0), ANK - lift, F.legW + 1, 1, PAL.dirtD);
+                P.p(x0 + (side === 0 ? 0 : F.legW - 1), ANK + 1 - lift, PAL.goldD); // sprzączka buta
                 if (L.body === "plate") {
-                    P.p(x0 + 1, legTop + 2, PAL.steelL);
-                    P.r(x0, legTop + 3, F.legW, 1, PAL.steel);
+                    P.p(x0 + 1, legTop + 3, PAL.steelL);
+                    P.r(x0, legTop + 4, F.legW, 1, PAL.steel);
+                    P.r(x0, legTop + 5, F.legW, 1, PAL.steelD);
                 } // nakolanniki
             }
         }
@@ -737,44 +814,86 @@ function drawMan(L, dir, frame, headless = false, noArms = false) {
     const tw = dir === 2 ? hw - 1 : hw;
     const bx0 = dir === 2 ? cx - tw : cx - hw;
     const bx1 = dir === 2 ? cx + tw - 1 : cx + hw - 1;
-    const bodyBot = robe ? 30 : bt;
+    const bodyBot = robe ? 38 : bt;
     for (let y = tp; y <= bodyBot; y++)
         for (let x = bx0; x <= bx1; x++) {
             if (y === tp && (x === bx0 || x === bx1))
                 continue;
+            if (robe && y > 36 && vrand(seed, x * 11 + y) < 0.3)
+                continue;
             P.p(x, y, matColor(L, x, y, tp, x === bx1));
         }
+    // nity i krawędzie płyt
     if (L.body === "plate") {
         for (let y = tp + 1; y < bodyBot; y++)
             P.p(bx0 + 1, y, PAL.steelL);
         P.p(cx - 1, tp + 2, PAL.steelL);
-        P.p(cx, tp + 5, PAL.boneHi);
+        P.p(cx, tp + 6, PAL.boneHi);
+        for (let y = tp + 3; y < bodyBot; y += 4) {
+            P.p(bx0 + 2, y, PAL.boneHi);
+            P.p(bx1 - 1, y, PAL.steelL);
+        }
+        if (dir !== 1)
+            P.r(cx, tp + 1, 1, bodyBot - tp - 2, PAL.steelD); // grzbiet napierśnika
     }
+    if (L.body === "mail" && dir !== 1)
+        P.r(bx0, bodyBot, bx1 - bx0 + 1, 1, PAL.steelD); // obrąbek kolczugi
+    if (L.body === "leather") {
+        for (let y = tp + 2; y < bodyBot; y += 5) {
+            P.p(bx0 + 1, y, PAL.goldD);
+            P.p(bx1 - 1, y, PAL.goldD);
+        } // nity na skórze
+        P.r(bx0, tp, bx1 - bx0 + 1, 1, PAL.woodD);
+    }
+    if (L.body === "rags") {
+        P.r(bx0 + 1, tp + 4, 2, 2, PAL.woodD);
+        P.p(bx1 - 2, tp + 9, PAL.dirtL);
+        P.p(bx1 - 1, tp + 9, PAL.dirtL);
+    } // łaty
     if (orc && L.body === "leather") {
-        P.line(bx0, tp + 1, bx1, tp + 7, PAL.woodD);
-        P.r(cx - 1, tp + 3, 3, 3, PAL.bone);
-        P.p(cx, tp + 4, PAL.black);
+        P.line(bx0, tp + 1, bx1, tp + 9, PAL.woodD);
+        P.r(cx - 1, tp + 4, 3, 3, PAL.bone);
+        P.p(cx, tp + 5, PAL.black);
     } // pas krzyżowy z czaszką
     if (robe) {
-        for (let y = tp; y <= 30; y++) {
+        for (let y = tp; y <= 38; y++) {
             P.p(bx0 - 1, y, L.hood ? L.hood[1] : PAL.ink);
         }
-        P.r(bx0, tp + 8, bx1 - bx0 + 1, 1, PAL.bone);
-    } // sznur
-    // ramiona szersze (naramienniki)
+        P.r(bx0, tp + 9, bx1 - bx0 + 1, 1, PAL.bone);
+        P.p(cx, tp + 10, PAL.bone);
+        P.p(cx, tp + 12, PAL.bone);
+    } // sznur z frędzlem
+    // naramienniki: kształt zależny od kultury
     if (dir !== 2) {
-        P.r(bx0 - 1, tp, 2, 2, L.body === "plate" ? PAL.steelL : matColor(L, bx0, tp, tp));
-        P.r(bx1, tp, 2, 2, L.body === "plate" ? PAL.steel : matColor(L, bx1, tp, tp, true));
+        const sh = L.body === "plate" ? PAL.steelL : matColor(L, bx0, tp, tp), sh2 = L.body === "plate" ? PAL.steel : matColor(L, bx1, tp, tp, true);
+        const big = L.body === "plate" || cul === "varus" ? 3 : 2;
+        P.r(bx0 - 1, tp, 2, big, sh);
+        P.r(bx1, tp, 2, big, sh2);
+        if (cul === "varus" && L.body !== "rags") {
+            for (let k = 0; k < 3; k++) {
+                P.p(bx0 - 1, tp + k * 2, PAL.steelL);
+                P.p(bx1 + 1, tp + k * 2, PAL.steelD);
+            }
+        } // segmenty jak lorica
+    }
+    // futrzany kołnierz orków i krasnoludów
+    if ((orc || dwarf) && L.body !== "robe" && dir !== 1) {
+        const fur = orc ? PAL.dirtL : PAL.woodD;
+        for (let x = bx0 - 1; x <= bx1 + 1; x++) {
+            P.p(x, tp - 1 + (x % 2), fur);
+            if (x % 3 === 0)
+                P.p(x, tp + 1, orc ? PAL.bone : PAL.dirtL);
+        }
     }
     // tabard: postrzępiony dół, wzór herbu, brud i krew
     if (L.tabard && !robe) {
         const T = L.tabard;
         const tx0 = dir === 2 ? cx - tw + 1 : cx - hw + 1, tx1 = dir === 2 ? cx + tw - 2 : cx + hw - 2;
-        const ty0 = tp + 1, ty1 = bt + 3;
+        const ty0 = tp + 1, ty1 = bt + (cul === "aurelia" ? 5 : 3);
         const mid = Math.floor((ty0 + ty1) / 2) - 1;
         for (let y = ty0; y <= ty1; y++)
             for (let x = tx0; x <= tx1; x++) {
-                if (y >= ty1 - 1 && vrand(seed, x * 37 + y) < (y === ty1 ? 0.45 : 0.18))
+                if (y >= ty1 - 1 && vrand(seed, x * 37 + y) < (y === ty1 ? 0.45 : 0.18) + wear * 0.15)
                     continue; // poszarpany brzeg
                 let c = x === tx1 ? T.shade : T.main;
                 if (dir !== 1) {
@@ -785,65 +904,97 @@ function drawMan(L, dir, frame, headless = false, noArms = false) {
                         c = T.trim;
                     if (T.pattern === "chevron" && Math.floor(Math.abs(rx)) === y - ty0 - 1)
                         c = T.trim;
-                    if (T.pattern === "cross" && (Math.abs(rx) < 1 || y === ty0 + 3))
+                    if (T.pattern === "cross" && (Math.abs(rx) < 1 || y === ty0 + 4))
                         c = T.trim;
                 }
+                // przetarcia: wypłowiałe plamy na starym płótnie
+                if (wear > 0.3 && vrand(seed, x * 53 + y * 7) < wear * 0.12)
+                    c = PAL.dirtL;
                 P.p(x, y, c);
             }
+        if (cul === "aurelia" && dir !== 1)
+            P.r(tx0, ty0, tx1 - tx0 + 1, 1, T.trim); // złota lamówka
     }
-    // pas, klamra, sakwa
+    // pas, klamra, sakwa, rzemień przez pierś
     if (!robe) {
-        const belt = tp + 8;
+        const belt = tp + Math.round((bt - tp) * 0.62);
         P.r(bx0, belt, bx1 - bx0 + 1, 1, PAL.woodD);
-        if (dir !== 1)
+        if (dir !== 1) {
             P.r(cx - 1, belt, 2, 1, PAL.goldD);
+            P.p(cx - 1, belt, PAL.gold);
+        }
         if (dir === 0) {
-            P.r(bx1 - 1, belt + 1, 2, 2, PAL.dirtL);
-            P.p(bx1 - 1, belt + 1, PAL.dirt);
+            P.r(bx1 - 2, belt + 1, 3, 3, PAL.dirtL);
+            P.r(bx1 - 2, belt + 1, 3, 1, PAL.dirt);
+            P.p(bx1 - 1, belt + 2, PAL.goldD);
+        } // sakwa z klamerką
+        if (dir === 0 && bx0 + 2 < bx1 - 3)
+            P.p(bx0 + 1, belt + 1, PAL.bone); // nóż przy pasie
+        if (L.quiver && dir !== 2) {
+            P.line(bx0, tp, bx1, belt - 1, PAL.woodD);
+            P.p(cx, Math.round((tp + belt) / 2), PAL.goldD);
         }
     }
     // pochwa miecza
     if (L.scabbard && !robe) {
         if (dir === 0) {
-            P.line(bx0 - 1, tp + 8, bx0 - 3, tp + 15, PAL.woodD);
-            P.p(bx0 - 3, tp + 15, PAL.steel);
+            P.line(bx0 - 1, tp + 10, bx0 - 3, tp + 18, PAL.woodD);
+            P.p(bx0 - 3, tp + 18, PAL.steel);
+            P.p(bx0 - 2, tp + 13, PAL.goldD);
         }
         if (dir === 2) {
-            P.line(cx - 2, tp + 8, cx - 6, tp + 14, PAL.woodD);
-            P.p(cx - 6, tp + 14, PAL.steel);
+            P.line(cx - 2, tp + 10, cx - 7, tp + 17, PAL.woodD);
+            P.p(cx - 7, tp + 17, PAL.steel);
+            P.p(cx - 4, tp + 13, PAL.goldD);
         }
     }
     // ---- ręce ----
     const sleeve = (x, y) => L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, x, y, tp);
     const glove = L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
-    const armLen = dwarf ? 7 : orc ? 10 : 8;
+    const armLen = dwarf ? 8 : orc ? 12 : 10;
+    const swing = frame === 0 ? 0 : WALK_ST[frame] > 0 ? 1 : WALK_ST[frame] < 0 ? -1 : 0;
     if (noArms) { /* ręce rysuje bitwa, zgodnie z ruchem broni */ }
     else if (dir === 2) {
-        // ręka z przodu
         for (let y = tp + 1; y < tp + 1 + armLen; y++)
-            P.r(cx - 1, y, 2, 1, sleeve(cx, y));
-        P.r(cx - 1, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
+            P.r(cx - 1 + (y > tp + 4 ? swing : 0), y, 2, 1, sleeve(cx, y));
+        P.r(cx - 1 + swing, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
     }
     else {
         for (let y = tp + 1; y < tp + 1 + armLen; y++) {
             P.r(bx0 - 2, y, 2, 1, sleeve(bx0 - 2, y));
             P.r(bx1 + 1, y, 2, 1, sleeve(bx1 + 1, y));
         }
-        P.r(bx0 - 2, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
-        P.r(bx1 + 1, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
+        P.r(bx0 - 2, tp + 1 + armLen - swing, 2, 2, orc ? L.skin[0] : glove);
+        P.r(bx1 + 1, tp + 1 + armLen + swing, 2, 2, orc ? L.skin[0] : glove);
+        if (L.body === "mail" || L.body === "plate") {
+            P.r(bx0 - 2, tp + armLen - 1, 2, 1, PAL.dirtD);
+            P.r(bx1 + 1, tp + armLen - 1, 2, 1, PAL.dirtD);
+        } // mankiety rękawic
     }
     if (L.quiver && dir === 1) {
-        P.r(cx + 2, tp - 3, 2, 10, PAL.woodD);
-        P.r(cx + 2, tp - 3, 2, 1, PAL.bone);
+        P.r(cx + 2, tp - 3, 3, 12, PAL.woodD);
+        P.r(cx + 2, tp + 1, 3, 1, PAL.dirtL);
+        P.r(cx + 2, tp - 3, 3, 1, PAL.bone);
         P.p(cx + 3, tp - 4, PAL.white);
+        P.p(cx + 4, tp - 4, PAL.redL);
     }
     if (L.cape && dir === 1)
-        for (let y = tp; y <= bt + 7; y++)
+        for (let y = tp; y <= capeEnd; y++)
             for (let x = cx - hw; x <= cx + hw - 1; x++) {
-                if (y > bt + 5 && vrand(seed, x * 13 + y) < 0.4)
+                if (y > capeEnd - 2 && vrand(seed, x * 13 + y) < 0.4 + wear * 0.2)
                     continue;
-                P.p(x, y, x === cx + hw - 1 || x === cx - hw ? L.cape[1] : L.cape[0]);
+                let c = x === cx + hw - 1 || x === cx - hw ? L.cape[1] : (x - cx) % 3 === 0 ? L.cape[1] : L.cape[0]; // fałdy
+                if (wear > 0.25 && vrand(seed, x * 71 + y * 5) < wear * 0.1)
+                    c = PAL.dirtL; // przetarcia
+                if (y === capeEnd && cul === "aurelia")
+                    c = L.tabard ? L.tabard.trim : PAL.gold;
+                P.p(x, y, c);
             }
+    if (L.cape && dir !== 1) {
+        P.p(cx - hw + 1, tp, PAL.goldD);
+        if (dir === 0)
+            P.p(cx + hw - 2, tp, PAL.goldD);
+    } // zapinka płaszcza
     // ---- głowa ----
     if (!headless)
         drawHead(P, L, F, dir, ht);
@@ -851,16 +1002,55 @@ function drawMan(L, dir, frame, headless = false, noArms = false) {
         P.r(cx - 1, tp - 1, 2, 1, PAL.bloodL);
         P.r(cx - 2, tp, 4, 1, PAL.blood);
     }
-    // ---- brud i krew ----
-    for (let i = 0; i < 40 * L.dirt; i++) {
-        const x = Math.floor(vrand(seed, 300 + i) * 24), y = 32 - 1 - Math.floor(Math.pow(vrand(seed, 400 + i), 1.6) * 12);
-        P.over(x, y, vrand(seed, 500 + i) < 0.5 ? PAL.dirtD : PAL.dirt);
-    }
-    for (let i = 0; i < 18 * L.blood; i++) {
-        const x = cx - hw + Math.floor(vrand(seed, 600 + i) * hw * 2), y = tp + Math.floor(vrand(seed, 700 + i) * (bt - tp + 4));
-        P.over(x, y, vrand(seed, 800 + i) < 0.6 ? PAL.bloodD : PAL.blood);
-    }
+    weatherPix(P, L, cx, hw, tp, bt);
     return P.toCanvas();
+}
+// Brud, krew, rdza i wgniecenia: nakładane na gotową postać.
+function weatherPix(P, L, cx, hw, tp, bt) {
+    const seed = L.seed;
+    // błoto od dołu: gęste przy stopach, rzadsze wyżej, w grudkach
+    for (let i = 0; i < 70 * L.dirt; i++) {
+        const x = Math.floor(vrand(seed, 300 + i) * SPR_W), y = 39 - Math.floor(Math.pow(vrand(seed, 400 + i), 1.8) * 16);
+        const c = vrand(seed, 500 + i) < 0.5 ? PAL.dirtD : PAL.dirt;
+        P.over(x, y, c);
+        if (vrand(seed, 520 + i) < 0.4)
+            P.over(x + 1, y, c);
+    }
+    // krew: plamy (2–3 piksele) i zacieki w dół
+    for (let i = 0; i < 7 * L.blood; i++) {
+        const x = cx - hw + Math.floor(vrand(seed, 600 + i) * hw * 2), y = tp + Math.floor(vrand(seed, 700 + i) * (bt - tp + 4));
+        const c = vrand(seed, 800 + i) < 0.6 ? PAL.bloodD : PAL.blood;
+        P.over(x, y, c);
+        P.over(x + 1, y, c);
+        if (vrand(seed, 820 + i) < 0.5)
+            P.over(x, y - 1, PAL.bloodD);
+        const drip = Math.floor(vrand(seed, 840 + i) * 4);
+        for (let k = 1; k <= drip; k++)
+            P.over(x, y + k, PAL.bloodD);
+    }
+    // rdza na stali (skupiska), wgniecenia na płycie i hełmie
+    const rust = L.rust || 0;
+    if (rust > 0.05)
+        for (let y = 0; y < SPR_H; y++)
+            for (let x = 0; x < SPR_W; x++) {
+                const c = P.get(x, y);
+                if (!c || !STEEL_SET.has(c))
+                    continue;
+                const blob = vrand(seed + ((x >> 1) * 31 + (y >> 1) * 17), 900);
+                if (blob < rust * 0.45)
+                    P.p(x, y, blob < rust * 0.18 ? "#4a2716" : PAL.rust);
+            }
+    for (let i = 0; i < (L.dents || 0); i++) {
+        for (let tries = 0; tries < 12; tries++) {
+            const x = Math.floor(vrand(seed, 950 + i * 13 + tries) * SPR_W), y = Math.floor(vrand(seed, 970 + i * 13 + tries) * SPR_H);
+            const c = P.get(x, y);
+            if (c && STEEL_SET.has(c) && P.get(x + 1, y + 1)) {
+                P.p(x, y, PAL.ink);
+                P.p(x + 1, y + 1, PAL.steelL);
+                break;
+            }
+        }
+    }
 }
 function drawHead(P, L, F, dir, ht) {
     const { cx } = F;
@@ -1197,7 +1387,45 @@ function drawHead(P, L, F, dir, ht) {
             }
             break;
     }
-    if (fullHelm && dir === 0 && H !== "great") { /* twarz widoczna w otworze */ }
+    // kształty hełmów zależne od kultury
+    const cul = L.culture || "";
+    const metal = H === "nasal" || H === "crest" || H === "kettle" || H === "great";
+    if (cul === "aurelia" && metal) { // złota obręcz, krzyż na przyłbicy
+        P.r(fx0, fy0 - 1, F.headW, 1, PAL.goldD);
+        P.p(cx - 1, fy0 - 1, PAL.gold);
+        if (H === "great" && dir === 0) {
+            P.r(cx - 1, fy0 + 3, 1, 3, PAL.gold);
+            P.r(cx - 2, fy0 + 4, 3, 1, PAL.gold);
+        }
+    }
+    if (cul === "varus" && (H === "nasal" || H === "crest")) { // policzki i poprzeczny grzebień legionu
+        if (dir !== 1) {
+            P.r(fx0 - 1, fy0 + 3, 1, 4, PAL.steel);
+            P.r(fx1 + 1, fy0 + 3, 1, 4, PAL.steelD);
+        }
+        if (H === "crest" && dir === 0)
+            P.r(fx0 - 2, fy0 - 3, F.headW + 4, 1, PAL.redL);
+        if (dir === 2)
+            P.r(fx0 - 2, fy0 + 2, 2, 2, PAL.steelD); // osłona karku
+    }
+    if (cul === "dwarf" && H === "dwarf") {
+        P.p(fx0 + 1, fy0 - 1, PAL.boneHi);
+        P.p(fx1 - 1, fy0 - 1, PAL.boneHi);
+        if (dir === 0) {
+            P.r(fx0, fy0 + 3, 2, 1, PAL.steel);
+            P.r(fx1 - 1, fy0 + 3, 2, 1, PAL.steel);
+        }
+    } // nity i maska
+    if (cul === "orc" && H === "orc" && dir !== 1) { // rogi z kości
+        P.p(fx0 - 1, fy0 - 1, PAL.bone);
+        P.p(fx0 - 2, fy0 - 2, PAL.bone);
+        P.p(fx0 - 2, fy0 - 3, PAL.boneHi);
+        P.p(fx1 + 1, fy0 - 1, PAL.bone);
+        P.p(fx1 + 2, fy0 - 2, PAL.bone);
+        P.p(fx1 + 2, fy0 - 3, PAL.boneHi);
+    }
+    if (cul === "bandit" && (H === "hood" || H === "cap") && dir === 0)
+        P.r(fx0 + 1, fy0 + 5, F.headW - 2, 2, PAL.dirtD); // chusta na twarzy
 }
 // ---------- Nieumarli ----------
 function drawSkeleton(L, dir, frame, headless = false, noArms = false) {
@@ -1560,36 +1788,49 @@ function drawDK(L, dir, frame) {
 }
 // ---------- Zestaw klatek dla wyglądu ----------
 const SPRITE_CACHE = new Map();
+// Stare rysunki (szkielety, ghule, wilki, rycerz śmierci) mają 4 klatki i mniejsze płótno: dopasuj do 32×40 i 6 klatek chodu.
+const OLD_FRAME = [0, 2, 1, 1, 2, 3, 3];
+function padSprite(c) {
+    if (c.width === SPR_W && c.height === SPR_H)
+        return c;
+    const [o, g] = mkCanvas(SPR_W, SPR_H);
+    g.drawImage(c, Math.round((SPR_W - c.width) / 2), SPR_H - 2 - (c.height - 2));
+    return o;
+}
 function spritesFor(L, key) {
     let s = SPRITE_CACHE.get(key);
     if (s)
         return s;
-    const draw = (d, f, headless = false) => {
+    const old = L.race === "skel" || L.race === "ghoul" || L.race === "dk" || L.race === "wolf";
+    const oy = old ? (L.race === "dk" ? 2 : 8) : 0;
+    const draw = (d, f, headless = false, noArms = false) => {
+        const of = OLD_FRAME[f];
         if (L.race === "skel")
-            return drawSkeleton(L, d, f, headless);
+            return padSprite(drawSkeleton(L, d, of, headless, noArms));
         if (L.race === "ghoul")
-            return drawGhoul(L, d, f);
+            return padSprite(drawGhoul(L, d, of));
         if (L.race === "dk")
-            return drawDK(L, d, f);
+            return padSprite(drawDK(L, d, of));
         if (L.race === "wolf")
-            return drawWolf(L, d, f);
-        return drawMan(L, d, f, headless);
+            return padSprite(drawWolf(L, d, of));
+        return drawMan(L, d, f, headless, noArms);
     };
-    const frames = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => draw(d, f)));
+    const FR = [0, 1, 2, 3, 4, 5, 6];
+    const frames = [0, 1, 2].map((d) => FR.map((f) => draw(d, f)));
     const headless = [0, 1, 2].map((d) => draw(d, 0, true));
-    s = { frames, white: frames.map((r) => r.map(whiteOf)), headless, w: frames[0][0].width, h: frames[0][0].height, headY: L.race === "dwarf" ? 12 : L.race === "dk" ? 8 : 6 };
+    const Fm = frameOf(L);
+    s = { frames, white: frames.map((r) => r.map(whiteOf)), headless, w: SPR_W, h: SPR_H, headY: old ? (L.race === "dk" ? 10 : 14) : Fm.headTop + 4 };
     // wersja bez rąk i „szkielet” ramion: bitwa rysuje ręce tak, by naprawdę trzymały i wymachiwały bronią
     if (L.race === "skel") {
-        s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawSkeleton(L, d, f, false, true)));
-        s.rig = { sy: 12, sx: 5, arm: 9, sleeve: PAL.bone, sleeveD: PAL.ash, hand: PAL.boneHi };
+        s.bare = [0, 1, 2].map((d) => FR.map((f) => draw(d, f, false, true)));
+        s.rig = { sy: 12 + oy, sx: 5, arm: 9, sleeve: PAL.bone, sleeveD: PAL.ash, hand: PAL.boneHi };
     }
     else if (L.race === "human" || L.race === "dwarf" || L.race === "orc" || L.race === "necro") {
-        s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawMan(L, d, f, false, true)));
-        const F = frameOf(L);
-        const sl = L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, 12, F.top + 2, F.top);
+        s.bare = [0, 1, 2].map((d) => FR.map((f) => drawMan(L, d, f, false, true)));
+        const sl = L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, 16, Fm.top + 2, Fm.top);
         const sd = L.body === "robe" ? (L.hood ? L.hood[1] : PAL.ink) : L.body === "plate" || L.body === "mail" ? PAL.steelD : L.body === "leather" ? PAL.woodD : L.body === "gambeson" ? PAL.ash : PAL.dirtD;
         const glove = L.race === "orc" ? L.skin[0] : L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
-        s.rig = { sy: F.top + 1, sx: F.hw + 1, arm: L.race === "dwarf" ? 7 : L.race === "orc" ? 10 : 8, sleeve: sl, sleeveD: sd, hand: glove };
+        s.rig = { sy: Fm.top + 1, sx: Fm.hw + 1, arm: L.race === "dwarf" ? 8 : L.race === "orc" ? 12 : 10, sleeve: sl, sleeveD: sd, hand: glove };
     }
     if (s.bare)
         s.bareWhite = s.bare.map((r) => r.map(whiteOf));
@@ -1805,6 +2046,47 @@ function drawPortrait(L, frameCol) {
             P.p(16, ey, PAL.redL);
             P.p(24, ey, PAL.redL);
             P.r(18, ey + 8, 4, 1, PAL.bone);
+        }
+        // ślady drogi i bitew: brud, krew, zarost, zmęczenie, świeże blizny
+        const inFace = (x, y) => Math.hypot((x - (hx0 + hx1) / 2) / ((hx1 - hx0) / 2 + 0.5), (y - (hy0 + hy1) / 2) / ((hy1 - hy0) / 2 + 0.5)) < 0.95;
+        const sd = L.seed * 13 + 5;
+        const stub = L.stubble ?? (vrand(sd, 1) < 0.35 ? 0.5 : 0);
+        if (stub > 0 && (!L.beard || L.beard >= 4) && !orc)
+            for (let y = ey + 4; y <= hy1; y++)
+                for (let x = hx0 + 1; x < hx1; x++)
+                    if (inFace(x, y) && (y > ey + 6 || x < 16 || x > 23) && vrand(sd + x * 41 + y, 2) < stub * 0.55)
+                        P.p(x, y, vrand(sd + x + y * 7, 3) < 0.5 ? L.hair : SD);
+        const tired = L.tired || 0;
+        if (tired > 0.15) {
+            for (const ex of [15, 23]) {
+                P.r(ex, ey + 2, 3, 1, tired > 0.5 ? PAL.dusk : SD);
+                if (tired > 0.45)
+                    P.r(ex, ey, 3, 1, S);
+            }
+            if (tired > 0.6)
+                P.r(17, ey + 8, 6, 1, SD);
+        } // podkrążone, opadające powieki
+        for (let i = 0; i < (L.dirt || 0) * 26; i++) {
+            const x = hx0 + Math.floor(vrand(sd, 10 + i) * (hx1 - hx0)), y = hy0 + 3 + Math.floor(vrand(sd, 40 + i) * (hy1 - hy0 - 3));
+            if (inFace(x, y) && !(y >= ey && y <= ey + 1 && (x >= 15 && x <= 17 || x >= 23 && x <= 25))) {
+                P.p(x, y, vrand(sd, 70 + i) < 0.5 ? PAL.dirt : PAL.dirtD);
+                if (vrand(sd, 90 + i) < 0.5)
+                    P.p(x + 1, y, PAL.dirt);
+            }
+        }
+        for (let i = 0; i < (L.blood || 0) * 6; i++) {
+            const x = hx0 + 2 + Math.floor(vrand(sd, 120 + i) * (hx1 - hx0 - 4)), y = hy0 + 2 + Math.floor(vrand(sd, 140 + i) * 10);
+            if (!inFace(x, y))
+                continue;
+            P.p(x, y, PAL.bloodD);
+            P.p(x + 1, y, PAL.blood);
+            for (let k = 1; k < 2 + Math.floor(vrand(sd, 160 + i) * 4); k++)
+                P.p(x, y + k, PAL.bloodD);
+        }
+        for (let i = 0; i < Math.min(4, L.bscars || 0); i++) {
+            const x = hx0 + 2 + Math.floor(vrand(sd, 200 + i) * (hx1 - hx0 - 5)), y = hy0 + 4 + Math.floor(vrand(sd, 220 + i) * (hy1 - hy0 - 8));
+            P.line(x, y, x + 2, y + 3, PAL.bloodD);
+            P.p(x + 1, y + 1, PAL.skin === S ? PAL.boneHi : S);
         }
         // broda
         if (L.beard) {
@@ -2384,6 +2666,8 @@ function troopLook(def, variant, faction) {
         pants: vpick(variant, 13, [PAL.dirt, PAL.dirtD, PAL.slate, PAL.woodD]), boots: vpick(variant, 14, [PAL.woodD, PAL.dirtD, PAL.black]),
         quiver: k.quiver, scabbard: k.scabbard,
         dirt: 0.35 + vrand(variant, 15) * 0.55, blood: vrand(variant, 16) * 0.45,
+        culture: def.culture === "merc" || def.culture === "bandit" ? def.culture : F.culture || def.culture,
+        rust: vrand(variant, 17) * 0.55 * (1 - (def.tier || 1) / 6), dents: Math.floor(vrand(variant, 18) * (6 - (def.tier || 1))),
         seed: variant * 17 + def.key.length,
     };
 }
@@ -3607,7 +3891,7 @@ const MOODS = {
 // Siatka komórek 8 px: 0 zwykła, 1 wolna (bagno, bród), 2 zablokowana (głęboka woda, mur), 5 drabina, 6 brama.
 const TERRAIN_NAME = { plains: "Równina", forest: "Gęsty las", hills: "Wzgórza", swamp: "Bagno", river: "Przeprawa przez rzekę", coast: "Wybrzeże", ruins: "Ruiny", arena: "Arena", siege: "Oblężenie", village: "Wioska", bridge: "Most", ravine: "Wąwóz" };
 const CELL = 8;
-function makeBattleMap(t, night) {
+function makeBattleMap(t, night, opt = { season: 1, region: "grass", rain: false }) {
     const w = t === "arena" ? 640 : 1600, h = t === "arena" ? 400 : 1000;
     const gw = Math.ceil(w / CELL), gh = Math.ceil(h / CELL);
     const M = { w, h, grid: new Uint8Array(gw * gh), gw, gh, ground: null, obstacles: [], hills: [], forests: [], barrier: null, lights: [], wall: null };
@@ -3695,6 +3979,10 @@ function makeBattleMap(t, night) {
     const water = [PAL.water, PAL.waterL, PAL.ink].map(rgb);
     const sand = [PAL.dirtL, PAL.bone, PAL.dirt].map(rgb);
     const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    const grassSet = new Set(grass), dirtSet = new Set(dirt);
+    const winter = opt.season === 3;
+    const snow = ["#aca798", "#918d81", "#77746a"].map(rgb), slush = rgb("#5e584b"), ice = rgb("#6f7c7d");
+    const autumn = ["#5a4626", "#4a3a1f"].map(rgb), steppe = ["#5d5532", "#4b4529"].map(rgb), ashC = ["#5b5651", "#45413c"].map(rgb);
     const off = rnd() * 1000;
     const roadAt = (x) => h / 2 + Math.sin((x + off) / 200) * 70 + Math.sin(x / 61) * 8;
     const heightAt = (x, y) => { let hh = 0; for (const hl of M.hills) {
@@ -3755,6 +4043,25 @@ function makeBattleMap(t, night) {
                         col = sand[th > 0.5 ? 0 : 2];
                 }
             }
+            // pora roku i kraina: zimą śnieg z błotem, jesienią rdzawa trawa, w stepie wypalona, w krainie popiołu szara
+            if (t !== "arena" && !(t === "siege" && x > 1040)) {
+                const isGrass = grassSet.has(col), isDirt = dirtSet.has(col);
+                if (winter) {
+                    const sn = vnoise(x + 77, y, 26) * 0.7 + th * 0.3;
+                    if (isGrass && sn > 0.33)
+                        col = snow[sn > 0.66 ? 0 : sn > 0.46 ? 1 : 2];
+                    else if (isDirt && sn > 0.55)
+                        col = slush;
+                    else if (cell === 2 && t !== "ravine" && sn > 0.5)
+                        col = ice;
+                }
+                else if (opt.season === 2 && isGrass && vnoise(x, y + 300, 30) + th * 0.3 > 0.72)
+                    col = autumn[th > 0.5 ? 0 : 1];
+                else if (opt.region === "steppe" && isGrass && vnoise(x + 40, y, 36) + th * 0.25 > 0.62)
+                    col = steppe[th > 0.5 ? 0 : 1];
+                if (opt.region === "ash" && (isGrass || isDirt) && vnoise(x + 900, y, 28) + th * 0.3 > 0.55)
+                    col = ashC[th > 0.6 ? 0 : 1];
+            }
             const k = (y * w + x) * 4;
             im.data[k] = col[0];
             im.data[k + 1] = col[1];
@@ -3765,7 +4072,7 @@ function makeBattleMap(t, night) {
     if (t !== "arena") {
         for (let i = 0; i < w * h / 1000; i++) {
             const x = rr(0, w) | 0, y = rr(0, h) | 0;
-            if (cellAt(x, y) === 0 && !(t === "siege" && x > 1040))
+            if (cellAt(x, y) === 0 && !(t === "siege" && x > 1040) && (!winter || chance(0.15)))
                 gc.drawImage(pick(TUFTS), x, y);
         }
         for (let i = 0; i < w * h / 4000; i++) {
@@ -3778,6 +4085,73 @@ function makeBattleMap(t, night) {
                 const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r;
                 gc.fillStyle = pick([PAL.woodD, PAL.dirtD, PAL.grassD]);
                 gc.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + Math.sin(a) * r) | 0, 1, 1);
+            }
+    }
+    // bogatsza faktura: kamienie, gruz, korzenie, kałuże, liście
+    if (t !== "arena") {
+        const free = (x, y) => cellAt(x, y) === 0 && !(t === "siege" && x > 1040);
+        for (let i = 0; i < w * h / 5000; i++) { // kamienie z blaskiem i cieniem
+            const x = rr(0, w) | 0, y = rr(0, h) | 0;
+            if (!free(x, y))
+                continue;
+            const big = chance(0.3);
+            gc.fillStyle = PAL.ink;
+            gc.fillRect(x, y + 1, big ? 4 : 3, 1);
+            gc.fillStyle = PAL.stone;
+            gc.fillRect(x, y - (big ? 1 : 0), big ? 4 : 3, big ? 2 : 1);
+            gc.fillStyle = winter ? "#c4bfb1" : PAL.ash;
+            gc.fillRect(x, y - (big ? 1 : 0), 1, 1);
+        }
+        if (t === "ruins" || t === "village" || t === "siege")
+            for (let i = 0; i < w * h / 2500; i++) { // gruz i odłamki cegieł
+                const x = rr(0, w) | 0, y = rr(0, h) | 0;
+                if (!free(x, y))
+                    continue;
+                gc.fillStyle = pick([PAL.stone, PAL.slate, PAL.dirtL, PAL.rust]);
+                gc.fillRect(x, y, chance(0.5) ? 2 : 1, 1);
+            }
+        for (const f of M.forests)
+            for (let i = 0; i < f.r / 6; i++) { // korzenie wychodzące spod drzew
+                const a = rr(0, 6.28), r0 = f.r * rr(0.8, 1.05);
+                let x = f.x + Math.cos(a) * r0, y = f.y + Math.sin(a) * r0;
+                gc.fillStyle = PAL.woodD;
+                for (let k = 0; k < 10; k++) {
+                    if (free(x, y))
+                        gc.fillRect(x | 0, y | 0, 1, 1);
+                    x += Math.cos(a) * 1.4 + rr(-0.8, 0.8);
+                    y += Math.sin(a) * 0.9 + rr(-0.6, 0.6);
+                }
+            }
+        const puddles = (opt.rain ? 34 : opt.season === 2 ? 22 : winter ? 6 : 10) * (t === "swamp" ? 2 : 1);
+        for (let i = 0; i < puddles; i++) { // kałuże z odbiciem nieba
+            const px = rr(40, w - 40), py = rr(40, h - 40);
+            if (!free(px, py))
+                continue;
+            const rx = rr(4, 11), ry = rx * 0.45;
+            for (let y = -ry - 1; y <= ry + 1; y++)
+                for (let x = -rx - 1; x <= rx + 1; x++) {
+                    const d = (x * x) / (rx * rx) + (y * y) / (ry * ry);
+                    if (d > 1.3)
+                        continue;
+                    gc.fillStyle = d > 1 ? PAL.dirtD : winter ? (d < 0.3 ? "#8f9a9b" : "#6f7c7d") : y < -ry * 0.3 && d < 0.5 ? PAL.waterL : PAL.water;
+                    gc.fillRect((px + x) | 0, (py + y) | 0, 1, 1);
+                }
+        }
+        if (opt.season === 2 || (t === "forest" && !winter))
+            for (let i = 0; i < w * h / (opt.season === 2 ? 700 : 3000); i++) { // opadłe liście
+                const x = rr(0, w) | 0, y = rr(0, h) | 0;
+                if (!free(x, y))
+                    continue;
+                gc.fillStyle = pick([PAL.rust, PAL.goldD, PAL.redL, PAL.dirtL]);
+                gc.fillRect(x, y, 1, 1);
+            }
+        if (winter)
+            for (let i = 0; i < w * h / 900; i++) {
+                const x = rr(0, w) | 0, y = rr(0, h) | 0;
+                if (free(x, y)) {
+                    gc.fillStyle = "#d6d0c2";
+                    gc.fillRect(x, y, 1, 1);
+                }
             }
     }
     // most
@@ -3832,6 +4206,11 @@ function makeBattleMap(t, night) {
         if (t === "village") {
             for (let i = 0; i < 16; i++)
                 tryPlace(rr(560, 1040) + (i % 2 ? 0 : rr(-40, 40)), rr(260, 740), 13, PROPS.house, 20);
+            // kilka chat płonie: dym i zgliszcza
+            const burnt = M.obstacles.filter((o) => o.img === PROPS.house).slice(0, 3 + Math.floor(rnd() * 3));
+            for (const o of burnt)
+                o.img = burntHouse();
+            M.burning = burnt.map((o) => ({ x: o.x, y: o.y - 18 }));
             for (let i = 0; i < 14; i++) {
                 const x = rr(520, 1080), y = rr(240, 760);
                 if (tryPlace(x, y, 8, fence(i), 4))
@@ -3864,6 +4243,7 @@ function makeBattleMap(t, night) {
     if (t === "siege") {
         for (let i = 0; i < 6; i++)
             tryPlace(rr(1180, 1540), rr(80, 920), 10, PROPS.house || ROCKS[0], 30);
+        M.burning = [{ x: rr(1200, 1500), y: rr(150, 400) }, { x: rr(1200, 1500), y: rr(600, 850) }]; // pożary w mieście za murem
     }
     // światła w nocy: ogniska w obozach i pochodnie
     if (night) {
@@ -3879,6 +4259,27 @@ function makeBattleMap(t, night) {
                 M.lights.push({ x: M.wall.x0 + 12, y, r: 60, flicker: rnd() * 6 });
     }
     return M;
+}
+let BURNT = null;
+function burntHouse() {
+    if (BURNT)
+        return BURNT;
+    const src = PROPS.house, [c, g] = mkCanvas(src.width, src.height);
+    g.drawImage(src, 0, 0);
+    g.globalCompositeOperation = "source-atop";
+    g.fillStyle = "rgba(20,16,12,0.6)";
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = "destination-out";
+    g.fillRect(8, 2, 5, 4);
+    g.fillRect(15, 5, 4, 3); // dziury w dachu
+    g.globalCompositeOperation = "source-over";
+    g.fillStyle = PAL.redL;
+    g.fillRect(9, 7, 1, 1);
+    g.fillRect(16, 9, 1, 1);
+    g.fillStyle = PAL.gold;
+    g.fillRect(10, 8, 1, 1);
+    BURNT = c;
+    return c;
 }
 // Niski murek z kamieni (ruiny) i płot (wioska): osłaniają przed strzałami.
 const LOWWALL = [];
@@ -4069,6 +4470,7 @@ class Unit {
         this.decay = false;
         this.bloodT = 0;
         this.bleedT = 0;
+        this.mud = 0;
         this.nextSide = "R";
         this.key2 = "";
         this.name = "";
@@ -4251,7 +4653,7 @@ class Battle {
         this.lastKillT = 0;
         this.cfg = cfg;
         this.fogged = !!cfg.fog;
-        this.map = makeBattleMap(cfg.terrain, cfg.night);
+        this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain });
         if (this.map.wall) {
             const W2 = this.map.wall;
             W2.gateHp = W2.gateMax = 1800;
@@ -6558,6 +6960,8 @@ class Battle {
                 this.sfx.pain(s.v, s.pan, d.def.undead ? "undead" : d.def.culture);
             this.blood(x, y, (plate ? 10 : 22) + (dmg / 1.3) | 0, src, heavy);
             d.gore = Math.min(1, d.gore + dmg / 160);
+            if (heavy)
+                d.mud = Math.min(1, d.mud + 0.08);
             this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
             if (src)
                 this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
@@ -6674,7 +7078,7 @@ class Battle {
             this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
             if (!d.def.undead)
                 for (let i = 0; i < 26; i++)
-                    this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
+                    this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - d.spr.headY - 6, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
             if (src?.hero) {
                 if (this.settings.killSlow !== false)
                     this.slowT = Math.max(this.slowT, 0.35);
@@ -6692,6 +7096,7 @@ class Battle {
             this.bones(d.x, d.y - 10, 14, src);
         else if (!d.def.undead)
             this.blood(d.x, d.y - 10, 20, src, true);
+        this.dropGear(d, fa);
         for (const u of this.units) {
             if (!u.active || u.def.undead)
                 continue;
@@ -7654,6 +8059,104 @@ class Battle {
         this.parts.push({ x, y: y + 14, z: 14, vx: 0, vy: 0, vz: 0, life: 0.07, max: 0.07, col: PAL.white, kind: "flash" });
         this.parts.push({ x, y: y + 14, z: 14, vx: size, vy: 0, vz: 0, life: 0.16, max: 0.16, col, kind: "ring" });
     }
+    // Ślady na ziemi: wydeptana trawa, błoto, odciski kopyt; kurz spod nóg, przy szarży gęsta chmura.
+    muddy(x, y) { const c = this.map.grid[Math.floor(y / CELL) * this.map.gw + Math.floor(x / CELL)]; return this.cfg.rain || this.cfg.terrain === "swamp" || (this.cfg.season ?? 1) === 3 || c === 1; }
+    footstep(u) {
+        if (this.cfg.arena && !this.cfg.arena.archery) {
+            if (chance(0.3))
+                this.dust(u.x, u.y, 1);
+            return;
+        }
+        const wet = this.muddy(u.x, u.y), winter = (this.cfg.season ?? 1) === 3;
+        const g = this.dg;
+        g.globalAlpha = wet ? 0.55 : 0.3;
+        g.fillStyle = winter ? "#4a4639" : wet ? PAL.dirtD : "#1d1f13";
+        const px = Math.round(u.x), py = Math.round(u.y);
+        if (u.mounted) {
+            const a = u.heading + Math.PI / 2, ox = Math.round(Math.cos(a) * 2), oy = Math.round(Math.sin(a) * 1);
+            g.fillRect(px + ox, py + oy, 2, 1);
+            g.fillRect(px - ox, py - oy + 1, 2, 1);
+        }
+        else {
+            const side = Math.floor(u.anim) % 2 ? 1 : -1;
+            g.fillRect(px + side, py, 1, 1);
+            if (wet)
+                g.fillRect(px + side, py + 1, 1, 1);
+        }
+        g.globalAlpha = 1;
+        if (wet) {
+            u.mud = Math.min(1, u.mud + (u.mounted ? 0.002 : 0.004));
+            return;
+        }
+        if (this.parts.length > 1400)
+            return;
+        const charge = u.mounted && u.rspeed > 70;
+        if (charge)
+            this.cloud(u.x, u.y, 3, winter);
+        else if (chance(u.mounted ? 0.5 : 0.18))
+            this.cloud(u.x, u.y, 1, winter);
+    }
+    cloud(x, y, n, snow = false) {
+        for (let i = 0; i < n; i++)
+            this.parts.push({ x: x + rr(-5, 5), y: y + rr(-1, 2), z: rr(0, 3), vx: rr(-14, 14), vy: rr(-5, 5), vz: rr(2, 9), life: rr(0.7, 1.3), max: 1.3, col: snow ? PAL.boneHi : pick([PAL.dirtL, PAL.ash, PAL.dirtL]), kind: "cloud" });
+    }
+    smoke(x, y, z, n, dark = true) {
+        for (let i = 0; i < n; i++)
+            this.parts.push({ x: x + rr(-2, 2), y, z: z + rr(0, 3), vx: rr(-6, 6) + 5, vy: rr(-2, 2), vz: rr(6, 16), life: rr(1.6, 3), max: 3, col: dark ? pick([PAL.slate, PAL.stone, PAL.dusk]) : pick([PAL.ash, PAL.stone]), kind: "smoke" });
+    }
+    // porzucony sprzęt zostaje na ziemi do końca bitwy
+    dropGear(d, fa) {
+        if (d.look.race === "wolf" || d.look.race === "ghoul")
+            return;
+        const g = this.dg, a = fa + rr(-1.2, 1.2), r = rr(5, 11);
+        const x = Math.round(d.x + Math.cos(a) * r), y = Math.round(d.y + Math.sin(a) * r * 0.6);
+        const wa = rr(0, Math.PI), len = d.w?.reach > 40 ? 11 : 7;
+        for (let i = 0; i < len; i++) {
+            g.fillStyle = i < 2 ? PAL.woodD : i === 2 ? PAL.steelD : (d.look.rust || 0) > 0.3 && i % 3 === 0 ? PAL.rust : PAL.steel;
+            g.fillRect(Math.round(x + Math.cos(wa) * i), Math.round(y + Math.sin(wa) * i * 0.5), 1, 1);
+        }
+        if (d.hasShield && chance(0.7)) {
+            const sx = Math.round(d.x - Math.cos(a) * 6), sy = Math.round(d.y + rr(-2, 3));
+            const main = d.look.tabard ? d.look.tabard.main : PAL.wood;
+            g.fillStyle = PAL.ink;
+            g.fillRect(sx - 3, sy - 2, 7, 5);
+            g.fillStyle = main;
+            g.fillRect(sx - 2, sy - 1, 5, 3);
+            g.fillStyle = PAL.woodD;
+            g.fillRect(sx, sy - 1, 1, 3);
+        }
+        if (d.look.helm !== "none" && chance(0.3)) {
+            g.fillStyle = PAL.steelD;
+            g.fillRect(x + 4, y + 2, 3, 2);
+            g.fillStyle = PAL.steel;
+            g.fillRect(x + 4, y + 2, 2, 1);
+        }
+    }
+    // Dym z ognisk, płonących chat i uszkodzonych machin; iskry z ognia.
+    emitAmbient(dt) {
+        if (this.parts.length > 900)
+            return;
+        const M = this.map;
+        for (const L of M.lights)
+            if (chance(dt * 2.5)) {
+                this.smoke(L.x, L.y, 6, 1);
+                if (chance(0.5))
+                    this.parts.push({ x: L.x + rr(-2, 2), y: L.y, z: 4, vx: rr(-8, 8), vy: 0, vz: rr(10, 30), life: rr(0.5, 1.1), max: 1.1, col: PAL.gold, kind: "ember" });
+            }
+        const burn = (M.burning || []);
+        for (const f of burn)
+            if (chance(dt * 6)) {
+                this.smoke(f.x, f.y, 14, 1);
+                if (chance(0.6))
+                    this.parts.push({ x: f.x + rr(-6, 6), y: f.y, z: rr(4, 12), vx: rr(-10, 10), vy: 0, vz: rr(14, 40), life: rr(0.5, 1.2), max: 1.2, col: PAL.gold, kind: "ember" });
+            }
+        for (const e of this.engines)
+            if (!e.done && e.hp < e.max * 0.6 && chance(dt * 4))
+                this.smoke(e.x, e.y, 18, 1);
+        for (const u of this.units)
+            if (u.active && u.burnT > 0 && chance(dt * 5))
+                this.smoke(u.x, u.y, 14, 1);
+    }
     dust(x, y, n) { for (let i = 0; i < n; i++)
         this.parts.push({ x: x + rr(-4, 4), y, z: 1, vx: rr(-25, 25), vy: rr(-10, 10), vz: rr(5, 20), life: 0.6, max: 0.6, col: PAL.dirtL, kind: "dust" }); }
     streak(x, y, a, len) {
@@ -7685,8 +8188,8 @@ class Battle {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.z += p.vz * dt;
-            p.vz -= (p.kind === "soul" || p.kind === "fire" || p.kind === "holy" ? -20 : 240) * dt;
-            if (p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy") {
+            p.vz -= (p.kind === "soul" || p.kind === "fire" || p.kind === "holy" || p.kind === "smoke" || p.kind === "ember" ? -20 : p.kind === "cloud" ? 0 : 240) * dt;
+            if (p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy" || p.kind === "cloud" || p.kind === "smoke" || p.kind === "ember") {
                 p.vx *= 0.92;
                 p.vy *= 0.92;
             }
@@ -7730,7 +8233,7 @@ class Battle {
         this.floaters = this.floaters.filter((f) => f.t > 0);
         for (const c of this.corpses)
             if (c.t < 1) {
-                c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.6 : c.kind === "blunt" ? 0.35 : 0.5));
+                c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.85 : c.kind === "blunt" ? 0.55 : 0.75));
                 if (c.t >= 1 && !c.pooled) {
                     c.pooled = true;
                     if (!c.undead)
@@ -7920,6 +8423,8 @@ class Battle {
             const prev = Math.floor(u.anim);
             if (speed > 8)
                 u.anim += udt * speed * (u.mounted ? 0.09 : 0.11);
+            if (Math.floor(u.anim) !== prev)
+                this.footstep(u);
             if (h && Math.floor(u.anim) !== prev && dist(u.x, u.y, h.x, h.y) < 140) {
                 const s = this.vol(u.x);
                 if (u.mounted)
@@ -7963,6 +8468,7 @@ class Battle {
         }
         this.collide();
         this.updateArrows(dt);
+        this.emitAmbient(dt);
         this.updateParticles(dt);
         updateAbilityFx(this, dt);
         this.moanT -= dt;
@@ -8894,6 +9400,22 @@ function renderBattle(b, g) {
             }
             continue;
         }
+        if (p.kind === "cloud" || p.kind === "smoke") { // miękkie kłęby: rosną i bledną
+            const k = clamp(p.life / p.max, 0, 1), r = Math.round((p.kind === "smoke" ? 2 : 1) + (1 - k) * (p.kind === "smoke" ? 5 : 3));
+            g.globalAlpha = (p.kind === "smoke" ? 0.32 : 0.22) * Math.min(1, k * 2);
+            g.fillStyle = p.col;
+            g.fillRect(px - r, py - Math.round(r * 0.6), r * 2 + 1, Math.round(r * 1.2) + 1);
+            g.fillRect(px - r + 1, py - Math.round(r * 0.6) - 1, r * 2 - 1, Math.round(r * 1.2) + 3);
+            g.globalAlpha = 1;
+            continue;
+        }
+        if (p.kind === "ember") {
+            g.globalAlpha = clamp(p.life / p.max * 2, 0, 1);
+            g.fillStyle = p.life > p.max * 0.5 ? PAL.gold : PAL.redL;
+            g.fillRect(px, py, 1, 1);
+            g.globalAlpha = 1;
+            continue;
+        }
         g.globalAlpha = p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy" ? clamp((p.life / p.max) * 1.5, 0, 1) : 1;
         g.fillStyle = p.col;
         g.fillRect(px, py, p.kind === "fire" && p.life > p.max * 0.5 ? 2 : 1, p.kind === "blood" && p.vz < 0 ? 2 : 1);
@@ -8939,7 +9461,8 @@ function renderBattle(b, g) {
     // mgła i popiół
     g.save();
     g.imageSmoothingEnabled = true;
-    const fogK = b.fogged ? 4.5 : b.cfg.night ? 0.7 : b.cfg.terrain === "swamp" ? 1.8 : 1;
+    const hr = b.cfg.hour ?? 12, morning = hr >= 4 && hr < 9;
+    const fogK = b.fogged ? 4.5 : b.cfg.night ? 0.7 : b.cfg.terrain === "swamp" ? 1.8 : morning ? 2 : 1;
     for (const [alpha, spd, par, scl] of [[0.12, 5, 0.6, 1.5], [0.07, 11, 0.9, 2.2]]) {
         g.globalAlpha = alpha * fogK;
         const fw = W * scl, fh = H * scl;
@@ -8948,20 +9471,40 @@ function renderBattle(b, g) {
             for (const oy of [0, fh])
                 g.drawImage(b.fog, ox - fo, oy - foy, fw, fh);
     }
+    if (morning && !b.cfg.night) { // poranna mgła snuje się nisko, pasmami po polu
+        g.globalAlpha = 0.16;
+        const fw = W * 3, fh = H * 0.5;
+        for (let band = 0; band < 3; band++) {
+            const y0 = ((band * H * 0.4 - sy * 0.8) % (H * 1.2) + H * 1.2) % (H * 1.2) - fh * 0.3;
+            const fo = (((b.real * (4 + band * 2) + sx * 0.9 + band * 200) % fw) + fw) % fw;
+            for (const ox of [0, fw])
+                g.drawImage(b.fog, ox - fo, y0, fw, fh);
+        }
+    }
     g.restore();
+    // popiół: gęsty w krainie Morvatha, rzadki gdzie indziej, gęstnieje z liczbą poległych; zimą śnieg
+    const winter = (b.cfg.season ?? 1) === 3;
+    const nAsh = winter ? 160 : b.cfg.region === "ash" ? 220 : Math.min(180, 25 + b.corpses.length * 2);
     if (!b.cfg.rain)
-        for (const a of b.ash) {
-            const ax = (((a.x - sx * a.p * 0.5 + b.real * a.s * 0.8) % W) + W) % W;
-            const ay = (((a.y - sy * a.p * 0.5 + b.real * a.s) % H) + H) % H;
+        for (let ai = 0; ai < Math.min(nAsh, b.ash.length); ai++) {
+            const a = b.ash[ai];
+            const ax = (((a.x - sx * a.p * 0.5 + b.real * a.s * (winter ? 0.3 : 0.8)) % W) + W) % W;
+            const ay = (((a.y - sy * a.p * 0.5 + b.real * a.s * (winter ? 1.6 : 1)) % H) + H) % H;
             g.globalAlpha = 0.3 + a.p * 0.4;
-            g.fillStyle = a.c;
+            g.fillStyle = winter ? PAL.white : a.c;
             g.fillRect(Math.round(ax + Math.sin(b.real + a.x) * 2), Math.round(ay), 1, a.p > 0.85 ? 2 : 1);
         }
     g.globalAlpha = 1;
     // tonowanie: brudna, chłodna noc lub szare popołudnie
     g.globalCompositeOperation = "multiply";
-    g.fillStyle = b.cmdOpen ? "#9a9488" : b.cfg.rain ? "#c4c4bc" : "#e2dac8";
+    g.fillStyle = b.cmdOpen ? "#9a9488" : b.cfg.rain ? "#c4c4bc" : gradeTint(b.cfg.region, b.cfg.season, morning);
     g.fillRect(0, 0, W, H);
+    // mniej nasycone barwy: brązy, oliwki, rdza
+    g.globalCompositeOperation = "saturation";
+    g.globalAlpha = 0.28;
+    g.fillStyle = "#808080";
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
     if (b.cfg.night)
         drawNight(b, g, sx, sy);
@@ -8974,8 +9517,8 @@ function renderBattle(b, g) {
         g.fillStyle = `rgba(70,60,40,${clamp(b.focusT, 0, 1) * 0.25})`;
         g.fillRect(0, 0, W, H);
     }
-    if (b.hurtFlash > 0) {
-        g.fillStyle = `rgba(94,23,22,${b.hurtFlash})`;
+    if (b.hurtFlash > 0.002) {
+        g.fillStyle = `rgba(94,23,22,${b.hurtFlash.toFixed(3)})`;
         g.fillRect(0, 0, W, H);
     }
     // poświata Rycerza Śmierci
@@ -9134,6 +9677,27 @@ function drawCrosshair(b, g) {
     g.fillStyle = h && h.stamina < 10 ? PAL.redL : col;
     g.fillRect(mx, my, 1, 1);
 }
+// Ton obrazu zależny od krainy i pory roku: ciepłe, zgaszone brązy na południu, szaro-niebieski chłód na północy i zimą, popielata szarość u Morvatha.
+function gradeTint(region, season, morning = false) {
+    const pal = (typeof settings !== "undefined" && settings.palette) || "region";
+    if (pal === "warm")
+        return "#e6d0a8";
+    if (pal === "cold")
+        return "#c6ccd1";
+    if (region === "ash")
+        return "#cfc8c6";
+    if (season === 3)
+        return "#c9cfd3";
+    if (region === "north")
+        return morning ? "#cdd2d4" : "#d3d4d0";
+    if (season === 2)
+        return "#e4cdaa";
+    if (region === "steppe")
+        return "#e9d6ae";
+    if (region === "lush")
+        return "#e6d4b2";
+    return morning ? "#d8d8d0" : "#e2d6bc";
+}
 function drawCorpse(g, c, sx, sy) {
     if (c.bones && c.t >= 1) {
         g.drawImage(BONES, Math.round(c.x - sx - 7), Math.round(c.y - sy - 5));
@@ -9149,15 +9713,24 @@ function drawCorpse(g, c, sx, sy) {
         g.restore();
         return;
     }
-    const e = 1 - Math.pow(1 - c.t, 3);
+    // śmierć w 6 klatkach: zachwianie, ugięte kolana, przyklęk, upadek w dwóch fazach, leżenie z odbiciem
+    const ph = Math.min(5, Math.floor(c.t * 6));
     const k = c.kind;
-    let ang = c.rot * (Math.PI / 2) * (e + Math.sin(e * Math.PI) * 0.12), sq = 1;
+    const FALL = [0, 0, 0.08, 0.45, 0.85, 1];
+    const e = c.t >= 1 ? 1 : FALL[ph];
+    let ang = c.rot * (Math.PI / 2) * e, sq = 1;
+    if (c.t < 1 && ph === 0)
+        ang = -c.rot * 0.14; // zachwianie do tyłu
+    if (c.t < 1 && (ph === 1 || ph === 2))
+        sq = ph === 1 ? 0.88 : 0.76; // nogi się uginają
+    if (c.t < 1 && ph === 5)
+        ang = c.rot * (Math.PI / 2) * 1.06; // odbicie od ziemi
     if (k === "blunt") {
         sq = 1 - Math.min(1, c.t * 2) * 0.35;
-        ang = c.rot * (Math.PI / 2) * Math.max(0, c.t * 1.6 - 0.6);
+        ang = c.rot * (Math.PI / 2) * Math.max(0, Math.floor(c.t * 6) / 6 * 1.6 - 0.6);
     } // osuwa się w miejscu
-    else if (k === "cut")
-        ang += c.rot * Math.sin(Math.min(1, c.t * 1.5) * Math.PI) * 0.45; // obrót po cięciu
+    else if (k === "cut" && c.t < 1)
+        ang += c.rot * Math.sin(Math.min(1, ph / 5 * 1.5) * Math.PI) * 0.45; // obrót po cięciu
     const ox = (c.dx || 0) * e, oy = (c.dy || 0) * e;
     g.save();
     g.translate(Math.round(c.x - sx + ox), Math.round(c.y - sy - 1 + oy));
@@ -9217,7 +9790,7 @@ function drawUnit(b, g, u, sx, sy) {
     g.globalAlpha = alpha;
     const [dirI, flip] = b.dirIndex(u.face);
     const moving = Math.hypot(u.vx, u.vy) > 8;
-    const frame = moving && !u.mounted ? [1, 2, 3, 2][Math.floor(u.anim) % 4] : 0;
+    const frame = moving && !u.mounted ? 1 + Math.floor(u.anim * 1.5) % 6 : 0;
     const img = (u.spr.bare || u.spr.frames)[dirI][frame];
     let lean = 0;
     if (u.state === "windup")
@@ -9231,7 +9804,7 @@ function drawUnit(b, g, u, sx, sy) {
     const rc = u.recoil > 0 ? -u.recoil * 2 : 0; // odrzut po trafieniu
     const x = Math.round(u.x - sx + c * (lean + rc)), y = Math.round(u.y - sy + s * (lean + rc) * 0.6);
     g.fillStyle = "rgba(10,9,8,0.5)";
-    const sw = u.mounted ? 12 : u.spr.w > 24 ? 7 : 5;
+    const sw = u.mounted ? 12 : u.look.race === "dk" ? 7 : 6;
     g.fillRect(bx - sw, by - 1, sw * 2 + 1, 2);
     g.fillRect(bx - sw + 1, by - 2, sw * 2 - 1, 1);
     if (u.hero) {
@@ -9264,8 +9837,8 @@ function drawUnit(b, g, u, sx, sy) {
         }
         riderY = hd === 2 ? -11 : -9;
     }
-    const handY = u.spr.h > 32 ? -16 : -13;
-    const hand = { x: x + c * 4, y: y + handY + s * 2 + riderY + (frame === 2 ? -1 : 0) };
+    const handY = u.look.race === "dk" ? -16 : -13;
+    const hand = { x: x + c * 4, y: y + handY + s * 2 + riderY + walkBob(frame) };
     const wa = weaponAngle(b, u);
     const rigged = !!(u.spr.rig && u.spr.bare);
     const off = u.state === "stagger" ? Math.round(Math.sin(u.t * 50)) : 0;
@@ -9278,12 +9851,12 @@ function drawUnit(b, g, u, sx, sy) {
             bodyDx = (u.dir === "L" ? -1 : 1) * (u.state === "windup" ? 1 : -1);
     }
     const ix = x - Math.floor(img.width / 2) + off + bodyDx, iy = y - img.height + 2 + riderY + bodyDy;
-    const pose = rigged ? computePose(b, u, x + off + bodyDx, iy + u.spr.rig.sy + (frame === 2 ? -1 : 0), dirI, wa, moving) : null;
+    const pose = rigged ? computePose(b, u, x + off + bodyDx, iy + u.spr.rig.sy + walkBob(frame), dirI, wa, moving) : null;
     if (pose)
         drawPoseLayer(b, g, u, pose, true);
     else if (dirI === 1)
         drawGear(b, g, u, hand, wa);
-    const srcH = u.mounted ? Math.round(img.height * 0.66) : img.height; // jeździec: górna część postaci
+    const srcH = u.mounted ? (u.look.race === "human" || u.look.race === "dwarf" || u.look.race === "orc" ? frameOf(u.look).bot + 1 : Math.round(img.height * 0.72)) : img.height; // jeździec: górna część postaci
     const draw = (im) => {
         if (flip) {
             g.save();
@@ -9317,7 +9890,15 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillStyle = PAL.blood;
         for (let i = 0; i < n; i++) {
             const hs = hashInt(u.id * 13 + i);
-            g.fillRect(ix + 8 + (hs % 8), iy + 12 + ((hs >>> 4) % 8), 1, (hs >>> 8) % 3 === 0 ? 2 : 1);
+            g.fillRect(ix + 12 + (hs % 8), (u.spr.rig ? iy + u.spr.rig.sy + 1 : iy + 20) + ((hs >>> 4) % 10), 1, (hs >>> 8) % 3 === 0 ? 2 : 1);
+        }
+    }
+    if (u.mud > 0.04 && !u.mounted) { // błoto dopisuje się na żywo: od butów w górę
+        const n = Math.floor(u.mud * 16);
+        for (let i = 0; i < n; i++) {
+            const hs = hashInt(u.id * 31 + i * 7);
+            g.fillStyle = hs % 3 ? PAL.dirtD : PAL.dirt;
+            g.fillRect(ix + 13 + (hs % 6), iy + 37 - ((hs >>> 5) % Math.max(2, Math.round(3 + u.mud * 8))), 1, 1);
         }
     }
     if (u.flash > 0) {
@@ -9328,17 +9909,17 @@ function drawUnit(b, g, u, sx, sy) {
     if (u.decay || u.cursedT > 0) {
         g.globalAlpha = 0.22 + Math.sin(b.real * 6 + u.id) * 0.08;
         g.fillStyle = PAL.purple;
-        g.fillRect(ix + 7, iy + 4, img.width - 14, srcH - 6);
+        g.fillRect(ix + 9, iy + 8, img.width - 18, srcH - 10);
         g.globalAlpha = alpha;
     }
     if (u.burnT > 0 && chance(0.5)) {
         g.fillStyle = pick([PAL.gold, PAL.redL]);
-        g.fillRect(ix + 8 + Math.floor(rnd() * 8), iy + 6 + Math.floor(rnd() * 14), 1, 2);
+        g.fillRect(ix + 12 + Math.floor(rnd() * 8), iy + 12 + Math.floor(rnd() * 18), 1, 2);
     }
     if (u.bloodRiteT > 0) {
         g.globalAlpha = 0.25;
         g.fillStyle = PAL.bloodL;
-        g.fillRect(ix + 7, iy + 4, img.width - 14, srcH - 6);
+        g.fillRect(ix + 9, iy + 8, img.width - 18, srcH - 10);
         g.globalAlpha = alpha;
     }
     if (pose)
@@ -9361,7 +9942,7 @@ function drawUnit(b, g, u, sx, sy) {
         g.fillRect(tx, ty - 3 - (Math.floor(b.real * 10 + u.id) % 2), 1, 2);
     }
     if (u.officer || u.bearer) { // proporzec na plecach: twoje oddziały z numerem, wróg w barwach
-        const px = ix + (flip ? 15 : 8), py = iy - 8;
+        const px = ix + (flip ? 19 : 12), py = iy - 2;
         g.fillStyle = PAL.ink;
         g.fillRect(px - 1, py - 1, 3, 17);
         g.fillStyle = PAL.wood;
@@ -9392,16 +9973,16 @@ function drawUnit(b, g, u, sx, sy) {
     }
     if (u.carry >= 0) { // drabina niesiona na ramieniu
         g.fillStyle = PAL.ink;
-        g.fillRect(ix + 2, iy + 4, 22, 3);
+        g.fillRect(ix + 6, iy + 10, 22, 3);
         g.fillStyle = PAL.wood;
-        g.fillRect(ix + 3, iy + 4, 20, 1);
-        g.fillRect(ix + 3, iy + 6, 20, 1);
+        g.fillRect(ix + 7, iy + 10, 20, 1);
+        g.fillRect(ix + 7, iy + 12, 20, 1);
         g.fillStyle = PAL.woodD;
-        for (let k = 4; k < 22; k += 4)
-            g.fillRect(ix + k, iy + 4, 1, 3);
+        for (let k = 8; k < 26; k += 4)
+            g.fillRect(ix + k, iy + 10, 1, 3);
     }
     if (u.fleeing) { // biała flaga nad uciekającym
-        const px = bx, py = iy - 8;
+        const px = bx, py = iy - 2;
         g.fillStyle = PAL.ink;
         g.fillRect(px - 1, py - 1, 7, 6);
         g.fillStyle = PAL.white;
@@ -9415,7 +9996,7 @@ function drawUnit(b, g, u, sx, sy) {
     const hpMode = b.settings.hpBars || "near";
     if (!u.hero && hpMode !== "off" && (u.hp < u.maxHp || hpMode === "all") && (near || u.commander || hpMode === "all")) {
         const w = u.commander ? 18 : 10, k = clamp(u.hp / u.maxHp, 0, 1);
-        const hx = bx - Math.round(w / 2), hy = iy + 2;
+        const hx = bx - Math.round(w / 2), hy = iy + 3;
         g.fillStyle = PAL.ink;
         g.fillRect(hx - 1, hy - 1, w + 2, 4);
         g.fillStyle = u.team === 0 ? PAL.redL : u.commander ? PAL.purpleL : PAL.bone;
@@ -9425,10 +10006,80 @@ function drawUnit(b, g, u, sx, sy) {
         const nm = u.companion ? u.name : "";
         if (nm) {
             g.globalAlpha = 0.8;
-            pxSmall(g, nm.toUpperCase(), bx, iy - 4, PAL.boneHi);
+            pxSmall(g, nm.toUpperCase(), bx, iy + 1, PAL.boneHi);
             g.globalAlpha = 1;
         }
     }
+}
+// Tarcze w kształtach kultur: Aurelia trójkątna (heater), legion prostokątny scutum, krasnoludy okrągłe z żelaznym okuciem,
+// orkowie ze skóry i kości z kolcami, bandyci i najemnicy z nierównych desek.
+function drawShieldShape(g, cul, x, y, main, trim, id) {
+    const R = (c, a, b, w, h) => { g.fillStyle = c; g.fillRect(x + a, y + b, w, h); };
+    if (cul === "varus") {
+        R(PAL.ink, -4, -6, 9, 13);
+        R(main, -3, -5, 7, 11);
+        R(PAL.steel, -3, -5, 7, 1);
+        R(PAL.steel, -3, 5, 7, 1);
+        R(trim, -3, -1, 7, 1);
+        R(PAL.steelL, -1, -1, 2, 2);
+        R(PAL.steelD, 3, -5, 1, 11);
+        R(trim, -2, -4, 1, 2);
+        R(trim, 2, 3, 1, 1);
+    }
+    else if (cul === "dwarf") {
+        R(PAL.ink, -4, -5, 9, 10);
+        R(PAL.ink, -5, -3, 11, 6);
+        R(PAL.steel, -3, -4, 7, 8);
+        R(PAL.steel, -4, -2, 9, 4);
+        R(main, -2, -3, 5, 6);
+        R(main, -3, -1, 7, 2);
+        R(PAL.steelL, 0, -1, 1, 1);
+        R(PAL.gold, -1, -1, 1, 1);
+        R(PAL.boneHi, -3, -3, 1, 1);
+        R(PAL.boneHi, 3, 2, 1, 1);
+        R(PAL.boneHi, 3, -3, 1, 1);
+        R(PAL.boneHi, -3, 2, 1, 1);
+    }
+    else if (cul === "orc") {
+        R(PAL.ink, -4, -5, 9, 10);
+        R(PAL.dirtL, -3, -4, 7, 8);
+        R(PAL.dirt, 1, -4, 3, 8);
+        R(PAL.woodD, -3, -1, 7, 1);
+        R(PAL.bone, -1, -2, 2, 2);
+        R(PAL.black, 0, -2, 1, 1);
+        R(PAL.boneHi, -5, -5, 1, 2);
+        R(PAL.boneHi, 5, -5, 1, 2);
+        R(PAL.boneHi, 0, -6, 1, 1);
+        R(main, -3, 3, 2, 1);
+    }
+    else if (cul === "bandit" || cul === "merc" || cul === "undead") {
+        R(PAL.ink, -4, -4, 9, 9);
+        R(PAL.ink, -3, -5, 7, 11);
+        R(cul === "undead" ? PAL.dusk : PAL.wood, -3, -4, 7, 8);
+        R(cul === "undead" ? PAL.dusk : PAL.wood, -2, -5, 5, 10);
+        R(PAL.woodD, -1, -5, 1, 10);
+        R(PAL.woodD, 2, -4, 1, 8);
+        R(PAL.steelD, -1, -1, 2, 2);
+        if (cul === "merc")
+            R(main, -2, -4, 1, 3);
+    }
+    else { // aurelia i domyślnie: trójkątna, z herbem
+        R(PAL.ink, -4, -5, 9, 10);
+        R(PAL.ink, -3, 5, 7, 1);
+        R(PAL.ink, -2, 6, 5, 1);
+        R(main, -3, -4, 7, 8);
+        R(main, -2, 4, 5, 1);
+        R(main, -1, 5, 3, 1);
+        R(PAL.woodD, 2, -4, 1, 8);
+        R(cul === "aurelia" ? PAL.gold : PAL.steel, -3, -4, 7, 1);
+        R(trim, 0, -3, 1, 7);
+        R(trim, -2, -1, 5, 1);
+        R(PAL.steelL, 0, -1, 1, 1);
+    }
+    if (hashInt(id) % 3 === 0)
+        R(PAL.dirtD, -3, 2, 2, 2); // błoto i zadrapania
+    if (hashInt(id) % 4 === 1)
+        R(PAL.ink, 1, -3, 1, 2);
 }
 function drawGear(b, g, u, hand, wa) {
     const w = u.w;
@@ -9474,25 +10125,7 @@ function drawGear(b, g, u, hand, wa) {
         const main = u.look.tabard ? u.look.tabard.main : u.team === 0 ? PAL.red : PAL.dusk;
         const trim = u.look.tabard ? u.look.tabard.trim : PAL.bone;
         void F;
-        g.fillStyle = PAL.ink;
-        g.fillRect(sxp - 4, syp - 5, 9, 10);
-        g.fillRect(sxp - 3, syp + 5, 7, 1);
-        g.fillStyle = main;
-        g.fillRect(sxp - 3, syp - 4, 7, 8);
-        g.fillRect(sxp - 2, syp + 4, 5, 1);
-        g.fillStyle = PAL.woodD;
-        g.fillRect(sxp + 2, syp - 4, 1, 8);
-        g.fillStyle = PAL.steel;
-        g.fillRect(sxp - 3, syp - 4, 7, 1);
-        g.fillStyle = trim;
-        g.fillRect(sxp, syp - 3, 1, 6);
-        g.fillRect(sxp - 2, syp - 1, 5, 1);
-        g.fillStyle = PAL.steelL;
-        g.fillRect(sxp, syp - 1, 1, 1);
-        if (hashInt(u.id) % 3 === 0) {
-            g.fillStyle = PAL.dirtD;
-            g.fillRect(sxp - 3, syp + 2, 2, 2);
-        }
+        drawShieldShape(g, u.look.culture || "", sxp, syp, main, trim, u.id);
     }
     if (w.claws) {
         if (u.state === "strike" || u.state === "windup") {
@@ -9804,24 +10437,7 @@ function drawShieldAt(g, u, p, blocking, face) {
     const sxp = Math.round(p.x), syp = Math.round(p.y);
     const main = u.look.tabard ? u.look.tabard.main : u.team === 0 ? PAL.red : PAL.dusk;
     const trim = u.look.tabard ? u.look.tabard.trim : PAL.bone;
-    const big = blocking ? 1 : 0;
-    g.fillStyle = PAL.ink;
-    g.fillRect(sxp - 4 - big, syp - 5 - big, 9 + big * 2, 10 + big * 2);
-    g.fillRect(sxp - 3, syp + 5 + big, 7, 1);
-    g.fillStyle = main;
-    g.fillRect(sxp - 3 - big, syp - 4 - big, 7 + big * 2, 8 + big * 2);
-    g.fillRect(sxp - 2, syp + 4 + big, 5, 1);
-    g.fillStyle = PAL.steel;
-    g.fillRect(sxp - 3 - big, syp - 4 - big, 7 + big * 2, 1);
-    g.fillStyle = trim;
-    g.fillRect(sxp, syp - 3, 1, 6);
-    g.fillRect(sxp - 2, syp - 1, 5, 1);
-    g.fillStyle = PAL.steelL;
-    g.fillRect(sxp, syp - 1, 1, 1);
-    if (hashInt(u.id) % 3 === 0) {
-        g.fillStyle = PAL.dirtD;
-        g.fillRect(sxp - 3, syp + 2, 2, 2);
-    }
+    drawShieldShape(g, u.look.culture || "", sxp, syp - (blocking ? 1 : 0), main, trim, u.id);
     const wear = 1 - u.shieldHp / (140 + u.def.tier * 30); // pęknięcia tarczy
     if (wear > 0.35) {
         g.fillStyle = PAL.ink;
@@ -10265,6 +10881,16 @@ function inPoly(x, y, P) { let c = false; for (let i = 0, j = P.length - 1; i < 
 function segD(px, py, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1; const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / L, 0, 1); return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t); }
 function lineD(px, py, P) { let d = 1e9; for (let k = 0; k < P.length - 1; k++)
     d = Math.min(d, segD(px, py, P[k], P[k + 1])); return P.length === 1 ? Math.hypot(px - P[0][0], py - P[0][1]) : d; }
+// Kraina pod danym miejscem: popiół (zaraza Morvatha), step, bujne południe, północ, zwykłe łąki.
+function regionOf(w, cx, cy) {
+    cx = clamp(Math.floor(cx), 0, WGW - 1);
+    cy = clamp(Math.floor(cy), 0, WGH - 1);
+    if (w.blight && w.blight[cidx(cx, cy)])
+        return "ash";
+    if (steppeAt(cx, cy))
+        return "steppe";
+    return cx < 76 * MS && cy > 40 * MS ? "lush" : cy < 40 * MS && cx < 160 * MS ? "north" : "grass";
+}
 function steppeAt(cx, cy) { cx /= MS; cy /= MS; return cx > 100 && cx < 200 && cy > 94 + (cx > 180 ? 10 : 0); }
 // Osady: stolice i część twierdz w stałych miejscach, reszta rozstawiona w krainie frakcji w dużych odstępach.
 // Na frakcję: 3 miasta, 4 zamki, 10 wiosek (każda wioska należy do swojego miasta lub zamku).
@@ -11058,6 +11684,14 @@ function dailyTick(w) {
     w.rain = chance(win ? 0.3 : 0.22);
     w.fog = !w.rain && chance(season(w) === 2 ? 0.25 : 0.14);
     w.storm = w.rain && !win && chance(0.3);
+    // brud w drodze: każdy dzień marszu, deszcz i zima brudzą bardziej; krew powoli schnie i się ściera
+    {
+        const P = w.player;
+        P.grime = clamp((P.grime ?? 0.2) + (w.rain ? 0.022 : 0.012) + (win ? 0.006 : 0), 0, 1);
+        P.gore = Math.max(0, (P.gore || 0) - 0.03);
+    }
+    if (w.scars)
+        w.scars = w.scars.filter((sc) => w.day - sc.day < (sc.kind === "burn" ? 9 : 6));
     // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
     dailyPolitics(w);
     // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
@@ -11366,8 +12000,15 @@ function applyLosses(list, frac) {
         removeTroops(list, t.type, n);
     }
 }
-// Starcie dwóch oddziałów AI rozstrzygane od razu.
+function addScar(w, x, y, kind, size = 1) {
+    var _a;
+    const L = ((_a = w).scars || (_a.scars = []));
+    L.push({ x: Math.round(x), y: Math.round(y), day: w.day + w.hour / 24, kind, size: clamp(size, 0.6, 2) });
+    if (L.length > 60)
+        L.splice(0, L.length - 60);
+}
 function aiBattle(w, a, b) {
+    addScar(w, (a.x + b.x) / 2, (a.y + b.y) / 2, "battle", (troopCount(a.troops) + troopCount(b.troops)) / 120);
     const pa = partyPower(w, a) * rr(0.8, 1.2), pb = partyPower(w, b) * rr(0.8, 1.2);
     const [win, lose] = pa >= pb ? [a, b] : [b, a];
     const ratio = Math.min(pa, pb) / Math.max(pa, pb, 0.01);
@@ -11641,6 +12282,7 @@ function arrive(w, p) {
             if (p.wait > 8)
                 p.wait = 8;
             if (p.wait <= 0.5) {
+                addScar(w, v.cx * WCELL + 4, v.cy * WCELL + 6, "burn", 1.3);
                 v.raided = 12;
                 v.prosperity = Math.max(5, v.prosperity - 20);
                 p.gold += 300;
@@ -13253,6 +13895,8 @@ let WMAP = null;
 let WBORDER = null;
 let WBORDER_VER = -1;
 let WFOG = null;
+let WSNOW = null;
+let WOLD = null;
 let QM = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map();
 const PICON = new Map();
@@ -13312,6 +13956,8 @@ function renderWorldMap(w) {
     const stone = [C(PAL.slate), C(PAL.stone), C(PAL.ash), C(PAL.bone)];
     const sand = [C("#5b4a32"), C("#6f5c3d"), C("#867049")];
     const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    const MUD = C("#2b2318"), TRAMPLE = C("#5a4a33");
+    const mixC = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
     const E = mapElev(w), SD = seaDist(w);
     const elev = (px, py) => {
         const fx = px / WCELL - 0.5, fy = py / WCELL - 0.5, x0 = clamp(Math.floor(fx), 0, WGW - 2), y0 = clamp(Math.floor(fy), 0, WGH - 2), ax = clamp(fx - x0, 0, 1), ay = clamp(fy - y0, 0, 1);
@@ -13411,6 +14057,19 @@ function renderWorldMap(w) {
             }
             else if (rm === 1 && t !== T_SEA)
                 col = [col[0] * 0.55 + 14, col[1] * 0.5 + 10, col[2] * 0.45 + 6];
+            // brudniejsza paleta: plamy błota, wydeptane łąki przy osadach, przygaszone i cieplejsze barwy
+            if (t !== T_SEA && rm !== 2) {
+                if (t !== T_MOUNT && vnoise(x + 700, y + 300, 16) > 0.7 && th > 0.45)
+                    col = mixC(col, MUD, 0.45);
+                const ns = w.settlements[w.nearest[i]];
+                if (ns && t === T_PLAIN) {
+                    const d = Math.hypot(ns.cx - cx, ns.cy - cy);
+                    if (d < 4.5 && vnoise(x + 50, y + 90, 9) + th * 0.35 > 0.62 + d * 0.06)
+                        col = mixC(col, TRAMPLE, 0.4);
+                }
+                const lum = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11;
+                col = [Math.min(255, (col[0] * 0.82 + lum * 0.18) * 1.03), col[1] * 0.82 + lum * 0.18, (col[2] * 0.82 + lum * 0.18) * 0.93];
+            }
             const k = (y * PW + x) * 4;
             im.data[k] = col[0];
             im.data[k + 1] = col[1];
@@ -13478,6 +14137,16 @@ function renderWorldMap(w) {
                     g.fillRect(x - 1, y - 1, 1, 3);
                     g.fillRect(x + 2, y - 1, 1, 3);
                 }
+                else { // koleiny od wozów: ciemne przerywane ślady i kałuże
+                    const hh = hashInt(i * 17 + j);
+                    g.fillStyle = "#3a2e20";
+                    for (let q = 1; q < WCELL; q += 2 + (hh >>> q) % 2)
+                        g.fillRect(x + Math.round(dx * q) + (q % 4 < 2 ? 0 : 1), y + Math.round(dy * q), 1, 1);
+                    if (hh % 23 === 0) {
+                        g.fillStyle = "#33463f";
+                        g.fillRect(x + dx * 4, y + dy * 4, 2, 1);
+                    }
+                }
             }
         }
     }
@@ -13490,6 +14159,36 @@ function renderWorldMap(w) {
                 g.fillRect(x + 1 + ((k * 3) % 6), y + 1 + ((k * 5) % 6), 2, 1);
             }
         }
+    // wydeptane ścieżki między wioskami a najbliższą osadą, tam gdzie nie ma drogi
+    for (const st of w.settlements) {
+        if (st.kind !== "village")
+            continue;
+        let best = null, bd = 1e9;
+        for (const o of w.settlements) {
+            if (o === st)
+                continue;
+            const d = Math.hypot(o.cx - st.cx, o.cy - st.cy);
+            if (d < bd && d < 34) {
+                bd = d;
+                best = o;
+            }
+        }
+        if (!best)
+            continue;
+        const x0 = st.cx * WCELL + 4, y0 = st.cy * WCELL + 4, x1 = best.cx * WCELL + 4, y1 = best.cy * WCELL + 4;
+        const L = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / L, ny = (x1 - x0) / L, hs = hashInt(st.id * 97);
+        for (let q = 6; q < L - 6; q += 1) {
+            const u = q / L, wob = Math.sin(u * Math.PI * 2 + (hs % 7)) * Math.min(12, L * 0.08) + (vnoise(q, hs % 1000, 14) - 0.5) * 6;
+            const px = Math.round(x0 + (x1 - x0) * u + nx * wob), py = Math.round(y0 + (y1 - y0) * u + ny * wob);
+            const ci = cidx(clamp(px >> 3, 0, WGW - 1), clamp(py >> 3, 0, WGH - 1));
+            if (w.terr[ci] === T_SEA || w.terr[ci] === T_MOUNT || w.road[ci] === 1 || RM[py * PW + px] === 2)
+                continue;
+            if ((q + (hs % 3)) % 5 === 4)
+                continue; // przerywana
+            g.fillStyle = q % 3 ? "#56452f" : "#463826";
+            g.fillRect(px, py, 1, 1);
+        }
+    }
     // detale: drzewa, góry, wzgórza, trzciny, fale
     const tree = (x, y, dead, dark) => {
         if (dead) {
@@ -13610,6 +14309,28 @@ function renderWorldMap(w) {
         }
     WMAP = cv;
     WFOG = mkCanvas(WGW, WGH)[0];
+    // warstwa śniegu na zimę: gęściej na północy i w górach, błoto przy drogach zostaje ciemne
+    const [sc, sg] = mkCanvas(PW, PH);
+    const sim = sg.createImageData(PW, PH);
+    for (let y = 0; y < PH; y++)
+        for (let x = 0; x < PW; x++) {
+            const cx = x >> 3, cy = y >> 3, i = cidx(cx, cy), t = w.terr[i];
+            if (t === T_SEA || RM[y * PW + x] === 2 || w.road[i] === 1)
+                continue;
+            const th = (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+            const north = 1 - cy / WGH, dens = 0.12 + north * 0.4 + (t === T_MOUNT ? 0.35 : t === T_HILL ? 0.15 : 0) - (steppeAt(cx, cy) ? 0.2 : 0);
+            const n = vnoise(x + 31, y + 17, 20) * 0.6 + th * 0.4;
+            if (n > 1 - dens) {
+                const k = (y * PW + x) * 4;
+                const v2 = n > 1.08 - dens * 0.4 ? 168 : 132;
+                sim.data[k] = v2;
+                sim.data[k + 1] = v2 + 2;
+                sim.data[k + 2] = v2 + 6;
+                sim.data[k + 3] = 200;
+            }
+        }
+    sg.putImageData(sim, 0, 0);
+    WSNOW = sc;
 }
 function renderBorders(w) {
     const PW = WGW * WCELL, PH = WGH * WCELL;
@@ -13647,92 +14368,433 @@ function renderBorders(w) {
     g.globalAlpha = 1;
     WBORDER_VER = w.ownerVersion;
 }
+// Pobojowiska (stratowana ziemia, ciała, wrony, popiół w powietrzu) i pogorzeliska (czarne plamy, żar, dym). Bledną przez kilka dni.
+function drawScars(w, g, sx, sy, t) {
+    const L = (w.scars || []);
+    const now = w.day + w.hour / 24;
+    for (const sc of L) {
+        const x = sc.x - sx, y = sc.y - sy;
+        if (x < -30 || y < -30 || x > W + 30 || y > H + 30 || !w.explored[cidx(clamp(sc.x >> 3, 0, WGW - 1), clamp(sc.y >> 3, 0, WGH - 1))])
+            continue;
+        const age = now - sc.day, life = sc.kind === "burn" ? 9 : 6, k = clamp(1 - age / life, 0, 1);
+        if (k <= 0)
+            continue;
+        const hs = hashInt(Math.round(sc.x * 7 + sc.y * 13)), R = Math.round(8 * sc.size);
+        g.globalAlpha = 0.25 + k * 0.6;
+        for (let i = 0; i < 26 * sc.size; i++) {
+            const h2 = hashInt(hs + i * 31), a = (h2 % 628) / 100, r = Math.sqrt(((h2 >>> 10) % 100) / 100) * R;
+            const px = Math.round(x + Math.cos(a) * r * 1.4), py = Math.round(y + Math.sin(a) * r * 0.7);
+            if (sc.kind === "burn") {
+                g.fillStyle = i % 4 ? PAL.black : PAL.dusk;
+                g.fillRect(px, py, 2, 1);
+            }
+            else {
+                g.fillStyle = i % 5 === 0 ? PAL.bloodD : i % 3 ? "#2a2117" : PAL.dirtD;
+                g.fillRect(px, py, i % 2 ? 2 : 1, 1);
+                if (i % 9 === 0 && k > 0.3) {
+                    g.fillStyle = PAL.bone;
+                    g.fillRect(px, py - 1, 1, 1);
+                }
+            }
+        }
+        if (sc.kind === "burn" && k > 0.35) { // żar i dym
+            g.fillStyle = Math.floor(t * 5 + hs) % 2 ? PAL.redL : PAL.gold;
+            g.fillRect(Math.round(x + (hs % 6) - 3), Math.round(y), 1, 1);
+            for (let j = 0; j < 4; j++) {
+                const ph = (t * 0.3 + j / 4 + (hs % 10) / 10) % 1;
+                g.globalAlpha = (1 - ph) * 0.45 * k;
+                g.fillStyle = j % 2 ? PAL.slate : PAL.stone;
+                g.fillRect(Math.round(x - 2 + Math.sin(ph * 5 + j) * 3 + ph * 6), Math.round(y - 3 - ph * 18), 2, 2);
+            }
+        }
+        if (sc.kind === "battle") { // wrony krążą, popiół i dym nad pobojowiskiem
+            for (let j = 0; j < 3; j++) {
+                const a = t * (0.8 + j * 0.2) + j * 2.1;
+                g.globalAlpha = 0.8 * k;
+                g.fillStyle = PAL.black;
+                const cx2 = Math.round(x + Math.cos(a) * (6 + j * 3)), cy2 = Math.round(y - 10 - j * 2 + Math.sin(a) * 3);
+                g.fillRect(cx2 - 1, cy2, 3, 1);
+                g.fillRect(cx2, cy2 - (Math.floor(t * 6 + j) % 2), 1, 1);
+            }
+            for (let j = 0; j < 5; j++) {
+                const ph = (t * 0.15 + j / 5 + (hs % 7) / 7) % 1;
+                g.globalAlpha = Math.sin(ph * Math.PI) * 0.5 * k;
+                g.fillStyle = PAL.ash;
+                g.fillRect(Math.round(x - 8 + ((hs >>> j) % 16) + ph * 5), Math.round(y - 2 - ph * 14), 1, 1);
+            }
+        }
+    }
+    g.globalAlpha = 1;
+}
+// Efekt starej mapy: winieta, brunatne przybrudzenie i ziarno przy krawędziach.
+function oldMapOverlay(g) {
+    if (!WOLD || WOLD.width !== W || WOLD.height !== H) {
+        const [c, cg] = mkCanvas(W, H);
+        const gr = cg.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+        gr.addColorStop(0, "rgba(40,28,14,0)");
+        gr.addColorStop(0.7, "rgba(40,28,14,0.18)");
+        gr.addColorStop(1, "rgba(18,12,6,0.55)");
+        cg.fillStyle = gr;
+        cg.fillRect(0, 0, W, H);
+        const im = cg.getImageData(0, 0, W, H);
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+                const e = Math.max(Math.abs(x / W - 0.5), Math.abs(y / H - 0.5)) * 2; // 0 środek, 1 krawędź
+                if (e < 0.55)
+                    continue;
+                const hh = hashInt(x * 7919 + y * 104729);
+                if ((hh % 1000) / 1000 > (e - 0.55) * 0.9)
+                    continue;
+                const k = (y * W + x) * 4, dark = hh % 3 === 0;
+                im.data[k] = dark ? 20 : 120;
+                im.data[k + 1] = dark ? 14 : 100;
+                im.data[k + 2] = dark ? 8 : 70;
+                im.data[k + 3] = Math.max(im.data[k + 3], dark ? 110 : 60);
+            }
+        cg.putImageData(im, 0, 0);
+        WOLD = c;
+    }
+    g.drawImage(WOLD, 0, 0);
+}
+// Ikony osad (Build 0.17): większe, z detalami (łaty na dachach, płoty, stogi, śmietniska, szubienice),
+// zależne od dobrobytu (bieda: dziury i ruiny, bogactwo: kamień i chorągwie), od kultury
+// (krasnoludy w skale, orkowie w namiotach z kości, nieumarli w czarnym kamieniu) i ze śladami oblężenia i grabieży.
 function settlementIcon(s, w) {
-    const key = s.id + ":" + s.faction + ":" + (s.raided > 0 ? 1 : 0);
+    const wealth = s.prosperity < 35 ? 0 : s.prosperity > 72 ? 2 : 1;
+    const sieged = s.siegeBy.length > 0, raided = s.raided > 0;
+    const key = [s.id, s.faction, raided ? 1 : 0, sieged ? 1 : 0, wealth, s.culture].join(":");
     let c = SICON.get(key);
     if (c)
         return c;
-    const [col, shade, trim] = factionCol(s.faction);
-    const undead = s.culture === "undead", dwarf = s.culture === "dwarf", orc = s.culture === "orc";
-    const roof = undead ? PAL.slate : orc ? PAL.dirt : dwarf ? PAL.stone : PAL.red;
-    const roofD = undead ? PAL.dusk : orc ? PAL.dirtD : dwarf ? PAL.slate : PAL.bloodD;
-    const wall = undead ? PAL.stone : orc ? PAL.wood : PAL.ash;
-    const P = new Pix(s.kind === "town" ? 34 : s.kind === "castle" ? 26 : 26, s.kind === "village" ? 18 : 28);
-    const house = (x, y, w2, h2) => {
-        P.r(x, y, w2, h2, orc ? PAL.wood : PAL.bone);
-        P.r(x + w2 - 1, y, 1, h2, PAL.dirt);
-        for (let k = 0; k < 3; k++)
-            P.r(x - 1 + k, y - 1 - k, w2 + 2 - k * 2, 1, k === 2 ? roofD : roof);
-        P.p(x + 1, y + h2 - 2, PAL.ink);
-        if (orc) {
-            P.p(x + Math.floor(w2 / 2), y - 4, PAL.bone);
+    const [col, , trim] = factionCol(s.faction);
+    const cul = s.culture;
+    const undead = cul === "undead", dwarf = cul === "dwarf", orc = cul === "orc";
+    const big = s.kind === "town", W2 = big ? 48 : s.kind === "castle" ? 38 : 36, H2 = big ? 42 : s.kind === "castle" ? 38 : 26;
+    const P = new Pix(W2, H2);
+    const hs = (k) => hashInt(s.seed * 7 + k * 131);
+    const rich = wealth === 2, poor = wealth === 0;
+    const wallC = undead ? PAL.slate : dwarf ? PAL.stone : rich ? PAL.ash : PAL.stone;
+    const wallD = undead ? PAL.dusk : PAL.slate;
+    const burnt = (x, y, w2, h2) => { for (let yy = y; yy < y + h2; yy++)
+        for (let xx = x; xx < x + w2; xx++)
+            if (P.has(xx, yy) && hashInt(xx * 31 + yy * 17 + s.seed) % 3 !== 0)
+                P.p(xx, yy, hashInt(xx + yy * 7) % 4 ? PAL.black : PAL.dusk); };
+    // --- budynki ---
+    const house = (x, y, w2, h2, k) => {
+        if (orc) { // namiot ze skór na kościanych tyczkach
+            for (let r = 0; r < h2 + 2; r++) {
+                const half = Math.floor((r * (w2 + 1)) / (h2 + 2) / 2);
+                P.r(x + Math.floor(w2 / 2) - half, y - 2 + r, half * 2 + 1, 1, r % 3 === 0 ? PAL.dirt : PAL.dirtL);
+            }
+            P.p(x + Math.floor(w2 / 2), y - 3, PAL.boneHi);
+            P.p(x + Math.floor(w2 / 2) - 1, y - 4, PAL.bone);
+            P.p(x + Math.floor(w2 / 2) + 1, y - 4, PAL.bone);
+            P.r(x + Math.floor(w2 / 2), y + h2 - 2, 1, 2, PAL.ink);
+            if (hs(k) % 2)
+                P.p(x + 1, y + h2 - 1, PAL.bone); // czaszka przy wejściu
+            return;
         }
+        const stoneH = rich || undead;
+        const wallCol = stoneH ? (undead ? PAL.stone : PAL.ash) : PAL.bone;
+        P.r(x, y, w2, h2, wallCol);
+        P.r(x + w2 - 1, y, 1, h2, stoneH ? PAL.slate : PAL.dirtL);
+        if (!stoneH) {
+            P.r(x, y, w2, 1, PAL.woodD);
+            P.r(x, y + h2 - 1, w2, 1, PAL.woodD);
+            P.r(x + Math.floor(w2 / 2), y, 1, h2, PAL.woodD);
+        } // mur pruski
+        else if (!undead)
+            for (let yy = y + 1; yy < y + h2; yy += 2)
+                P.p(x + (yy % 4 === 1 ? 1 : 2), yy, PAL.stone);
+        const thatch = s.kind === "village" && !rich;
+        const roof = undead ? PAL.slate : thatch ? PAL.goldD : PAL.red, roofD = undead ? PAL.dusk : thatch ? PAL.dirt : PAL.bloodD;
+        for (let r = 0; r < 4; r++)
+            P.r(x - 1 + r, y - 1 - r, w2 + 2 - r * 2, 1, r === 3 ? roofD : r % 2 ? roof : thatch ? PAL.dirtL : roof);
+        if (thatch)
+            for (let xx = x; xx < x + w2; xx += 2)
+                P.p(xx, y - 1, PAL.dirt); // strzecha
+        if (hs(k) % 3 === 0)
+            P.r(x + 1 + (hs(k) >>> 3) % Math.max(1, w2 - 3), y - 2, 2, 1, thatch ? PAL.wood : PAL.rust); // łata na dachu
+        if (poor && hs(k + 5) % 2 === 0) {
+            P.p(x + 1 + (hs(k) >>> 5) % Math.max(1, w2 - 2), y - 2, PAL.ink);
+            P.p(x + 2 + (hs(k) >>> 5) % Math.max(1, w2 - 3), y - 3, PAL.ink);
+        } // dziura w dachu
+        P.r(x + 1, y + h2 - 3, 1, 3, PAL.ink); // drzwi
+        if (w2 > 4)
+            P.p(x + w2 - 3, y + 1, undead ? PAL.purpleL : PAL.goldD); // okienko
+        if (h2 > 4 && !undead && hs(k + 2) % 2 === 0) {
+            P.r(x + w2 - 2, y - 5, 1, 2, PAL.slate);
+        } // komin
     };
+    const fence = (x, y, len) => { P.r(x, y, len, 1, PAL.woodD); for (let xx = x; xx < x + len; xx += 2)
+        P.r(xx, y - 1, 1, 3, poor && hashInt(xx * 3 + s.seed) % 3 === 0 ? null : PAL.wood); };
+    const stack = (x, y) => { P.r(x, y - 2, 4, 3, PAL.goldD); P.r(x + 1, y - 3, 2, 1, PAL.gold); P.p(x + 3, y - 1, PAL.dirt); P.r(x, y + 1, 4, 1, PAL.dirtD); };
+    const midden = (x, y) => { P.r(x, y - 1, 4, 2, PAL.dirtD); P.p(x + 1, y - 2, PAL.dirt); P.p(x + 2, y - 1, PAL.bone); P.p(x, y, PAL.moss); };
+    const gallows = (x, y) => { P.r(x, y - 9, 1, 10, PAL.woodD); P.r(x, y - 9, 5, 1, PAL.woodD); P.p(x + 1, y - 8, PAL.woodD); P.r(x + 4, y - 8, 1, 2, PAL.ink); P.r(x + 3, y - 6, 3, 3, PAL.dirt); P.r(x + 4, y - 3, 1, 2, PAL.dirtD); };
     const tower = (x, y, h2) => {
-        P.r(x, y, 4, h2, wall);
-        P.r(x + 3, y, 1, h2, PAL.slate);
-        P.r(x - 1, y - 1, 6, 1, wall);
-        P.p(x - 1, y - 2, wall);
-        P.p(x + 1, y - 2, wall);
-        P.p(x + 4, y - 2, wall);
-        P.p(x + 1, y + 2, PAL.ink);
+        P.r(x, y, 5, h2, wallC);
+        P.r(x + 4, y, 1, h2, wallD);
+        P.r(x, y, 1, h2, undead ? PAL.slate : PAL.bone);
+        P.r(x - 1, y - 1, 7, 1, wallC);
+        P.p(x - 1, y - 2, wallC);
+        P.p(x + 2, y - 2, wallC);
+        P.p(x + 5, y - 2, wallC);
+        P.p(x + 2, y + 3, PAL.ink);
+        P.p(x + 2, y + 4, PAL.ink);
+        if (rich) {
+            P.r(x - 1, y - 6, 7, 1, PAL.red);
+            P.r(x, y - 7, 5, 1, PAL.red);
+            P.r(x + 1, y - 8, 3, 1, PAL.bloodD);
+            P.p(x + 2, y - 9, PAL.gold);
+        } // stożkowy dach
+        if (poor && hashInt(x + s.seed) % 2 === 0) {
+            P.p(x + 1, y - 2, null);
+            P.p(x + 5, y - 1, null);
+            P.r(x + 3, y + 1, 2, 2, PAL.ink);
+        } // wykruszony mur
     };
-    const flag = (x, y) => { P.r(x, y, 1, 7, PAL.woodD); P.r(x + 1, y, 4, 3, col); P.r(x + 1, y + 3, 3, 1, col); P.p(x + 2, y + 1, trim); };
+    const banner = (x, y, len = 6) => { P.r(x, y, 1, len + 3, PAL.woodD); P.r(x + 1, y, 3, len, col); P.p(x + 2, y + 1, trim); P.p(x + 1, y + len, col); P.p(x + 3, y + len, col); };
+    const flag = (x, y) => { P.r(x, y, 1, 8, PAL.woodD); P.r(x + 1, y, 5, 3, col); P.r(x + 1, y + 3, 4, 1, col); P.p(x + 3, y + 1, trim); };
     if (s.kind === "village") {
-        P.r(1, 12, 10, 4, s.raided ? PAL.dirtD : PAL.dirtL);
-        for (let x = 1; x < 11; x += 2)
-            P.r(x, 12, 1, 4, s.raided ? PAL.ink : PAL.moss);
-        house(12, 9, 5, 4);
-        house(18, 11, 5, 4);
-        house(7, 6, 5, 4);
-        P.r(0, 16, 25, 1, PAL.woodD);
-        flag(21, 1);
-        if (s.raided) {
-            P.r(12, 8, 6, 2, PAL.ink);
-            P.r(18, 10, 5, 2, PAL.ink);
+        if (dwarf) { // osada wykuta w skale: drzwi w zboczu, kominy z dymem
+            for (let y = 4; y < 22; y++) {
+                const half = Math.min(17, 4 + (y - 4) * 1.1);
+                P.r(18 - half, y, half * 2, 1, (y + Math.floor(half)) % 5 === 0 ? PAL.slate : y < 8 ? PAL.ash : PAL.stone);
+            }
+            for (const dx of [8, 16, 25]) {
+                P.r(dx, 15, 3, 6, PAL.ink);
+                P.p(dx + 1, 14, PAL.ink);
+                P.r(dx - 1, 14, 1, 7, PAL.goldD);
+                P.p(dx + 3, 17, PAL.gold);
+            }
+            P.r(12, 7, 1, 3, PAL.slate);
+            P.r(22, 9, 1, 3, PAL.slate);
+            P.r(2, 22, 32, 1, PAL.dirtD);
+            stack(29, 21);
+        }
+        else if (orc) {
+            house(3, 12, 8, 7, 1);
+            house(14, 10, 9, 8, 2);
+            house(25, 13, 7, 6, 3);
+            P.r(11, 20, 1, 4, PAL.wood);
+            P.r(10, 19, 3, 2, PAL.bone);
+            P.p(11, 20, PAL.black); // pal z czaszką
+            midden(28, 22);
+            P.r(0, 23, 36, 1, PAL.dirtD);
+        }
+        else {
+            P.r(1, 17, 12, 5, poor ? PAL.dirtD : PAL.dirtL);
+            for (let x = 1; x < 13; x += 2)
+                P.r(x, 17, 1, 5, poor ? PAL.ink : PAL.moss); // zagon
+            house(14, 13, 6, 5, 1);
+            house(22, 15, 6, 5, 2);
+            house(8, 9, 6, 5, 3);
+            if (rich)
+                house(28, 10, 5, 5, 4);
+            fence(0, 23, 20);
+            stack(30, 21);
+            if (!rich)
+                midden(2, 14);
+            P.r(0, 24, 36, 1, PAL.woodD);
+            flag(31, 1);
+        }
+        if (raided) {
+            burnt(6, 4, 30, 18);
+            P.r(10, 20, 3, 1, PAL.redL);
         }
     }
     else if (s.kind === "castle") {
-        P.r(3, 12, 20, 12, wall);
-        P.r(3, 23, 20, 1, PAL.slate);
-        for (let x = 3; x < 23; x += 2)
-            P.p(x, 11, wall);
-        tower(1, 9, 15);
-        tower(20, 9, 15);
-        P.r(9, 4, 8, 16, wall);
-        P.r(16, 4, 1, 16, PAL.slate);
-        for (let x = 9; x < 17; x += 2)
-            P.p(x, 3, wall);
-        P.r(12, 18, 3, 6, PAL.ink);
-        P.p(11, 8, PAL.ink);
-        P.p(14, 8, PAL.ink);
-        flag(12, 0);
+        if (dwarf) { // twierdza w skale: brama w zboczu, żelazne wrota, runy
+            for (let y = 6; y < 36; y++) {
+                const half = Math.min(19, 5 + (y - 6) * 0.9);
+                P.r(19 - half, y, half * 2, 1, (y * 3 + Math.floor(half)) % 7 === 0 ? PAL.slate : y < 12 ? PAL.ash : PAL.stone);
+            }
+            P.r(13, 22, 12, 14, PAL.slate);
+            P.r(14, 23, 10, 13, sieged ? PAL.ink : PAL.steelD);
+            for (let x = 15; x < 24; x += 3)
+                P.r(x, 23, 1, 13, PAL.steel);
+            P.r(13, 21, 12, 1, PAL.gold);
+            P.p(9, 18, PAL.gold);
+            P.p(29, 18, PAL.gold);
+            P.p(19, 15, PAL.goldD);
+            tower(3, 14, 22);
+            tower(30, 14, 22);
+            flag(18, 0);
+        }
+        else if (orc) { // obóz-warownia: palisada z zaostrzonych pali i kości
+            for (let x = 1; x < 37; x += 2) {
+                const h3 = 12 + (hashInt(x + s.seed) % 3);
+                P.r(x, 34 - h3, 2, h3, x % 4 === 1 ? PAL.wood : PAL.woodD);
+                P.p(x, 33 - h3, PAL.bone);
+            }
+            house(10, 12, 9, 8, 1);
+            house(21, 10, 10, 9, 2);
+            P.r(16, 26, 6, 8, PAL.ink);
+            P.r(15, 25, 8, 1, PAL.bone);
+            P.p(16, 24, PAL.boneHi);
+            P.p(21, 24, PAL.boneHi);
+            banner(4, 6, 7);
+            banner(33, 6, 7);
+        }
+        else {
+            P.r(4, 16, 30, 18, wallC);
+            P.r(4, 33, 30, 1, wallD);
+            P.r(4, 16, 1, 18, undead ? PAL.slate : PAL.bone);
+            for (let y = 18; y < 33; y += 3)
+                for (let x = 6 + (y % 2) * 2; x < 33; x += 5)
+                    P.p(x, y, wallD); // spoiny kamieni
+            for (let x = 4; x < 34; x += 2)
+                P.p(x, 15, wallC);
+            tower(1, 12, 22);
+            tower(32, 12, 22);
+            P.r(12, 5, 14, 22, wallC);
+            P.r(25, 5, 1, 22, wallD);
+            P.r(12, 5, 1, 22, undead ? PAL.slate : PAL.bone);
+            for (let x = 12; x < 26; x += 2)
+                P.p(x, 4, wallC);
+            P.p(15, 10, PAL.ink);
+            P.p(15, 11, PAL.ink);
+            P.p(21, 10, PAL.ink);
+            P.p(21, 11, PAL.ink);
+            // brama: wyłamana przy oblężeniu
+            if (sieged) {
+                P.r(16, 26, 6, 8, PAL.ink);
+                P.p(16, 30, PAL.wood);
+                P.p(21, 28, PAL.wood);
+                P.r(14, 33, 3, 1, PAL.woodD);
+                P.r(21, 34, 3, 1, PAL.woodD);
+            }
+            else {
+                P.r(16, 26, 6, 8, PAL.woodD);
+                P.r(16, 26, 6, 1, PAL.ink);
+                for (let x = 17; x < 22; x += 2)
+                    P.r(x, 27, 1, 7, PAL.wood);
+                P.r(16, 29, 6, 1, PAL.steelD);
+            }
+            if (rich || s.owner === -2) {
+                banner(5, 17, 8);
+                banner(29, 17, 8);
+            }
+            if (undead) {
+                P.p(15, 10, PAL.purpleL);
+                P.p(21, 10, PAL.purpleL);
+                P.r(2, 35, 3, 2, PAL.bone);
+            }
+            flag(18, 0);
+        }
+        if (sieged) {
+            burnt(2, 14, 12, 10);
+            burnt(24, 20, 10, 9);
+        }
+        if (poor && !dwarf && !orc) {
+            P.r(8, 16, 3, 3, null);
+            P.r(28, 22, 2, 4, PAL.ink);
+        } // wyrwy w murze
     }
-    else {
-        P.r(1, 14, 32, 12, wall);
-        P.r(1, 25, 32, 1, PAL.slate);
-        for (let x = 1; x < 33; x += 2)
-            P.p(x, 13, wall);
-        tower(0, 11, 15);
-        tower(29, 11, 15);
-        tower(14, 12, 14);
-        house(5, 8, 5, 5);
-        house(11, 6, 4, 5);
-        house(20, 7, 6, 5);
-        house(25, 9, 4, 4);
-        P.r(15, 21, 3, 5, PAL.ink);
-        if (s.capital) {
-            P.r(16, 1, 5, 12, wall);
-            P.r(20, 1, 1, 12, PAL.slate);
-            P.p(18, 4, PAL.ink);
-            flag(18, -6 + 6);
+    else { // miasto
+        if (orc) {
+            for (let x = 1; x < 47; x += 2) {
+                const h3 = 11 + (hashInt(x + s.seed) % 4);
+                P.r(x, 40 - h3, 2, h3, x % 4 === 1 ? PAL.wood : PAL.woodD);
+                P.p(x, 39 - h3, PAL.bone);
+            }
+            house(5, 15, 9, 8, 1);
+            house(16, 11, 11, 10, 2);
+            house(29, 14, 9, 8, 3);
+            house(38, 18, 7, 6, 4);
+            P.r(21, 32, 6, 8, PAL.ink);
+            P.r(20, 31, 8, 1, PAL.bone);
+            gallows(40, 30);
+            banner(3, 4, 8);
+            banner(43, 4, 8);
         }
-        else
-            flag(16, 3);
-        if (undead) {
-            P.p(6, 3, PAL.purpleL);
-            P.p(26, 4, PAL.purpleL);
+        else if (dwarf) {
+            for (let y = 4; y < 40; y++) {
+                const half = Math.min(24, 6 + (y - 4) * 0.9);
+                P.r(24 - half, y, half * 2, 1, (y * 5 + Math.floor(half)) % 9 === 0 ? PAL.slate : y < 10 ? PAL.ash : PAL.stone);
+            }
+            for (const [dx, dy] of [[10, 26], [18, 20], [30, 22], [36, 28]]) {
+                P.r(dx, dy, 3, 5, PAL.ink);
+                P.r(dx - 1, dy - 1, 5, 1, PAL.goldD);
+                P.p(dx + 1, dy + 1, PAL.gold);
+            }
+            P.r(18, 31, 12, 9, PAL.slate);
+            P.r(19, 32, 10, 8, sieged ? PAL.ink : PAL.steelD);
+            P.r(18, 30, 12, 1, PAL.gold);
+            for (const cx2 of [14, 26, 34])
+                P.r(cx2, 6 + (cx2 % 5), 1, 4, PAL.slate);
+            tower(3, 20, 19);
+            tower(40, 20, 19);
+            flag(23, 0);
         }
+        else {
+            P.r(1, 22, 46, 18, wallC);
+            P.r(1, 39, 46, 1, wallD);
+            P.r(1, 22, 1, 18, undead ? PAL.slate : PAL.bone);
+            for (let y = 24; y < 39; y += 3)
+                for (let x = 3 + (y % 2) * 2; x < 46; x += 5)
+                    P.p(x, y, wallD);
+            for (let x = 1; x < 47; x += 2)
+                P.p(x, 21, wallC);
+            house(6, 15, 6, 6, 1);
+            house(13, 12, 5, 7, 2);
+            house(25, 13, 7, 6, 3);
+            house(34, 15, 5, 5, 4);
+            house(19, 16, 4, 5, 5);
+            if (rich) {
+                house(39, 12, 5, 5, 6);
+                P.r(29, 3, 4, 10, PAL.ash);
+                P.r(28, 2, 6, 1, PAL.ash);
+                P.p(30, 1, PAL.gold);
+                P.p(31, 0, PAL.gold);
+            } // kamienice i dzwonnica
+            tower(0, 18, 21);
+            tower(42, 18, 21);
+            tower(21, 19, 20);
+            if (sieged) {
+                P.r(21, 31, 6, 9, PAL.ink);
+                P.p(21, 35, PAL.wood);
+                P.r(19, 39, 3, 1, PAL.woodD);
+                P.r(27, 38, 2, 1, PAL.woodD);
+            }
+            else {
+                P.r(21, 31, 6, 9, PAL.woodD);
+                for (let x = 22; x < 27; x += 2)
+                    P.r(x, 32, 1, 8, PAL.wood);
+                P.r(21, 34, 6, 1, PAL.steelD);
+            }
+            gallows(37, 30);
+            if (!rich)
+                midden(7, 38);
+            if (s.capital) {
+                P.r(16, 1, 6, 17, wallC);
+                P.r(21, 1, 1, 17, wallD);
+                P.p(18, 5, PAL.ink);
+                P.p(18, 9, PAL.ink);
+                for (let x = 16; x < 22; x += 2)
+                    P.p(x, 0, wallC);
+            }
+            if (rich || s.capital) {
+                banner(3, 23, 9);
+                banner(43, 23, 9);
+            }
+            if (undead) {
+                P.p(8, 18, PAL.purpleL);
+                P.p(27, 16, PAL.purpleL);
+                P.p(36, 18, PAL.purpleL);
+            }
+        }
+        if (sieged) {
+            burnt(4, 12, 12, 10);
+            burnt(30, 10, 12, 12);
+            burnt(10, 26, 8, 6);
+        }
+        if (poor && !orc && !dwarf) {
+            P.r(10, 22, 3, 3, null);
+            P.r(36, 26, 2, 3, PAL.ink);
+        }
+        if (raided)
+            burnt(4, 10, 40, 14);
     }
     c = P.toCanvas(true, true);
     SICON.set(key, c);
@@ -14022,8 +15084,11 @@ function renderWorld(w, v, g) {
     g.fillStyle = PAL.black;
     g.fillRect(0, 0, W, H);
     g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
+    if (season(w) === 3 && WSNOW)
+        g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H);
     if (settings.borders !== false)
         g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
+    drawScars(w, g, sx, sy, v.time);
     const vis = (x, y, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
     const t = v.time;
     // fale morza (animacja)
@@ -14059,7 +15124,7 @@ function renderWorld(w, v, g) {
             continue;
         const kk = st.kind === "village" ? LBLK : LBLK + 1, tw = (st.name.length * 4 + 4) * kk;
         LBL.push([x0 + 5 - tw / 2 - 10, y0 + 9, tw + 12, 9 * kk + 2]);
-        LBL.push([x0 - 14, y0 - 22, 28, 30]); // sama ikona osady
+        LBL.push([x0 - 22, y0 - 32, 44, 40]); // sama ikona osady
     }
     const pp0 = playerParty(w);
     const inTown = pp0 && !w.player.captive ? w.settlements.find((st) => dist(st.cx * WCELL + 4, st.cy * WCELL + 4, pp0.x, pp0.y) < 14) : undefined;
@@ -14272,9 +15337,15 @@ function renderWorld(w, v, g) {
         dark = 0.7 * k;
         warm = 0.24 * Math.sin(k * Math.PI);
     }
+    // paleta zależna od krainy pod kamerą i pory roku (ciepłe brązy na południu, szaro-niebieski chłód na północy i zimą)
     g.globalCompositeOperation = "multiply";
-    g.fillStyle = "#ece4d2";
+    g.fillStyle = gradeTint(regionOf(w, (sx + W / 2) / WCELL, (sy + H / 2) / WCELL), season(w), h >= 4 && h < 9);
     g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = "saturation";
+    g.globalAlpha = 0.18;
+    g.fillStyle = "#808080";
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
     if (warm > 0) {
         g.fillStyle = `rgba(140,70,30,${warm})`;
@@ -14322,6 +15393,12 @@ function renderWorld(w, v, g) {
             g.globalAlpha = 0.1 + Math.sin(t * 0.8 + (hh % 60) * 0.1) * 0.04;
             g.fillStyle = "#3a2f45";
             g.fillRect(cx * WCELL - sx, cy * WCELL - sy, WCELL, WCELL);
+            if (hh % 5 === 1) {
+                const ph = (t * 0.18 + (hh % 77) / 77) % 1;
+                g.globalAlpha = Math.sin(ph * Math.PI) * 0.6;
+                g.fillStyle = hh % 2 ? PAL.ash : PAL.bone;
+                g.fillRect(cx * WCELL - sx + ((hh >>> 3) % 8) + Math.round(ph * 6), cy * WCELL - sy + Math.round(ph * 8), 1, 1);
+            } // popiół w powietrzu
             if (hh % 7 === 0) {
                 const ph = (t * 0.25 + (hh % 100) / 100) % 1;
                 g.globalAlpha = Math.sin(ph * Math.PI) * 0.7;
@@ -14333,8 +15410,8 @@ function renderWorld(w, v, g) {
     // pora roku: zima bieli ziemię i sypie śniegiem
     const sea = season(w);
     if (sea === 3) {
-        g.globalAlpha = 0.11;
-        g.fillStyle = "#dfe6ea";
+        g.globalAlpha = 0.07;
+        g.fillStyle = "#c8d0d6";
         g.fillRect(0, 0, W, H);
         g.globalAlpha = 1;
         g.fillStyle = "rgba(235,240,245,0.75)";
@@ -14351,10 +15428,11 @@ function renderWorld(w, v, g) {
         g.globalAlpha = 1;
     }
     // mgła: wolno płynące pasy
-    if (w.fog)
+    const morningMist = !w.fog && w.hour >= 5 && w.hour < 8.5; // poranna mgła snuje się po dolinach
+    if (w.fog || morningMist)
         for (let k = 0; k < 7; k++) {
             const fy = ((hashInt(k * 53) % H) + t * 2) % (H + 40) - 20;
-            g.globalAlpha = 0.16;
+            g.globalAlpha = morningMist ? 0.09 * Math.sin(((w.hour - 5) / 3.5) * Math.PI) + 0.02 : 0.16;
             g.fillStyle = "#c9ccc8";
             g.beginPath();
             g.ellipse(((hashInt(k * 9) % W) + t * 5 * (k % 2 ? 1 : -1)) % (W + 200) - 100, fy, 140, 18, 0, 0, Math.PI * 2);
@@ -14386,6 +15464,7 @@ function renderWorld(w, v, g) {
     }
     if (settings.questMarkers && settings.questArrows)
         questArrows(w, g, sx, sy, t);
+    oldMapOverlay(g);
     // chmury cienia
     g.globalAlpha = 0.08;
     g.fillStyle = PAL.ink;
@@ -14635,6 +15714,8 @@ class Win {
                 const cc = c.cloneNode();
                 cc.getContext("2d").drawImage(c, 0, 0);
                 s.appendChild(cc);
+                if (SCENE_META.has(c))
+                    animateScene(cc, c);
             }
         }
         PICS.clear();
@@ -14695,11 +15776,7 @@ function toast(text, col) {
 function barHtml(v, max, cls, label = "") { return `<div class="bar ${cls}"><i style="width:${clamp((v / Math.max(1, max)) * 100, 0, 100)}%"></i>${label ? `<b>${label}</b>` : ""}</div>`; }
 // ---------- Ilustracje miejsc ----------
 const SCENE_CACHE = new Map();
-function drawScene(kind, seed, culture, night, extra = 0) {
-    const key = [kind, seed, culture, night, extra].join(":");
-    const cached = SCENE_CACHE.get(key);
-    if (cached)
-        return cached;
+function drawSceneBase(kind, seed, culture, night, extra, M) {
     const Wd = 200, Hd = 84;
     const [c, g] = mkCanvas(Wd, Hd);
     const save = _seed;
@@ -14765,6 +15842,7 @@ function drawScene(kind, seed, culture, night, extra = 0) {
         g.fillRect(0, 6, Wd, 3);
     }
     const house = (x, y, w, h, roof = undead ? PAL.slate : orc ? PAL.dirt : PAL.red) => {
+        M.houses.push([x, y, w, h]);
         g.fillStyle = PAL.ink;
         g.fillRect(x - 1, y - 1, w + 2, h + 2);
         g.fillStyle = orc ? PAL.wood : dwarf ? PAL.stone : PAL.bone;
@@ -14787,6 +15865,8 @@ function drawScene(kind, seed, culture, night, extra = 0) {
         g.fillRect(x + Math.floor(w / 2) - 1, y + h - 5, 3, 5);
     };
     const figure = (x, y, col, hood = false, sword = false) => {
+        M.figs.push([x, y, col, hood, sword]);
+        return; // postacie rysuje warstwa szczegółów w podwójnej rozdzielczości
         g.fillStyle = PAL.ink;
         g.fillRect(x - 2, y - 11, 5, 12);
         g.fillStyle = col;
@@ -14816,7 +15896,7 @@ function drawScene(kind, seed, culture, night, extra = 0) {
     };
     const gallows = (x, y) => { g.fillStyle = PAL.woodD; g.fillRect(x, y - 22, 2, 22); g.fillRect(x, y - 22, 10, 2); g.fillStyle = PAL.bone; g.fillRect(x + 8, y - 20, 1, 4); g.fillStyle = PAL.dirtD; g.fillRect(x + 7, y - 16, 3, 6); };
     const crow = (x, y) => { g.fillStyle = PAL.black; g.fillRect(x, y, 3, 1); g.fillRect(x + 1, y - 1, 1, 1); g.fillRect(x - 1, y - 1, 1, 1); g.fillRect(x + 3, y - 1, 1, 1); };
-    const fire = (x, y) => { g.fillStyle = PAL.woodD; g.fillRect(x - 3, y, 7, 2); g.fillStyle = PAL.redL; g.fillRect(x - 2, y - 3, 5, 3); g.fillStyle = PAL.gold; g.fillRect(x - 1, y - 5, 3, 3); g.fillStyle = PAL.boneHi; g.fillRect(x, y - 4, 1, 2); };
+    const fire = (x, y) => { M.fires.push([x, y]); g.fillStyle = PAL.woodD; g.fillRect(x - 3, y, 7, 2); g.fillStyle = PAL.redL; g.fillRect(x - 2, y - 3, 5, 3); g.fillStyle = PAL.gold; g.fillRect(x - 1, y - 5, 3, 3); g.fillStyle = PAL.boneHi; g.fillRect(x, y - 4, 1, 2); };
     const pike = (x, y) => { g.fillStyle = PAL.woodD; g.fillRect(x, y - 16, 1, 16); g.fillStyle = PAL.bone; g.fillRect(x - 1, y - 19, 3, 3); g.fillStyle = PAL.black; g.fillRect(x - 1, y - 18, 1, 1); g.fillRect(x + 1, y - 18, 1, 1); };
     const grave = (x, y) => { g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 9, 6, 10); g.fillStyle = PAL.stone; g.fillRect(x, y - 8, 4, 8); g.fillStyle = PAL.ash; g.fillRect(x, y - 8, 4, 1); g.fillStyle = PAL.slate; g.fillRect(x + 1, y - 6, 2, 1); };
     const people = undead ? [PAL.bone, PAL.purple, PAL.ash] : orc ? [PAL.moss, PAL.dirt, PAL.bloodD] : [PAL.red, PAL.dirt, PAL.moss, PAL.slate, PAL.bone];
@@ -15147,6 +16227,55 @@ function drawScene(kind, seed, culture, night, extra = 0) {
             g.fillRect(160, 78, 4, 1);
             break;
         }
+        case "battlefield": { // pobojowisko: trupy, połamane drzewca, przewrócone chorągwie, dym, wrony
+            for (let k = 0; k < 26; k++) {
+                const x = Math.round(rr(4, 196)), y = Math.round(rr(62, 82));
+                g.fillStyle = PAL.ink;
+                g.fillRect(x - 1, y - 1, 9, 4);
+                g.fillStyle = pick([PAL.dirt, PAL.steelD, PAL.red, PAL.slate, PAL.dirtD]);
+                g.fillRect(x, y, 7, 2);
+                g.fillStyle = PAL.skinD;
+                g.fillRect(x + 7, y, 2, 2);
+                g.fillStyle = PAL.bloodD;
+                g.fillRect(x + rr(-2, 6), y + 2, 4, 1);
+            }
+            for (let k = 0; k < 10; k++) {
+                const x = Math.round(rr(4, 196)), y = Math.round(rr(56, 80));
+                g.fillStyle = PAL.woodD;
+                for (let j = 0; j < 12; j++)
+                    g.fillRect(x + Math.round(j * 0.6), y - j, 1, 1);
+                g.fillStyle = PAL.steel;
+                g.fillRect(x + 7, y - 13, 1, 2);
+            }
+            for (let k = 0; k < 3; k++) {
+                const x = 30 + k * 60 + rr(-10, 10);
+                g.fillStyle = PAL.woodD;
+                g.fillRect(x, 40, 1, 26);
+                g.fillStyle = k === 1 && extra ? PAL.ink : pick([PAL.red, PAL.purple, PAL.moss]);
+                g.fillRect(x + 1, 41, 10, 7);
+                g.fillRect(x + 1, 48, 6, 2);
+            }
+            g.fillStyle = PAL.woodD;
+            g.fillRect(140, 74, 22, 1);
+            g.fillStyle = PAL.red;
+            g.fillRect(150, 75, 8, 4); // przewrócona chorągiew
+            for (let k = 0; k < 4; k++) {
+                const x = rr(10, 190);
+                g.globalAlpha = 0.35;
+                for (let j = 0; j < 30; j++) {
+                    g.fillStyle = j % 2 ? PAL.ash : PAL.slate;
+                    g.fillRect(Math.round(x + Math.sin(j * 0.4) * 4 + j * 0.5), 58 - j * 1.6, 4 + (j >> 3), 3);
+                }
+                g.globalAlpha = 1;
+            }
+            fire(rr(20, 80), 70);
+            fire(rr(120, 180), 76);
+            for (let k = 0; k < 7; k++)
+                crow(Math.round(rr(10, 190)), Math.round(rr(8, 40)));
+            for (let k = 0; k < (extra ? 2 : 5); k++)
+                figure(Math.round(rr(20, 180)), Math.round(rr(72, 82)), pick(people), chance(0.3), true);
+            break;
+        }
         default: { // pole
             for (let k = 0; k < 6; k++) {
                 const x = Math.round(rr(0, 190));
@@ -15161,11 +16290,134 @@ function drawScene(kind, seed, culture, night, extra = 0) {
             pike(150, 80);
         }
     }
-    // brud i winieta
+    M.indoor = indoor;
+    _seed = save;
+    return c;
+}
+// Ilustracja w podwójnej rozdzielczości (400×168): podkład 200×84 powiększony, na nim drobne szczegóły:
+// faktura, gonty i belki domów, kominy, ludzie z twarzami i ubraniami, zwierzęta, beczki, pranie.
+const SCENE_META = new WeakMap();
+function drawScene(kind, seed, culture, night, extra = 0) {
+    const key = [kind, seed, culture, night, extra].join(":");
+    const cached = SCENE_CACHE.get(key);
+    if (cached)
+        return cached;
+    const M = { houses: [], figs: [], fires: [], night, indoor: false, kind, culture: String(culture), extra };
+    const base = drawSceneBase(kind, seed, culture, night, extra, M);
+    const Wd = 400, Hd = 168;
+    const [c, g] = mkCanvas(Wd, Hd);
+    g.drawImage(base, 0, 0, Wd, Hd);
+    const save = _seed;
+    _seed = (seed * 7919 + 1013) >>> 0;
+    const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), w, h); };
+    const undead = culture === "undead", orc = culture === "orc", dwarf = culture === "dwarf";
+    // domy: gonty lub strzecha, belki, okiennice, kominy, łaty
+    const chimneys = [];
+    for (const [x0, y0, w0, h0] of M.houses) {
+        const x = x0 * 2, y = y0 * 2, w = w0 * 2, h = h0 * 2;
+        const rh = Math.ceil(w0 / 2) + 1;
+        for (let r = 0; r < rh * 2; r += 2) {
+            g.globalAlpha = 0.35;
+            R(PAL.ink, x - 4 + r, y - 2 - r, w + 8 - r * 2, 1);
+            g.globalAlpha = 1;
+        } // rzędy gontów
+        if (chance(0.5)) {
+            R(PAL.rust, x + rr(2, w - 8), y - rr(4, rh * 2 - 2), 5, 3);
+        } // łata na dachu
+        if (!orc && !dwarf) {
+            g.globalAlpha = 0.6;
+            for (let k = 6; k < w - 4; k += 10) {
+                R(PAL.woodD, x + k, y + 2, 1, h - 4);
+            }
+            R(PAL.woodD, x + 2, y + Math.floor(h / 2), w - 4, 1);
+            g.globalAlpha = 1;
+        } // mur pruski
+        if (chance(0.4)) {
+            R(PAL.slate, x + w - 10, y + 4, 4, 1);
+            R(PAL.ink, x + w - 10, y + 5, 4, 1);
+        } // spękany tynk
+        R(night ? PAL.gold : PAL.ink, x + 4, y + 6, 4, 4);
+        R(PAL.woodD, x + 3, y + 5, 1, 6);
+        R(PAL.woodD, x + 8, y + 5, 1, 6);
+        R(PAL.woodD, x + 5, y + 8, 2, 1); // okno z okiennicami
+        if (night) {
+            g.globalAlpha = 0.25;
+            R(PAL.gold, x + 2, y + 4, 8, 8);
+            g.globalAlpha = 1;
+        }
+        if (!undead && chance(0.7)) {
+            const cx = x + rr(4, w - 8);
+            const cy = y - Math.round(rh * 1.2);
+            R(PAL.ink, cx - 1, cy - 9, 6, 10);
+            R(PAL.slate, cx, cy - 8, 4, 9);
+            R(PAL.stone, cx, cy - 8, 1, 9);
+            chimneys.push([cx + 2, cy - 10]);
+        }
+    }
+    // drobne życie: kury, pies, beczki, skrzynie, pranie między domami
+    if (!M.indoor && (kind === "town" || kind === "village" || kind === "castle")) {
+        for (let k = 0; k < (kind === "village" ? 6 : 3); k++) {
+            const x = rr(10, 390), y = rr(140, 162);
+            R(PAL.ink, x - 1, y - 4, 6, 5);
+            R(PAL.bone, x, y - 3, 4, 3);
+            R(PAL.redL, x + 3, y - 4, 1, 1);
+            R(PAL.gold, x + 4, y - 2, 1, 1);
+        } // kury
+        {
+            const x = rr(30, 370), y = rr(146, 162);
+            R(PAL.ink, x - 1, y - 6, 12, 7);
+            R(PAL.dirt, x, y - 5, 10, 4);
+            R(PAL.dirt, x + 8, y - 7, 3, 3);
+            R(PAL.dirtD, x, y - 1, 1, 2);
+            R(PAL.dirtD, x + 8, y - 1, 1, 2);
+            R(PAL.black, x + 10, y - 6, 1, 1);
+        } // pies
+        for (let k = 0; k < 3; k++) {
+            const x = rr(10, 380), y = rr(128, 150);
+            R(PAL.ink, x - 1, y - 11, 10, 12);
+            R(PAL.wood, x, y - 10, 8, 10);
+            R(PAL.woodD, x, y - 7, 8, 1);
+            R(PAL.woodD, x, y - 3, 8, 1);
+            R(PAL.steelD, x, y - 10, 8, 1);
+        } // beczki
+        if (M.houses.length > 1 && !undead) {
+            const [a1, b1] = M.houses[0], [a2, b2] = M.houses[1];
+            const x1 = a1 * 2 + 10, x2 = a2 * 2 + 4, y1 = Math.min(b1, b2) * 2 + 6;
+            for (let x = x1; x < x2; x++) {
+                const sag = Math.sin(((x - x1) / Math.max(1, x2 - x1)) * Math.PI) * 4;
+                R(PAL.ink, x, y1 + sag, 1, 1);
+                if ((x - x1) % 9 === 3)
+                    R(pick([PAL.bone, PAL.redL, PAL.dirtL, PAL.ash]), x - 1, y1 + sag + 1, 4, 5);
+            }
+        } // pranie
+    }
+    // ludzie: twarz, włosy lub kaptur, ubranie z paskiem, ręce, nogi, czasem broń, kosz albo worek
+    const walkers = [];
+    for (const [fx, fy, col, hood, sword] of M.figs) {
+        const x = fx * 2, y = fy * 2;
+        const walk = !M.indoor && chance(0.45) && kind !== "arena" && kind !== "captive";
+        if (walk) {
+            walkers.push({ x, y, col, hood, sword, dir: chance(0.5) ? 1 : -1, sp: rr(4, 10), x0: Math.max(6, x - rr(30, 80)), x1: Math.min(394, x + rr(30, 80)) });
+            continue;
+        }
+        drawScenePerson(g, x, y, col, hood, sword, Math.floor(rr(0, 4)), 0, undead);
+    }
+    // faktura: drobne ziarno i zacieki
+    const im = g.getImageData(0, 0, Wd, Hd);
+    for (let i = 0; i < Wd * Hd; i++) {
+        const n = (hashInt(i * 2654435761 + seed) % 100) / 100;
+        const f = 0.93 + n * 0.12;
+        im.data[i * 4] *= f;
+        im.data[i * 4 + 1] *= f;
+        im.data[i * 4 + 2] *= f * 0.98;
+    }
+    g.putImageData(im, 0, 0);
+    // winieta i noc
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
     for (let y = 0; y < Hd; y++)
         for (let x = 0; x < Wd; x++) {
             const e = Math.max(Math.abs(x - Wd / 2) / (Wd / 2), Math.abs(y - Hd / 2) / (Hd / 2));
-            if (e > 0.9 && dith(x, y) < (e - 0.9) * 7) {
+            if (e > 0.88 && (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16 < (e - 0.88) * 6) {
                 g.fillStyle = PAL.black;
                 g.fillRect(x, y, 1, 1);
             }
@@ -15177,8 +16429,125 @@ function drawScene(kind, seed, culture, night, extra = 0) {
         g.globalCompositeOperation = "source-over";
     }
     _seed = save;
+    M.chimneys = chimneys;
+    M.walkers = walkers;
+    SCENE_META.set(c, M);
     SCENE_CACHE.set(key, c);
     return c;
+}
+function drawScenePerson(g, x, y, col, hood, sword, variant, step, undead) {
+    const R = (c, a, b, w, h) => { g.fillStyle = c; g.fillRect(Math.round(x + a), Math.round(y + b), w, h); };
+    const skin = undead ? PAL.bone : variant % 2 ? PAL.skin : PAL.skinD;
+    R(PAL.ink, -4, -23, 9, 24); // obrys
+    const lg = step % 2 ? 1 : 0;
+    R(PAL.dirtD, -2 - lg, -7, 2, 6);
+    R(PAL.dirtD, 1 + lg, -7, 2, 6); // nogi
+    R(PAL.black, -3 - lg, -1, 3, 1);
+    R(PAL.black, 1 + lg, -1, 3, 1); // buty
+    const dress = variant === 2 && !sword;
+    R(col, -3, -16, 7, dress ? 14 : 10);
+    R(PAL.ink, 3, -16, 1, dress ? 14 : 10); // tułów, cień
+    R(PAL.woodD, -3, -11, 7, 1);
+    R(PAL.goldD, 0, -11, 1, 1); // pas
+    R(col, -4, -15, 1, 6);
+    R(col, 4, -15, 1, 6);
+    R(skin, -4, -9, 1, 2);
+    R(skin, 4, -9, 1, 2); // ręce
+    if (hood) {
+        R(col, -3, -22, 7, 6);
+        R(PAL.ink, -1, -19, 3, 3);
+        R(skin, -1, -19, 3, 2);
+    }
+    else {
+        R(skin, -2, -21, 5, 5);
+        R(variant === 3 ? PAL.ash : PAL.dirtD, -2, -22, 5, 2);
+        R(PAL.black, -1, -19, 1, 1);
+        R(PAL.black, 1, -19, 1, 1);
+        if (variant === 1)
+            R(PAL.dirtD, -2, -17, 5, 1);
+    } // twarz, włosy, oczy, broda
+    if (sword) {
+        R(PAL.steelL, 5, -21, 1, 11);
+        R(PAL.goldD, 4, -11, 3, 1);
+    }
+    else if (variant === 0) {
+        R(PAL.wood, 4, -10, 4, 4);
+        R(PAL.woodD, 4, -10, 4, 1);
+    } // kosz
+    else if (variant === 3) {
+        R(PAL.dirtL, -7, -18, 4, 6);
+        R(PAL.dirt, -7, -18, 4, 1);
+    } // worek na plecach
+}
+// Animowane sceny: dym z kominów, migające ogniska i pochodnie, chodzący ludzie. Odświeżane ok. 12 razy na sekundę.
+const ANIM_SCENES = [];
+let ANIM_ON = false;
+function animateScene(cv, base) {
+    const M = SCENE_META.get(base);
+    if (!M)
+        return;
+    ANIM_SCENES.push({ cv, base, M });
+    if (ANIM_ON)
+        return;
+    ANIM_ON = true;
+    let last = 0;
+    const loop = (ts) => {
+        for (let i = ANIM_SCENES.length - 1; i >= 0; i--)
+            if (!ANIM_SCENES[i].cv.isConnected)
+                ANIM_SCENES.splice(i, 1);
+        if (!ANIM_SCENES.length) {
+            ANIM_ON = false;
+            return;
+        }
+        if (ts - last > 80) {
+            last = ts;
+            const t = ts / 1000;
+            for (const A of ANIM_SCENES) {
+                const g = A.cv.getContext("2d"), M = A.M;
+                g.drawImage(A.base, 0, 0);
+                for (const [cx, cy] of (M.chimneys || []))
+                    for (let j = 0; j < 5; j++) { // dym z kominów
+                        const ph = (t * 0.25 + j / 5 + cx * 0.013) % 1;
+                        g.globalAlpha = (1 - ph) * 0.4;
+                        g.fillStyle = M.night ? PAL.slate : PAL.ash;
+                        const r = 2 + Math.round(ph * 4);
+                        g.fillRect(Math.round(cx - r / 2 + Math.sin(ph * 4 + cx) * 3 + ph * 10), Math.round(cy - ph * 34), r, r);
+                    }
+                g.globalAlpha = 1;
+                for (const [fx, fy] of M.fires) { // migające ognie
+                    const fl = Math.floor(t * 9 + fx) % 3;
+                    g.fillStyle = PAL.redL;
+                    g.fillRect(fx * 2 - 4, fy * 2 - 6 - fl, 9, 6 + fl);
+                    g.fillStyle = PAL.gold;
+                    g.fillRect(fx * 2 - 2 + (fl === 1 ? 1 : 0), fy * 2 - 10 - fl, 5, 6);
+                    g.fillStyle = PAL.boneHi;
+                    g.fillRect(fx * 2, fy * 2 - 8 - fl, 1, 3);
+                    g.globalAlpha = 0.12 + fl * 0.04;
+                    g.fillStyle = PAL.gold;
+                    g.fillRect(fx * 2 - 30, fy * 2 - 34, 60, 50);
+                    g.globalAlpha = 1;
+                    if (Math.floor(t * 4 + fx) % 2) {
+                        g.fillStyle = PAL.gold;
+                        g.fillRect(fx * 2 + Math.round(Math.sin(t * 3 + fx) * 4), fy * 2 - 16 - Math.round((t * 20 + fx) % 14), 1, 1);
+                    }
+                }
+                for (const wk of (M.walkers || [])) { // ruch ludzi
+                    const span = wk.x1 - wk.x0, p = ((t * wk.sp + wk.x * 0.7) % (span * 2) + span * 2) % (span * 2);
+                    const dir = p < span ? wk.dir : -wk.dir, xx = wk.dir > 0 ? (p < span ? wk.x0 + p : wk.x1 - (p - span)) : (p < span ? wk.x1 - p : wk.x0 + (p - span));
+                    drawScenePerson(g, xx, wk.y, wk.col, wk.hood, wk.sword, Math.abs(Math.round(wk.x)) % 4, Math.floor(t * 6 + wk.x), M.culture === "undead");
+                    if (M.night) {
+                        g.globalCompositeOperation = "multiply";
+                        g.fillStyle = "#6a6a90";
+                        g.fillRect(Math.round(xx) - 8, wk.y - 24, 17, 26);
+                        g.globalCompositeOperation = "source-over";
+                    }
+                    void dir;
+                }
+            }
+        }
+        requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
 }
 // ---------- Ikony pikselowe (9×9) ----------
 const ICON_URL = new Map();
@@ -15248,12 +16617,13 @@ function unitCanvas(key, dir = 0, frame = 0, faction, look) {
         const [cv, g] = mkCanvas(40, 48);
         g.drawImage(himg, Math.round(20 - himg.width / 2), 48 - himg.height + 2);
         const riderY = dir === 2 ? -11 : -9;
-        g.drawImage(img, 0, 0, img.width, Math.round(img.height * 0.66), Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, Math.round(img.height * 0.66));
+        const rh = Math.round(img.height * 0.72);
+        g.drawImage(img, 0, 0, img.width, rh, Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, rh);
         c = cv;
     }
     else {
         const [cv, g] = mkCanvas(32, 40);
-        g.drawImage(img, 4, 6);
+        g.drawImage(img, 0, -2);
         c = cv;
     }
     UPREV.set(ck, c);
@@ -15261,11 +16631,11 @@ function unitCanvas(key, dir = 0, frame = 0, faction, look) {
 }
 // Animowany pasek klatek (bok, chód) jako tło CSS.
 function unitAnim(key, scale = 3, look) {
-    const frames = [0, 1, 2, 3].map((f) => unitCanvas(key, 2, f, undefined, look));
+    const frames = [1, 2, 3, 4, 5, 6].map((f) => unitCanvas(key, 2, f, undefined, look));
     const w = frames[0].width, h = frames[0].height;
-    const [strip, g] = mkCanvas(w * 4, h);
+    const [strip, g] = mkCanvas(w * 6, h);
     frames.forEach((f, i) => g.drawImage(f, i * w, 0));
-    return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 4 * scale}px ${h * scale}px;--sw:-${w * 4 * scale}px"></div>`;
+    return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 6 * scale}px ${h * scale}px;--sw:-${w * 6 * scale}px"></div>`;
 }
 function unitThumb(key, scale = 1) { return pic(unitCanvas(key, 0, 0), "uthumb", scale); }
 function tierStars(t) { return `<span class="stars">${"★".repeat(t)}<span class="muted">${"★".repeat(Math.max(0, 5 - t))}</span></span>`; }
@@ -15780,6 +17150,16 @@ function checkEncounters() {
         }
     }
 }
+// ---------- Brud i zużycie (Build 0.17) ----------
+// Brud rośnie z dniami w drodze i z każdą bitwą; łaźnia w mieście go zmywa. Rdza i wgniecenia zależą od stanu zbroi.
+function grimeOf(P) { return clamp(P.grime ?? 0.2, 0, 1); }
+function addGrime(P, dirt, gore = 0) { P.grime = clamp(grimeOf(P) + dirt, 0, 1); P.gore = clamp((P.gore || 0) + gore, 0, 1); }
+function wearLook(P) {
+    const cb = condOf(P, "body"), ch = condOf(P, "head");
+    const worst = Math.min(P.equip.body ? cb : 100, P.equip.head ? ch : 100);
+    const tired = clamp((1 - P.hp / Math.max(1, heroMaxHp(P))) * 0.8 + (P.morale < 40 ? 0.3 : 0) + grimeOf(P) * 0.2, 0, 1);
+    return { dirt: 0.08 + grimeOf(P) * 0.9, blood: P.gore || 0, rust: clamp((100 - worst) / 90, 0, 1), dents: Math.floor((100 - worst) / 14), stubble: clamp(grimeOf(P) * 1.3, 0, 1), tired, bscars: Math.floor((P.battlesWon || 0) / 8) };
+}
 // ---------- Siła i skład bitwy ----------
 function heroCfgFromPlayer(P) {
     const it = (s) => (P.equip[s] ? ITEMS[P.equip[s]] : null);
@@ -15790,7 +17170,7 @@ function heroCfgFromPlayer(P) {
         armor += 0.05;
     armor = Math.min(0.66, armor + perk(P, "armorB"));
     const hd = it("head");
-    const look = { ...P.look, helm: hd?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon"), plume: hd && hd.tier >= 3 ? (P.status === "król" ? PAL.gold : PAL.redL) : undefined };
+    const look = { ...P.look, helm: hd?.helm || (P.look.race === "skel" ? "none" : "none"), body: it("body")?.body || "rags", scabbard: !!it("weapon"), plume: hd && hd.tier >= 3 ? (P.status === "król" ? PAL.gold : PAL.redL) : undefined, ...wearLook(P) };
     const horse = it("horse");
     const bow = it("bow");
     const hs = horseStats(P);
@@ -15827,7 +17207,7 @@ function carryCap(P) { return 10 + P.attr.str * 1.4; }
 function weightPenalty(P) { return Math.max(0, equipWeight(P) - carryCap(P)) * (1 - Math.min(0.9, perk(P, "weightRes"))); }
 function companionCfgs(P) {
     const AB = { "kapłanka": "priest", "medyk": "priest", "rębajło": "whirlai", "obrońca": "rally", "rycerz": "rally", "zwiadowczyni": "whirlai", "zwiadowca": "whirlai", "czarodziejka": "mage", "inżynier": "rally", "kupcowa": "whirlai" };
-    return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !(c.away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: c.look, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
+    return P.companions.filter((c) => c.hp > c.maxHp * 0.25 && !(c.away > WORLD.day)).map((c) => ({ id: c.id, name: c.name, look: { ...c.look, dirt: Math.max(c.look.dirt, 0.15 + grimeOf(P) * 0.8), blood: Math.max(c.look.blood, P.gore || 0) }, hp: c.hp, maxHp: c.maxHp, weapon: c.weapon, shield: c.shield, armor: c.armor, squad: c.squad, bow: c.bow || undefined, mount: c.horse ? HORSE : null, ab: AB[c.role] }));
 }
 function healthyTroops(list) { return list.map((t) => ({ type: t.type, n: t.n - t.wounded })).filter((t) => t.n > 0); }
 function battleTerrainAt(w, x, y) {
@@ -15896,7 +17276,7 @@ function launchBattle(ctx, cfgExtra = {}) {
     const terrain = ctx.kind === "siege" ? "siege" : ctx.kind === "arena" ? "arena" : ctx.place ? (ctx.place.kind === "ruins" || ctx.place.kind === "cemetery" ? "ruins" : ctx.place.kind === "lair" || ctx.place.kind === "camp" ? "forest" : "plains") : battleTerrainAt(w, p.x, p.y);
     const night = ctx.kind === "arena" ? false : ctx.place?.kind === "cemetery" ? true : isNight(w);
     const cfg = {
-        terrain: terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog,
+        terrain: terrain, night, rain: ctx.kind === "arena" ? false : w.rain, fog: ctx.kind !== "arena" && !!w.fog, season: season(w), region: regionOf(w, p.x / WCELL, p.y / WCELL), hour: w.hour,
         player: { name: P.name, faction: P.crest || P.status === "król" ? PLAYER_FACTION : P.liege > 0 ? P.liege : 0, troops: ctx.kind === "arena" ? [] : healthyTroops(p.troops).map((t) => ({ ...t, squad: (P.squadOf || {})[t.type] || undefined })), hero: heroCfgFromPlayer(P), companions: ctx.kind === "arena" ? [] : companionCfgs(P), allies },
         enemy: { name: ctx.defend && ctx.enemies[0] ? ctx.enemies[0].name : ctx.title, faction: enemyFaction, troops: enemyTroops.map((t) => ({ type: t.type, n: t.n })) },
         siegeDefender: ctx.kind === "siege" ? 1 : undefined,
@@ -16059,6 +17439,8 @@ function applyBattleResult(r, auto = false) {
         arenaFinished(r);
         return;
     }
+    if (ctx.kind !== "escape")
+        addScar(w, p.x, p.y + 4, "battle", 1.2);
     // straty własne i sojuszników
     distributeLosses([p], r.ours, true);
     distributeLosses(ctx.allies, r.allies, true);
@@ -16077,6 +17459,7 @@ function applyBattleResult(r, auto = false) {
     }
     // zużycie sprzętu i doświadczenie konia
     if (G.ctx?.kind !== "arena") {
+        addGrime(P, 0.09, 0.2);
         const cond = ((_a = P).cond || (_a.cond = {}));
         for (const sl of Object.keys(P.equip))
             if (P.equip[sl] && sl !== "horse")
@@ -17261,6 +18644,7 @@ function renderSettlement() {
     }, "settle-scr");
 }
 const TAB_ICON = { elite: "star", throne: "crown", armory: "sword", dungeon: "chain", rule: "scroll", main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
+function bathCost(s) { return Math.max(4, Math.round(4 + troopCount(playerParty(WORLD).troops) * 0.25 + (s.prosperity > 70 ? 4 : 0))); }
 function recruitPool(s) {
     const w = WORLD, P = w.player;
     const cul = s.culture;
@@ -17297,8 +18681,10 @@ function settlementPane(s, hostileS) {
                 html: `<p>${desc}</p>${rum ? `<p class="tip">Plotka: ${rum}</p>` : ""}
           ${harvest ? `<p class="tip">${ic("food")} ${harvest} · zboże w spichlerzu: ${Math.floor(s.stock.grain || 0)} · podatek dla pana: ok. ${fiefIncome(w, s) * 7}/tydzień</p>` : ""}
           <div class="ppl">${ppl.map((r, i) => `<button class="mini" data-a="chat" data-v="${i}">${ic("man")} ${r.name} <span class="muted">${r.role}</span></button>`).join("")}</div><p class="tip" id="chatline"></p>${lordHere ? `<div class="row"><span>${lord.title} ${lord.name} przebywa na zamku.</span><button class="mini" data-a="talkLord" data-v="${lord.id}">Rozmawiaj</button></div>` : ""}
-          ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}`,
-                acts: { talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e)
+          ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}
+          ${s.kind === "town" ? `<div class="row"><span>${ic("drop")} Łaźnia: gorąca woda, ług i balia. Twoja drużyna: brud ${Math.round(grimeOf(P) * 100)}%${P.gore > 0.05 ? `, zaschnięta krew` : ""}.</span><button class="mini" data-a="bath" ${P.gold >= bathCost(s) && grimeOf(P) > 0.08 ? "" : "disabled"}>Umyj się (${bathCost(s)})</button></div>` : ""}`,
+                acts: { bath: () => { if (P.gold < bathCost(s))
+                        return; P.gold -= bathCost(s); P.grime = 0.03; P.gore = 0; P.morale = Math.min(100, (P.morale ?? 70) + 3); sfx.coin(); toast("Woda w balii robi się czarna. Ludzie wychodzą czyści i w lepszym humorze.", PAL.gold); re(); }, talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e)
                         e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
             };
         }
@@ -17798,6 +19184,7 @@ function raidVillage(s) {
     const n = Math.round(6 + s.prosperity / 8);
     const go = (mode) => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: [{ type: mil, n, wounded: 0, xp: 0 }], settlement: s, title: `Grabież: ${s.name}`, onWin: (lines) => {
             s.raided = 14;
+            addScar(WORLD, s.cx * WCELL + 4, s.cy * WCELL + 6, "burn", 1.3);
             for (const L of w.lords)
                 if (L.faction === s.faction)
                     lordRel(w, L, -3, `grabiłeś wioskę ${s.name}`);
@@ -18665,7 +20052,9 @@ function showAftermath(r, gold, items, lines, next) {
     const share = gold >= 20 && r.win && !G.ctx?.arena ? `<button class="alt" data-a="share">Podziel łupy z ludźmi (−${Math.round(gold * 0.3)} den., +morale)</button>` : "";
     const take = () => { document.querySelectorAll("#ui input.loot").forEach((c) => { if (c.checked)
         P.items.push(items[Number(c.dataset.i)]); }); items = []; };
+    const fieldCul = G.ctx?.enemies?.[0] ? (FACTIONS[G.ctx.enemies[0].faction]?.culture || "aurelia") : "aurelia";
     showScr(`<div class="card frame after">
+    ${G.ctx?.kind === "arena" ? "" : `<div class="scene after-scene">${pic(drawScene("battlefield", w.day * 17 + kills, fieldCul, isNight(w), r.win ? 0 : 1), "scene-img")}</div>`}
     <h1 class="${r.win ? "gold" : "bad"}">${title}</h1>
     <div class="astats"><div>${ic("skull")}<b>${kills}</b><span>wrogów poległo</span></div><div>${ic("sword")}<b>${r.heroKills}</b><span>twoje zabójstwa</span></div><div>${ic("drop")}<b>${lost}</b><span>twoich poległych</span></div><div>${ic("sun")}<b>${Math.round(r.time)} s</b><span>czas bitwy</span></div></div>
     <div class="cols"><div>${lossChart(r.timeline || [])}</div><div>${best}</div></div>
@@ -19491,7 +20880,7 @@ function showSettings(back) {
     if (SETT.tab === "keys")
         body = keysTab();
     if (SETT.tab === "view")
-        body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża (domyślna)"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
+        body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża (domyślna)"], [1.3, "bardzo duża"]]) + sel("palette", "Paleta barw", [["region", "zależna od krainy i pory roku (domyślna)"], ["warm", "ciepła i przygaszona: brązy, oliwki, rdza"], ["cold", "chłodna, szaro-niebieska: mgła i popiół"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
     const apply = (k, val) => {
         S[k] = val;
         if (k === "music" && sfx.musicOn !== S.music)
@@ -19511,7 +20900,7 @@ function showSettings(back) {
         tab: (v) => { SETT.tab = v; showSettings(back); },
         "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
-        "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
+        "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:palette": (v) => apply("palette", v), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
             e.textContent = Math.round(Number(v) * 100) + "%"; },
         "r:blood": (v) => { apply("blood", Number(v)); const e = document.getElementById("rv-blood"); if (e)
@@ -19839,7 +21228,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.16";
+const BUILD = "Build 0.17";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -20507,7 +21896,22 @@ requestAnimationFrame(frame);
 window.__game = () => ({ G, WORLD, battle: G.battle });
 window.__battle = () => G.battle;
 window.__meet = (o) => meetParty(o, false);
-window.__T = { worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP)
+function spriteSheet(keys, scale = 3) {
+    const cols = 9, cw = SPR_W, ch = SPR_H;
+    const [c, g] = mkCanvas(cols * cw, keys.length * ch);
+    g.fillStyle = PAL.grass;
+    g.fillRect(0, 0, c.width, c.height);
+    keys.forEach((k, r) => {
+        const fac = FACTION_OF_CULTURE[UNITS[k].culture] || 6;
+        const L = troopLook(UNITS[k], 3 + r, fac);
+        const s = spritesFor(L, "sheet:" + k + r);
+        [[0, 0], [0, 2], [0, 4], [2, 0], [2, 1], [2, 2], [2, 3], [1, 0], [2, 6]].forEach(([d, f], i) => g.drawImage(s.frames[d][f], i * cw, r * ch));
+    });
+    const [o, g2] = mkCanvas(c.width * scale, c.height * scale);
+    g2.drawImage(c, 0, 0, o.width, o.height);
+    return o.toDataURL();
+}
+window.__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP)
         renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER)
         g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) {
         g.fillStyle = "#000";

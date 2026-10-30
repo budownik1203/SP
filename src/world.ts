@@ -241,6 +241,13 @@ const MAP_REGIONS: [string, number, number][] = ([["Korona Aurelii", 38, 84], ["
 function inPoly(x: number, y: number, P: [number, number][]) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; }
 function segD(px: number, py: number, a: [number, number], b: [number, number]) { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1; const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / L, 0, 1); return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t); }
 function lineD(px: number, py: number, P: [number, number][]) { let d = 1e9; for (let k = 0; k < P.length - 1; k++) d = Math.min(d, segD(px, py, P[k], P[k + 1])); return P.length === 1 ? Math.hypot(px - P[0][0], py - P[0][1]) : d; }
+// Kraina pod danym miejscem: popiół (zaraza Morvatha), step, bujne południe, północ, zwykłe łąki.
+function regionOf(w: World, cx: number, cy: number): string {
+  cx = clamp(Math.floor(cx), 0, WGW - 1); cy = clamp(Math.floor(cy), 0, WGH - 1);
+  if (w.blight && w.blight[cidx(cx, cy)]) return "ash";
+  if (steppeAt(cx, cy)) return "steppe";
+  return cx < 76 * MS && cy > 40 * MS ? "lush" : cy < 40 * MS && cx < 160 * MS ? "north" : "grass";
+}
 function steppeAt(cx: number, cy: number) { cx /= MS; cy /= MS; return cx > 100 && cx < 200 && cy > 94 + (cx > 180 ? 10 : 0); }
 // Osady: stolice i część twierdz w stałych miejscach, reszta rozstawiona w krainie frakcji w dużych odstępach.
 // Na frakcję: 3 miasta, 4 zamki, 10 wiosek (każda wioska należy do swojego miasta lub zamku).
@@ -752,6 +759,9 @@ function dailyTick(w: World) {
   w.rain = chance(win ? 0.3 : 0.22);
   w.fog = !w.rain && chance(season(w) === 2 ? 0.25 : 0.14);
   (w as any).storm = w.rain && !win && chance(0.3);
+  // brud w drodze: każdy dzień marszu, deszcz i zima brudzą bardziej; krew powoli schnie i się ściera
+  { const P = w.player as any; P.grime = clamp((P.grime ?? 0.2) + (w.rain ? 0.022 : 0.012) + (win ? 0.006 : 0), 0, 1); P.gore = Math.max(0, (P.gore || 0) - 0.03); }
+  if ((w as any).scars) (w as any).scars = ((w as any).scars as Scar[]).filter((sc) => w.day - sc.day < (sc.kind === "burn" ? 9 : 6));
   // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
   dailyPolitics(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
@@ -928,7 +938,15 @@ function applyLosses(list: Troop[], frac: number) {
 }
 
 // Starcie dwóch oddziałów AI rozstrzygane od razu.
+// Ślady na mapie: pobojowiska i pogorzeliska zostają kilka dni (Build 0.17).
+interface Scar { x: number; y: number; day: number; kind: "battle" | "burn"; size: number; }
+function addScar(w: World, x: number, y: number, kind: Scar["kind"], size = 1) {
+  const L = ((w as any).scars ||= []) as Scar[];
+  L.push({ x: Math.round(x), y: Math.round(y), day: w.day + w.hour / 24, kind, size: clamp(size, 0.6, 2) });
+  if (L.length > 60) L.splice(0, L.length - 60);
+}
 function aiBattle(w: World, a: Party, b: Party) {
+  addScar(w, (a.x + b.x) / 2, (a.y + b.y) / 2, "battle", (troopCount(a.troops) + troopCount(b.troops)) / 120);
   const pa = partyPower(w, a) * rr(0.8, 1.2), pb = partyPower(w, b) * rr(0.8, 1.2);
   const [win, lose] = pa >= pb ? [a, b] : [b, a];
   const ratio = Math.min(pa, pb) / Math.max(pa, pb, 0.01);
@@ -1073,7 +1091,7 @@ function arrive(w: World, p: Party) {
     const v = w.settlements[p.target];
     if (v && dist(p.x, p.y, v.cx * WCELL + 4, v.cy * WCELL + 4) < 16 && atWar(w, p.faction, v.faction)) {
       if (p.wait > 8) p.wait = 8;
-      if (p.wait <= 0.5) { v.raided = 12; v.prosperity = Math.max(5, v.prosperity - 20); p.gold += 300; for (const k of FOOD_KEYS) v.stock[k] = 2; chron(w, `${p.name} pustoszy wioskę ${v.name}.`, PAL.redL); p.state = "idle"; p.wait = 0; }
+      if (p.wait <= 0.5) { addScar(w, v.cx * WCELL + 4, v.cy * WCELL + 6, "burn", 1.3); v.raided = 12; v.prosperity = Math.max(5, v.prosperity - 20); p.gold += 300; for (const k of FOOD_KEYS) v.stock[k] = 2; chron(w, `${p.name} pustoszy wioskę ${v.name}.`, PAL.redL); p.state = "idle"; p.wait = 0; }
     }
   }
   if (p.state === "besiege" && p.target !== undefined) {

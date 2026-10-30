@@ -495,6 +495,7 @@ function renderSettlement() {
 }
 
 const TAB_ICON: Record<string, string> = { elite: "star", throne: "crown", armory: "sword", dungeon: "chain", rule: "scroll", main: "castle", recruit: "man", market: "coin", smith: "hammer", tavern: "mug", arena: "sword", quest: "scroll", manage: "shield", rest: "tent", leave: "wind", siege: "fire", raid: "fire" };
+function bathCost(s: Settlement) { return Math.max(4, Math.round(4 + troopCount(playerParty(WORLD).troops) * 0.25 + (s.prosperity > 70 ? 4 : 0))); }
 function recruitPool(s: Settlement): string[] {
   const w = WORLD, P = w.player;
   const cul = s.culture;
@@ -523,8 +524,9 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
         html: `<p>${desc}</p>${rum ? `<p class="tip">Plotka: ${rum}</p>` : ""}
           ${harvest ? `<p class="tip">${ic("food")} ${harvest} · zboże w spichlerzu: ${Math.floor(s.stock.grain || 0)} · podatek dla pana: ok. ${fiefIncome(w, s) * 7}/tydzień</p>` : ""}
           <div class="ppl">${ppl.map((r, i) => `<button class="mini" data-a="chat" data-v="${i}">${ic("man")} ${r.name} <span class="muted">${r.role}</span></button>`).join("")}</div><p class="tip" id="chatline"></p>${lordHere ? `<div class="row"><span>${lord.title} ${lord.name} przebywa na zamku.</span><button class="mini" data-a="talkLord" data-v="${lord.id}">Rozmawiaj</button></div>` : ""}
-          ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}`,
-        acts: { talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e) e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
+          ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}
+          ${s.kind === "town" ? `<div class="row"><span>${ic("drop")} Łaźnia: gorąca woda, ług i balia. Twoja drużyna: brud ${Math.round(grimeOf(P) * 100)}%${(P as any).gore > 0.05 ? `, zaschnięta krew` : ""}.</span><button class="mini" data-a="bath" ${P.gold >= bathCost(s) && grimeOf(P) > 0.08 ? "" : "disabled"}>Umyj się (${bathCost(s)})</button></div>` : ""}`,
+        acts: { bath: () => { if (P.gold < bathCost(s)) return; P.gold -= bathCost(s); (P as any).grime = 0.03; (P as any).gore = 0; P.morale = Math.min(100, (P.morale ?? 70) + 3); sfx.coin(); toast("Woda w balii robi się czarna. Ludzie wychodzą czyści i w lepszym humorze.", PAL.gold); re(); }, talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e) e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
       };
     }
     case "throne": {
@@ -889,7 +891,7 @@ function raidVillage(s: Settlement) {
   const mil = RECRUITS[s.culture]?.village[0] || "b_bandit";
   const n = Math.round(6 + s.prosperity / 8);
   const go = (mode: "loot" | "burn" | "press") => launchBattle({ kind: "field", enemies: [], allies: [], enemyTroops: [{ type: mil, n, wounded: 0, xp: 0 }], settlement: s, title: `Grabież: ${s.name}`, onWin: (lines) => {
-    s.raided = 14;
+    s.raided = 14; addScar(WORLD, s.cx * WCELL + 4, s.cy * WCELL + 6, "burn", 1.3);
     for (const L of w.lords) if (L.faction === s.faction) lordRel(w, L, -3, `grabiłeś wioskę ${s.name}`);
     if (mode === "loot") { const loot = Math.round(150 + s.prosperity * 4); s.prosperity = Math.max(5, s.prosperity - 15); P.gold += loot; P.goods.grain = (P.goods.grain || 0) + 10; P.goods.meat = (P.goods.meat || 0) + 4; P.honor -= 3; s.relation -= 20; lines.push(`Zabierasz zapasy: ${loot} denarów i żywność.`); }
     if (mode === "burn") { s.prosperity = Math.max(3, s.prosperity - 40); s.relation -= 40; P.honor -= 6; P.renown += 5; P.gold += 60; lines.push("Wioska płonie. Dym widać z daleka."); }
@@ -1405,7 +1407,9 @@ function showAftermath(r: BattleResult, gold: number, items: string[], lines: st
   const loot = items.length ? `<h2>${ic("coin")} Łupy</h2><p>${gold ? `${gold} denarów trafia do sakwy.` : ""}</p><div class="casl">${items.map((id, i) => { const it = ITEMS[id]; return it ? `<label class="cas loot"><input type="checkbox" class="loot" data-i="${i}" checked>${ic(SLOT_IC[it.slot] || "star")}<div>${itemName(it)}<br><span class="muted">${SLOT_NAME[it.slot]} · ${itemStat(it)} · ${it.price} den.</span></div></label>` : ""; }).join("")}</div>` : gold ? `<h2>${ic("coin")} Łupy</h2><p>${gold} denarów.</p>` : "";
   const share = gold >= 20 && r.win && !G.ctx?.arena ? `<button class="alt" data-a="share">Podziel łupy z ludźmi (−${Math.round(gold * 0.3)} den., +morale)</button>` : "";
   const take = () => { document.querySelectorAll<HTMLInputElement>("#ui input.loot").forEach((c) => { if (c.checked) P.items.push(items[Number(c.dataset.i)]); }); items = []; };
+  const fieldCul = G.ctx?.enemies?.[0] ? (FACTIONS[G.ctx.enemies[0].faction]?.culture || "aurelia") : "aurelia";
   showScr(`<div class="card frame after">
+    ${G.ctx?.kind === "arena" ? "" : `<div class="scene after-scene">${pic(drawScene("battlefield", w.day * 17 + kills, fieldCul, isNight(w), r.win ? 0 : 1), "scene-img")}</div>`}
     <h1 class="${r.win ? "gold" : "bad"}">${title}</h1>
     <div class="astats"><div>${ic("skull")}<b>${kills}</b><span>wrogów poległo</span></div><div>${ic("sword")}<b>${r.heroKills}</b><span>twoje zabójstwa</span></div><div>${ic("drop")}<b>${lost}</b><span>twoich poległych</span></div><div>${ic("sun")}<b>${Math.round(r.time)} s</b><span>czas bitwy</span></div></div>
     <div class="cols"><div>${lossChart(r.timeline || [])}</div><div>${best}</div></div>
@@ -1942,7 +1946,7 @@ function showSettings(back: () => void) {
   if (SETT.tab === "battle") body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, R z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
   if (SETT.tab === "sound") body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Muzyka", 0, 1, 0.05) + rng("fxVol", "Efekty (walka, otoczenie)", 0, 1, 0.05) + rng("voiceVol", "Głosy", 0, 1, 0.05) + rng("uiVol", "Interfejs (kliknięcia, strony)", 0, 1, 0.05) + `<p class="tip">Muzyka zmienia się z regionem, porą dnia i miejscem w osadzie. W bitwie narasta z walką i brzmi inaczej przeciw każdej rasie.</p>`;
   if (SETT.tab === "keys") body = keysTab();
-  if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża (domyślna)"], [1.3, "bardzo duża"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
+  if (SETT.tab === "view") body = sel("uiScale", "Wielkość okien i napisów", [[0.85, "mała"], [1, "normalna"], [1.15, "duża (domyślna)"], [1.3, "bardzo duża"]]) + sel("palette", "Paleta barw", [["region", "zależna od krainy i pory roku (domyślna)"], ["warm", "ciepła i przygaszona: brązy, oliwki, rdza"], ["cold", "chłodna, szaro-niebieska: mgła i popiół"]]) + `<div class="opt"><span>Pełny ekran (F11)</span><button class="mini" data-a="fs">${document.fullscreenElement ? "Wyjdź" : "Włącz"}</button></div>`;
   const apply = (k: string, val: any) => {
     (S as any)[k] = val;
     if (k === "music" && sfx.musicOn !== S.music) sfx.toggleMusic();
@@ -1958,7 +1962,7 @@ function showSettings(back: () => void) {
     tab: (v) => { SETT.tab = v; showSettings(back); },
     "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
     "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
-    "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
+    "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:palette": (v) => apply("palette", v), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
     "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     "r:blood": (v) => { apply("blood", Number(v)); const e = document.getElementById("rv-blood"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },
     "r:volume": (v) => { apply("volume", Number(v)); const e = document.getElementById("rv-volume"); if (e) e.textContent = Math.round(Number(v) * 100) + "%"; },

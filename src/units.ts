@@ -281,6 +281,8 @@ function troopLook(def: UnitDef, variant: number, faction: number): Look {
     pants: vpick(variant, 13, [PAL.dirt, PAL.dirtD, PAL.slate, PAL.woodD]), boots: vpick(variant, 14, [PAL.woodD, PAL.dirtD, PAL.black]),
     quiver: k.quiver, scabbard: k.scabbard,
     dirt: 0.35 + vrand(variant, 15) * 0.55, blood: vrand(variant, 16) * 0.45,
+    culture: def.culture === "merc" || def.culture === "bandit" ? def.culture : F.culture || def.culture,
+    rust: vrand(variant, 17) * 0.55 * (1 - (def.tier || 1) / 6), dents: Math.floor(vrand(variant, 18) * (6 - (def.tier || 1))),
     seed: variant * 17 + def.key.length,
   };
 }

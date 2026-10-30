@@ -23,7 +23,8 @@ interface BattleMap {
   arenaR?: number;
 }
 
-function makeBattleMap(t: Terrain, night: boolean): BattleMap {
+interface MapOpts { season: number; region: string; rain: boolean; }
+function makeBattleMap(t: Terrain, night: boolean, opt: MapOpts = { season: 1, region: "grass", rain: false }): BattleMap {
   const w = t === "arena" ? 640 : 1600, h = t === "arena" ? 400 : 1000;
   const gw = Math.ceil(w / CELL), gh = Math.ceil(h / CELL);
   const M: BattleMap = { w, h, grid: new Uint8Array(gw * gh), gw, gh, ground: null, obstacles: [], hills: [], forests: [], barrier: null, lights: [], wall: null };
@@ -85,6 +86,10 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
   const water = [PAL.water, PAL.waterL, PAL.ink].map(rgb);
   const sand = [PAL.dirtL, PAL.bone, PAL.dirt].map(rgb);
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const grassSet = new Set(grass), dirtSet = new Set(dirt);
+  const winter = opt.season === 3;
+  const snow = ["#aca798", "#918d81", "#77746a"].map(rgb), slush = rgb("#5e584b"), ice = rgb("#6f7c7d");
+  const autumn = ["#5a4626", "#4a3a1f"].map(rgb), steppe = ["#5d5532", "#4b4529"].map(rgb), ashC = ["#5b5651", "#45413c"].map(rgb);
   const off = rnd() * 1000;
   const roadAt = (x: number) => h / 2 + Math.sin((x + off) / 200) * 70 + Math.sin(x / 61) * 8;
   const heightAt = (x: number, y: number) => { let hh = 0; for (const hl of M.hills) { const d = dist(x, y, hl.x, hl.y) / hl.r; if (d < 1) hh = Math.max(hh, (1 - d * d) * (1 - d * d)); } return hh; };
@@ -119,14 +124,63 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
         if (t === "coast" && y < 200 + Math.sin(x / 90) * 20) col = sand[th > 0.5 ? 0 : 2];
       }
     }
+    // pora roku i kraina: zimą śnieg z błotem, jesienią rdzawa trawa, w stepie wypalona, w krainie popiołu szara
+    if (t !== "arena" && !(t === "siege" && x > 1040)) {
+      const isGrass = grassSet.has(col), isDirt = dirtSet.has(col);
+      if (winter) {
+        const sn = vnoise(x + 77, y, 26) * 0.7 + th * 0.3;
+        if (isGrass && sn > 0.33) col = snow[sn > 0.66 ? 0 : sn > 0.46 ? 1 : 2];
+        else if (isDirt && sn > 0.55) col = slush;
+        else if (cell === 2 && t !== "ravine" && sn > 0.5) col = ice;
+      } else if (opt.season === 2 && isGrass && vnoise(x, y + 300, 30) + th * 0.3 > 0.72) col = autumn[th > 0.5 ? 0 : 1];
+      else if (opt.region === "steppe" && isGrass && vnoise(x + 40, y, 36) + th * 0.25 > 0.62) col = steppe[th > 0.5 ? 0 : 1];
+      if (opt.region === "ash" && (isGrass || isDirt) && vnoise(x + 900, y, 28) + th * 0.3 > 0.55) col = ashC[th > 0.6 ? 0 : 1];
+    }
     const k = (y * w + x) * 4;
     im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255;
   }
   gc.putImageData(im, 0, 0);
   if (t !== "arena") {
-    for (let i = 0; i < w * h / 1000; i++) { const x = rr(0, w) | 0, y = rr(0, h) | 0; if (cellAt(x, y) === 0 && !(t === "siege" && x > 1040)) gc.drawImage(pick(TUFTS), x, y); }
+    for (let i = 0; i < w * h / 1000; i++) { const x = rr(0, w) | 0, y = rr(0, h) | 0; if (cellAt(x, y) === 0 && !(t === "siege" && x > 1040) && (!winter || chance(0.15))) gc.drawImage(pick(TUFTS), x, y); }
     for (let i = 0; i < w * h / 4000; i++) { gc.fillStyle = chance(0.5) ? PAL.stone : PAL.slate; const x = rr(0, w) | 0, y = rr(0, h) | 0; gc.fillRect(x, y, 2, 1); }
     for (const f of M.forests) for (let i = 0; i < f.r * 5; i++) { const a = rr(0, 6.28), r = Math.sqrt(rnd()) * f.r; gc.fillStyle = pick([PAL.woodD, PAL.dirtD, PAL.grassD]); gc.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + Math.sin(a) * r) | 0, 1, 1); }
+  }
+  // bogatsza faktura: kamienie, gruz, korzenie, kałuże, liście
+  if (t !== "arena") {
+    const free = (x: number, y: number) => cellAt(x, y) === 0 && !(t === "siege" && x > 1040);
+    for (let i = 0; i < w * h / 5000; i++) {   // kamienie z blaskiem i cieniem
+      const x = rr(0, w) | 0, y = rr(0, h) | 0; if (!free(x, y)) continue;
+      const big = chance(0.3);
+      gc.fillStyle = PAL.ink; gc.fillRect(x, y + 1, big ? 4 : 3, 1);
+      gc.fillStyle = PAL.stone; gc.fillRect(x, y - (big ? 1 : 0), big ? 4 : 3, big ? 2 : 1);
+      gc.fillStyle = winter ? "#c4bfb1" : PAL.ash; gc.fillRect(x, y - (big ? 1 : 0), 1, 1);
+    }
+    if (t === "ruins" || t === "village" || t === "siege") for (let i = 0; i < w * h / 2500; i++) {   // gruz i odłamki cegieł
+      const x = rr(0, w) | 0, y = rr(0, h) | 0; if (!free(x, y)) continue;
+      gc.fillStyle = pick([PAL.stone, PAL.slate, PAL.dirtL, PAL.rust]); gc.fillRect(x, y, chance(0.5) ? 2 : 1, 1);
+    }
+    for (const f of M.forests) for (let i = 0; i < f.r / 6; i++) {   // korzenie wychodzące spod drzew
+      const a = rr(0, 6.28), r0 = f.r * rr(0.8, 1.05);
+      let x = f.x + Math.cos(a) * r0, y = f.y + Math.sin(a) * r0;
+      gc.fillStyle = PAL.woodD;
+      for (let k = 0; k < 10; k++) { if (free(x, y)) gc.fillRect(x | 0, y | 0, 1, 1); x += Math.cos(a) * 1.4 + rr(-0.8, 0.8); y += Math.sin(a) * 0.9 + rr(-0.6, 0.6); }
+    }
+    const puddles = (opt.rain ? 34 : opt.season === 2 ? 22 : winter ? 6 : 10) * (t === "swamp" ? 2 : 1);
+    for (let i = 0; i < puddles; i++) {   // kałuże z odbiciem nieba
+      const px = rr(40, w - 40), py = rr(40, h - 40); if (!free(px, py)) continue;
+      const rx = rr(4, 11), ry = rx * 0.45;
+      for (let y = -ry - 1; y <= ry + 1; y++) for (let x = -rx - 1; x <= rx + 1; x++) {
+        const d = (x * x) / (rx * rx) + (y * y) / (ry * ry);
+        if (d > 1.3) continue;
+        gc.fillStyle = d > 1 ? PAL.dirtD : winter ? (d < 0.3 ? "#8f9a9b" : "#6f7c7d") : y < -ry * 0.3 && d < 0.5 ? PAL.waterL : PAL.water;
+        gc.fillRect((px + x) | 0, (py + y) | 0, 1, 1);
+      }
+    }
+    if (opt.season === 2 || (t === "forest" && !winter)) for (let i = 0; i < w * h / (opt.season === 2 ? 700 : 3000); i++) {   // opadłe liście
+      const x = rr(0, w) | 0, y = rr(0, h) | 0; if (!free(x, y)) continue;
+      gc.fillStyle = pick([PAL.rust, PAL.goldD, PAL.redL, PAL.dirtL]); gc.fillRect(x, y, 1, 1);
+    }
+    if (winter) for (let i = 0; i < w * h / 900; i++) { const x = rr(0, w) | 0, y = rr(0, h) | 0; if (free(x, y)) { gc.fillStyle = "#d6d0c2"; gc.fillRect(x, y, 1, 1); } }
   }
   // most
   if ((t === "river" || t === "bridge") && M.barrier) {
@@ -159,6 +213,10 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
     }
     if (t === "village") {
       for (let i = 0; i < 16; i++) tryPlace(rr(560, 1040) + (i % 2 ? 0 : rr(-40, 40)), rr(260, 740), 13, PROPS.house, 20);
+      // kilka chat płonie: dym i zgliszcza
+      const burnt = M.obstacles.filter((o) => o.img === PROPS.house).slice(0, 3 + Math.floor(rnd() * 3));
+      for (const o of burnt) o.img = burntHouse();
+      (M as any).burning = burnt.map((o) => ({ x: o.x, y: o.y - 18 }));
       for (let i = 0; i < 14; i++) { const x = rr(520, 1080), y = rr(240, 760); if (tryPlace(x, y, 8, fence(i), 4)) M.obstacles[M.obstacles.length - 1].cover = true; }
     }
     if (t === "ravine") for (let i = 0; i < 40; i++) { const x = rr(40, w - 40), y = chance(0.5) ? rr(240, 330) : rr(670, 760); tryPlace(x, y, 8, pick(ROCKS), 10); }
@@ -170,6 +228,7 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
   }
   if (t === "siege") {
     for (let i = 0; i < 6; i++) tryPlace(rr(1180, 1540), rr(80, 920), 10, PROPS.house || ROCKS[0], 30);
+    (M as any).burning = [{ x: rr(1200, 1500), y: rr(150, 400) }, { x: rr(1200, 1500), y: rr(600, 850) }];   // pożary w mieście za murem
   }
   // światła w nocy: ogniska w obozach i pochodnie
   if (night) {
@@ -179,6 +238,16 @@ function makeBattleMap(t: Terrain, night: boolean): BattleMap {
   return M;
 }
 
+let BURNT: HTMLCanvasElement | null = null;
+function burntHouse() {
+  if (BURNT) return BURNT;
+  const src = PROPS.house, [c, g] = mkCanvas(src.width, src.height);
+  g.drawImage(src, 0, 0);
+  g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(20,16,12,0.6)"; g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = "destination-out"; g.fillRect(8, 2, 5, 4); g.fillRect(15, 5, 4, 3);   // dziury w dachu
+  g.globalCompositeOperation = "source-over"; g.fillStyle = PAL.redL; g.fillRect(9, 7, 1, 1); g.fillRect(16, 9, 1, 1); g.fillStyle = PAL.gold; g.fillRect(10, 8, 1, 1);
+  BURNT = c; return c;
+}
 // Niski murek z kamieni (ruiny) i płot (wioska): osłaniają przed strzałami.
 const LOWWALL: HTMLCanvasElement[] = [];
 function lowWall(i: number) {

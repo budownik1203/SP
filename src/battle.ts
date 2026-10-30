@@ -27,7 +27,7 @@ interface Settings {
   fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
-  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean;
+  questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean; palette?: "region" | "warm" | "cold";
 }
 
 interface HeroCfg {
@@ -39,7 +39,7 @@ interface HeroCfg {
 interface CompanionCfg { id: string; name: string; look: Look; hp: number; maxHp: number; weapon: string; shield: boolean; armor: number; squad: number; bow?: number; mount?: Mount | null; ab?: string; }
 interface SideCfg { name: string; faction: number; troops: { type: string; n: number; squad?: number }[]; hero?: HeroCfg; companions?: CompanionCfg[]; allies?: { name: string; faction: number; troops: { type: string; n: number }[] }[]; }
 interface BattleConfig {
-  terrain: Terrain; night: boolean; rain: boolean; fog?: boolean;
+  terrain: Terrain; night: boolean; rain: boolean; fog?: boolean; season?: number; region?: string; hour?: number;
   engines?: { ram?: boolean; tower?: boolean; trebuchet?: boolean };
   player: SideCfg; enemy: SideCfg;
   siegeDefender?: 0 | 1;           // która strona broni murów
@@ -116,7 +116,7 @@ class Unit {
   trail: number[] = [];
   decay = false;
   bloodT = 0;
-  bleedT = 0;
+  bleedT = 0; mud = 0;
   look: Look;
   spr: SpriteSet;
   nextSide: Dir = "R";
@@ -182,7 +182,7 @@ class Unit {
 }
 
 interface Arrow { x: number; y: number; vx: number; vy: number; team: number; src: Unit; dmg: number; age: number; travel: number; dist: number; done: boolean; kind: "arrow" | "bolt" | "axe" | "fire"; }
-interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: string; kind: "blood" | "spark" | "dust" | "bone" | "flash" | "ring" | "soul" | "fire" | "head" | "limb" | "holy" | "beam" | "rain"; img?: HTMLCanvasElement; rot?: number; }
+interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: string; kind: "blood" | "spark" | "dust" | "bone" | "flash" | "ring" | "soul" | "fire" | "head" | "limb" | "holy" | "beam" | "rain" | "cloud" | "smoke" | "ember"; img?: HTMLCanvasElement; rot?: number; }
 interface Corpse { x: number; y: number; img: HTMLCanvasElement; flip: boolean; rot: number; undead: boolean; bones: boolean; t: number; pooled: boolean; horse?: boolean; kind?: DmgType; dx?: number; dy?: number; }
 interface Floater { x: number; y: number; text: string; col: string; t: number; }
 interface Order {
@@ -268,7 +268,7 @@ class Battle {
   constructor(cfg: BattleConfig, public input: Input, public sfx: Sfx, public settings: Settings) {
     this.cfg = cfg;
     this.fogged = !!cfg.fog;
-    this.map = makeBattleMap(cfg.terrain, cfg.night);
+    this.map = makeBattleMap(cfg.terrain, cfg.night, { season: cfg.season ?? 1, region: cfg.region || "grass", rain: cfg.rain });
     if (this.map.wall) {
       const W2 = this.map.wall; W2.gateHp = W2.gateMax = 1800;
       const atk = cfg.siegeDefender === 0 ? 1 : 0; void atk;
@@ -1479,6 +1479,7 @@ class Battle {
       if (d.hp > 0 && chance(0.6)) this.sfx.pain(s.v, s.pan, d.def.undead ? "undead" : d.def.culture);
       this.blood(x, y, (plate ? 10 : 22) + (dmg / 1.3) | 0, src, heavy);
       d.gore = Math.min(1, d.gore + dmg / 160);
+      if (heavy) d.mud = Math.min(1, d.mud + 0.08);
       this.impact(x, y, PAL.bloodL, heavy ? 1.2 : 0.9);
       if (src) this.streak(d.x, d.y, Math.atan2(d.y - src.y, d.x - src.x), 9 + dmg / 4);
     }
@@ -1530,7 +1531,7 @@ class Battle {
       img = d.spr.headless[dirI];
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
       this.parts.push({ x: d.x, y: d.y, z: d.spr.h - d.spr.headY - 2, vx: Math.cos(a) * rr(50, 90), vy: Math.sin(a) * rr(30, 60), vz: rr(60, 110), life: 3, max: 3, col: "", kind: "head", img: headSprite(d.look), rot: 0 });
-      if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - 8, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
+      if (!d.def.undead) for (let i = 0; i < 26; i++) this.parts.push({ x: d.x + rr(-1, 1), y: d.y, z: d.spr.h - d.spr.headY - 6, vx: rr(-30, 30), vy: rr(-20, 20), vz: rr(40, 120), life: 2, max: 2, col: pick([PAL.blood, PAL.bloodL, PAL.bloodD]), kind: "blood" });
       if (src?.hero) { if (this.settings.killSlow !== false) this.slowT = Math.max(this.slowT, 0.35); this.shake(2); }
     } else if (this.settings.gore !== false && type === "cut" && heavy && chance(0.25) && d.look.race !== "wolf") {
       const a = src ? Math.atan2(d.y - src.y, d.x - src.x) : rr(0, 6.28);
@@ -1541,6 +1542,7 @@ class Battle {
     this.corpses.push({ x: d.x, y: d.y, img, flip: Math.cos(d.face) < 0, rot: src && Math.cos(fa) < 0 ? -1 : 1, undead: !!d.def.undead, bones, t: 0, pooled: false, kind: type, dx: Math.cos(fa) * (type === "pierce" ? 10 : type === "blunt" ? 3 : 5) * fk, dy: Math.sin(fa) * (type === "pierce" ? 6 : 2) * fk });
     if (bones) this.bones(d.x, d.y - 10, 14, src);
     else if (!d.def.undead) this.blood(d.x, d.y - 10, 20, src, true);
+    this.dropGear(d, fa);
     for (const u of this.units) {
       if (!u.active || u.def.undead) continue;
       const near = dist(u.x, u.y, d.x, d.y) < 100;
@@ -2063,6 +2065,54 @@ class Battle {
     this.parts.push({ x, y: y + 14, z: 14, vx: 0, vy: 0, vz: 0, life: 0.07, max: 0.07, col: PAL.white, kind: "flash" });
     this.parts.push({ x, y: y + 14, z: 14, vx: size, vy: 0, vz: 0, life: 0.16, max: 0.16, col, kind: "ring" });
   }
+  // Ślady na ziemi: wydeptana trawa, błoto, odciski kopyt; kurz spod nóg, przy szarży gęsta chmura.
+  muddy(x: number, y: number) { const c = this.map.grid[Math.floor(y / CELL) * this.map.gw + Math.floor(x / CELL)]; return this.cfg.rain || this.cfg.terrain === "swamp" || (this.cfg.season ?? 1) === 3 || c === 1; }
+  footstep(u: Unit) {
+    if (this.cfg.arena && !this.cfg.arena.archery) { if (chance(0.3)) this.dust(u.x, u.y, 1); return; }
+    const wet = this.muddy(u.x, u.y), winter = (this.cfg.season ?? 1) === 3;
+    const g = this.dg;
+    g.globalAlpha = wet ? 0.55 : 0.3;
+    g.fillStyle = winter ? "#4a4639" : wet ? PAL.dirtD : "#1d1f13";
+    const px = Math.round(u.x), py = Math.round(u.y);
+    if (u.mounted) { const a = u.heading + Math.PI / 2, ox = Math.round(Math.cos(a) * 2), oy = Math.round(Math.sin(a) * 1); g.fillRect(px + ox, py + oy, 2, 1); g.fillRect(px - ox, py - oy + 1, 2, 1); }
+    else { const side = Math.floor(u.anim) % 2 ? 1 : -1; g.fillRect(px + side, py, 1, 1); if (wet) g.fillRect(px + side, py + 1, 1, 1); }
+    g.globalAlpha = 1;
+    if (wet) { u.mud = Math.min(1, u.mud + (u.mounted ? 0.002 : 0.004)); return; }
+    if (this.parts.length > 1400) return;
+    const charge = u.mounted && u.rspeed > 70;
+    if (charge) this.cloud(u.x, u.y, 3, winter);
+    else if (chance(u.mounted ? 0.5 : 0.18)) this.cloud(u.x, u.y, 1, winter);
+  }
+  cloud(x: number, y: number, n: number, snow = false) {
+    for (let i = 0; i < n; i++) this.parts.push({ x: x + rr(-5, 5), y: y + rr(-1, 2), z: rr(0, 3), vx: rr(-14, 14), vy: rr(-5, 5), vz: rr(2, 9), life: rr(0.7, 1.3), max: 1.3, col: snow ? PAL.boneHi : pick([PAL.dirtL, PAL.ash, PAL.dirtL]), kind: "cloud" });
+  }
+  smoke(x: number, y: number, z: number, n: number, dark = true) {
+    for (let i = 0; i < n; i++) this.parts.push({ x: x + rr(-2, 2), y, z: z + rr(0, 3), vx: rr(-6, 6) + 5, vy: rr(-2, 2), vz: rr(6, 16), life: rr(1.6, 3), max: 3, col: dark ? pick([PAL.slate, PAL.stone, PAL.dusk]) : pick([PAL.ash, PAL.stone]), kind: "smoke" });
+  }
+  // porzucony sprzęt zostaje na ziemi do końca bitwy
+  dropGear(d: Unit, fa: number) {
+    if (d.look.race === "wolf" || d.look.race === "ghoul") return;
+    const g = this.dg, a = fa + rr(-1.2, 1.2), r = rr(5, 11);
+    const x = Math.round(d.x + Math.cos(a) * r), y = Math.round(d.y + Math.sin(a) * r * 0.6);
+    const wa = rr(0, Math.PI), len = d.w?.reach > 40 ? 11 : 7;
+    for (let i = 0; i < len; i++) { g.fillStyle = i < 2 ? PAL.woodD : i === 2 ? PAL.steelD : (d.look.rust || 0) > 0.3 && i % 3 === 0 ? PAL.rust : PAL.steel; g.fillRect(Math.round(x + Math.cos(wa) * i), Math.round(y + Math.sin(wa) * i * 0.5), 1, 1); }
+    if (d.hasShield && chance(0.7)) {
+      const sx = Math.round(d.x - Math.cos(a) * 6), sy = Math.round(d.y + rr(-2, 3));
+      const main = d.look.tabard ? d.look.tabard.main : PAL.wood;
+      g.fillStyle = PAL.ink; g.fillRect(sx - 3, sy - 2, 7, 5); g.fillStyle = main; g.fillRect(sx - 2, sy - 1, 5, 3); g.fillStyle = PAL.woodD; g.fillRect(sx, sy - 1, 1, 3);
+    }
+    if (d.look.helm !== "none" && chance(0.3)) { g.fillStyle = PAL.steelD; g.fillRect(x + 4, y + 2, 3, 2); g.fillStyle = PAL.steel; g.fillRect(x + 4, y + 2, 2, 1); }
+  }
+  // Dym z ognisk, płonących chat i uszkodzonych machin; iskry z ognia.
+  emitAmbient(dt: number) {
+    if (this.parts.length > 900) return;
+    const M = this.map;
+    for (const L of M.lights) if (chance(dt * 2.5)) { this.smoke(L.x, L.y, 6, 1); if (chance(0.5)) this.parts.push({ x: L.x + rr(-2, 2), y: L.y, z: 4, vx: rr(-8, 8), vy: 0, vz: rr(10, 30), life: rr(0.5, 1.1), max: 1.1, col: PAL.gold, kind: "ember" }); }
+    const burn = ((M as any).burning || []) as V[];
+    for (const f of burn) if (chance(dt * 6)) { this.smoke(f.x, f.y, 14, 1); if (chance(0.6)) this.parts.push({ x: f.x + rr(-6, 6), y: f.y, z: rr(4, 12), vx: rr(-10, 10), vy: 0, vz: rr(14, 40), life: rr(0.5, 1.2), max: 1.2, col: PAL.gold, kind: "ember" }); }
+    for (const e of this.engines) if (!e.done && e.hp < e.max * 0.6 && chance(dt * 4)) this.smoke(e.x, e.y, 18, 1);
+    for (const u of this.units) if (u.active && u.burnT > 0 && chance(dt * 5)) this.smoke(u.x, u.y, 14, 1);
+  }
   dust(x: number, y: number, n: number) { for (let i = 0; i < n; i++) this.parts.push({ x: x + rr(-4, 4), y, z: 1, vx: rr(-25, 25), vy: rr(-10, 10), vz: rr(5, 20), life: 0.6, max: 0.6, col: PAL.dirtL, kind: "dust" }); }
   streak(x: number, y: number, a: number, len: number) {
     for (let i = 0; i < len; i++) {
@@ -2083,8 +2133,8 @@ class Battle {
       p.life -= dt;
       if (p.kind === "flash" || p.kind === "ring" || p.kind === "beam") continue;
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-      p.vz -= (p.kind === "soul" || p.kind === "fire" || p.kind === "holy" ? -20 : 240) * dt;
-      if (p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy") { p.vx *= 0.92; p.vy *= 0.92; }
+      p.vz -= (p.kind === "soul" || p.kind === "fire" || p.kind === "holy" || p.kind === "smoke" || p.kind === "ember" ? -20 : p.kind === "cloud" ? 0 : 240) * dt;
+      if (p.kind === "dust" || p.kind === "soul" || p.kind === "fire" || p.kind === "holy" || p.kind === "cloud" || p.kind === "smoke" || p.kind === "ember") { p.vx *= 0.92; p.vy *= 0.92; }
       if (p.kind === "head" || p.kind === "limb") {
         p.rot += dt * 12 * Math.sign(p.vx || 1);
         if (p.z <= 0) { p.z = 0; p.vz = Math.abs(p.vz) > 40 ? -p.vz * 0.35 : 0; p.vx *= 0.5; p.vy *= 0.5; if (Math.abs(p.vz) < 1) { p.vx = p.vy = 0; } this.dg.fillStyle = PAL.blood; this.dg.fillRect(Math.round(p.x), Math.round(p.y), 2, 1); }
@@ -2104,7 +2154,7 @@ class Battle {
     this.parts = this.parts.filter((p) => p.life > 0);
     for (const f of this.floaters) { f.t -= dt; f.y -= 14 * dt; }
     this.floaters = this.floaters.filter((f) => f.t > 0);
-    for (const c of this.corpses) if (c.t < 1) { c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.6 : c.kind === "blunt" ? 0.35 : 0.5)); if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 4); this.dust(c.x, c.y, 6); } }
+    for (const c of this.corpses) if (c.t < 1) { c.t = Math.min(1, c.t + dt / (c.kind === "pierce" ? 0.85 : c.kind === "blunt" ? 0.55 : 0.75)); if (c.t >= 1 && !c.pooled) { c.pooled = true; if (!c.undead) this.pool(c.x, c.y, 4 + rnd() * 4); this.dust(c.x, c.y, 6); } }
   }
 
   // ---------- Pętla ----------
@@ -2220,6 +2270,7 @@ class Battle {
       const speed = Math.hypot(u.vx, u.vy);
       const prev = Math.floor(u.anim);
       if (speed > 8) u.anim += udt * speed * (u.mounted ? 0.09 : 0.11);
+      if (Math.floor(u.anim) !== prev) this.footstep(u);
       if (h && Math.floor(u.anim) !== prev && dist(u.x, u.y, h.x, h.y) < 140) {
         const s = this.vol(u.x);
         if (u.mounted) this.sfx.hoof(s.v * (u.hero ? 1 : 0.5), s.pan);
@@ -2237,6 +2288,7 @@ class Battle {
     this.tlT -= dt; if (this.tlT <= 0) { this.tlT = 4; this.timeline.push({ t: this.time, a: this.units.filter((u) => u.team === 0 && u.active).length + this.reserves[0].length, b: this.units.filter((u) => u.team === 1 && u.active).length + this.reserves[1].length }); }
     this.collide();
     this.updateArrows(dt);
+    this.emitAmbient(dt);
     this.updateParticles(dt);
     updateAbilityFx(this, dt);
     this.moanT -= dt;

@@ -30,6 +30,12 @@ interface Look {
   hairStyle?: number;         // 0 krótkie, 1 łysy, 2 długie, 3 irokez, 4 warkocze, 5 kucyk
   eyes?: string;              // kolor tęczówek
   paint?: number;             // malunek: 0 brak, 1 pas przez oczy, 2 kreski na policzkach, 3 czaszka
+  culture?: string;           // kształty hełmów, tarcz i płaszczy zależne od kultury
+  rust?: number;              // 0..1 rdza na stali (zużycie przedmiotu)
+  dents?: number;             // liczba wgnieceń
+  stubble?: number;           // 0..1 zarost (portret)
+  tired?: number;             // 0..1 zmęczenie (portret)
+  bscars?: number;            // świeże blizny z bitew (portret)
 }
 interface Rig { sy: number; sx: number; arm: number; sleeve: string; sleeveD: string; hand: string; }
 interface SpriteSet { frames: HTMLCanvasElement[][]; white: HTMLCanvasElement[][]; headless: HTMLCanvasElement[]; w: number; h: number; headY: number; bare?: HTMLCanvasElement[][]; bareWhite?: HTMLCanvasElement[][]; rig?: Rig; }
@@ -73,21 +79,28 @@ class Pix {
       if (!col) continue;
       let [r, gg, b] = rgb(col);
       if (shade) {
-        // światło z lewej góry: krawędzie lewa i górna jaśniejsze, prawa i dolna ciemniejsze
+        // światło z lewej góry, cieniowanie w 4 tonach: blask, ton bazowy, półcień, głęboki cień
         let f = 1;
-        if (!this.has(x - 1, y) || !this.has(x, y - 1)) f = 1.16;
-        if (!this.has(x + 1, y)) f = 0.74;
-        else if (!this.has(x, y + 1)) f = 0.82;
+        if (!this.has(x - 1, y) || !this.has(x, y - 1)) f = 1.17;
+        if (!this.has(x + 1, y)) f = 0.68;
+        else if (!this.has(x, y + 1)) f = 0.8;
+        else if (!this.has(x + 2, y)) f = 0.87;
+        f *= 1.05 - (y / this.h) * 0.1;   // góra postaci jaśniejsza
         r = Math.min(255, r * f); gg = Math.min(255, gg * f); b = Math.min(255, b * f);
       }
       const k = (y * this.w + x) * 4;
       d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = 255;
     }
     if (outline) {
+      // obrys zależny od światła: po oświetlonej stronie ciepły brąz, po cienistej prawie czerń
       const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < this.w && y < this.h && !!this.px[y * this.w + x];
       for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
         if (solid(x, y)) continue;
-        if (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)) { const k = (y * this.w + x) * 4; d[k] = 10; d[k + 1] = 9; d[k + 2] = 8; d[k + 3] = 240; }
+        const lit = solid(x + 1, y) || solid(x, y + 1), dark = solid(x - 1, y) || solid(x, y - 1);
+        if (!lit && !dark) continue;
+        const k = (y * this.w + x) * 4;
+        if (dark) { d[k] = 10; d[k + 1] = 9; d[k + 2] = 8; d[k + 3] = 245; }
+        else { d[k] = 38; d[k + 1] = 30; d[k + 2] = 22; d[k + 3] = 225; }
       }
     }
     g.putImageData(im, 0, 0);
@@ -103,69 +116,87 @@ function whiteOf(c: HTMLCanvasElement) {
   return w;
 }
 
-// ---------- Wymiary ras ----------
+// ---------- Wymiary ras (Build 0.17: płótno 32×40, stopy w wierszu 38) ----------
+const SPR_W = 32, SPR_H = 40, ANK = 36;
+// Chód w 6 klatkach (1–6), 0 to postój. Krok w bok i podskok w fazie przenoszenia nogi.
+const WALK_ST = [0, 0, 1, 2, 0, -1, -2];
+function walkBob(f: number) { return f === 1 || f === 4 ? -1 : 0; }
 interface Frame { cx: number; headTop: number; headW: number; headH: number; top: number; bot: number; hw: number; legW: number; legGap: number; }
 function frameOf(L: Look): Frame {
   const t = L.tall ? -1 : 0;
-  if (L.race === "dwarf") return { cx: 12, headTop: 8, headW: 8, headH: 8, top: 16, bot: 25, hw: 6 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
-  if (L.race === "orc") return { cx: 12, headTop: 3, headW: 8, headH: 8, top: 11, bot: 22, hw: 6 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
-  return { cx: 12, headTop: 2 + t, headW: 6, headH: 8, top: 11 + t, bot: 21 + t, hw: [4, 5, 6][L.build], legW: 3, legGap: L.build === 2 ? 2 : 1 };
+  if (L.race === "dwarf") return { cx: 16, headTop: 12, headW: 8, headH: 8, top: 21, bot: 31, hw: 7 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
+  if (L.race === "orc") return { cx: 16, headTop: 5, headW: 8, headH: 8, top: 14, bot: 27, hw: 7 + (L.build === 2 ? 1 : 0), legW: 4, legGap: 1 };
+  return { cx: 16, headTop: 6 + t, headW: 6, headH: 8, top: 15 + t, bot: 28 + t, hw: [5, 6, 7][L.build], legW: L.build === 2 ? 4 : 3, legGap: L.build === 2 ? 2 : 1 };
 }
 
 // ---------- Materiały ----------
 function matColor(L: Look, x: number, y: number, top: number, shadeRight = false): string {
   switch (L.body) {
-    case "mail": return (x + y) % 2 === 0 ? PAL.steel : PAL.steelD;
+    case "mail": {   // kolczuga: rzędy kółek przesunięte co wiersz, błysk co kilka oczek
+      const row = (y - top) % 2, k = (x + row) % 2;
+      if (k === 0 && (x * 3 + y * 5) % 7 === 0) return PAL.steelL;
+      return k === 0 ? PAL.steel : PAL.steelD;
+    }
     case "plate": {
       if ((y - top) % 4 === 3) return PAL.steelD;
       return shadeRight ? PAL.steelD : PAL.steel;
     }
-    case "leather": return (y - top) % 5 === 4 ? PAL.woodD : PAL.dirt;
-    case "gambeson": return (x + y) % 3 === 0 ? PAL.ash : PAL.bone;
-    case "rags": return (x * 7 + y * 3) % 5 === 0 ? PAL.dirtD : PAL.dirt;
+    case "leather": return (y - top) % 5 === 4 ? PAL.woodD : (x + y) % 6 === 0 ? PAL.dirtL : PAL.dirt;
+    case "gambeson": return x % 3 === 0 ? PAL.ash : (y - top) % 4 === 2 && x % 3 === 1 ? PAL.ash : PAL.bone;   // pikowanie
+    case "rags": return (x * 7 + y * 3) % 5 === 0 ? PAL.dirtD : (x * 5 + y) % 11 === 0 ? PAL.woodD : PAL.dirt;
     case "robe": return L.hood ? L.hood[0] : PAL.dusk;
     default: return PAL.bone;
   }
 }
+const STEEL_SET = new Set([PAL.steel, PAL.steelD, PAL.steelL]);
 
 // ---------- Ludzie, krasnoludy, orkowie ----------
 function drawMan(L: Look, dir: number, frame: number, headless = false, noArms = false): HTMLCanvasElement {
-  const P = new Pix(24, 32);
+  const P = new Pix(SPR_W, SPR_H);
   const F = frameOf(L);
   const { cx, top, bot, hw } = F;
-  const bob = frame === 2 ? -1 : 0;
+  const bob = walkBob(frame);
   const ht = F.headTop + bob, tp = top + bob, bt = bot + bob;
   const seed = L.seed;
   const orc = L.race === "orc", dwarf = L.race === "dwarf";
   const robe = L.body === "robe";
+  const cul = L.culture || "";
+  const wear = clamp((L.dirt || 0) * 0.7 + (L.rust || 0) * 0.5, 0, 1);
+  // długość płaszcza zależy od kultury: legion krótki, Aurelia do kostek
+  const capeEnd = cul === "varus" ? bt + 3 : cul === "aurelia" ? ANK + 1 : bt + 7;
 
   // peleryna z tyłu (widok z przodu i z boku)
   if (L.cape && dir !== 1) {
-    if (dir === 0) { for (let y = tp + 1; y <= bt + 6; y++) { P.p(cx - hw - 2, y, L.cape[1]); P.p(cx + hw + 1, y, L.cape[1]); } }
-    else for (let y = tp; y <= bt + 7; y++) { P.r(cx - 5, y, 2, 1, y > bt + 5 && (y + seed) % 2 ? null : L.cape[0]); }
+    if (dir === 0) { for (let y = tp + 1; y <= capeEnd - 1; y++) { P.p(cx - hw - 2, y, L.cape[1]); P.p(cx + hw + 1, y, L.cape[1]); } }
+    else for (let y = tp; y <= capeEnd; y++) { const ragged = y > capeEnd - 2 && vrand(seed, y * 3) < 0.5; P.r(cx - hw, y, 3, 1, ragged ? null : y % 4 === 0 ? L.cape[1] : L.cape[0]); }
   }
   // kołczan na plecach (widok z boku: za plecami)
-  if (L.quiver && dir === 2) { P.r(cx - 5, tp - 2, 2, 9, PAL.woodD); P.r(cx - 5, tp - 3, 2, 1, PAL.bone); P.p(cx - 4, tp - 4, PAL.white); }
+  if (L.quiver && dir === 2) { P.r(cx - 6, tp - 2, 3, 11, PAL.woodD); P.r(cx - 6, tp + 2, 3, 1, PAL.dirtL); P.r(cx - 6, tp - 3, 3, 1, PAL.bone); P.p(cx - 5, tp - 4, PAL.white); P.p(cx - 6, tp - 4, PAL.redL); }
 
   // ---- nogi ----
   const legTop = bt + 1;
   if (!robe) {
     if (dir === 2) {
-      const st = [0, 2, 0, -2][frame];
+      const st = WALK_ST[frame];
       const legs = [{ x: cx - 2 - st, c: PAL.dirtD, b: PAL.black }, { x: cx - 1 + st, c: L.pants, b: L.boots }];
       for (const lg of legs) {
-        P.r(lg.x, legTop, F.legW - 1, 28 - legTop, lg.c);
-        P.r(lg.x, 28, F.legW, 3, lg.b); P.p(lg.x + F.legW, 30, lg.b);
+        P.r(lg.x, legTop, F.legW - 1, ANK - legTop, lg.c);
+        P.p(lg.x, legTop + Math.floor((ANK - legTop) / 2), PAL.dirtD);                 // kolano
+        P.r(lg.x, ANK, F.legW, 3, lg.b); P.p(lg.x + F.legW, 38, lg.b);
+        P.r(lg.x, ANK, F.legW, 1, PAL.dirtD);                                          // cholewa
       }
     } else {
       for (let side = 0; side < 2; side++) {
-        const lift = (frame === 1 && side === 0) || (frame === 3 && side === 1) ? 1 : 0;
+        const lift = ((frame === 1 || frame === 2) && side === 0) || ((frame === 4 || frame === 5) && side === 1) ? 1 : 0;
         const x0 = side === 0 ? cx - F.legGap - F.legW : cx + F.legGap;
-        P.r(x0, legTop, F.legW, 28 - legTop - lift, L.pants);
-        P.r(x0 + (side === 0 ? 0 : F.legW - 1), legTop, 1, 28 - legTop - lift, side === 0 ? L.pants : PAL.dirtD);
-        P.r(x0 - (side === 0 ? 1 : 0), 28 - lift, F.legW + 1, 3, L.boots);
-        P.r(x0 - (side === 0 ? 1 : 0), 28 - lift, F.legW + 1, 1, PAL.dirtD);
-        if (L.body === "plate") { P.p(x0 + 1, legTop + 2, PAL.steelL); P.r(x0, legTop + 3, F.legW, 1, PAL.steel); }   // nakolanniki
+        P.r(x0, legTop, F.legW, ANK - legTop - lift, L.pants);
+        P.r(x0 + (side === 0 ? 0 : F.legW - 1), legTop, 1, ANK - legTop - lift, side === 0 ? L.pants : PAL.dirtD);
+        // owijacze / przeszycia na łydce
+        if (!dwarf) for (let y = legTop + 3; y < ANK - lift; y += 2) P.p(x0 + (y % 4 === 0 ? 0 : F.legW - 1), y, PAL.dirtD);
+        P.r(x0 - (side === 0 ? 1 : 0), ANK - lift, F.legW + 1, 3, L.boots);
+        P.r(x0 - (side === 0 ? 1 : 0), ANK - lift, F.legW + 1, 1, PAL.dirtD);
+        P.p(x0 + (side === 0 ? 0 : F.legW - 1), ANK + 1 - lift, PAL.goldD);            // sprzączka buta
+        if (L.body === "plate") { P.p(x0 + 1, legTop + 3, PAL.steelL); P.r(x0, legTop + 4, F.legW, 1, PAL.steel); P.r(x0, legTop + 5, F.legW, 1, PAL.steelD); }   // nakolanniki
       }
     }
   }
@@ -174,82 +205,141 @@ function drawMan(L: Look, dir: number, frame: number, headless = false, noArms =
   const tw = dir === 2 ? hw - 1 : hw;
   const bx0 = dir === 2 ? cx - tw : cx - hw;
   const bx1 = dir === 2 ? cx + tw - 1 : cx + hw - 1;
-  const bodyBot = robe ? 30 : bt;
+  const bodyBot = robe ? 38 : bt;
   for (let y = tp; y <= bodyBot; y++) for (let x = bx0; x <= bx1; x++) {
     if (y === tp && (x === bx0 || x === bx1)) continue;
+    if (robe && y > 36 && vrand(seed, x * 11 + y) < 0.3) continue;
     P.p(x, y, matColor(L, x, y, tp, x === bx1));
   }
-  if (L.body === "plate") { for (let y = tp + 1; y < bodyBot; y++) P.p(bx0 + 1, y, PAL.steelL); P.p(cx - 1, tp + 2, PAL.steelL); P.p(cx, tp + 5, PAL.boneHi); }
-  if (orc && L.body === "leather") { P.line(bx0, tp + 1, bx1, tp + 7, PAL.woodD); P.r(cx - 1, tp + 3, 3, 3, PAL.bone); P.p(cx, tp + 4, PAL.black); }   // pas krzyżowy z czaszką
-  if (robe) { for (let y = tp; y <= 30; y++) { P.p(bx0 - 1, y, L.hood ? L.hood[1] : PAL.ink); } P.r(bx0, tp + 8, bx1 - bx0 + 1, 1, PAL.bone); }   // sznur
-  // ramiona szersze (naramienniki)
-  if (dir !== 2) { P.r(bx0 - 1, tp, 2, 2, L.body === "plate" ? PAL.steelL : matColor(L, bx0, tp, tp)); P.r(bx1, tp, 2, 2, L.body === "plate" ? PAL.steel : matColor(L, bx1, tp, tp, true)); }
+  // nity i krawędzie płyt
+  if (L.body === "plate") {
+    for (let y = tp + 1; y < bodyBot; y++) P.p(bx0 + 1, y, PAL.steelL);
+    P.p(cx - 1, tp + 2, PAL.steelL); P.p(cx, tp + 6, PAL.boneHi);
+    for (let y = tp + 3; y < bodyBot; y += 4) { P.p(bx0 + 2, y, PAL.boneHi); P.p(bx1 - 1, y, PAL.steelL); }
+    if (dir !== 1) P.r(cx, tp + 1, 1, bodyBot - tp - 2, PAL.steelD);                     // grzbiet napierśnika
+  }
+  if (L.body === "mail" && dir !== 1) P.r(bx0, bodyBot, bx1 - bx0 + 1, 1, PAL.steelD);   // obrąbek kolczugi
+  if (L.body === "leather") {
+    for (let y = tp + 2; y < bodyBot; y += 5) { P.p(bx0 + 1, y, PAL.goldD); P.p(bx1 - 1, y, PAL.goldD); }   // nity na skórze
+    P.r(bx0, tp, bx1 - bx0 + 1, 1, PAL.woodD);
+  }
+  if (L.body === "rags") { P.r(bx0 + 1, tp + 4, 2, 2, PAL.woodD); P.p(bx1 - 2, tp + 9, PAL.dirtL); P.p(bx1 - 1, tp + 9, PAL.dirtL); }   // łaty
+  if (orc && L.body === "leather") { P.line(bx0, tp + 1, bx1, tp + 9, PAL.woodD); P.r(cx - 1, tp + 4, 3, 3, PAL.bone); P.p(cx, tp + 5, PAL.black); }   // pas krzyżowy z czaszką
+  if (robe) { for (let y = tp; y <= 38; y++) { P.p(bx0 - 1, y, L.hood ? L.hood[1] : PAL.ink); } P.r(bx0, tp + 9, bx1 - bx0 + 1, 1, PAL.bone); P.p(cx, tp + 10, PAL.bone); P.p(cx, tp + 12, PAL.bone); }   // sznur z frędzlem
+  // naramienniki: kształt zależny od kultury
+  if (dir !== 2) {
+    const sh = L.body === "plate" ? PAL.steelL : matColor(L, bx0, tp, tp), sh2 = L.body === "plate" ? PAL.steel : matColor(L, bx1, tp, tp, true);
+    const big = L.body === "plate" || cul === "varus" ? 3 : 2;
+    P.r(bx0 - 1, tp, 2, big, sh); P.r(bx1, tp, 2, big, sh2);
+    if (cul === "varus" && L.body !== "rags") { for (let k = 0; k < 3; k++) { P.p(bx0 - 1, tp + k * 2, PAL.steelL); P.p(bx1 + 1, tp + k * 2, PAL.steelD); } }   // segmenty jak lorica
+  }
+  // futrzany kołnierz orków i krasnoludów
+  if ((orc || dwarf) && L.body !== "robe" && dir !== 1) {
+    const fur = orc ? PAL.dirtL : PAL.woodD;
+    for (let x = bx0 - 1; x <= bx1 + 1; x++) { P.p(x, tp - 1 + (x % 2), fur); if (x % 3 === 0) P.p(x, tp + 1, orc ? PAL.bone : PAL.dirtL); }
+  }
 
   // tabard: postrzępiony dół, wzór herbu, brud i krew
   if (L.tabard && !robe) {
     const T = L.tabard;
     const tx0 = dir === 2 ? cx - tw + 1 : cx - hw + 1, tx1 = dir === 2 ? cx + tw - 2 : cx + hw - 2;
-    const ty0 = tp + 1, ty1 = bt + 3;
+    const ty0 = tp + 1, ty1 = bt + (cul === "aurelia" ? 5 : 3);
     const mid = Math.floor((ty0 + ty1) / 2) - 1;
     for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) {
-      if (y >= ty1 - 1 && vrand(seed, x * 37 + y) < (y === ty1 ? 0.45 : 0.18)) continue;   // poszarpany brzeg
+      if (y >= ty1 - 1 && vrand(seed, x * 37 + y) < (y === ty1 ? 0.45 : 0.18) + wear * 0.15) continue;   // poszarpany brzeg
       let c = x === tx1 ? T.shade : T.main;
       if (dir !== 1) {
         const rx = x - cx + 0.5;
         if (T.pattern === "stripe" && Math.abs(rx) < 1) c = T.trim;
         if (T.pattern === "quarter" && ((x < cx) !== (y < mid))) c = T.trim;
         if (T.pattern === "chevron" && Math.floor(Math.abs(rx)) === y - ty0 - 1) c = T.trim;
-        if (T.pattern === "cross" && (Math.abs(rx) < 1 || y === ty0 + 3)) c = T.trim;
+        if (T.pattern === "cross" && (Math.abs(rx) < 1 || y === ty0 + 4)) c = T.trim;
       }
+      // przetarcia: wypłowiałe plamy na starym płótnie
+      if (wear > 0.3 && vrand(seed, x * 53 + y * 7) < wear * 0.12) c = PAL.dirtL;
       P.p(x, y, c);
     }
+    if (cul === "aurelia" && dir !== 1) P.r(tx0, ty0, tx1 - tx0 + 1, 1, T.trim);       // złota lamówka
   }
-  // pas, klamra, sakwa
+  // pas, klamra, sakwa, rzemień przez pierś
   if (!robe) {
-    const belt = tp + 8;
+    const belt = tp + Math.round((bt - tp) * 0.62);
     P.r(bx0, belt, bx1 - bx0 + 1, 1, PAL.woodD);
-    if (dir !== 1) P.r(cx - 1, belt, 2, 1, PAL.goldD);
-    if (dir === 0) { P.r(bx1 - 1, belt + 1, 2, 2, PAL.dirtL); P.p(bx1 - 1, belt + 1, PAL.dirt); }
+    if (dir !== 1) { P.r(cx - 1, belt, 2, 1, PAL.goldD); P.p(cx - 1, belt, PAL.gold); }
+    if (dir === 0) { P.r(bx1 - 2, belt + 1, 3, 3, PAL.dirtL); P.r(bx1 - 2, belt + 1, 3, 1, PAL.dirt); P.p(bx1 - 1, belt + 2, PAL.goldD); }   // sakwa z klamerką
+    if (dir === 0 && bx0 + 2 < bx1 - 3) P.p(bx0 + 1, belt + 1, PAL.bone);              // nóż przy pasie
+    if (L.quiver && dir !== 2) { P.line(bx0, tp, bx1, belt - 1, PAL.woodD); P.p(cx, Math.round((tp + belt) / 2), PAL.goldD); }
   }
   // pochwa miecza
   if (L.scabbard && !robe) {
-    if (dir === 0) { P.line(bx0 - 1, tp + 8, bx0 - 3, tp + 15, PAL.woodD); P.p(bx0 - 3, tp + 15, PAL.steel); }
-    if (dir === 2) { P.line(cx - 2, tp + 8, cx - 6, tp + 14, PAL.woodD); P.p(cx - 6, tp + 14, PAL.steel); }
+    if (dir === 0) { P.line(bx0 - 1, tp + 10, bx0 - 3, tp + 18, PAL.woodD); P.p(bx0 - 3, tp + 18, PAL.steel); P.p(bx0 - 2, tp + 13, PAL.goldD); }
+    if (dir === 2) { P.line(cx - 2, tp + 10, cx - 7, tp + 17, PAL.woodD); P.p(cx - 7, tp + 17, PAL.steel); P.p(cx - 4, tp + 13, PAL.goldD); }
   }
 
   // ---- ręce ----
   const sleeve = (x: number, y: number) => L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, x, y, tp);
   const glove = L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
-  const armLen = dwarf ? 7 : orc ? 10 : 8;
+  const armLen = dwarf ? 8 : orc ? 12 : 10;
+  const swing = frame === 0 ? 0 : WALK_ST[frame] > 0 ? 1 : WALK_ST[frame] < 0 ? -1 : 0;
   if (noArms) { /* ręce rysuje bitwa, zgodnie z ruchem broni */ }
   else if (dir === 2) {
-    // ręka z przodu
-    for (let y = tp + 1; y < tp + 1 + armLen; y++) P.r(cx - 1, y, 2, 1, sleeve(cx, y));
-    P.r(cx - 1, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
+    for (let y = tp + 1; y < tp + 1 + armLen; y++) P.r(cx - 1 + (y > tp + 4 ? swing : 0), y, 2, 1, sleeve(cx, y));
+    P.r(cx - 1 + swing, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
   } else {
     for (let y = tp + 1; y < tp + 1 + armLen; y++) { P.r(bx0 - 2, y, 2, 1, sleeve(bx0 - 2, y)); P.r(bx1 + 1, y, 2, 1, sleeve(bx1 + 1, y)); }
-    P.r(bx0 - 2, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove); P.r(bx1 + 1, tp + 1 + armLen, 2, 2, orc ? L.skin[0] : glove);
+    P.r(bx0 - 2, tp + 1 + armLen - swing, 2, 2, orc ? L.skin[0] : glove); P.r(bx1 + 1, tp + 1 + armLen + swing, 2, 2, orc ? L.skin[0] : glove);
+    if (L.body === "mail" || L.body === "plate") { P.r(bx0 - 2, tp + armLen - 1, 2, 1, PAL.dirtD); P.r(bx1 + 1, tp + armLen - 1, 2, 1, PAL.dirtD); }   // mankiety rękawic
   }
-  if (L.quiver && dir === 1) { P.r(cx + 2, tp - 3, 2, 10, PAL.woodD); P.r(cx + 2, tp - 3, 2, 1, PAL.bone); P.p(cx + 3, tp - 4, PAL.white); }
-  if (L.cape && dir === 1) for (let y = tp; y <= bt + 7; y++) for (let x = cx - hw; x <= cx + hw - 1; x++) {
-    if (y > bt + 5 && vrand(seed, x * 13 + y) < 0.4) continue;
-    P.p(x, y, x === cx + hw - 1 || x === cx - hw ? L.cape[1] : L.cape[0]);
+  if (L.quiver && dir === 1) { P.r(cx + 2, tp - 3, 3, 12, PAL.woodD); P.r(cx + 2, tp + 1, 3, 1, PAL.dirtL); P.r(cx + 2, tp - 3, 3, 1, PAL.bone); P.p(cx + 3, tp - 4, PAL.white); P.p(cx + 4, tp - 4, PAL.redL); }
+  if (L.cape && dir === 1) for (let y = tp; y <= capeEnd; y++) for (let x = cx - hw; x <= cx + hw - 1; x++) {
+    if (y > capeEnd - 2 && vrand(seed, x * 13 + y) < 0.4 + wear * 0.2) continue;
+    let c = x === cx + hw - 1 || x === cx - hw ? L.cape[1] : (x - cx) % 3 === 0 ? L.cape[1] : L.cape[0];   // fałdy
+    if (wear > 0.25 && vrand(seed, x * 71 + y * 5) < wear * 0.1) c = PAL.dirtL;                      // przetarcia
+    if (y === capeEnd && cul === "aurelia") c = L.tabard ? L.tabard.trim : PAL.gold;
+    P.p(x, y, c);
   }
+  if (L.cape && dir !== 1) { P.p(cx - hw + 1, tp, PAL.goldD); if (dir === 0) P.p(cx + hw - 2, tp, PAL.goldD); }   // zapinka płaszcza
 
   // ---- głowa ----
   if (!headless) drawHead(P, L, F, dir, ht);
   else { P.r(cx - 1, tp - 1, 2, 1, PAL.bloodL); P.r(cx - 2, tp, 4, 1, PAL.blood); }
 
-  // ---- brud i krew ----
-  for (let i = 0; i < 40 * L.dirt; i++) {
-    const x = Math.floor(vrand(seed, 300 + i) * 24), y = 32 - 1 - Math.floor(Math.pow(vrand(seed, 400 + i), 1.6) * 12);
-    P.over(x, y, vrand(seed, 500 + i) < 0.5 ? PAL.dirtD : PAL.dirt);
-  }
-  for (let i = 0; i < 18 * L.blood; i++) {
-    const x = cx - hw + Math.floor(vrand(seed, 600 + i) * hw * 2), y = tp + Math.floor(vrand(seed, 700 + i) * (bt - tp + 4));
-    P.over(x, y, vrand(seed, 800 + i) < 0.6 ? PAL.bloodD : PAL.blood);
-  }
+  weatherPix(P, L, cx, hw, tp, bt);
   return P.toCanvas();
+}
+
+// Brud, krew, rdza i wgniecenia: nakładane na gotową postać.
+function weatherPix(P: Pix, L: Look, cx: number, hw: number, tp: number, bt: number) {
+  const seed = L.seed;
+  // błoto od dołu: gęste przy stopach, rzadsze wyżej, w grudkach
+  for (let i = 0; i < 70 * L.dirt; i++) {
+    const x = Math.floor(vrand(seed, 300 + i) * SPR_W), y = 39 - Math.floor(Math.pow(vrand(seed, 400 + i), 1.8) * 16);
+    const c = vrand(seed, 500 + i) < 0.5 ? PAL.dirtD : PAL.dirt;
+    P.over(x, y, c); if (vrand(seed, 520 + i) < 0.4) P.over(x + 1, y, c);
+  }
+  // krew: plamy (2–3 piksele) i zacieki w dół
+  for (let i = 0; i < 7 * L.blood; i++) {
+    const x = cx - hw + Math.floor(vrand(seed, 600 + i) * hw * 2), y = tp + Math.floor(vrand(seed, 700 + i) * (bt - tp + 4));
+    const c = vrand(seed, 800 + i) < 0.6 ? PAL.bloodD : PAL.blood;
+    P.over(x, y, c); P.over(x + 1, y, c); if (vrand(seed, 820 + i) < 0.5) P.over(x, y - 1, PAL.bloodD);
+    const drip = Math.floor(vrand(seed, 840 + i) * 4);
+    for (let k = 1; k <= drip; k++) P.over(x, y + k, PAL.bloodD);
+  }
+  // rdza na stali (skupiska), wgniecenia na płycie i hełmie
+  const rust = L.rust || 0;
+  if (rust > 0.05) for (let y = 0; y < SPR_H; y++) for (let x = 0; x < SPR_W; x++) {
+    const c = P.get(x, y);
+    if (!c || !STEEL_SET.has(c)) continue;
+    const blob = vrand(seed + ((x >> 1) * 31 + (y >> 1) * 17), 900);
+    if (blob < rust * 0.45) P.p(x, y, blob < rust * 0.18 ? "#4a2716" : PAL.rust);
+  }
+  for (let i = 0; i < (L.dents || 0); i++) {
+    for (let tries = 0; tries < 12; tries++) {
+      const x = Math.floor(vrand(seed, 950 + i * 13 + tries) * SPR_W), y = Math.floor(vrand(seed, 970 + i * 13 + tries) * SPR_H);
+      const c = P.get(x, y);
+      if (c && STEEL_SET.has(c) && P.get(x + 1, y + 1)) { P.p(x, y, PAL.ink); P.p(x + 1, y + 1, PAL.steelL); break; }
+    }
+  }
 }
 
 function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
@@ -425,7 +515,24 @@ function drawHead(P: Pix, L: Look, F: Frame, dir: number, ht: number) {
       if (dir !== 1) { P.r(cx - 1, fy0 - 4, 1, 4, PAL.red); P.r(cx - 2, fy0 - 3, 3, 1, PAL.red); }
       break;
   }
-  if (fullHelm && dir === 0 && H !== "great") { /* twarz widoczna w otworze */ }
+  // kształty hełmów zależne od kultury
+  const cul = L.culture || "";
+  const metal = H === "nasal" || H === "crest" || H === "kettle" || H === "great";
+  if (cul === "aurelia" && metal) {   // złota obręcz, krzyż na przyłbicy
+    P.r(fx0, fy0 - 1, F.headW, 1, PAL.goldD); P.p(cx - 1, fy0 - 1, PAL.gold);
+    if (H === "great" && dir === 0) { P.r(cx - 1, fy0 + 3, 1, 3, PAL.gold); P.r(cx - 2, fy0 + 4, 3, 1, PAL.gold); }
+  }
+  if (cul === "varus" && (H === "nasal" || H === "crest")) {   // policzki i poprzeczny grzebień legionu
+    if (dir !== 1) { P.r(fx0 - 1, fy0 + 3, 1, 4, PAL.steel); P.r(fx1 + 1, fy0 + 3, 1, 4, PAL.steelD); }
+    if (H === "crest" && dir === 0) P.r(fx0 - 2, fy0 - 3, F.headW + 4, 1, PAL.redL);
+    if (dir === 2) P.r(fx0 - 2, fy0 + 2, 2, 2, PAL.steelD);   // osłona karku
+  }
+  if (cul === "dwarf" && H === "dwarf") { P.p(fx0 + 1, fy0 - 1, PAL.boneHi); P.p(fx1 - 1, fy0 - 1, PAL.boneHi); if (dir === 0) { P.r(fx0, fy0 + 3, 2, 1, PAL.steel); P.r(fx1 - 1, fy0 + 3, 2, 1, PAL.steel); } }   // nity i maska
+  if (cul === "orc" && H === "orc" && dir !== 1) {   // rogi z kości
+    P.p(fx0 - 1, fy0 - 1, PAL.bone); P.p(fx0 - 2, fy0 - 2, PAL.bone); P.p(fx0 - 2, fy0 - 3, PAL.boneHi);
+    P.p(fx1 + 1, fy0 - 1, PAL.bone); P.p(fx1 + 2, fy0 - 2, PAL.bone); P.p(fx1 + 2, fy0 - 3, PAL.boneHi);
+  }
+  if (cul === "bandit" && (H === "hood" || H === "cap") && dir === 0) P.r(fx0 + 1, fy0 + 5, F.headW - 2, 2, PAL.dirtD);   // chusta na twarzy
 }
 
 // ---------- Nieumarli ----------
@@ -579,30 +686,42 @@ function drawDK(L: Look, dir: number, frame: number): HTMLCanvasElement {
 
 // ---------- Zestaw klatek dla wyglądu ----------
 const SPRITE_CACHE = new Map<string, SpriteSet>();
+// Stare rysunki (szkielety, ghule, wilki, rycerz śmierci) mają 4 klatki i mniejsze płótno: dopasuj do 32×40 i 6 klatek chodu.
+const OLD_FRAME = [0, 2, 1, 1, 2, 3, 3];
+function padSprite(c: HTMLCanvasElement): HTMLCanvasElement {
+  if (c.width === SPR_W && c.height === SPR_H) return c;
+  const [o, g] = mkCanvas(SPR_W, SPR_H);
+  g.drawImage(c, Math.round((SPR_W - c.width) / 2), SPR_H - 2 - (c.height - 2));
+  return o;
+}
 function spritesFor(L: Look, key: string): SpriteSet {
   let s = SPRITE_CACHE.get(key);
   if (s) return s;
-  const draw = (d: number, f: number, headless = false) => {
-    if (L.race === "skel") return drawSkeleton(L, d, f, headless);
-    if (L.race === "ghoul") return drawGhoul(L, d, f);
-    if (L.race === "dk") return drawDK(L, d, f);
-    if (L.race === "wolf") return drawWolf(L, d, f);
-    return drawMan(L, d, f, headless);
+  const old = L.race === "skel" || L.race === "ghoul" || L.race === "dk" || L.race === "wolf";
+  const oy = old ? (L.race === "dk" ? 2 : 8) : 0;
+  const draw = (d: number, f: number, headless = false, noArms = false) => {
+    const of = OLD_FRAME[f];
+    if (L.race === "skel") return padSprite(drawSkeleton(L, d, of, headless, noArms));
+    if (L.race === "ghoul") return padSprite(drawGhoul(L, d, of));
+    if (L.race === "dk") return padSprite(drawDK(L, d, of));
+    if (L.race === "wolf") return padSprite(drawWolf(L, d, of));
+    return drawMan(L, d, f, headless, noArms);
   };
-  const frames = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => draw(d, f)));
+  const FR = [0, 1, 2, 3, 4, 5, 6];
+  const frames = [0, 1, 2].map((d) => FR.map((f) => draw(d, f)));
   const headless = [0, 1, 2].map((d) => draw(d, 0, true));
-  s = { frames, white: frames.map((r) => r.map(whiteOf)), headless, w: frames[0][0].width, h: frames[0][0].height, headY: L.race === "dwarf" ? 12 : L.race === "dk" ? 8 : 6 };
+  const Fm = frameOf(L);
+  s = { frames, white: frames.map((r) => r.map(whiteOf)), headless, w: SPR_W, h: SPR_H, headY: old ? (L.race === "dk" ? 10 : 14) : Fm.headTop + 4 };
   // wersja bez rąk i „szkielet” ramion: bitwa rysuje ręce tak, by naprawdę trzymały i wymachiwały bronią
   if (L.race === "skel") {
-    s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawSkeleton(L, d, f, false, true)));
-    s.rig = { sy: 12, sx: 5, arm: 9, sleeve: PAL.bone, sleeveD: PAL.ash, hand: PAL.boneHi };
+    s.bare = [0, 1, 2].map((d) => FR.map((f) => draw(d, f, false, true)));
+    s.rig = { sy: 12 + oy, sx: 5, arm: 9, sleeve: PAL.bone, sleeveD: PAL.ash, hand: PAL.boneHi };
   } else if (L.race === "human" || L.race === "dwarf" || L.race === "orc" || L.race === "necro") {
-    s.bare = [0, 1, 2].map((d) => [0, 1, 2, 3].map((f) => drawMan(L, d, f, false, true)));
-    const F = frameOf(L);
-    const sl = L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, 12, F.top + 2, F.top);
+    s.bare = [0, 1, 2].map((d) => FR.map((f) => drawMan(L, d, f, false, true)));
+    const sl = L.body === "robe" ? (L.hood ? L.hood[0] : PAL.dusk) : matColor(L, 16, Fm.top + 2, Fm.top);
     const sd = L.body === "robe" ? (L.hood ? L.hood[1] : PAL.ink) : L.body === "plate" || L.body === "mail" ? PAL.steelD : L.body === "leather" ? PAL.woodD : L.body === "gambeson" ? PAL.ash : PAL.dirtD;
     const glove = L.race === "orc" ? L.skin[0] : L.body === "plate" || L.body === "mail" ? PAL.dirtD : L.skin[0];
-    s.rig = { sy: F.top + 1, sx: F.hw + 1, arm: L.race === "dwarf" ? 7 : L.race === "orc" ? 10 : 8, sleeve: sl, sleeveD: sd, hand: glove };
+    s.rig = { sy: Fm.top + 1, sx: Fm.hw + 1, arm: L.race === "dwarf" ? 8 : L.race === "orc" ? 12 : 10, sleeve: sl, sleeveD: sd, hand: glove };
   }
   if (s.bare) s.bareWhite = s.bare.map((r) => r.map(whiteOf));
   SPRITE_CACHE.set(key, s);
@@ -705,6 +824,16 @@ function drawPortrait(L: Look, frameCol: string): HTMLCanvasElement {
     if (L.scar === 5) { P.r(14, ey - 1, 5, 4, PAL.black); P.line(12, ey - 4, 27, ey - 6, PAL.black); }          // opaska na oko
     if (L.paint === 2) for (const x of [14, 16, 24, 26]) P.r(x, ey + 3, 1, 5, orc ? PAL.black : PAL.steelL);
     if (L.paint === 3) { P.r(14, ey - 1, 5, 4, PAL.black); P.r(22, ey - 1, 5, 4, PAL.black); P.p(16, ey, PAL.redL); P.p(24, ey, PAL.redL); P.r(18, ey + 8, 4, 1, PAL.bone); }
+    // ślady drogi i bitew: brud, krew, zarost, zmęczenie, świeże blizny
+    const inFace = (x: number, y: number) => Math.hypot((x - (hx0 + hx1) / 2) / ((hx1 - hx0) / 2 + 0.5), (y - (hy0 + hy1) / 2) / ((hy1 - hy0) / 2 + 0.5)) < 0.95;
+    const sd = L.seed * 13 + 5;
+    const stub = L.stubble ?? (vrand(sd, 1) < 0.35 ? 0.5 : 0);
+    if (stub > 0 && (!L.beard || L.beard >= 4) && !orc) for (let y = ey + 4; y <= hy1; y++) for (let x = hx0 + 1; x < hx1; x++) if (inFace(x, y) && (y > ey + 6 || x < 16 || x > 23) && vrand(sd + x * 41 + y, 2) < stub * 0.55) P.p(x, y, vrand(sd + x + y * 7, 3) < 0.5 ? L.hair : SD);
+    const tired = L.tired || 0;
+    if (tired > 0.15) { for (const ex of [15, 23]) { P.r(ex, ey + 2, 3, 1, tired > 0.5 ? PAL.dusk : SD); if (tired > 0.45) P.r(ex, ey, 3, 1, S); } if (tired > 0.6) P.r(17, ey + 8, 6, 1, SD); }   // podkrążone, opadające powieki
+    for (let i = 0; i < (L.dirt || 0) * 26; i++) { const x = hx0 + Math.floor(vrand(sd, 10 + i) * (hx1 - hx0)), y = hy0 + 3 + Math.floor(vrand(sd, 40 + i) * (hy1 - hy0 - 3)); if (inFace(x, y) && !(y >= ey && y <= ey + 1 && (x >= 15 && x <= 17 || x >= 23 && x <= 25))) { P.p(x, y, vrand(sd, 70 + i) < 0.5 ? PAL.dirt : PAL.dirtD); if (vrand(sd, 90 + i) < 0.5) P.p(x + 1, y, PAL.dirt); } }
+    for (let i = 0; i < (L.blood || 0) * 6; i++) { const x = hx0 + 2 + Math.floor(vrand(sd, 120 + i) * (hx1 - hx0 - 4)), y = hy0 + 2 + Math.floor(vrand(sd, 140 + i) * 10); if (!inFace(x, y)) continue; P.p(x, y, PAL.bloodD); P.p(x + 1, y, PAL.blood); for (let k = 1; k < 2 + Math.floor(vrand(sd, 160 + i) * 4); k++) P.p(x, y + k, PAL.bloodD); }
+    for (let i = 0; i < Math.min(4, L.bscars || 0); i++) { const x = hx0 + 2 + Math.floor(vrand(sd, 200 + i) * (hx1 - hx0 - 5)), y = hy0 + 4 + Math.floor(vrand(sd, 220 + i) * (hy1 - hy0 - 8)); P.line(x, y, x + 2, y + 3, PAL.bloodD); P.p(x + 1, y + 1, PAL.skin === S ? PAL.boneHi : S); }
     // broda
     if (L.beard) {
       const by = ey + (L.beard === 1 ? 6 : 5), bend = L.beard === 1 ? hy1 + 1 : L.beard === 2 ? 34 : 38;

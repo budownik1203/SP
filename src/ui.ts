@@ -41,7 +41,7 @@ class Win {
   set(html: string, acts: Acts) {
     this.acts = acts;
     this.el.innerHTML = html;
-    for (const s of Array.from(this.el.querySelectorAll("[data-pic]"))) { const c = PICS.get((s as HTMLElement).dataset.pic); if (c) { const cc = c.cloneNode() as HTMLCanvasElement; cc.getContext("2d").drawImage(c, 0, 0); s.appendChild(cc); } }
+    for (const s of Array.from(this.el.querySelectorAll("[data-pic]"))) { const c = PICS.get((s as HTMLElement).dataset.pic); if (c) { const cc = c.cloneNode() as HTMLCanvasElement; cc.getContext("2d").drawImage(c, 0, 0); s.appendChild(cc); if (SCENE_META.has(c)) animateScene(cc, c); } }
     PICS.clear();
     typeBubble();
     return this;
@@ -84,10 +84,8 @@ function barHtml(v: number, max: number, cls: string, label = "") { return `<div
 
 // ---------- Ilustracje miejsc ----------
 const SCENE_CACHE = new Map<string, HTMLCanvasElement>();
-function drawScene(kind: string, seed: number, culture: Culture | string, night: boolean, extra = 0): HTMLCanvasElement {
-  const key = [kind, seed, culture, night, extra].join(":");
-  const cached = SCENE_CACHE.get(key);
-  if (cached) return cached;
+interface SceneMeta { houses: [number, number, number, number][]; figs: [number, number, string, boolean, boolean][]; fires: [number, number][]; night: boolean; indoor: boolean; kind: string; culture: string; extra: number; }
+function drawSceneBase(kind: string, seed: number, culture: Culture | string, night: boolean, extra: number, M: SceneMeta): HTMLCanvasElement {
   const Wd = 200, Hd = 84;
   const [c, g] = mkCanvas(Wd, Hd);
   const save = _seed;
@@ -129,6 +127,7 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
     g.fillStyle = PAL.ink; g.fillRect(0, 6, Wd, 3);
   }
   const house = (x: number, y: number, w: number, h: number, roof = undead ? PAL.slate : orc ? PAL.dirt : PAL.red) => {
+    M.houses.push([x, y, w, h]);
     g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, w + 2, h + 2);
     g.fillStyle = orc ? PAL.wood : dwarf ? PAL.stone : PAL.bone; g.fillRect(x, y, w, h);
     g.fillStyle = PAL.dirt; for (let k = 0; k < h; k += 4) g.fillRect(x, y + k, w, 1);
@@ -138,6 +137,7 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
     g.fillStyle = PAL.ink; g.fillRect(x + Math.floor(w / 2) - 1, y + h - 5, 3, 5);
   };
   const figure = (x: number, y: number, col: string, hood = false, sword = false) => {
+    M.figs.push([x, y, col, hood, sword]); return;   // postacie rysuje warstwa szczegółów w podwójnej rozdzielczości
     g.fillStyle = PAL.ink; g.fillRect(x - 2, y - 11, 5, 12);
     g.fillStyle = col; g.fillRect(x - 1, y - 7, 3, 6);
     g.fillStyle = hood ? col : PAL.skin; g.fillRect(x - 1, y - 10, 3, 3);
@@ -151,7 +151,7 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
   };
   const gallows = (x: number, y: number) => { g.fillStyle = PAL.woodD; g.fillRect(x, y - 22, 2, 22); g.fillRect(x, y - 22, 10, 2); g.fillStyle = PAL.bone; g.fillRect(x + 8, y - 20, 1, 4); g.fillStyle = PAL.dirtD; g.fillRect(x + 7, y - 16, 3, 6); };
   const crow = (x: number, y: number) => { g.fillStyle = PAL.black; g.fillRect(x, y, 3, 1); g.fillRect(x + 1, y - 1, 1, 1); g.fillRect(x - 1, y - 1, 1, 1); g.fillRect(x + 3, y - 1, 1, 1); };
-  const fire = (x: number, y: number) => { g.fillStyle = PAL.woodD; g.fillRect(x - 3, y, 7, 2); g.fillStyle = PAL.redL; g.fillRect(x - 2, y - 3, 5, 3); g.fillStyle = PAL.gold; g.fillRect(x - 1, y - 5, 3, 3); g.fillStyle = PAL.boneHi; g.fillRect(x, y - 4, 1, 2); };
+  const fire = (x: number, y: number) => { M.fires.push([x, y]); g.fillStyle = PAL.woodD; g.fillRect(x - 3, y, 7, 2); g.fillStyle = PAL.redL; g.fillRect(x - 2, y - 3, 5, 3); g.fillStyle = PAL.gold; g.fillRect(x - 1, y - 5, 3, 3); g.fillStyle = PAL.boneHi; g.fillRect(x, y - 4, 1, 2); };
   const pike = (x: number, y: number) => { g.fillStyle = PAL.woodD; g.fillRect(x, y - 16, 1, 16); g.fillStyle = PAL.bone; g.fillRect(x - 1, y - 19, 3, 3); g.fillStyle = PAL.black; g.fillRect(x - 1, y - 18, 1, 1); g.fillRect(x + 1, y - 18, 1, 1); };
   const grave = (x: number, y: number) => { g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 9, 6, 10); g.fillStyle = PAL.stone; g.fillRect(x, y - 8, 4, 8); g.fillStyle = PAL.ash; g.fillRect(x, y - 8, 4, 1); g.fillStyle = PAL.slate; g.fillRect(x + 1, y - 6, 2, 1); };
   const people = undead ? [PAL.bone, PAL.purple, PAL.ash] : orc ? [PAL.moss, PAL.dirt, PAL.bloodD] : [PAL.red, PAL.dirt, PAL.moss, PAL.slate, PAL.bone];
@@ -264,17 +264,149 @@ function drawScene(kind: string, seed: number, culture: Culture | string, night:
       g.fillStyle = PAL.bone; g.fillRect(30, 76, 6, 2); g.fillRect(160, 78, 4, 1);
       break;
     }
+    case "battlefield": {   // pobojowisko: trupy, połamane drzewca, przewrócone chorągwie, dym, wrony
+      for (let k = 0; k < 26; k++) { const x = Math.round(rr(4, 196)), y = Math.round(rr(62, 82)); g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, 9, 4); g.fillStyle = pick([PAL.dirt, PAL.steelD, PAL.red, PAL.slate, PAL.dirtD]); g.fillRect(x, y, 7, 2); g.fillStyle = PAL.skinD; g.fillRect(x + 7, y, 2, 2); g.fillStyle = PAL.bloodD; g.fillRect(x + rr(-2, 6), y + 2, 4, 1); }
+      for (let k = 0; k < 10; k++) { const x = Math.round(rr(4, 196)), y = Math.round(rr(56, 80)); g.fillStyle = PAL.woodD; for (let j = 0; j < 12; j++) g.fillRect(x + Math.round(j * 0.6), y - j, 1, 1); g.fillStyle = PAL.steel; g.fillRect(x + 7, y - 13, 1, 2); }
+      for (let k = 0; k < 3; k++) { const x = 30 + k * 60 + rr(-10, 10); g.fillStyle = PAL.woodD; g.fillRect(x, 40, 1, 26); g.fillStyle = k === 1 && extra ? PAL.ink : pick([PAL.red, PAL.purple, PAL.moss]); g.fillRect(x + 1, 41, 10, 7); g.fillRect(x + 1, 48, 6, 2); }
+      g.fillStyle = PAL.woodD; g.fillRect(140, 74, 22, 1); g.fillStyle = PAL.red; g.fillRect(150, 75, 8, 4);   // przewrócona chorągiew
+      for (let k = 0; k < 4; k++) { const x = rr(10, 190); g.globalAlpha = 0.35; for (let j = 0; j < 30; j++) { g.fillStyle = j % 2 ? PAL.ash : PAL.slate; g.fillRect(Math.round(x + Math.sin(j * 0.4) * 4 + j * 0.5), 58 - j * 1.6, 4 + (j >> 3), 3); } g.globalAlpha = 1; }
+      fire(rr(20, 80), 70); fire(rr(120, 180), 76);
+      for (let k = 0; k < 7; k++) crow(Math.round(rr(10, 190)), Math.round(rr(8, 40)));
+      for (let k = 0; k < (extra ? 2 : 5); k++) figure(Math.round(rr(20, 180)), Math.round(rr(72, 82)), pick(people), chance(0.3), true);
+      break;
+    }
     default: { // pole
       for (let k = 0; k < 6; k++) { const x = Math.round(rr(0, 190)); g.fillStyle = PAL.ink; g.fillRect(x - 3, 48, 7, 12); g.fillStyle = PAL.grassD; g.fillRect(x - 2, 49, 5, 10); g.fillStyle = PAL.woodD; g.fillRect(x, 58, 1, 4); }
       crow(80, 24); pike(150, 80);
     }
   }
-  // brud i winieta
-  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const e = Math.max(Math.abs(x - Wd / 2) / (Wd / 2), Math.abs(y - Hd / 2) / (Hd / 2)); if (e > 0.9 && dith(x, y) < (e - 0.9) * 7) { g.fillStyle = PAL.black; g.fillRect(x, y, 1, 1); } }
+  M.indoor = indoor;
+  _seed = save;
+  return c;
+}
+
+// Ilustracja w podwójnej rozdzielczości (400×168): podkład 200×84 powiększony, na nim drobne szczegóły:
+// faktura, gonty i belki domów, kominy, ludzie z twarzami i ubraniami, zwierzęta, beczki, pranie.
+const SCENE_META = new WeakMap<HTMLCanvasElement, SceneMeta>();
+function drawScene(kind: string, seed: number, culture: Culture | string, night: boolean, extra = 0): HTMLCanvasElement {
+  const key = [kind, seed, culture, night, extra].join(":");
+  const cached = SCENE_CACHE.get(key);
+  if (cached) return cached;
+  const M: SceneMeta = { houses: [], figs: [], fires: [], night, indoor: false, kind, culture: String(culture), extra };
+  const base = drawSceneBase(kind, seed, culture, night, extra, M);
+  const Wd = 400, Hd = 168;
+  const [c, g] = mkCanvas(Wd, Hd);
+  g.drawImage(base, 0, 0, Wd, Hd);
+  const save = _seed;
+  _seed = (seed * 7919 + 1013) >>> 0;
+  const R = (col: string, x: number, y: number, w: number, h: number) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), w, h); };
+  const undead = culture === "undead", orc = culture === "orc", dwarf = culture === "dwarf";
+  // domy: gonty lub strzecha, belki, okiennice, kominy, łaty
+  const chimneys: [number, number][] = [];
+  for (const [x0, y0, w0, h0] of M.houses) {
+    const x = x0 * 2, y = y0 * 2, w = w0 * 2, h = h0 * 2;
+    const rh = Math.ceil(w0 / 2) + 1;
+    for (let r = 0; r < rh * 2; r += 2) { g.globalAlpha = 0.35; R(PAL.ink, x - 4 + r, y - 2 - r, w + 8 - r * 2, 1); g.globalAlpha = 1; }   // rzędy gontów
+    if (chance(0.5)) { R(PAL.rust, x + rr(2, w - 8), y - rr(4, rh * 2 - 2), 5, 3); }   // łata na dachu
+    if (!orc && !dwarf) { g.globalAlpha = 0.6; for (let k = 6; k < w - 4; k += 10) { R(PAL.woodD, x + k, y + 2, 1, h - 4); } R(PAL.woodD, x + 2, y + Math.floor(h / 2), w - 4, 1); g.globalAlpha = 1; }   // mur pruski
+    if (chance(0.4)) { R(PAL.slate, x + w - 10, y + 4, 4, 1); R(PAL.ink, x + w - 10, y + 5, 4, 1); }   // spękany tynk
+    R(night ? PAL.gold : PAL.ink, x + 4, y + 6, 4, 4); R(PAL.woodD, x + 3, y + 5, 1, 6); R(PAL.woodD, x + 8, y + 5, 1, 6); R(PAL.woodD, x + 5, y + 8, 2, 1);   // okno z okiennicami
+    if (night) { g.globalAlpha = 0.25; R(PAL.gold, x + 2, y + 4, 8, 8); g.globalAlpha = 1; }
+    if (!undead && chance(0.7)) { const cx = x + rr(4, w - 8); const cy = y - Math.round(rh * 1.2); R(PAL.ink, cx - 1, cy - 9, 6, 10); R(PAL.slate, cx, cy - 8, 4, 9); R(PAL.stone, cx, cy - 8, 1, 9); chimneys.push([cx + 2, cy - 10]); }
+  }
+  // drobne życie: kury, pies, beczki, skrzynie, pranie między domami
+  if (!M.indoor && (kind === "town" || kind === "village" || kind === "castle")) {
+    for (let k = 0; k < (kind === "village" ? 6 : 3); k++) { const x = rr(10, 390), y = rr(140, 162); R(PAL.ink, x - 1, y - 4, 6, 5); R(PAL.bone, x, y - 3, 4, 3); R(PAL.redL, x + 3, y - 4, 1, 1); R(PAL.gold, x + 4, y - 2, 1, 1); }   // kury
+    { const x = rr(30, 370), y = rr(146, 162); R(PAL.ink, x - 1, y - 6, 12, 7); R(PAL.dirt, x, y - 5, 10, 4); R(PAL.dirt, x + 8, y - 7, 3, 3); R(PAL.dirtD, x, y - 1, 1, 2); R(PAL.dirtD, x + 8, y - 1, 1, 2); R(PAL.black, x + 10, y - 6, 1, 1); }   // pies
+    for (let k = 0; k < 3; k++) { const x = rr(10, 380), y = rr(128, 150); R(PAL.ink, x - 1, y - 11, 10, 12); R(PAL.wood, x, y - 10, 8, 10); R(PAL.woodD, x, y - 7, 8, 1); R(PAL.woodD, x, y - 3, 8, 1); R(PAL.steelD, x, y - 10, 8, 1); }   // beczki
+    if (M.houses.length > 1 && !undead) { const [a1, b1] = M.houses[0], [a2, b2] = M.houses[1]; const x1 = a1 * 2 + 10, x2 = a2 * 2 + 4, y1 = Math.min(b1, b2) * 2 + 6; for (let x = x1; x < x2; x++) { const sag = Math.sin(((x - x1) / Math.max(1, x2 - x1)) * Math.PI) * 4; R(PAL.ink, x, y1 + sag, 1, 1); if ((x - x1) % 9 === 3) R(pick([PAL.bone, PAL.redL, PAL.dirtL, PAL.ash]), x - 1, y1 + sag + 1, 4, 5); } }   // pranie
+  }
+  // ludzie: twarz, włosy lub kaptur, ubranie z paskiem, ręce, nogi, czasem broń, kosz albo worek
+  const walkers: { x: number; y: number; col: string; hood: boolean; sword: boolean; dir: number; sp: number; x0: number; x1: number }[] = [];
+  for (const [fx, fy, col, hood, sword] of M.figs) {
+    const x = fx * 2, y = fy * 2;
+    const walk = !M.indoor && chance(0.45) && kind !== "arena" && kind !== "captive";
+    if (walk) { walkers.push({ x, y, col, hood, sword, dir: chance(0.5) ? 1 : -1, sp: rr(4, 10), x0: Math.max(6, x - rr(30, 80)), x1: Math.min(394, x + rr(30, 80)) }); continue; }
+    drawScenePerson(g, x, y, col, hood, sword, Math.floor(rr(0, 4)), 0, undead);
+  }
+  // faktura: drobne ziarno i zacieki
+  const im = g.getImageData(0, 0, Wd, Hd);
+  for (let i = 0; i < Wd * Hd; i++) { const n = (hashInt(i * 2654435761 + seed) % 100) / 100; const f = 0.93 + n * 0.12; im.data[i * 4] *= f; im.data[i * 4 + 1] *= f; im.data[i * 4 + 2] *= f * 0.98; }
+  g.putImageData(im, 0, 0);
+  // winieta i noc
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const e = Math.max(Math.abs(x - Wd / 2) / (Wd / 2), Math.abs(y - Hd / 2) / (Hd / 2)); if (e > 0.88 && (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16 < (e - 0.88) * 6) { g.fillStyle = PAL.black; g.fillRect(x, y, 1, 1); } }
   if (night) { g.globalCompositeOperation = "multiply"; g.fillStyle = "#6a6a90"; g.fillRect(0, 0, Wd, Hd); g.globalCompositeOperation = "source-over"; }
   _seed = save;
+  (M as any).chimneys = chimneys; (M as any).walkers = walkers;
+  SCENE_META.set(c, M);
   SCENE_CACHE.set(key, c);
   return c;
+}
+
+function drawScenePerson(g: CanvasRenderingContext2D, x: number, y: number, col: string, hood: boolean, sword: boolean, variant: number, step: number, undead: boolean) {
+  const R = (c: string, a: number, b: number, w: number, h: number) => { g.fillStyle = c; g.fillRect(Math.round(x + a), Math.round(y + b), w, h); };
+  const skin = undead ? PAL.bone : variant % 2 ? PAL.skin : PAL.skinD;
+  R(PAL.ink, -4, -23, 9, 24);                                  // obrys
+  const lg = step % 2 ? 1 : 0;
+  R(PAL.dirtD, -2 - lg, -7, 2, 6); R(PAL.dirtD, 1 + lg, -7, 2, 6);   // nogi
+  R(PAL.black, -3 - lg, -1, 3, 1); R(PAL.black, 1 + lg, -1, 3, 1);  // buty
+  const dress = variant === 2 && !sword;
+  R(col, -3, -16, 7, dress ? 14 : 10); R(PAL.ink, 3, -16, 1, dress ? 14 : 10);   // tułów, cień
+  R(PAL.woodD, -3, -11, 7, 1); R(PAL.goldD, 0, -11, 1, 1);            // pas
+  R(col, -4, -15, 1, 6); R(col, 4, -15, 1, 6); R(skin, -4, -9, 1, 2); R(skin, 4, -9, 1, 2);   // ręce
+  if (hood) { R(col, -3, -22, 7, 6); R(PAL.ink, -1, -19, 3, 3); R(skin, -1, -19, 3, 2); }
+  else { R(skin, -2, -21, 5, 5); R(variant === 3 ? PAL.ash : PAL.dirtD, -2, -22, 5, 2); R(PAL.black, -1, -19, 1, 1); R(PAL.black, 1, -19, 1, 1); if (variant === 1) R(PAL.dirtD, -2, -17, 5, 1); }   // twarz, włosy, oczy, broda
+  if (sword) { R(PAL.steelL, 5, -21, 1, 11); R(PAL.goldD, 4, -11, 3, 1); }
+  else if (variant === 0) { R(PAL.wood, 4, -10, 4, 4); R(PAL.woodD, 4, -10, 4, 1); }   // kosz
+  else if (variant === 3) { R(PAL.dirtL, -7, -18, 4, 6); R(PAL.dirt, -7, -18, 4, 1); }   // worek na plecach
+}
+
+// Animowane sceny: dym z kominów, migające ogniska i pochodnie, chodzący ludzie. Odświeżane ok. 12 razy na sekundę.
+const ANIM_SCENES: { cv: HTMLCanvasElement; base: HTMLCanvasElement; M: SceneMeta }[] = [];
+let ANIM_ON = false;
+function animateScene(cv: HTMLCanvasElement, base: HTMLCanvasElement) {
+  const M = SCENE_META.get(base); if (!M) return;
+  ANIM_SCENES.push({ cv, base, M });
+  if (ANIM_ON) return;
+  ANIM_ON = true;
+  let last = 0;
+  const loop = (ts: number) => {
+    for (let i = ANIM_SCENES.length - 1; i >= 0; i--) if (!ANIM_SCENES[i].cv.isConnected) ANIM_SCENES.splice(i, 1);
+    if (!ANIM_SCENES.length) { ANIM_ON = false; return; }
+    if (ts - last > 80) {
+      last = ts;
+      const t = ts / 1000;
+      for (const A of ANIM_SCENES) {
+        const g = A.cv.getContext("2d"), M = A.M as any;
+        g.drawImage(A.base, 0, 0);
+        for (const [cx, cy] of (M.chimneys || []) as [number, number][]) for (let j = 0; j < 5; j++) {   // dym z kominów
+          const ph = (t * 0.25 + j / 5 + cx * 0.013) % 1;
+          g.globalAlpha = (1 - ph) * 0.4; g.fillStyle = M.night ? PAL.slate : PAL.ash;
+          const r = 2 + Math.round(ph * 4);
+          g.fillRect(Math.round(cx - r / 2 + Math.sin(ph * 4 + cx) * 3 + ph * 10), Math.round(cy - ph * 34), r, r);
+        }
+        g.globalAlpha = 1;
+        for (const [fx, fy] of M.fires as [number, number][]) {   // migające ognie
+          const fl = Math.floor(t * 9 + fx) % 3;
+          g.fillStyle = PAL.redL; g.fillRect(fx * 2 - 4, fy * 2 - 6 - fl, 9, 6 + fl);
+          g.fillStyle = PAL.gold; g.fillRect(fx * 2 - 2 + (fl === 1 ? 1 : 0), fy * 2 - 10 - fl, 5, 6);
+          g.fillStyle = PAL.boneHi; g.fillRect(fx * 2, fy * 2 - 8 - fl, 1, 3);
+          g.globalAlpha = 0.12 + fl * 0.04; g.fillStyle = PAL.gold; g.fillRect(fx * 2 - 30, fy * 2 - 34, 60, 50); g.globalAlpha = 1;
+          if (Math.floor(t * 4 + fx) % 2) { g.fillStyle = PAL.gold; g.fillRect(fx * 2 + Math.round(Math.sin(t * 3 + fx) * 4), fy * 2 - 16 - Math.round((t * 20 + fx) % 14), 1, 1); }
+        }
+        for (const wk of (M.walkers || []) as any[]) {   // ruch ludzi
+          const span = wk.x1 - wk.x0, p = ((t * wk.sp + wk.x * 0.7) % (span * 2) + span * 2) % (span * 2);
+          const dir = p < span ? wk.dir : -wk.dir, xx = wk.dir > 0 ? (p < span ? wk.x0 + p : wk.x1 - (p - span)) : (p < span ? wk.x1 - p : wk.x0 + (p - span));
+          drawScenePerson(g, xx, wk.y, wk.col, wk.hood, wk.sword, Math.abs(Math.round(wk.x)) % 4, Math.floor(t * 6 + wk.x), M.culture === "undead");
+          if (M.night) { g.globalCompositeOperation = "multiply"; g.fillStyle = "#6a6a90"; g.fillRect(Math.round(xx) - 8, wk.y - 24, 17, 26); g.globalCompositeOperation = "source-over"; }
+          void dir;
+        }
+      }
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
 }
 
 // ---------- Ikony pikselowe (9×9) ----------
@@ -341,11 +473,12 @@ function unitCanvas(key: string, dir = 0, frame = 0, faction?: number, look?: Lo
     const [cv, g] = mkCanvas(40, 48);
     g.drawImage(himg, Math.round(20 - himg.width / 2), 48 - himg.height + 2);
     const riderY = dir === 2 ? -11 : -9;
-    g.drawImage(img, 0, 0, img.width, Math.round(img.height * 0.66), Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, Math.round(img.height * 0.66));
+    const rh = Math.round(img.height * 0.72);
+    g.drawImage(img, 0, 0, img.width, rh, Math.round(20 - img.width / 2), 48 - img.height + riderY, img.width, rh);
     c = cv;
   } else {
     const [cv, g] = mkCanvas(32, 40);
-    g.drawImage(img, 4, 6);
+    g.drawImage(img, 0, -2);
     c = cv;
   }
   UPREV.set(ck, c);
@@ -353,11 +486,11 @@ function unitCanvas(key: string, dir = 0, frame = 0, faction?: number, look?: Lo
 }
 // Animowany pasek klatek (bok, chód) jako tło CSS.
 function unitAnim(key: string, scale = 3, look?: Look) {
-  const frames = [0, 1, 2, 3].map((f) => unitCanvas(key, 2, f, undefined, look));
+  const frames = [1, 2, 3, 4, 5, 6].map((f) => unitCanvas(key, 2, f, undefined, look));
   const w = frames[0].width, h = frames[0].height;
-  const [strip, g] = mkCanvas(w * 4, h);
+  const [strip, g] = mkCanvas(w * 6, h);
   frames.forEach((f, i) => g.drawImage(f, i * w, 0));
-  return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 4 * scale}px ${h * scale}px;--sw:-${w * 4 * scale}px"></div>`;
+  return `<div class="uanim" style="width:${w * scale}px;height:${h * scale}px;background-image:url(${strip.toDataURL()});background-size:${w * 6 * scale}px ${h * scale}px;--sw:-${w * 6 * scale}px"></div>`;
 }
 function unitThumb(key: string, scale = 1) { return pic(unitCanvas(key, 0, 0), "uthumb", scale); }
 function tierStars(t: number) { return `<span class="stars">${"★".repeat(t)}<span class="muted">${"★".repeat(Math.max(0, 5 - t))}</span></span>`; }
