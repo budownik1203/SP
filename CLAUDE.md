@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.28.1** (30 października 2026).
+Stan na **Build 0.29** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -69,7 +69,7 @@ czego używa.
 
 ## 4. Mapa kodu (`src/`, ok. 16 tys. linii)
 
-Kolejność sklejania: core, sprites, units, audio, battleMap, battle, abilities, battleRender, world,
+Kolejność sklejania: core, sprites, units, audio, battleMap, battle, herofeel, abilities, battleRender, world,
 politics, skills, worldRender, ui, campaign, screens, camp, craft, siege, tactics, kingdom, intel,
 renown, retinue, main.
 
@@ -81,6 +81,7 @@ renown, retinue, main.
 | `audio.ts` | `Sfx`: efekty, instrumenty, nastroje muzyki (`MoodDef`, `MOTIF` frakcji), ambient |
 | `battleMap.ts` | generowanie pól bitwy: teren, sezon, region, uliczki miasta, palisada obozu, mury |
 | `battle.ts` | klasa `Battle` i `Unit`: symulacja, AI, rozkazy (`cmdMenu`, `cmdChoose`), oblężenia, `KEYDEF` (wszystkie klawisze), `resolveHit`, `damage`, `kill`, wynik |
+| `herofeel.ts` | B29: walka bohaterem bez kierunków: klasy broni (`wclass`), serie ciosów (`SERIES_CUT`, `SERIES_THRUST`, `seriesNext`, `heroStartSeries`), miękkie przyciąganie (`softTarget`), obrót bohatera, rozpęd (`momentumK`), otoczenie (`backHitK`), pękanie gardy wroga (`guardBreaks`), mistrzostwo (`masteryK`, perk `mastery_<klasa>`, jeszcze nie przyznawany) |
 | `abilities.ts` | umiejętności bohatera (1–3), kule ognia (`explodeFire`) |
 | `battleRender.ts` | rysowanie bitwy, noc, deszcz, mgła, tonowanie, celownik |
 | `world.ts` | `World`, generowanie świata, A* (`findPath`), AI oddziałów (`partyAI`), `dailyTick`, ekonomia, `BUILDINGS`, `COMPANIONS`, `partyLimit`, `heroMaxHp` |
@@ -117,13 +118,18 @@ renown, retinue, main.
 - **Pancerz:** mnożnik obrażeń, niższy = lepsza ochrona. Od B27 przepuszczany przez `armTune`
   (cięcie `^1.3`, obuch słabiej).
 - **Klawisze** są tylko w `KEYDEF` (`battle.ts`), odczyt przez `KB("id")`. Gracz może je przemapować
-  (`settings.keys`). W bitwie: Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry, R = pchnięcie
-  albo cięcie, Q = rozkazy, Z/X/C/V/B = szybkie rozkazy, T/G = trebusz/okrzyk (w rozstawieniu obrony:
+  (`settings.keys`). W bitwie: LPM = seria ciosów (przytrzymanie = mocny cios), PPM = blok i parowanie,
+  ŚPM = szybkie pchnięcie, Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry,
+  R = tryb pchnięcia albo cięcia (zmienia serię broni kłutych), V = opuść kopię (konno), Q = rozkazy, Z/X/C/V/B = szybkie rozkazy, T/G = trebusz/okrzyk (w rozstawieniu obrony:
   pale/rów). Na mapie: U = Królestwo, C I P F K J L = okna, Spacja = obóz.
 - **Teksty:** po polsku, krótko, w klimacie, bez myślników (używaj dwukropka, kropki, „·”). Zdania jak od
   narratora kroniki.
 - **Wydajność:** bitwa ok. 53 FPS przy domyślnym zoomie. Nie dodawaj pracy na jednostkę na klatkę bez
   potrzeby. Nowa gra startuje 5–7 s (generowanie mapy i ścieżek dróg).
+- **Walka bohatera (od B29):** kierunki ciosu zostały usunięte na życzenie użytkownika. Wewnętrznie `Dir`
+  (L/R/O/T) nadal istnieje: seria broni podaje kierunki do animacji i do gardy wrogów (`d.guard === dir`).
+  AI jednostek dalej losuje kierunki. Nie przywracaj sterowania kierunkiem myszą. Ustawienie `atkMode` jest
+  martwe, zamiast niego `battleCam` (`fixed`/`auto`).
 - **Pętle dzienne** są w `dailyTick` (`world.ts`): `campDaily`, `craftDaily`, `kingdomDaily`,
   `intelDaily`, `treatyDaily`, `bountyDaily`, `companionQuestsDaily`, `siegeDaily` (dla osad).
   Tam podpinaj nowe systemy.
@@ -136,7 +142,8 @@ Kopie w `tests/` (oryginały były w `/tmp/claude-0/t/`). Każdy otwiera
 wypisując na końcu `errors N` (błędy strony). Uruchomienie: `node tests/b23.js`.
 
 - Regresja po każdym buildzie: `t11` (bot gra 14 dni kampanii), `b8`, `b19`, `b22`, `b23`, `b24`,
-  `b25`, `b26`, `b27`. Szybkie i najważniejsze: `t11`, `b23`, `b24`, `b26`.
+  `b25`, `b26`, `b27`, `b29` (seria ciosów prawdziwymi kliknięciami myszy). Szybkie i najważniejsze:
+  `t11`, `b23`, `b24`, `b26`, `b29`.
 - Znane niestabilności: `b8` (obrona, losowi lordowie) i `t11` (czasem timeout klikania) bywają
   niestabilne. Uruchom ponownie, zanim uznasz to za błąd.
 - Haki testowe w przeglądarce: `window.__game()` (`G`, `WORLD`), `__battle()`,
@@ -153,11 +160,47 @@ B1–B18: rdzeń walki, kampania, frakcje, lordowie, oblężenia, arena, turniej
 kompani, ekonomia, główny wątek, mapa ręcznie projektowana i powiększona o 1/3 (B18).
 B19 podróż i obóz · B20 ekwipunek i rzemiosło · B21 muzyka · B22 oblężenia ·
 B23 nowe mechaniki bitwy · B24 królestwo · B25 dyplomacja i wywiad · B26 reputacja i kompani ·
-B27 strojenie (blok jako okno czasowe, łuk, pancerz, morale, jeńcy) · B28 mapa świata bez winiety starej mapy, mgły i cieni chmur (na życzenie użytkownika: nie przywracać). Szczegóły każdego buildu są w GDD.
+B27 strojenie (blok jako okno czasowe, łuk, pancerz, morale, jeńcy) · B28 mapa świata bez winiety starej mapy, mgły i cieni chmur (na życzenie użytkownika: nie przywracać) ·
+B29 mniej ociężałości: serie ciosów zamiast kierunków, bufor, przerwanie zamachu, szybszy obrót i zamach,
+miękkie przyciąganie, rozpęd, pękanie gardy, kara za otoczenie, lżejszy pancerz, kamera auto.
+Szczegóły każdego buildu są w GDD.
 
 ## 8. Co dalej (backlog z ankiet, kolejność według priorytetów użytkownika)
 
-1. **Konie:** rasy i hodowla, nazwany koń z rozwojem (częściowo jest: `horseInfo`), wierzchowce ras
+**Najpierw dokończ walkę bohaterem** (ankiety „Frajda z walki” i „Walka bohaterem”, odpowiedzi streszczone
+w GDD; użytkownik prosi, by traktować je jako kierunek: realizm i ciężar zostają, bez zręcznościowych
+skrajności, bez epickich finiszerów):
+
+a. **Serie broni dokończone:** finisz serii zależny od klasy, ale skromny (miecz: przebicie, topór:
+   łamanie tarczy, obuch: ogłuszenie i wgniecenie hełmu, włócznia: odepchnięcie, dwuręczna: przez kilku,
+   nóż: szczelina w zbroi); ciężki cios trafia 2–3 wrogów zależnie od zasięgu broni. Po serii przerwa
+   i duży koszt wytrzymałości (mistrzostwo zmniejsza karę; jest `seriesCooldown`).
+b. **Tarcza:** uderzenie tarczą (PPM przytrzymany + LPM), ściana tarcz w szeregu. Broń drzewcowa
+   zatrzymuje szarżę i zrzuca jeźdźca, gdy stoisz w miejscu.
+c. **Czucie trafienia:** odrzut na przeszkodę z dodatkowymi obrażeniami i przewróceniem, powalenie po
+   finiszu lub kopniaku, egzekucje (F przy powalonym, efekt morale), licznik serii zabójstw (morale
+   twoich ludzi w pobliżu), krytyki z dźwiękiem, więcej odciętych kończyn, wgniecione hełmy i rozdarte
+   tuniki, więcej krwi na bohaterze. Wstrząs ekranu bez zmian.
+d. **Obrona:** pasek postawy tylko u elit, oficerów i lordów (łamią go bloki, ciężkie ciosy, kopniaki);
+   idealny unik = krótkie spowolnienie i kontra; czerwone zapowiedzi ciosów elit i oficerów; ciosy nie do
+   zablokowania u lordów i potworów; parowanie odbija strzały; mistrzowskie uderzenie jako ulepszenie
+   z mistrzostwa.
+e. **Umiejętności:** 5 slotów (3 z drzewek, 1 z broni, 1 rzutka); źródła: drzewka, mistrzostwo broni,
+   runy wkute w kuźni, dary świętych, starych bogów i duchów przodków, Morvath przy spaczeniu, z ukrytymi
+   parami-synergiami; płatność: odnowienie, wytrzymałość, wiara lub mana. Rzutki zamiast drugiej broni,
+   1 + 3 podniesione z ziemi. Szał jako umiejętność (szybciej i mocniej, bez ogłuszeń, okrzyk).
+   Ruch specjalny każdej klasy broni. Cios z odskoku i łańcuch odskoków z drzewek. Cios obrotowy tylko
+   dwuręczną.
+f. **Mistrzostwo broni:** rośnie od trafień i z ćwiczeń (obóz, arena); daje ruch specjalny, krótszy
+   zamach, szersze okno parowania, dłuższą serię; nauczyciele w miastach i zamkach.
+g. **Lordowie** o 10–15% więksi, z gwardią i chorążym; cechy w bitwie (odważny, ostrożny, okrutny,
+   honorowy i kilka innych); bestie z wzorcami ataków (wilk olbrzym, troll i ogr, upiór, abominacja).
+h. **Konno:** szarża przewraca piechotę poza tarczownikami w szyku, broń drzewcowa zrzuca jeźdźca, cięcie
+   z konia mocniejsze przy prędkości, koń może się przewrócić (bohater spada, ogłuszony).
+
+Potem reszta backlogu:
+
+1. **Konie** (po walce, decyzja użytkownika): rasy i hodowla, nazwany koń z rozwojem (częściowo jest: `horseInfo`), wierzchowce ras
    (np. dziki dla orków), tabory (wozy: udźwig, szybkość).
 2. **Turnieje i rozrywki:** kusza, zapasy, zakłady, gry w karczmie, festyny.
 3. **Treść jednostek:** drzewka do 6 poziomów z harcownikami, konnymi łucznikami, dwuręcznymi

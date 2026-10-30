@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.28.1";
+const BUILD = "Build 0.29";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -166,7 +166,7 @@ function battleHud(dt: number) {
     $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
     const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
     const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
-    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.thrustMode && !h.mounted ? `Tryb: PCHNIĘCIE (R)${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}` : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir === "T" && !h.mounted ? h.nextSide : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
+    $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : (() => { const nx = seriesNext(b, h); return `${WCLASS_NAME[wclass(h.w)]} · ${b.thrustMode && !h.mounted && SERIES_THRUST[wclass(h.w)] ? "pchnięcia" : "cięcia"} (R) · seria ${nx.i + 1}/${nx.n}${h.state === "windup" && h.hold > 0.5 ? " · MOCNY CIOS" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}`; })()) + (h.active ? hint + ammoTxt : "");
     // zasoby: tylko te, których używają umiejętności
     const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
     $("res").innerHTML = (["faith", "mana", "fury"] as Res[]).filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round((H2 as any)[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp((H2 as any)[r], 0, 100)}%"></i></div>`).join("")
@@ -325,7 +325,8 @@ function frameInner(now: number) {
   if (G.state === "battle" && G.battle) {
     const b = G.battle;
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
-    const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : zoomIdx;   // arena jest mała
+    const camK = (settings as any).battleCam === "auto" && b.hero?.active ? (b.cmdOpen ? 1 : ((b.hero as any).surN || 0) >= 1 ? -1 : 0) : 0;
+    const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : clamp(zoomIdx + camK, 0, ZOOMS.length - 1);   // arena jest mała
     if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1]) setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);
     if (input.hit(KB("mini"))) miniWant = !miniWant;

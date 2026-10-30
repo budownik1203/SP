@@ -4672,7 +4672,7 @@ const KEYDEF = [
     ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
     ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
     ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-    ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+    ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Opuść kopię (konno)", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
     ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
@@ -6436,6 +6436,8 @@ class Battle {
     }
     // ---------- Obrót z ograniczoną prędkością ----------
     turnRate(u) {
+        if (u.hero)
+            return heroTurnRate(u);
         switch (u.state) {
             case "windup": return 3.2;
             case "strike": return 1.1;
@@ -6479,18 +6481,14 @@ class Battle {
             this.thrustMode = !this.thrustMode;
             this.say(this.thrustMode ? "Tryb: pchnięcie" : "Tryb: cięcie");
         }
-        const mode = this.atkMode();
-        if (mode === "screen") {
-            const gst = I.gesture(170);
-            if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5)
-                this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T");
-        }
-        else if (mode === "mouse" && !this.cmdOpen) {
-            // ruch myszy względem kierunku patrzenia: w bok = cięcie z tej strony, od siebie = z góry, do siebie = pchnięcie
-            const gst = I.gesture(170), fx = Math.cos(h.face), fy = Math.sin(h.face);
-            const along = gst.x * fx + gst.y * fy, side = -gst.x * fy + gst.y * fx;
-            if (Math.abs(along) + Math.abs(side) > 6)
-                this.loadDir = Math.abs(side) > Math.abs(along) * 0.8 ? (side > 0 ? "R" : "L") : along > 0 ? "O" : "T";
+        // bez kierunków: wskaźnik pokazuje następny cios serii
+        if (!h.mounted && h.loadout === 0)
+            this.loadDir = seriesNext(this, h).dir;
+        heroSurroundTick(this, h, dt);
+        {
+            const S = h.soft;
+            if (S && (h.state === "windup" || h.state === "strike") && S.active)
+                h.wantFace = Math.atan2(S.y - h.y, S.x - h.x);
         }
         let mx = 0, my = 0;
         if (I.held("KeyW"))
@@ -6574,7 +6572,7 @@ class Battle {
         if (h.staminaWait > 0)
             h.staminaWait -= dt;
         else if (!h.blocking)
-            h.stamina = Math.min(100, h.stamina + 20 * this.heroStamina * dt);
+            h.stamina = Math.min(100, h.stamina + (this.time - (h.lastAtkT ?? -9) > 1 ? 32 : 20) * this.heroStamina * dt); // szybciej, gdy nie atakujesz
         h.stamina = Math.max(0, h.stamina);
         if (this.heroCfg)
             this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
@@ -6593,47 +6591,39 @@ class Battle {
             this.heroBow(dt, wx, wy);
             return;
         }
+        const earlyWind = h.state === "windup" && h.t < h.w.windup * 0.33; // pierwsza połowa zamachu: można przerwać
         if (I.mPressed[2]) {
-            if (h.state === "windup") {
+            if (earlyWind) {
                 h.state = "idle";
                 h.t = 0;
-                h.cooldown = 0.15;
-                h.nextSide = h.dir === "L" ? "R" : "L";
-                this.say("Zwód");
+                h.cooldown = 0.08;
+                h.comboI = 0;
+                h.blockStart = this.time;
             }
-            else
+            else if (h.state !== "windup")
                 h.blockStart = this.time;
         }
         h.blocking = I.down[2] && (h.state === "idle" || h.state === "recover") && !h.couched;
         h.weaponBlock = h.blocking && !h.hasShield;
         if (h.blocking)
             h.staminaWait = Math.max(h.staminaWait, 0.3);
+        const H = h;
+        if (I.mPressed[0] && h.state !== "idle")
+            H.buf = this.time; // bufor: kliknięcie w trakcie ciosu ustawia następny
         if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
-            if (I.mPressed[0]) {
-                const km = this.atkMode() === "keys";
-                let d = km ? h.nextSide : this.loadDir;
-                if (!h.mounted) {
-                    if (this.thrustMode)
-                        d = "T";
-                    else if (d === "T")
-                        d = h.nextSide;
-                } // R: tryb pchnięcia albo cięcia
-                if (h.mounted && (km || d === "T" || d === "O"))
-                    d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
-                this.startWindup(h, d);
-                h.key2 = "mouse";
+            if (I.mPressed[0] || (H.buf && this.time - H.buf < 0.4)) {
+                H.buf = 0;
+                heroStartSeries(this, h, wx, wy);
             }
-            else if (I.hit(KB("over")) && !h.mounted) {
-                this.startWindup(h, "O");
-                h.key2 = KB("over");
-            }
-            else if (I.mPressed[1]) {
+            else if (I.mPressed[1] && !h.mounted) {
                 this.startWindup(h, "T");
                 h.key2 = "mouse1";
+                H.runSp = Math.hypot(h.vx, h.vy);
+                H.soft = softTarget(this, h, wx, wy);
             }
         }
         // odskok: Spacja, krótki zryw w kierunku ruchu (albo do tyłu), chwila nietykalności
-        if (I.hit(KB("dodge")) && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
+        if (I.hit(KB("dodge")) && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover" || earlyWind)) {
             let dx = mx, dy = my;
             if (!dx && !dy) {
                 dx = -Math.cos(h.face);
@@ -6919,7 +6909,7 @@ class Battle {
         const w = u.w;
         switch (u.state) {
             case "windup": {
-                const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
+                const minT = u.hero ? w.windup * 0.66 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
                 if (u.t >= minT && (!u.hero || u.released || u.hold > 1.6)) {
                     u.state = "strike";
                     u.t = 0;
@@ -6947,10 +6937,12 @@ class Battle {
                 }
                 break;
             case "recover":
-                if (u.t >= w.recover) {
+                if (u.t >= w.recover * (u.hero ? 0.72 : 1)) {
                     u.state = "idle";
                     u.t = 0;
-                    u.cooldown = u.hero ? 0.06 : rr(0.35, 1.1);
+                    u.cooldown = u.hero ? seriesCooldown(this, u) : rr(0.35, 1.1);
+                    if (u.hero)
+                        u.lastAtkT = this.time;
                 }
                 break;
             case "stagger":
@@ -7132,7 +7124,15 @@ class Battle {
             }
             return;
         }
-        if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover")) {
+        if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover") && a.hero && guardBreaks(this, d)) {
+            this.sfx.clang(s.v, s.pan);
+            this.sparks(hx, hy, 14, PAL.steelL);
+            this.floater(d.x, d.y - 32, "GARDA PĘKA", PAL.gold, true);
+            d.guard = null;
+            d.guardT = 0;
+            this.stagger(d, 0.5);
+        }
+        else if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover")) {
             this.sfx.clang(s.v, s.pan);
             this.sparks(hx, hy, 9, PAL.steelL);
             this.impact(hx, hy, PAL.white, 0.8);
@@ -7167,7 +7167,13 @@ class Battle {
                 return;
             }
         }
-        let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg;
+        let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg * backHitK(this, d, a);
+        if (a.hero && !a.mounted) {
+            const mk = momentumK(a);
+            dmg *= mk;
+            if (mk > 1.15)
+                this.floater(d.x, d.y - 40, "Z ROZPĘDU", PAL.gold, true);
+        }
         const charged = a.hero && a.hold > 0.5;
         if (a.hero) {
             dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 + this.P("counter") : 1);
@@ -7309,7 +7315,7 @@ class Battle {
             dmg *= this.cfg.dmgTaken; // trudność
         dmg = Math.round(dmg);
         d.hp -= dmg;
-        d.flash = 0.08;
+        d.flash = src?.hero ? 0.13 : 0.08;
         if (d.hero && d.hp <= 0 && this.P("cheat") && !this.cheatUsed) {
             this.cheatUsed = true;
             d.hp = 1;
@@ -9181,6 +9187,136 @@ class Battle {
         this.cam.x = clamp(this.cam.x, 0, Math.max(0, this.mw - W));
         this.cam.y = clamp(this.cam.y, 0, Math.max(0, this.mh - H));
     }
+}
+
+"use strict";
+// Walka bohaterem (Build 0.29): mniej ociężałości. Bez kierunków ciosu: LPM prowadzi płynną serię zależną od broni,
+// przytrzymanie LPM to mocniejszy cios, R przełącza pchnięcie i cięcie. Bufor ciosu, przerwanie zamachu, miękkie
+// przyciąganie do wroga przy kursorze, rozpęd biegu, garda wroga pęka od serii, kara za otoczenie.
+function wclass(w) {
+    if (w.name === "Kopia")
+        return "lance";
+    if (w.claws)
+        return "claws";
+    if (w.staff)
+        return "staff";
+    if (w.axe)
+        return "axe";
+    if (w.head)
+        return "blunt";
+    if (w.len <= 8)
+        return "dagger";
+    if (w.dmg.T >= w.dmg.L * 1.15 && w.len >= 13)
+        return "spear";
+    if (w.twoHanded)
+        return "two";
+    return "sword";
+}
+const WCLASS_NAME = { sword: "miecz", dagger: "nóż", axe: "topór", blunt: "obuch", spear: "włócznia", two: "dwuręczna", claws: "pazury", staff: "kostur", lance: "kopia" };
+// serie: cięcia (i pchnięcia w trybie R tam, gdzie broń kole)
+const SERIES_CUT = { sword: ["R", "L", "O"], dagger: ["R", "L", "R", "L"], axe: ["R", "O"], blunt: ["O", "R"], spear: ["T", "R", "T"], two: ["R", "L", "O"], claws: ["R", "L", "R"], staff: ["R", "L", "O"], lance: ["R", "L"] };
+const SERIES_THRUST = { sword: ["T", "T", "R"], dagger: ["T", "T", "T", "T"], spear: ["T", "T", "T"], two: ["T", "R", "T"] };
+function seriesOf(b, h) {
+    const c = wclass(h.w);
+    return (b.thrustMode && SERIES_THRUST[c]) || SERIES_CUT[c];
+}
+function hx(h) { return h; }
+// kierunek następnego ciosu w serii (seria wygasa po chwili bez ataku)
+function seriesNext(b, h) {
+    const s = seriesOf(b, h), H = hx(h);
+    if (b.time - (H.lastAtkT ?? -9) > 0.9 && h.state === "idle")
+        H.comboI = 0;
+    const i = (H.comboI || 0) % s.length;
+    return { dir: s[i], i, n: s.length };
+}
+// miękkie przyciąganie: wróg najbliżej kursora, jeśli jest w zasięgu zamachu
+function softTarget(b, h, wx, wy) {
+    let best = null, bd = 1e9;
+    const reach = h.w.reach + 26;
+    for (const u of b.units) {
+        if (!u.active || u.team === h.team || u.state === "down")
+            continue;
+        const dh = dist(h.x, h.y, u.x, u.y);
+        if (dh > reach + 14)
+            continue;
+        const dc = dist(wx, wy, u.x, u.y - 10);
+        if (dc > 46)
+            continue;
+        const sc = dc + dh * 0.35;
+        if (sc < bd) {
+            bd = sc;
+            best = u;
+        }
+    }
+    return best;
+}
+function heroStartSeries(b, h, wx, wy) {
+    const H = hx(h), nx = seriesNext(b, h);
+    let d = nx.dir;
+    if (h.mounted)
+        d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
+    H.soft = softTarget(b, h, wx, wy);
+    H.runSp = Math.hypot(h.vx, h.vy);
+    H.seriesI = nx.i;
+    H.seriesN = nx.n;
+    b.startWindup(h, d);
+    h.key2 = "mouse";
+    H.comboI = nx.i + 1;
+    H.lastAtkT = b.time;
+    if (nx.i === nx.n - 1) {
+        h.stamina -= 6 * (1 - masteryK(b, h) * 0.5);
+        h.staminaWait = 0.8;
+    } // koniec serii kosztuje więcej
+}
+// po ostatnim ciosie serii chwila oddechu (mistrzostwo ją skraca)
+function seriesCooldown(b, h) { const H = hx(h); return H.seriesI === (H.seriesN || 1) - 1 ? 0.42 * (1 - masteryK(b, h) * 0.5) : 0.04; }
+function masteryK(b, h) { return clamp(b.P("mastery_" + wclass(h.w)), 0, 1); }
+// obrót: bohater obraca się szybciej niż piechota, w trakcie zamachu też
+function heroTurnRate(u) {
+    switch (u.state) {
+        case "windup": return 5;
+        case "strike": return 2;
+        case "recover": return 4.2;
+        case "stagger": return 0.8;
+        case "kick": return 2.2;
+        default: return u.mounted ? 6 : 10;
+    }
+}
+// rozpęd: cios z biegu mocniejszy
+function momentumK(h) { const sp = hx(h).runSp || 0; return 1 + clamp((sp - 45) / 120, 0, 0.35); }
+// otoczony bohater
+function surroundCount(b, h) { let n = 0; for (const u of b.units)
+    if (u.active && u.team !== h.team && !u.fleeing && Math.abs(u.x - h.x) < 34 && Math.abs(u.y - h.y) < 30)
+        n++; return n; }
+function heroSurroundTick(b, h, dt) {
+    const H = hx(h);
+    H.surT = (H.surT || 0) - dt;
+    if (H.surT > 0)
+        return;
+    H.surT = 0.4;
+    H.surN = surroundCount(b, h);
+    if (H.surN >= 3 && b.time - (H.surSaid ?? -9) > 6) {
+        H.surSaid = b.time;
+        b.say("Otaczają cię! Ciosy w plecy bolą bardziej.", PAL.redL, true);
+    }
+}
+function backHitK(b, d, a) {
+    if (!d.hero || (hx(d).surN || 0) < 3)
+        return 1;
+    return Math.abs(angDiff(d.face, Math.atan2(a.y - d.y, a.x - d.x))) > 1.7 ? 1.3 : 1;
+}
+// garda wroga pęka od serii: dwa zablokowane ciosy bohatera z rzędu, trzeci przechodzi
+function guardBreaks(b, d) {
+    const D = hx(d);
+    if (b.time - (D.ghT ?? -9) > 1.8)
+        D.gh = 0;
+    D.gh = (D.gh || 0) + 1;
+    D.ghT = b.time;
+    if (D.gh >= 3) {
+        D.gh = 0;
+        return true;
+    }
+    return false;
 }
 
 "use strict";
@@ -17899,8 +18035,8 @@ function launchBattle(ctx, cfgExtra = {}) {
     b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
     b.fireMul = 1 + perk(P, "fireDmg");
     b.furyMul = 1 + perk(P, "fury");
-    b.heroSpeed = (1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.7, 1 - weightPenalty(P) * 0.012);
-    b.heroStamina *= Math.max(0.6, 1 - weightPenalty(P) * 0.015);
+    b.heroSpeed = (1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.78, 1 - weightPenalty(P) * 0.007);
+    b.heroStamina *= Math.max(0.7, 1 - weightPenalty(P) * 0.01);
     b.heroDmg *= 1 + perk(P, "meleeDmg");
     b.pk = { ...(P.perks || {}) };
     for (const id of Object.values(P.equip)) {
@@ -21585,7 +21721,7 @@ function showSettings(back) {
     if (SETT.tab === "map")
         body = chk("questMarkers", "Znaczniki celów zadań", "złota nazwa i znacznik nad celem") + chk("questArrows", "Strzałki do celów poza ekranem", "z odległością w polach") + sel("partyNames", "Nazwy oddziałów", [["hover", "po najechaniu"], ["lords", "lordowie zawsze"], ["all", "wszystkie"]]) + rng("mapText", "Wielkość napisów na mapie", 0.6, 1.6, 0.1) + chk("borders", "Granice frakcji (B)") + chk("typeText", "Tekst dialogów pisany litera po literze", "klik pomija") + chk("voices", "Mruknięcia postaci w rozmowach");
     if (SETT.tab === "battle")
-        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("atkMode", "Kierunek ciosu", [["mouse", "ruch myszy względem postaci"], ["screen", "ruch myszy na ekranie"], ["keys", "na zmianę L/P, V z góry, ŚPM pchnięcie"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
+        body = sel("battleSize", "Wielkość bitew (na stronę)", [[60, "60"], [100, "100"], [150, "150"]]) + chk("deploy", "Rozstawienie oddziałów przed bitwą") + sel("battleCam", "Kamera w walce", [["fixed", "stała (kółko myszy)"], ["auto", "bliżej w walce wręcz, dalej przy rozkazach"]]) + sel("horseMode", "Sterowanie koniem", [["dir", "WSAD = kierunek jazdy"], ["tank", "W/S tempo, A/D skręt"]]) + chk("damageNumbers", "Liczby obrażeń") + chk("dmgHeroOnly", "Liczby tylko dla ciosów bohatera") + chk("gore", "Odcinanie kończyn i głów") + chk("outline", "Obrys wrogów w tłumie") + chk("tells", "Ostrzeżenia o ciosach wroga (strzałki)") + chk("dirHint", "Znacznik kierunku twojego ciosu") + chk("killSlow", "Zwolnienie czasu przy zabójstwie") + sel("hpBars", "Paski zdrowia", [["near", "w pobliżu, gdy ranni"], ["all", "zawsze"], ["off", "wyłączone"]]) + chk("minimap", "Minimapa w rogu", "w trybie Q zawsze mapa taktyczna") + chk("fewLog", "Mniej komunikatów w dzienniku walki") + rng("shake", "Wstrząsy kamery", 0, 1.5, 0.1) + rng("blood", "Ilość krwi", 0, 2, 0.1);
     if (SETT.tab === "sound")
         body = chk("music", "Muzyka (M)") + rng("volume", "Głośność ogólna", 0, 1, 0.05) + rng("musicVol", "Muzyka", 0, 1, 0.05) + rng("fxVol", "Efekty (walka, otoczenie)", 0, 1, 0.05) + rng("voiceVol", "Głosy", 0, 1, 0.05) + rng("uiVol", "Interfejs (kliknięcia, strony)", 0, 1, 0.05) + `<p class="tip">Muzyka zmienia się z regionem, porą dnia i miejscem w osadzie. W bitwie narasta z walką i brzmi inaczej przeciw każdej rasie.</p>`;
     if (SETT.tab === "keys")
@@ -21609,7 +21745,7 @@ function showSettings(back) {
     <div class="opts">${body}</div>
     <div class="btns"><button class="alt" data-a="reset">Przywróć domyślne</button><button data-a="back">Gotowe</button></div></div>`, {
         tab: (v) => { SETT.tab = v; showSettings(back); },
-        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:autoCamp": (v) => apply("autoCamp", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
+        "b:damageNumbers": (v) => apply("damageNumbers", !!v), "b:autoCamp": (v) => apply("autoCamp", !!v), "b:minimap": (v) => apply("minimap", !!v), "b:fewLog": (v) => apply("fewLog", !!v), "b:dmgHeroOnly": (v) => apply("dmgHeroOnly", !!v), "b:gore": (v) => apply("gore", !!v), "b:outline": (v) => apply("outline", !!v), "s:atkMode": (v) => apply("atkMode", v), "s:battleCam": (v) => apply("battleCam", v), "b:typeText": (v) => apply("typeText", !!v), "b:voices": (v) => apply("voices", !!v), "b:borders": (v) => apply("borders", !!v), "b:deploy": (v) => apply("deploy", !!v), "s:horseMode": (v) => apply("horseMode", v), "b:gesture": (v) => apply("gesture", !!v), "b:music": (v) => apply("music", !!v), "b:tells": (v) => apply("tells", !!v), "b:dirHint": (v) => apply("dirHint", !!v),
         "b:killSlow": (v) => apply("killSlow", !!v), "b:questMarkers": (v) => apply("questMarkers", !!v), "b:questArrows": (v) => apply("questArrows", !!v), "b:toastsOn": (v) => apply("toastsOn", !!v), "b:pauseOnEvent": (v) => apply("pauseOnEvent", !!v),
         "s:autosaveDays": (v) => apply("autosaveDays", Number(v)), "s:palette": (v) => apply("palette", v), "s:partyNames": (v) => apply("partyNames", v), "s:battleSize": (v) => apply("battleSize", Number(v)), "s:hpBars": (v) => apply("hpBars", v), "s:uiScale": (v) => apply("uiScale", Number(v)),
         "r:shake": (v) => { apply("shake", Number(v)); const e = document.getElementById("rv-shake"); if (e)
@@ -24895,7 +25031,7 @@ function companionExtraActs(w, re) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.28.1";
+const BUILD = "Build 0.29";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -25146,7 +25282,7 @@ function battleHud(dt) {
         $("weapon").textContent = h.usingBow ? `Łuk · strzały: ${h.ammo}` : WEAPONS[h.weaponKey].name + (h.hasShield ? " i tarcza" : "");
         const hint = h.mounted && h.weaponKey === "lance" ? (h.couched ? " · Kopia opuszczona!" : " · R: opuść kopię w galopie") : !h.hasShield && !h.usingBow ? " · PPM: blok bronią" : "";
         const ammoTxt = h.usingBow && h.ammo < b.heroAmmoMax ? ` · zbieraj strzały z ziemi` : "";
-        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : b.thrustMode && !h.mounted ? `Tryb: PCHNIĘCIE (R)${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}` : b.atkMode() !== "keys" ? `Cios: ${DIR_NAME[h.state === "windup" ? h.dir : b.loadDir === "T" && !h.mounted ? h.nextSide : b.loadDir]}${h.state === "windup" && h.hold > 0.5 ? " · NAŁADOWANY" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}` : `Następne cięcie: ${DIR_NAME[h.nextSide]}`) + (h.active ? hint + ammoTxt : "");
+        $("dir").textContent = (!h.active ? "Ogłuszony" : h.usingBow ? "Przytrzymaj LPM, by naciągnąć" : (() => { const nx = seriesNext(b, h); return `${WCLASS_NAME[wclass(h.w)]} · ${b.thrustMode && !h.mounted && SERIES_THRUST[wclass(h.w)] ? "pchnięcia" : "cięcia"} (R) · seria ${nx.i + 1}/${nx.n}${h.state === "windup" && h.hold > 0.5 ? " · MOCNY CIOS" : ""}${h.counterT > 0 ? " · KONTRA!" : ""}`; })()) + (h.active ? hint + ammoTxt : "");
         // zasoby: tylko te, których używają umiejętności
         const used = new Set(H2.abilities.filter(Boolean).map((a) => ABILITIES[a].res));
         $("res").innerHTML = ["faith", "mana", "fury"].filter((r) => used.has(r)).map((r) => `<div class="lbl"><span>${RES_NAME[r]}</span><span>${Math.round(H2[r])}</span></div><div class="bar res-${r}"><i style="width:${clamp(H2[r], 0, 100)}%"></i></div>`).join("")
@@ -25391,7 +25527,8 @@ function frameInner(now) {
             else
                 showPauseMenu();
         }
-        const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : zoomIdx; // arena jest mała
+        const camK = settings.battleCam === "auto" && b.hero?.active ? (b.cmdOpen ? 1 : (b.hero.surN || 0) >= 1 ? -1 : 0) : 0;
+        const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : clamp(zoomIdx + camK, 0, ZOOMS.length - 1); // arena jest mała
         if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1])
             setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
         if (input.wheel)

@@ -18,7 +18,7 @@
     "src/units.ts",
     "src/audio.ts",
     "src/battleMap.ts",
-    "src/battle.ts",
+    "src/battle.ts", "src/herofeel.ts",
     "src/abilities.ts",
     "src/battleRender.ts",
     "src/world.ts",

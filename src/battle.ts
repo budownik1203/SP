@@ -18,14 +18,14 @@ const KEYDEF: [string, string, string, string][] = [
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
   ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-  ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+  ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Opuść kopię (konno)", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
   ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
 function KB(id: string): string { return (settings.keys && settings.keys[id]) || KEYDEF_MAP[id]; }
 function keyName(code: string) { return code.replace(/^Key/, "").replace(/^Digit/, "").replace("Space", "Spacja").replace("ShiftLeft", "Shift").replace("AltLeft", "Alt").replace("Escape", "Esc").replace("Numpad", "Num "); }
 interface Settings {
-  fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean;
+  fxVol?: number; voiceVol?: number; uiVol?: number; mapText?: number; density?: number; keys?: Record<string, string>; seenTips?: string[]; loadScreens?: boolean; battleCam?: "fixed" | "auto";
   damageNumbers: boolean; gesture: boolean; music: boolean; volume: number; battleSize: number;
   musicVol: number; shake: number; killSlow: boolean; blood: number; hpBars: "near" | "all" | "off"; tells: boolean; dirHint: boolean;
   questMarkers: boolean; questArrows: boolean; partyNames: "hover" | "lords" | "all"; autosaveDays: number; uiScale: number; toastsOn: boolean; pauseOnEvent: boolean; fewLog?: boolean; minimap?: boolean; deploy?: boolean; borders?: boolean; typeText?: boolean; voices?: boolean; crossStyle?: boolean; atkMode?: "mouse" | "keys" | "screen"; horseMode?: "dir" | "tank"; gore?: boolean; dmgHeroOnly?: boolean; outline?: boolean; palette?: "region" | "warm" | "cold"; autoCamp?: boolean;
@@ -1049,6 +1049,7 @@ class Battle {
 
   // ---------- Obrót z ograniczoną prędkością ----------
   turnRate(u: Unit) {
+    if (u.hero) return heroTurnRate(u);
     switch (u.state) { case "windup": return 3.2; case "strike": return 1.1; case "recover": return 2.4; case "stagger": return 0.6; case "kick": return 1.5; default: return u.mounted ? 6 : 7.5; }
   }
   turn(u: Unit, dt: number) { const d = angDiff(u.face, u.wantFace), r = this.turnRate(u) * dt; u.face += clamp(d, -r, r); }
@@ -1068,14 +1069,10 @@ class Battle {
     }
     // R: przełącznik pchnięcie / cięcie (pieszo; konno R trzymane opuszcza kopię)
     if (I.hit(KB("stance")) && !h.mounted && h.loadout === 0) { this.thrustMode = !this.thrustMode; this.say(this.thrustMode ? "Tryb: pchnięcie" : "Tryb: cięcie"); }
-    const mode = this.atkMode();
-    if (mode === "screen") { const gst = I.gesture(170); if (!this.cmdOpen && Math.abs(gst.x) + Math.abs(gst.y) > 5) this.loadDir = Math.abs(gst.x) > Math.abs(gst.y) ? (gst.x < 0 ? "L" : "R") : (gst.y < 0 ? "O" : "T"); }
-    else if (mode === "mouse" && !this.cmdOpen) {
-      // ruch myszy względem kierunku patrzenia: w bok = cięcie z tej strony, od siebie = z góry, do siebie = pchnięcie
-      const gst = I.gesture(170), fx = Math.cos(h.face), fy = Math.sin(h.face);
-      const along = gst.x * fx + gst.y * fy, side = -gst.x * fy + gst.y * fx;
-      if (Math.abs(along) + Math.abs(side) > 6) this.loadDir = Math.abs(side) > Math.abs(along) * 0.8 ? (side > 0 ? "R" : "L") : along > 0 ? "O" : "T";
-    }
+    // bez kierunków: wskaźnik pokazuje następny cios serii
+    if (!h.mounted && h.loadout === 0) this.loadDir = seriesNext(this, h).dir;
+    heroSurroundTick(this, h, dt);
+    { const S = (h as any).soft as Unit | undefined; if (S && (h.state === "windup" || h.state === "strike") && S.active) h.wantFace = Math.atan2(S.y - h.y, S.x - h.x); }
 
     let mx = 0, my = 0;
     if (I.held("KeyW")) my -= 1; if (I.held("KeyS")) my += 1;
@@ -1116,7 +1113,7 @@ class Battle {
       for (let i = this.groundArrows.length - 1; i >= 0; i--) { const g2 = this.groundArrows[i]; if (Math.abs(g2.x - h.x) < 9 && Math.abs(g2.y - h.y) < 9) { this.groundArrows.splice(i, 1); h.ammo++; this.floater(h.x, h.y - 30, "+1 STRZAŁA", PAL.bone, true); break; } }
     }
     if (h.staminaWait > 0) h.staminaWait -= dt;
-    else if (!h.blocking) h.stamina = Math.min(100, h.stamina + 20 * this.heroStamina * dt);
+    else if (!h.blocking) h.stamina = Math.min(100, h.stamina + (this.time - ((h as any).lastAtkT ?? -9) > 1 ? 32 : 20) * this.heroStamina * dt);   // szybciej, gdy nie atakujesz
     h.stamina = Math.max(0, h.stamina);
     if (this.heroCfg) this.heroCfg.mana = Math.min(100, this.heroCfg.mana + dt * 1.5);
 
@@ -1127,25 +1124,22 @@ class Battle {
     if (I.hit(KB("band"))) useBandage(this);
     if (h.usingBow) { this.heroBow(dt, wx, wy); return; }
 
+    const earlyWind = h.state === "windup" && h.t < h.w.windup * 0.33;   // pierwsza połowa zamachu: można przerwać
     if (I.mPressed[2]) {
-      if (h.state === "windup") { h.state = "idle"; h.t = 0; h.cooldown = 0.15; h.nextSide = h.dir === "L" ? "R" : "L"; this.say("Zwód"); }
-      else h.blockStart = this.time;
+      if (earlyWind) { h.state = "idle"; h.t = 0; h.cooldown = 0.08; (h as any).comboI = 0; h.blockStart = this.time; }
+      else if (h.state !== "windup") h.blockStart = this.time;
     }
     h.blocking = I.down[2] && (h.state === "idle" || h.state === "recover") && !h.couched;
     h.weaponBlock = h.blocking && !h.hasShield;
     if (h.blocking) h.staminaWait = Math.max(h.staminaWait, 0.3);
+    const H = h as any;
+    if (I.mPressed[0] && h.state !== "idle") H.buf = this.time;   // bufor: kliknięcie w trakcie ciosu ustawia następny
     if (h.state === "idle" && !h.blocking && h.cooldown <= 0) {
-      if (I.mPressed[0]) {
-        const km = this.atkMode() === "keys";
-        let d: Dir = km ? h.nextSide : this.loadDir;
-        if (!h.mounted) { if (this.thrustMode) d = "T"; else if (d === "T") d = h.nextSide; }   // R: tryb pchnięcia albo cięcia
-        if (h.mounted && (km || d === "T" || d === "O")) d = angDiff(h.heading, h.wantFace) < 0 ? "L" : "R";
-        this.startWindup(h, d); h.key2 = "mouse";
-      } else if (I.hit(KB("over")) && !h.mounted) { this.startWindup(h, "O"); h.key2 = KB("over"); }
-      else if (I.mPressed[1]) { this.startWindup(h, "T"); h.key2 = "mouse1"; }
+      if (I.mPressed[0] || (H.buf && this.time - H.buf < 0.4)) { H.buf = 0; heroStartSeries(this, h, wx, wy); }
+      else if (I.mPressed[1] && !h.mounted) { this.startWindup(h, "T"); h.key2 = "mouse1"; H.runSp = Math.hypot(h.vx, h.vy); H.soft = softTarget(this, h, wx, wy); }
     }
     // odskok: Spacja, krótki zryw w kierunku ruchu (albo do tyłu), chwila nietykalności
-    if (I.hit(KB("dodge")) && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover")) {
+    if (I.hit(KB("dodge")) && !h.mounted && h.dodgeCd <= 0 && h.stamina >= 14 && (h.state === "idle" || h.state === "recover" || earlyWind)) {
       let dx = mx, dy = my; if (!dx && !dy) { dx = -Math.cos(h.face); dy = -Math.sin(h.face); }
       const dl = Math.hypot(dx, dy) || 1; h.dodgeVx = dx / dl * 95; h.dodgeVy = dy / dl * 95;
       h.dodgeT = this.P("dodgeLong") ? 0.34 : 0.24; h.dodgeCd = 0.55; h.stamina -= 18 * (1 - Math.min(0.8, this.P("dodgeCost"))); h.staminaWait = 0.6; (h as any).dodgeBuff = this.time + 1.5; h.state = "idle"; h.t = 0; h.blocking = false;
@@ -1291,7 +1285,7 @@ class Battle {
     const w = u.w;
     switch (u.state) {
       case "windup": {
-        const minT = u.hero ? w.windup * 0.8 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
+        const minT = u.hero ? w.windup * 0.66 * (u.dir === "O" ? 1.15 : 1) * (u.stamina < 10 ? 1.45 : 1) * (u.countering ? 0.45 : 1) * (1 - this.P("swing")) : this.windupTime(u);
         if (u.t >= minT && (!u.hero || u.released || u.hold > 1.6)) {
           u.state = "strike"; u.t = 0; u.hitDone = false;
           const s = this.vol(u.x);
@@ -1305,7 +1299,7 @@ class Battle {
         if (!u.hitDone && u.t >= w.strike * 0.5) { u.hitDone = true; this.meleeHit(u); }
         if (u.t >= w.strike) { u.state = "recover"; u.t = 0; }
         break;
-      case "recover": if (u.t >= w.recover) { u.state = "idle"; u.t = 0; u.cooldown = u.hero ? 0.06 : rr(0.35, 1.1); } break;
+      case "recover": if (u.t >= w.recover * (u.hero ? 0.72 : 1)) { u.state = "idle"; u.t = 0; u.cooldown = u.hero ? seriesCooldown(this, u) : rr(0.35, 1.1); if (u.hero) (u as any).lastAtkT = this.time; } break;
       case "stagger": if (u.t >= u.hold) { u.state = "idle"; u.t = 0; u.hold = 0; } break;
       case "kick": if (!u.hitDone && u.t >= 0.12) { u.hitDone = true; this.kickHit(u); } if (u.t >= 0.32) { u.state = "idle"; u.t = 0; } break;
     }
@@ -1411,7 +1405,9 @@ class Battle {
       if (d.stamina <= 0) { d.stamina = 0; this.stagger(d, 0.8); this.shout("Garda przełamana!", PAL.redL); }
       return;
     }
-    if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover")) {
+    if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover") && a.hero && guardBreaks(this, d)) {
+      this.sfx.clang(s.v, s.pan); this.sparks(hx, hy, 14, PAL.steelL); this.floater(d.x, d.y - 32, "GARDA PĘKA", PAL.gold, true); d.guard = null; d.guardT = 0; this.stagger(d, 0.5);
+    } else if (!d.hero && d.guard === dir && angFromD < 1.6 && (d.state === "idle" || d.state === "recover")) {
       this.sfx.clang(s.v, s.pan);
       this.sparks(hx, hy, 9, PAL.steelL); this.impact(hx, hy, PAL.white, 0.8);
       if (a.hero) { this.stagger(a, 0.4); this.hitstop = Math.max(this.hitstop, 0.08); this.kickCam(-Math.cos(ha), -Math.sin(ha), 0.9); this.floater(d.x, d.y - 32, "BLOK", PAL.steelL, true); this.push(a, d.x, d.y, 35); }
@@ -1429,7 +1425,8 @@ class Battle {
         return;
       }
     }
-    let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg;
+    let dmg = w.dmg[dir] * d.arm[w.type[dir]] * rr(0.9, 1.1) * a.buffDmg * backHitK(this, d, a);
+    if (a.hero && !a.mounted) { const mk = momentumK(a); dmg *= mk; if (mk > 1.15) this.floater(d.x, d.y - 40, "Z ROZPĘDU", PAL.gold, true); }
     const charged = a.hero && a.hold > 0.5;
     if (a.hero) {
       dmg *= lerp(0.85, 1.5, clamp(a.hold / 0.9, 0, 1)) * this.heroDmg * (a.countering ? 1.35 + this.P("counter") : 1);
@@ -1512,7 +1509,7 @@ class Battle {
     }
     if (d.team === 0 && this.cfg.dmgTaken) dmg *= this.cfg.dmgTaken;      // trudność
     dmg = Math.round(dmg);
-    d.hp -= dmg; d.flash = 0.08;
+    d.hp -= dmg; d.flash = src?.hero ? 0.13 : 0.08;
     if (d.hero && d.hp <= 0 && this.P("cheat") && !this.cheatUsed) { this.cheatUsed = true; d.hp = 1; this.shout("Jeszcze nie!", PAL.gold); this.say("Ostatkiem sił stajesz na nogi.", PAL.gold, true); this.slowT = 0.8; }
     if (d.hidden) this.reveal(d);
     const s = this.vol(d.x);

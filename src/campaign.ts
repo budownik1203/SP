@@ -349,8 +349,8 @@ function launchBattle(ctx: BattleCtx, cfgExtra: Partial<BattleConfig> = {}) {
   b.corruptMul = Math.max(0.2, 1 - perk(P, "corruptRes"));
   b.fireMul = 1 + perk(P, "fireDmg");
   b.furyMul = 1 + perk(P, "fury");
-  b.heroSpeed = (1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.7, 1 - weightPenalty(P) * 0.012);
-  b.heroStamina *= Math.max(0.6, 1 - weightPenalty(P) * 0.015);
+  b.heroSpeed = (1 + (P.attr.agi - 4) * 0.015 + perk(P, "bspeed")) * Math.max(0.78, 1 - weightPenalty(P) * 0.007);
+  b.heroStamina *= Math.max(0.7, 1 - weightPenalty(P) * 0.01);
   b.heroDmg *= 1 + perk(P, "meleeDmg");
   b.pk = { ...(P.perks || {}) };
   for (const id of Object.values(P.equip)) { const fx = id && ITEMS[id] && (ITEMS[id] as any).fx; if (fx) for (const k in fx) b.pk[k] = (b.pk[k] || 0) + fx[k]; }
