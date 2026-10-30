@@ -59,7 +59,11 @@ czego używa.
 **Procedura wydania** (stosowana przy każdym buildzie):
 1. Podbij `BUILD` w `src/main.ts`, potem `python3 build.py`.
 2. Testy regresji (punkt 6).
-3. `git commit` z liniami
+3. **Repozytorium GitHub: `budownik1203/sp`** (remote `origin`, gałąź `main`). Po każdym buildzie
+   `git push origin main`. Kod roboczy leży w `/home/claude/sztandary` (`/home/claude/sp` to dowiązanie
+   do tego samego katalogu). Push tagów jest blokowany przez proxy sesji (HTTP 403): tagi `build-0.N`
+   zostają lokalne, numer buildu musi być w treści commita.
+   `git commit` z liniami
    `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` i
    `Claude-Session: https://claude.ai/code/session_01SkBcADfQirZfDgcVRHeGiG`
    (albo atrybucja z aktualnej sesji), potem `git tag build-0.N`.
@@ -242,4 +246,6 @@ Potem reszta backlogu:
 - **Ankiety z odpowiedziami:** „Dalszy rozwój” (https://claude.ai/artifact/Vv482bPRFmHitQ24d7eXQF)
   i „Mechaniki i treść” (https://claude.ai/artifact/NQSzHiT8jpKtJehWsvGErJ). Odpowiedzi są streszczone
   w GDD i w punkcie 8.
-- **Wydane buildy:** `/home/claude/buildy/Sztandary Popiołu B<N>.html`; tagi git `build-0.N`.
+- **Repozytorium:** https://github.com/budownik1203/sp (gałąź `main`, w niej też `dist/sztandary.html`
+  każdego buildu).
+- **Wydane buildy:** `/home/claude/buildy/Sztandary Popiołu B<N>.html`; lokalne tagi git `build-0.N`.
