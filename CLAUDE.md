@@ -1,7 +1,7 @@
 # Sztandary Popiołu: przekazanie projektu dla następnego AI
 
 Ten plik jest dla modelu, który przejmie pracę nad grą. Przeczytaj go w całości przed pierwszą zmianą.
-Stan na **Build 0.28** (30 października 2026).
+Stan na **Build 0.28.1** (30 października 2026).
 
 ## 1. Czym jest gra
 
@@ -117,7 +117,7 @@ renown, retinue, main.
 - **Pancerz:** mnożnik obrażeń, niższy = lepsza ochrona. Od B27 przepuszczany przez `armTune`
   (cięcie `^1.3`, obuch słabiej).
 - **Klawisze** są tylko w `KEYDEF` (`battle.ts`), odczyt przez `KB("id")`. Gracz może je przemapować
-  (`settings.keys`). W bitwie: Spacja = pauza taktyczna, Alt = odskok, Y = widok z góry, R = pchnięcie
+  (`settings.keys`). W bitwie: Spacja = odskok, P = pauza taktyczna, Esc = menu, Y = widok z góry, R = pchnięcie
   albo cięcie, Q = rozkazy, Z/X/C/V/B = szybkie rozkazy, T/G = trebusz/okrzyk (w rozstawieniu obrony:
   pale/rów). Na mapie: U = Królestwo, C I P F K J L = okna, Spacja = obóz.
 - **Teksty:** po polsku, krótko, w klimacie, bez myślników (używaj dwukropka, kropki, „·”). Zdania jak od

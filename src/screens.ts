@@ -112,7 +112,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Alt: odskok, Spacja: pauza taktyczna, Y: widok z góry, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, P: pauza taktyczna, Esc: menu, Y: widok z góry, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
     new: () => showCreator(),
     cont: () => loadSave(SAVE_AUTO),

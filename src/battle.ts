@@ -18,7 +18,7 @@ const KEYDEF: [string, string, string, string][] = [
   ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
   ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
   ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-  ["dodge", "AltLeft", "Odskok", "Bitwa"], ["tpause", "Space", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+  ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
   ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP: Record<string, string> = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
@@ -2290,7 +2290,7 @@ class Battle {
     }
     if (this.phase !== "fight" || this.paused) return;
     if (this.input.hit(KB("tview"))) { this.tacView = !this.tacView; this.say(this.tacView ? "Widok taktyczny" : "Widok zwykły", PAL.ash); }
-    if (this.input.hit(KB("tpause")) && !this.cfg.arena && this.heroUp) { this.tacPause = !this.tacPause; if (this.tacPause) { this.toggleCmd(true); this.say("PAUZA TAKTYCZNA: wydawaj rozkazy, Spacja wznawia.", PAL.gold, true); } else this.toggleCmd(false); }
+    if (this.input.hit(KB("tpause")) && !this.cfg.arena && this.heroUp) { this.tacPause = !this.tacPause; if (this.tacPause) { this.toggleCmd(true); this.say("PAUZA TAKTYCZNA: wydawaj rozkazy, P wznawia.", PAL.gold, true); } else this.toggleCmd(false); }
     if (this.tacPause) {
       if (!this.cmdOpen || !this.heroUp) { this.tacPause = false; this.say("Wznowiono.", PAL.ash); }
       this.handleOrders();

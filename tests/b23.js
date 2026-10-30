@@ -23,12 +23,12 @@ const { chromium } = require('playwright');
   console.log('traps', await p.evaluate(() => { const b = window.__battle(); if (b.phase !== 'deploy') return 'nodeploy'; for (let i = 0; i < 3; i++) window.__T3.placeTrap(b, 'stakes', b.mw * 0.35, b.mh / 2 - 100 + i * 80); window.__T3.placeTrap(b, 'ditch', b.mw * 0.3, b.mh / 2); return b.traps.length; }));
   await p.keyboard.press('Enter'); await p.waitForTimeout(200);
   // pauza taktyczna
-  await p.keyboard.press('Space'); await p.waitForTimeout(300);
+  await p.keyboard.press('KeyP'); await p.waitForTimeout(300);
   const t1 = await p.evaluate(() => window.__battle().time); await p.waitForTimeout(600); const t2 = await p.evaluate(() => window.__battle().time);
   console.log('pause', await p.evaluate(() => window.__battle().tacPause), t1 === t2);
   await p.keyboard.press('KeyY'); await p.waitForTimeout(400);
   await p.screenshot({ path: '/tmp/claude-0/t/b23_pause.png' });
-  await p.keyboard.press('Space'); await p.keyboard.press('KeyY'); await p.waitForTimeout(300);
+  await p.keyboard.press('KeyP'); await p.keyboard.press('KeyY'); await p.waitForTimeout(300);
   // zsiadanie + ogień
   console.log('dismount', await p.evaluate(() => { const b = window.__battle(); const sq = b.units.find(u => u.team === 0 && u.mounted && !u.hero).squad; window.__T3.orderDismount(b, [sq]); const a = b.squadUnits(sq).filter(u => u.mounted).length; window.__T3.orderDismount(b, [sq]); return a + '/' + b.squadUnits(sq).filter(u => u.mounted).length; }));
   await p.evaluate(() => { const b = window.__battle(); b.cfg.rain = false; window.__T3.igniteAt(b, b.mw / 2, b.mh / 2, 2); for (let i = 0; i < 200; i++) b.update(0.05); });

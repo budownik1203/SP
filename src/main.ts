@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.28";
+const BUILD = "Build 0.28.1";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -25,7 +25,7 @@ try {
   if (s) { Object.assign(settings, s); if (!s.ver || s.ver < 9) { settings.tells = false; settings.atkMode = s.gesture ? "screen" : "mouse"; settings.dmgHeroOnly = true; } }
   if (s && (!s.ver || s.ver < 10) && settings.uiScale === 1) settings.uiScale = 1.15;   // B14: większa czcionka domyślnie
   if (!s) settings.uiScale = 1.15;
-  if (settings.keys && settings.keys.dodge === "Space") delete settings.keys.dodge;   // B23: Spacja to pauza taktyczna
+  if (settings.keys) { if (settings.keys.dodge === "Space" || settings.keys.dodge === "AltLeft") delete settings.keys.dodge; if (settings.keys.tpause === "Space") delete settings.keys.tpause; }   // B28.1: odskok znów na Spacji, pauza taktyczna na P
   (settings as any).ver = 10;
 } catch (e) { /* bez zapisu ustawień */ }
 function saveSettings() { try { localStorage.setItem("sztandary-settings", JSON.stringify(settings)); } catch (e) { /* ignoruj */ } }
@@ -204,7 +204,7 @@ function battleHud(dt: number) {
   if (b.banner) { $("banner").textContent = b.banner.text; $("banner").style.color = b.banner.col; $("banner").hidden = false; $("banner").style.opacity = String(clamp(b.banner.t * 2, 0, 1)); }
   else $("banner").hidden = true;
   $("slow").hidden = !b.cmdOpen;
-  $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.tacPause ? "PAUZA TAKTYCZNA: czas stoi · Spacja wznawia" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+  $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.tacPause ? "PAUZA TAKTYCZNA: czas stoi · P wznawia" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
   $("startfight").hidden = b.phase !== "deploy";
   if (b.focusT > 0) { $("slow").hidden = false; $("slow").textContent = "Skupienie"; }
 }
@@ -325,7 +325,6 @@ function frameInner(now: number) {
   if (G.state === "battle" && G.battle) {
     const b = G.battle;
     if (input.hit("Escape")) { if (b.cmdOpen) b.toggleCmd(false); else if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
-    if (input.hit("KeyP") && !b.cmdOpen) { if (screenOpen()) { closeScreen(); b.paused = false; } else showPauseMenu(); }
     const zi = b.map.w <= 640 ? Math.min(zoomIdx, 2) : b.tacView ? ZOOMS.length - 1 : zoomIdx;   // arena jest mała
     if (W !== ZOOMS[zi][0] || H !== ZOOMS[zi][1]) setRes(ZOOMS[zi][0], ZOOMS[zi][1]);
     if (input.wheel) setZoom(zoomIdx + input.wheel);

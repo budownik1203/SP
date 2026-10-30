@@ -4672,7 +4672,7 @@ const KEYDEF = [
     ["chron", "KeyK", "Kronika", "Mapa"], ["quest", "KeyJ", "Zadania", "Mapa"], ["log", "KeyL", "Dziennik powiadomień", "Mapa"], ["camp", "Space", "Postój / obóz", "Mapa"],
     ["home", "KeyH", "Widok na armię", "Mapa"], ["overview", "Tab", "Widok całej mapy", "Mapa"], ["borders", "KeyB", "Granice frakcji", "Mapa"], ["help", "F1", "Lista skrótów", "Mapa"], ["kingdom", "KeyU", "Królestwo: ziemie, budowy, dwór", "Mapa"],
     ["mini", "KeyN", "Minimapa", "Mapa i bitwa"], ["music", "KeyM", "Muzyka wł./wył.", "Mapa i bitwa"],
-    ["dodge", "AltLeft", "Odskok", "Bitwa"], ["tpause", "Space", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
+    ["dodge", "Space", "Odskok", "Bitwa"], ["tpause", "KeyP", "Pauza taktyczna", "Bitwa"], ["tview", "KeyY", "Widok taktyczny z góry", "Bitwa"], ["kick", "KeyF", "Kopniak", "Bitwa"], ["stance", "KeyR", "Pchnięcie / cięcie (konno: kopia)", "Bitwa"], ["over", "KeyV", "Cios z góry", "Bitwa"], ["swap", "Tab", "Zmiana broni / łuk", "Bitwa"],
     ["mount", "KeyE", "Zsiądź / dosiądź", "Bitwa"], ["cmd", "KeyQ", "Rozkazy", "Bitwa"], ["cry", "KeyG", "Okrzyk bojowy", "Bitwa"], ["band", "Digit4", "Opatrunek", "Bitwa"], ["treb", "KeyT", "Celowanie trebuszem", "Bitwa"],
 ];
 const KEYDEF_MAP = Object.fromEntries(KEYDEF.map((k) => [k[0], k[1]]));
@@ -8753,7 +8753,7 @@ class Battle {
             this.tacPause = !this.tacPause;
             if (this.tacPause) {
                 this.toggleCmd(true);
-                this.say("PAUZA TAKTYCZNA: wydawaj rozkazy, Spacja wznawia.", PAL.gold, true);
+                this.say("PAUZA TAKTYCZNA: wydawaj rozkazy, P wznawia.", PAL.gold, true);
             }
             else
                 this.toggleCmd(false);
@@ -18810,7 +18810,7 @@ function showTitle() {
       <button class="alt" data-a="quick">Szybka bitwa</button>
       <button class="alt" data-a="opts">Ustawienia</button>
     </div>
-    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Alt: odskok, Spacja: pauza taktyczna, Y: widok z góry, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
+    <p class="tip">Na mapie: LPM: idź lub wejdź · PPM: przesuń widok · Spacja: postój i obóz · C I P F K J: okna · H: wróć do armii · Esc: menu.<br>W bitwie: WASD, Shift: sprint, LPM: cios (kierunek z ruchu myszy, przytrzymaj = mocniej), PPM: blok (w ostatniej chwili = kontra), Spacja: odskok, P: pauza taktyczna, Esc: menu, Y: widok z góry, F: kopniak, R: przełącz pchnięcie / cięcie (konno: kopia), V: cios z góry, ŚPM: pchnięcie, Tab: łuk ↔ broń, E: zsiądź / dosiądź, 1–3: umiejętności, 4: opatrunek, Q: rozkazy.</p>
   </div>`, {
         new: () => showCreator(),
         cont: () => loadSave(SAVE_AUTO),
@@ -24895,7 +24895,7 @@ function companionExtraActs(w, re) {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.28";
+const BUILD = "Build 0.28.1";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
@@ -24927,8 +24927,12 @@ try {
         settings.uiScale = 1.15; // B14: większa czcionka domyślnie
     if (!s)
         settings.uiScale = 1.15;
-    if (settings.keys && settings.keys.dodge === "Space")
-        delete settings.keys.dodge; // B23: Spacja to pauza taktyczna
+    if (settings.keys) {
+        if (settings.keys.dodge === "Space" || settings.keys.dodge === "AltLeft")
+            delete settings.keys.dodge;
+        if (settings.keys.tpause === "Space")
+            delete settings.keys.tpause;
+    } // B28.1: odskok znów na Spacji, pauza taktyczna na P
     settings.ver = 10;
 }
 catch (e) { /* bez zapisu ustawień */ }
@@ -25188,7 +25192,7 @@ function battleHud(dt) {
     else
         $("banner").hidden = true;
     $("slow").hidden = !b.cmdOpen;
-    $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.tacPause ? "PAUZA TAKTYCZNA: czas stoi · Spacja wznawia" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
+    $("slow").textContent = b.phase === "deploy" ? "Rozstawienie: czas stoi" : b.tacPause ? "PAUZA TAKTYCZNA: czas stoi · P wznawia" : b.cmdOpen ? "Tryb rozkazów: czas zwolniony" : "";
     $("startfight").hidden = b.phase !== "deploy";
     if (b.focusT > 0) {
         $("slow").hidden = false;
@@ -25381,14 +25385,6 @@ function frameInner(now) {
             if (b.cmdOpen)
                 b.toggleCmd(false);
             else if (screenOpen()) {
-                closeScreen();
-                b.paused = false;
-            }
-            else
-                showPauseMenu();
-        }
-        if (input.hit("KeyP") && !b.cmdOpen) {
-            if (screenOpen()) {
                 closeScreen();
                 b.paused = false;
             }
