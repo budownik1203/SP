@@ -5,6 +5,7 @@ let WBORDER: HTMLCanvasElement = null as any;
 let WBORDER_VER = -1;
 let WFOG: HTMLCanvasElement = null as any;
 let WSNOW: HTMLCanvasElement = null as any;
+let WRM: Uint8Array = new Uint8Array(0);
 let WOLD: HTMLCanvasElement | null = null;
 let QM: ReturnType<typeof questMarks> = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map<string, HTMLCanvasElement>();
@@ -244,7 +245,12 @@ function renderWorldMap(w: World) {
   }
   WMAP = cv;
   WFOG = mkCanvas(WGW, WGH)[0];
-  // warstwa śniegu na zimę: gęściej na północy i w górach, błoto przy drogach zostaje ciemne
+  WRM = RM; WSNOW = null as any;
+}
+// Warstwa śniegu na zimę (tworzona dopiero, gdy przyjdzie zima): gęściej na północy i w górach, błoto przy drogach zostaje ciemne.
+function buildSnow(w: World) {
+  const PW = WGW * WCELL, PH = WGH * WCELL, RM = WRM;
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const [sc, sg] = mkCanvas(PW, PH);
   const sim = sg.createImageData(PW, PH);
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
@@ -626,7 +632,7 @@ function renderWorld(w: World, v: WorldView, g: CanvasRenderingContext2D) {
   v.cam.x = sx; v.cam.y = sy;
   g.fillStyle = PAL.black; g.fillRect(0, 0, W, H);
   g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
-  if (season(w) === 3 && WSNOW) g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H);
+  if (season(w) === 3) { if (!WSNOW) buildSnow(w); g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H); }
   if (settings.borders !== false) g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
   drawScars(w, g, sx, sy, v.time);
   const vis = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;

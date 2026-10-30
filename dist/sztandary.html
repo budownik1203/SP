@@ -13896,6 +13896,7 @@ let WBORDER = null;
 let WBORDER_VER = -1;
 let WFOG = null;
 let WSNOW = null;
+let WRM = new Uint8Array(0);
 let WOLD = null;
 let QM = { set: new Map(), party: new Map(), place: new Map() };
 const SICON = new Map();
@@ -14309,7 +14310,13 @@ function renderWorldMap(w) {
         }
     WMAP = cv;
     WFOG = mkCanvas(WGW, WGH)[0];
-    // warstwa śniegu na zimę: gęściej na północy i w górach, błoto przy drogach zostaje ciemne
+    WRM = RM;
+    WSNOW = null;
+}
+// Warstwa śniegu na zimę (tworzona dopiero, gdy przyjdzie zima): gęściej na północy i w górach, błoto przy drogach zostaje ciemne.
+function buildSnow(w) {
+    const PW = WGW * WCELL, PH = WGH * WCELL, RM = WRM;
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
     const [sc, sg] = mkCanvas(PW, PH);
     const sim = sg.createImageData(PW, PH);
     for (let y = 0; y < PH; y++)
@@ -15084,8 +15091,11 @@ function renderWorld(w, v, g) {
     g.fillStyle = PAL.black;
     g.fillRect(0, 0, W, H);
     g.drawImage(WMAP, sx, sy, W, H, 0, 0, W, H);
-    if (season(w) === 3 && WSNOW)
+    if (season(w) === 3) {
+        if (!WSNOW)
+            buildSnow(w);
         g.drawImage(WSNOW, sx, sy, W, H, 0, 0, W, H);
+    }
     if (settings.borders !== false)
         g.drawImage(WBORDER, sx, sy, W, H, 0, 0, W, H);
     drawScars(w, g, sx, sy, v.time);
@@ -21228,7 +21238,7 @@ function armyFormation() {
 
 "use strict";
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
-const BUILD = "Build 0.17";
+const BUILD = "Build 0.17.1";
 const canvas = document.getElementById("game");
 canvas.width = W;
 canvas.height = H;
