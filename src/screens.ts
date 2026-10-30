@@ -899,41 +899,83 @@ function raidVillage(s: Settlement) {
 }
 
 // ---------- Zadania ----------
+// Zwykłe zlecenia są lokalne: cel w okolicy zleceniodawcy i na ziemiach jego frakcji. Nikt nie płaci za porządek na cudzych ziemiach.
+function questRadius(s: Settlement) { return (s.kind === "village" ? 24 : s.kind === "castle" ? 30 : 34) * WCELL; }
+function onLands(w: World, x: number, y: number, f: number) { const st = w.settlements[w.nearest[cellOf(x, y)]]; return !!st && st.faction === f; }
+function localSpot(w: World, s: Settlement, rmin: number, rmax: number): { x: number; y: number } | null {
+  for (let k = 0; k < 60; k++) {
+    const a = rr(0, Math.PI * 2), r = rr(rmin, rmax);
+    const x = s.cx * WCELL + 4 + Math.cos(a) * r, y = s.cy * WCELL + 4 + Math.sin(a) * r * 0.8;
+    if (x < 16 || y < 16 || x > WGW * WCELL - 16 || y > WGH * WCELL - 16) continue;
+    const c = cellOf(x, y);
+    if (!passableCell(w, c) || w.terr[c] === T_RIVER || !onLands(w, x, y, s.faction)) continue;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+  return null;
+}
+function localBand(w: World, s: Settlement, kind: "bandit" | "monster") {
+  const R = questRadius(s), sx = s.cx * WCELL + 4, sy = s.cy * WCELL + 4;
+  return w.parties.filter((p) => p.kind === kind && p.quest === undefined && dist(p.x, p.y, sx, sy) < R && onLands(w, p.x, p.y, s.faction)).sort((a, c) => dist(a.x, a.y, sx, sy) - dist(c.x, c.y, sx, sy))[0] || null;
+}
+function spawnLocalBeasts(w: World, s: Settlement, n: number): Party | null {
+  const at = localSpot(w, s, 40, questRadius(s) * 0.8); if (!at) return null;
+  const p = newParty(w, "monster", pick(["Wataha wilków", "Wargi z kniei", "Głodne wilki"]), 7, at.x, at.y);
+  addTroops(p.troops, "x_wolf", n); p.home = undefined; p.wait = 30;
+  return p;
+}
 function offerQuest(s: Settlement): Quest | null {
   const w = WORLD, P = w.player;
   if (P.quests.some((q) => !q.done && q.giver === s.id)) return null;
   if ((s as any).questCd > w.day) return null;   // po wykonanym zadaniu chwila przerwy
   const h = hashInt(s.seed + w.day);
-  const kinds: Quest["kind"][] = s.kind === "village" ? ["grain", "wolves", "bandits", "defend", "cattle", "militia"] : ["bandits", "letter", "bandits", "cattle"];
-  let kind = kinds[h % kinds.length];
+  const kinds: Quest["kind"][] = s.kind === "village" ? ["grain", "wolves", "bandits", "defend", "cattle", "militia", "lair"] as any : ["bandits", "letter", "bandits", "cattle", "lair"] as any;
+  let kind = kinds[h % kinds.length] as string;
   if (kind === "grain" && s.stock.grain >= 10) kind = "wolves";   // o zboże proszą tylko, gdy naprawdę go brakuje
   const id = w.questId++;
+  const sx = s.cx * WCELL + 4, sy = s.cy * WCELL + 4, R = questRadius(s);
+  if (kind === "lair") {
+    // leże bestii, obóz zbójów albo przeklęty cmentarz, ale tylko w okolicy
+    const pl = w.places.filter((p) => (p.kind === "lair" || p.kind === "camp" || p.kind === "cemetery") && p.cleared <= 0 && dist(p.cx * WCELL, p.cy * WCELL, sx, sy) < R * 1.3 && onLands(w, p.cx * WCELL, p.cy * WCELL, s.faction)).sort((a, c) => dist(a.cx, a.cy, s.cx, s.cy) - dist(c.cx, c.cy, s.cx, s.cy))[0];
+    if (pl) {
+      pl.seen = true;
+      const what = pl.kind === "camp" ? `Zniszcz obóz zbójców (${pl.name}). Stamtąd wychodzą bandy, które łupią okolicę.` : pl.kind === "cemetery" ? `Oczyść ${pl.name}. Umarli wychodzą nocą na nasze pola.` : `Wytęp bestie z miejsca ${pl.name}. Porywają bydło i dzieci.`;
+      return { id, kind: "wolves", giver: s.id, target: pl.id, amount: 0, reward: pl.kind === "camp" ? 340 : 280, days: 14, text: what, done: false };
+    }
+    kind = "wolves";
+  }
   if (kind === "bandits") {
-    const b = w.parties.filter((p) => p.kind === "bandit").sort((a, c) => dist(a.x, a.y, s.cx * WCELL, s.cy * WCELL) - dist(c.x, c.y, s.cx * WCELL, s.cy * WCELL))[0];
+    let b = localBand(w, s, "bandit");
+    if (!b) { const at = localSpot(w, s, 40, R * 0.8); b = at ? spawnBandits(w, at.x, at.y, 7 + (h % 7)) : null; if (b) b.wait = 30; }
     if (!b) return null;
     b.quest = id;
-    return { id, kind, giver: s.id, target: b.id, amount: 0, reward: 150 + troopCount(b.troops) * 15, days: 12, text: `Rozbij bandę „${b.name}” grasującą koło ${nearestSettlement(w, b.x, b.y).name}.`, done: false };
+    return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 150 + troopCount(b.troops) * 15, days: 12, text: `Rozbij bandę „${b.name}” grasującą w okolicy ${s.name}.`, done: false };
+  }
+  if (kind === "wolves") {
+    let b = localBand(w, s, "monster");
+    if (!b) b = spawnLocalBeasts(w, s, 5 + (h % 6));
+    if (!b) return null;
+    b.quest = id;
+    return { id, kind: "bandits", giver: s.id, target: b.id, amount: 0, reward: 200 + troopCount(b.troops) * 12, days: 12, text: `${b.name} nęka pastwiska wokół ${s.name}. Wytęp je.`, done: false };
   }
   if (kind === "letter") {
-    const t = pick(w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !playerAtWarWith(w, x.faction)));
+    // list do miasta własnej frakcji (albo sąsiedniego, niewrogiego)
+    const cands = w.settlements.filter((x) => x.kind === "town" && x.id !== s.id && !playerAtWarWith(w, x.faction) && !atWar(w, x.faction, s.faction)).sort((a, b) => (a.faction === s.faction ? 0 : 60) + dist(a.cx, a.cy, s.cx, s.cy) - ((b.faction === s.faction ? 0 : 60) + dist(b.cx, b.cy, s.cx, s.cy)));
+    const t = cands[h % Math.min(3, cands.length || 1)];
     if (!t) return null;
-    return { id, kind, giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };
+    return { id, kind: "letter", giver: s.id, target: t.id, amount: 0, reward: Math.round(80 + dist(s.cx, s.cy, t.cx, t.cy) * 3), days: 15, text: `Zawieź zapieczętowany list do ${t.name}.`, done: false };
   }
   if (kind === "defend") {
     // banda idzie na wioskę: pojawia się w pobliżu i trzeba ją rozbić
-    const at = { x: s.cx * WCELL + 4 + Math.round(rr(-90, 90)), y: s.cy * WCELL + 4 + Math.round(rr(-70, 70)) };
-    const b = spawnBandits(w, at.x, at.y, 8 + (h % 8));
+    const at = localSpot(w, s, 50, 100);
+    const b = at ? spawnBandits(w, at.x, at.y, 8 + (h % 8)) : null;
     if (!b) return null;
     b.quest = id;
-    return { id, kind, giver: s.id, target: b.id, amount: 0, reward: 220 + troopCount(b.troops) * 14, days: 6, text: `Banda „${b.name}” szykuje napad na ${s.name}. Rozbij ją, zanim spali wioskę.`, done: false, item: chance(0.3) ? qid(pick(baseItems().filter((it) => it.tier === 2 && it.slot !== "horse")).id, 2) : undefined };
+    return { id, kind: "defend", giver: s.id, target: b.id, amount: 0, reward: 220 + troopCount(b.troops) * 14, days: 6, text: `Banda „${b.name}” szykuje napad na ${s.name}. Rozbij ją, zanim spali wioskę.`, done: false, item: chance(0.3) ? qid(pick(baseItems().filter((it) => it.tier === 2 && it.slot !== "horse")).id, 2) : undefined };
   }
-  if (kind === "cattle") { const n = 5 + (h % 5); return { id, kind, giver: s.id, target: s.id, amount: n, reward: n * 45, days: 12, text: `Przyprowadź ${n} sztuk bydła (suszone mięso) do ${s.name}. Pomór wybił stado.`, done: false }; }
-  if (kind === "militia") return { id, kind, giver: s.id, target: s.id, amount: 2, reward: 260, days: 10, text: `Wyszkol milicję w ${s.name}: zostań 2 dni z co najmniej 8 zdrowymi żołnierzami.`, done: false };
-  if (kind === "grain") { const n = Math.max(6, Math.round(16 - s.stock.grain) + (h % 4)); return { id, kind, giver: s.id, target: s.id, amount: n, reward: n * 22, days: 10, text: `Przywieź ${n} worków zboża do ${s.name}. Ludzie głodują.`, done: false }; }
-  const lair = w.places.filter((p) => p.kind === "lair" && p.cleared <= 0).sort((a, c) => dist(a.cx, a.cy, s.cx, s.cy) - dist(c.cx, c.cy, s.cx, s.cy))[0];
-  if (!lair) return null;
-  lair.seen = true; w.explored[cidx(lair.cx, lair.cy)] = 1;
-  return { id, kind: "wolves", giver: s.id, target: lair.id, amount: 0, reward: 260, days: 14, text: `Wytęp bestie z miejsca ${lair.name}. Porywają bydło i dzieci.`, done: false };
+  if (kind === "cattle") { const n = 5 + (h % 5); return { id, kind: "cattle", giver: s.id, target: s.id, amount: n, reward: n * 45, days: 12, text: `Przyprowadź ${n} sztuk bydła (suszone mięso) do ${s.name}. Pomór wybił stado.`, done: false }; }
+  if (kind === "militia") return { id, kind: "militia", giver: s.id, target: s.id, amount: 2, reward: 260, days: 10, text: `Wyszkol milicję w ${s.name}: zostań 2 dni z co najmniej 8 zdrowymi żołnierzami.`, done: false };
+  const n = Math.max(6, Math.round(16 - s.stock.grain) + (h % 4));
+  return { id, kind: "grain", giver: s.id, target: s.id, amount: n, reward: n * 22, days: 10, text: `Przywieź ${n} worków zboża do ${s.name}. Ludzie głodują.`, done: false };
 }
 function completeQuest(q: Quest, lines: string[]) {
   const w = WORLD, P = w.player;
@@ -2009,7 +2051,9 @@ function offerLordQuest(L: Lord, trust = false): Quest | null {
     const other = w.lords.filter((l) => l.alive && l.faction === L.faction && l.id !== L.id && l.captive < 0 && l.party >= 0)[hashInt(L.id + w.day) % 5];
     if (other) return { id, kind: "persuade", giver: home.id, giverLord: L.id, target: other.id, amount: 0, reward: 500, days: 20, text: `Przekonaj ${other.title} ${other.name}, by poparł ${L.name} na radzie.`, done: false };
   }
-  const b = w.parties.filter((p) => p.kind === "bandit").sort((a, c) => troopCount(c.troops) - troopCount(a.troops))[0];
+  // banda na ziemiach lorda (blisko jego lenna); jeśli żadnej nie ma, zbóje właśnie się tam pojawili
+  let b = home ? w.parties.filter((p) => p.kind === "bandit" && p.quest === undefined && dist(p.x, p.y, home.cx * WCELL, home.cy * WCELL) < 50 * WCELL && onLands(w, p.x, p.y, L.faction)).sort((a, c) => troopCount(c.troops) - troopCount(a.troops))[0] : null;
+  if (!b && home) { const at = localSpot(w, home, 60, 40 * WCELL); b = at ? spawnBandits(w, at.x, at.y, 14 + (hashInt(id) % 8)) : null; if (b) b.wait = 30; }
   if (!b) return null;
   b.quest = id;
   return { id, kind: "bandits", giver: home.id, giverLord: L.id, target: b.id, amount: 0, reward: 300 + troopCount(b.troops) * 18, days: 15, text: `Wytęp bandę „${b.name}”, która nęka ziemie ${L.name}.`, done: false, item: chance(0.4) ? qid(pick(baseItems().filter((it) => it.tier === 3 && it.slot !== "horse")).id, 2) : undefined };
