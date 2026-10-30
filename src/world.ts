@@ -679,7 +679,7 @@ function price(w: World, s: Settlement, good: string) {
   const k = clamp(Math.pow(target / Math.max(2, s.stock[good]), 0.75), 0.35, 4);   // większe różnice: handel się opłaca
   return Math.max(1, Math.round(GOODS[good].base * k * (s.raided > 0 ? 1.3 : 1)));
 }
-function buyPrice(w: World, s: Settlement, good: string) { return Math.round(price(w, s, good) * (1.12 - w.player.skills.trade * 0.01)); }
+function buyPrice(w: World, s: Settlement, good: string) { return Math.round(price(w, s, good) * (1.12 - w.player.skills.trade * 0.01 - perk(w.player, "tradeB"))); }
 function sellPrice(w: World, s: Settlement, good: string) { return Math.max(1, Math.round(price(w, s, good) * (0.88 + w.player.skills.trade * 0.01))); }
 function itemPrice(it: Item, buy: boolean, trade: number) { return Math.round(it.price * (buy ? 1.1 - trade * 0.01 : 0.45 + trade * 0.015)); }
 // Lenno: dochód dzienny zależny od dobrobytu, budowli, podatku i rządcy.
@@ -766,7 +766,7 @@ function dailyTick(w: World) {
   // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
   dailyPolitics(w);
   campDaily(w);
-  craftDaily(w); kingdomDaily(w); intelDaily(w); treatyDaily(w);
+  craftDaily(w); kingdomDaily(w); intelDaily(w); treatyDaily(w); bountyDaily(w); companionQuestsDaily(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
   // osady
   for (const s of w.settlements) {
@@ -987,6 +987,7 @@ function nearestSettlement(w: World, x: number, y: number) { return w.settlement
 function partyAI(w: World, p: Party, hours: number) {
   if (p.kind === "player") return;
   p.wait -= hours;
+  if (huntersThink(w, p)) return;
   if (!p.path.length) { arrive(w, p); if (!w.parties.includes(p)) return; }
   const pw = (o: Party) => { let v = POWC.get(o.id); if (v === undefined) { v = partyPower(w, o); POWC.set(o.id, v); } return v; };
   const sight = sightRadius(w) * WCELL;
@@ -1151,7 +1152,7 @@ function playerDaily(w: World) {
   if (!p || P.captive) return;
   const n = troopCount(p.troops) + 1 + P.companions.length;
   // jedzenie
-  let need = Math.ceil(n / 8 * (1 - Math.min(0.5, perk(P, "food"))));
+  let need = Math.ceil(n / 8 * (1 - Math.min(0.5, perk(P, "food"))) * foodUseK(P));
   const kinds = FOOD_KEYS.filter((k) => (P.goods[k] || 0) > 0).length;
   for (const k of FOOD_KEYS) { while (need > 0 && (P.goods[k] || 0) > 0) { P.goods[k]--; need--; } }
   if (need > 0) { P.morale -= 12; addLogMsg("Brak jedzenia! Morale spada, ludzie dezerterują.", PAL.redL); desert(w, 0.06); }

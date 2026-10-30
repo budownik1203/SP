@@ -15,7 +15,7 @@ function commanderDuel(o: Party, defensive = false) {
     const r = G.battle?.result;
     G.battle = null; G.state = "map";
     if (r) P.hp = Math.max(1, Math.round(r.heroHp));
-    if (win) { P.renown += 15; lordRel(w, L, -3, "upokorzyłeś go w pojedynku"); (G as any).duelMod = { team1: -30, team0: 10 }; toast(`${L.title} ${L.name} leży w błocie. Jego ludzie tracą ducha!`, PAL.gold); }
+    if (win) { P.renown += 15; addDeed(P, "duels"); lordRel(w, L, -3, "upokorzyłeś go w pojedynku"); (G as any).duelMod = { team1: -30, team0: 10 }; toast(`${L.title} ${L.name} leży w błocie. Jego ludzie tracą ducha!`, PAL.gold); }
     else { (G as any).duelMod = { team0: -20, team1: 10 }; toast(`Przegrywasz pojedynek. Twoi ludzie widzieli, jak padasz.`, PAL.redL); }
     showMapHud();
     setTimeout(() => launchBattle({ kind: "field", enemies: [o, ...nearbyEnemyHelpers(w, o)], allies: nearbyAllies(w, o), title: o.name }, { defensive }), 300);
@@ -38,7 +38,7 @@ function woundedChoiceHtml(r: BattleResult) {
   return `<div class="woundedq"><p>${ic("drop")} Na polu jęczy <b>${n}</b> rannych wrogów. Co z nimi?</p><div class="btns"><button class="alt" data-a="wSpare">Opatrzcie ich (jeńcy, honor +1)</button><button class="alt danger" data-a="wKill">Dobijcie (honor −2, postrach +3 sławy)</button></div></div>`;
 }
 function woundedSpare(r: BattleResult): string {
-  const P = WORLD.player; (r as any).woundedDone = 1; P.honor += 1;
+  const P = WORLD.player; (r as any).woundedDone = 1; P.honor += 1; addDeed(P, "spared");
   return "Opatrujecie rannych wrogów i bierzecie ich do niewoli (honor +1).";
 }
 function woundedKill(r: BattleResult): string {
@@ -46,7 +46,7 @@ function woundedKill(r: BattleResult): string {
   (r as any).woundedDone = 1;
   for (const pr of r.prisoners) removeTroops(p.prisoners, pr.type, Math.min(pr.n, p.prisoners.find((t) => t.type === pr.type)?.n || 0));
   const n = r.prisoners.reduce((s, q) => s + q.n, 0);
-  r.prisoners = []; P.honor -= 2; P.renown += 3;
+  r.prisoners = []; P.honor -= 2; P.renown += 3; addDeed(P, "slain");
   for (const L of w.lords) if (L.alive && (L as any).personality === "honorowy" && chance(0.2)) lordRel(w, L, -1, "dobijałeś rannych");
   return `Mizerykordie idą w ruch. ${n} rannych nie wstanie już nigdy (honor −2).`;
 }

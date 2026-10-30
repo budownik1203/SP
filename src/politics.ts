@@ -321,7 +321,7 @@ function captiveLordsDaily(w: World) {
   }
 }
 function executeLord(w: World, L: Lord) {
-  const P = w.player;
+  const P = w.player; addDeed(P, "executed");
   L.alive = false; L.captive = -1;
   P.honor -= 15; P.renown += 20;
   for (const o of w.lords) if (o.alive && o.faction === L.faction) lordRel(w, o, o.ruler ? -35 : -20, `stracenie ${L.name}`);

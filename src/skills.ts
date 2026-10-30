@@ -280,4 +280,4 @@ function applyNode(P: PlayerState, n: SkillNode) {
   if (n.smite2) P.abLevels.smite = 2;
   if (n.skills?.ironflesh) P.hp += 8;
 }
-function perk(P: PlayerState, k: string) { return (P.perks?.[k] || 0) + equipFx(P, k); }
+function perk(P: PlayerState, k: string) { return (P.perks?.[k] || 0) + equipFx(P, k) + traitFx(P, k); }

@@ -426,8 +426,9 @@ function updateTip() {
 
 // ---------- Osady ----------
 const SET = { id: 0, tab: "main", bet: 0, kit: 0, quest: null as Quest | null, unit: "" };
-function enterSettlement(s: Settlement) {
+function enterSettlement(s: Settlement, cleared = false) {
   const w = WORLD, P = w.player;
+  if (!cleared && guardsCheck(s)) { playerParty(w).path = []; return; }
   const ps = plotScene(w, { settlement: s.id });
   if (ps) { playerParty(w).path = []; showScr(`<div class="dialog frame"><div class="scene">${pic(drawScene(ps.scene, s.seed, ps.culture, isNight(w)), "scene-img")}</div><h1>${ps.title}</h1><p class="dlg">${ps.text}</p><div class="btns"><button data-a="ok">Dalej</button></div></div>`, { ok: () => enterSettlement(s) }, "dialog-scr"); refreshMapHud(); return; }
   playerParty(w).path = [];
@@ -530,9 +531,11 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
           ${harvest ? `<p class="tip">${ic("food")} ${harvest} · zboże w spichlerzu: ${Math.floor(s.stock.grain || 0)} · podatek dla pana: ok. ${fiefIncome(w, s) * 7}/tydzień</p>` : ""}
           <div class="ppl">${ppl.map((r, i) => `<button class="mini" data-a="chat" data-v="${i}">${ic("man")} ${r.name} <span class="muted">${r.role}</span></button>`).join("")}</div><p class="tip" id="chatline"></p>${lordHere ? `<div class="row"><span>${lord.title} ${lord.name} przebywa na zamku.</span><button class="mini" data-a="talkLord" data-v="${lord.id}">Rozmawiaj</button></div>` : ""}
           ${s.siegeBy.length ? `<p class="bad">Miasto jest oblężone!</p>` : ""}
+          ${bountyRow(w, s)}${pquestRows(w, s)}
+          ${s.kind === "town" ? barberHtml(w) : ""}
           ${s.kind !== "castle" ? `<div class="row"><span>${ic("food")} Zielarka sprzedaje zioła na gorączkę i biegunkę. Masz: ${(P as any).herbs || 0}.</span><button class="mini" data-a="herbs" ${P.gold >= 18 ? "" : "disabled"}>Kup 3 (18)</button></div>` : ""}
           ${s.kind === "town" ? `<div class="row"><span>${ic("drop")} Łaźnia: gorąca woda, ług i balia. Twoja drużyna: brud ${Math.round(grimeOf(P) * 100)}%${(P as any).gore > 0.05 ? `, zaschnięta krew` : ""}.</span><button class="mini" data-a="bath" ${P.gold >= bathCost(s) && grimeOf(P) > 0.08 ? "" : "disabled"}>Umyj się (${bathCost(s)})</button></div>` : ""}`,
-        acts: { herbs: () => { if (P.gold < 18) return; P.gold -= 18; (P as any).herbs = ((P as any).herbs || 0) + 3; sfx.coin(); re(); }, bath: () => { if (P.gold < bathCost(s)) return; P.gold -= bathCost(s); (P as any).grime = 0.03; (P as any).gore = 0; P.morale = Math.min(100, (P.morale ?? 70) + 3); sfx.coin(); toast("Woda w balii robi się czarna. Ludzie wychodzą czyści i w lepszym humorze.", PAL.gold); re(); }, talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e) e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
+        acts: { ...barberActs(w, re), ...companionExtraActs(w, re), payB: () => { payBounty(w, s.faction); re(); }, herbs: () => { if (P.gold < 18) return; P.gold -= 18; (P as any).herbs = ((P as any).herbs || 0) + 3; sfx.coin(); re(); }, bath: () => { if (P.gold < bathCost(s)) return; P.gold -= bathCost(s); (P as any).grime = 0.03; (P as any).gore = 0; P.morale = Math.min(100, (P.morale ?? 70) + 3); sfx.coin(); toast("Woda w balii robi się czarna. Ludzie wychodzą czyści i w lepszym humorze.", PAL.gold); re(); }, talkLord: (v) => showLordTalk(lordById(w, Number(v)), () => renderSettlement()), chat: (v) => { const r = ppl[Number(v)]; const e = document.getElementById("chatline"); if (e) e.textContent = `${r.name}: „${r.line}”`; grunt("human"); } },
       };
     }
     case "forge": return { html: `<p>Twoja własna kuźnia: bez opłat i szybciej.</p>${smithCraftHtml(s)}`, acts: smithCraftActs(s, re) };
@@ -807,7 +810,7 @@ function settlementPane(s: Settlement, hostileS: boolean): { html: string; acts:
         acts: {
           besiege: () => { s.siegeBy.push(p.id); p.siege = s.id; if (s.siegeBy.length === 1) s.siegeDays = 0; chron(w, `${P.name} oblega ${s.name}.`, PAL.redL); re(); },
           eng: (k) => { SW().on[k] = !SW().on[k]; re(); },
-          waitDay: () => { closeScreen(); G.waitHours = 24; G.camping = true; p.state = "camp"; pendingAfterWait = () => { s.siegeDays = Math.max(s.siegeDays, 1); for (const e of ENGINES) if (SW().on[e.k] && SW().q[e.k] < e.days) { SW().q[e.k]++; if (SW().q[e.k] >= e.days) toast(`${e.name}: gotowe.`, PAL.gold); } if (playerSiegeDay(s)) return; enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
+          waitDay: () => { closeScreen(); G.waitHours = 24; G.camping = true; p.state = "camp"; pendingAfterWait = () => { s.siegeDays = Math.max(s.siegeDays, 1); for (const e of ENGINES) if (SW().on[e.k] && SW().q[e.k] < e.days) { SW().q[e.k] += chance(perk(P, "siegeB")) ? 2 : 1; if (SW().q[e.k] >= e.days) toast(`${e.name}: gotowe.`, PAL.gold); } if (playerSiegeDay(s)) return; enterSettlement(s); SET.tab = "siege"; renderSettlement(); }; },
           mineGo: () => { closeScreen(); mineAssault(s); },
           lift: () => { s.siegeBy = s.siegeBy.filter((id) => id !== p.id); p.siege = undefined; (P as any).siegeWork = null; closeScreen(); },
           assault: () => {
@@ -909,6 +912,7 @@ function raidVillage(s: Settlement) {
     s.raided = 14; addScar(WORLD, s.cx * WCELL + 4, s.cy * WCELL + 6, "burn", 1.3);
     for (const L of w.lords) if (L.faction === s.faction) lordRel(w, L, -3, `grabiłeś wioskę ${s.name}`);
     if (mode === "loot") { const loot = Math.round(150 + s.prosperity * 4); s.prosperity = Math.max(5, s.prosperity - 15); P.gold += loot; P.goods.grain = (P.goods.grain || 0) + 10; P.goods.meat = (P.goods.meat || 0) + 4; P.honor -= 3; s.relation -= 20; lines.push(`Zabierasz zapasy: ${loot} denarów i żywność.`); }
+    addDeed(P, mode === "burn" ? "burned" : "looted"); addBounty(w, s.faction, mode === "burn" ? 260 : 140, "grabież wsi");
     if (mode === "burn") { s.prosperity = Math.max(3, s.prosperity - 40); s.relation -= 40; P.honor -= 6; P.renown += 5; P.gold += 60; lines.push("Wioska płonie. Dym widać z daleka."); }
     if (mode === "press") { const k = Math.min(Math.max(3, s.recruits), partyLimit(w) - (troopCount(p.troops) + 1 + P.companions.length)); if (k > 0) addTroops(p.troops, mil, k); s.recruits = 0; s.relation -= 25; P.honor -= 3; s.prosperity = Math.max(5, s.prosperity - 10); lines.push(`Bierzesz ${Math.max(0, k)} chłopów w kamasze siłą.`); }
     chron(w, `${P.name} ${mode === "burn" ? "pali" : mode === "press" ? "bierze siłą chłopów z" : "pustoszy"} wioskę ${s.name}.`, PAL.redL);
@@ -1021,7 +1025,7 @@ function offerQuest(s: Settlement): Quest | null {
 function completeQuest(q: Quest, lines: string[]) {
   const w = WORLD, P = w.player;
   q.done = true; q.days = 0;
-  P.gold += q.reward; P.renown += 8; P.honor += 1;
+  P.gold += Math.round(q.reward * (1 + perk(P, "questB"))); P.renown += 8; P.honor += 1; addDeed(P, "quests"); companionQuestDone(q, lines);
   const s = w.settlements[q.giver]; if (s) { s.relation += 8; (s as any).questCd = w.day + 7; }
   if (q.item) { ensureItem(q.item); P.items.push(q.item); lines.push(`W nagrodę dostajesz także: ${ITEMS[q.item]?.name}.`); }
   // łańcuch: kolejne zadania dla tego samego zleceniodawcy budują zaufanie
@@ -1630,7 +1634,7 @@ function showParty() {
   const tabs = [["troops", "Oddziały"], ["comp", `Kompani (${P.companions.length}/${companionMax(P)})`], ["pris", `Jeńcy (${troopCount(p.prisoners)})`], ["paint", "Barwy"]].map(([k, n]) => `<button class="tab ${PS.tab === k ? "on" : ""}" data-a="tab" data-v="${k}">${n}</button>`).join("");
   let body = "";
   if (PS.tab === "troops") body = `<div class="row"><button class="mini ${PS.view !== "form" ? "on" : ""}" data-a="view" data-v="list">Lista</button><button class="mini ${PS.view === "form" ? "on" : ""}" data-a="view" data-v="form">Szyk</button></div>${moraleFactors()}` + (PS.view === "form" ? armyFormation() : `<div class="pgrid"><div class="ulist">${rows}</div>${detail}</div>`);
-  else if (PS.tab === "comp") body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>${(c as any).away > w.day ? `<p class="gold">Na misji (${{ scout: "zwiad", trade: "handel", recruit: "werbunek" }[(c as any).mission] || "misja"}), wróci za ${(c as any).away - w.day} dni.</p>` : `Dowodzi: ${[1, 2, 3, 4, 5].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")}<br>Wyślij: <button class="mini" data-a="mis" data-v="${c.id}:scout">Zwiad (3 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:trade">Handel (5 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:recruit">Werbunek (4 dni)</button>`} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button>${COMP_TRAITS[c.id] ? `<p class="tip">Lubi: ${COMP_TRAITS[c.id].likes.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo szczególnie"} · nie znosi: ${COMP_TRAITS[c.id].hates.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo"}</p>` : ""}</div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
+  else if (PS.tab === "comp") body = P.companions.length ? P.companions.map((c) => `<div class="comp big">${pic(drawPortrait(c.look, PAL.bone), "portrait big")}<div>${pic(spritesFor(c.look, "comp:" + c.id).frames[0][0], "sprite", 2)}</div><div><b>${c.name}</b> <span class="muted">${c.role}</span>${barHtml(c.hp, c.maxHp, "hpb", `${Math.round(c.hp)}/${c.maxHp}`)}<p class="tip">${c.bio}</p>${(c as any).away > w.day ? `<p class="gold">Na misji (${{ scout: "zwiad", trade: "handel", recruit: "werbunek" }[(c as any).mission] || "misja"}), wróci za ${(c as any).away - w.day} dni.</p>` : `Dowodzi: ${[1, 2, 3, 4, 5].map((s2) => `<button class="mini ${c.squad === s2 ? "on" : ""}" data-a="sq" data-v="${c.id}:${s2}">${SQUAD_NAMES[s2]}</button>`).join("")}<br>Wyślij: <button class="mini" data-a="mis" data-v="${c.id}:scout">Zwiad (3 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:trade">Handel (5 dni)</button><button class="mini" data-a="mis" data-v="${c.id}:recruit">Werbunek (4 dni)</button>`} <button class="mini danger" data-a="fire" data-v="${c.id}">Odpraw</button>${companionExtraHtml(w, c)}${COMP_TRAITS[c.id] ? `<p class="tip">Lubi: ${COMP_TRAITS[c.id].likes.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo szczególnie"} · nie znosi: ${COMP_TRAITS[c.id].hates.map((x) => COMPANIONS.find((y) => y.id === x)?.name.split(" ")[0]).join(", ") || "nikogo"}</p>` : ""}</div></div>`).join("") : "<p class='muted'>Brak kompanów. Szukaj ich w karczmach.</p>";
   else if (PS.tab === "paint") body = paintTab();
   else body = p.prisoners.length ? `<div class="comp-row">${p.prisoners.map((t2) => `<span class="tchip">${unitThumb(t2.type)}<b>${t2.n}</b><small>${UNITS[t2.type].name}</small></span>`).join("")}</div><button class="mini" data-a="freeP">Uwolnij wszystkich (+honor)</button>${(p as any).willing > 0 ? `<button class="mini" data-a="recP">Zwerbuj chętnych (${(p as any).willing})</button>` : `<span class="muted"> po 3 dniach w niewoli część jeńców zechce ci służyć</span>`}<table class="tbl">${p.prisoners.map((t2) => `<tr><td>${t2.n}× ${UNITS[t2.type].name}</td><td>${ic("coin")} ${prisonerValue(t2)}/szt. u handlarza</td><td>${(P as any).askDay === w.day ? "<span class='muted'>przesłuchani dziś</span>" : `<button class="mini" data-a="ask" data-v="${t2.type}:0">Przesłuchaj</button><button class="mini danger" data-a="ask" data-v="${t2.type}:1" title="pewne, ale −2 honoru">Zmuś</button>`}</td></tr>`).join("")}</table>
     <p class="tip">Sprzedasz ich handlarzowi okupu w karczmie albo kasztelanowi w zamku. Jeńcy potrzebują straży: gdy jest ich więcej niż twoich zdrowych ludzi, marsz zwalnia, a nocą uciekają.</p><div id="askres" class="why"></div>` : "<p class='muted'>Nie masz jeńców.</p>";
@@ -1640,6 +1644,7 @@ function showParty() {
     <div class="btns"><button data-a="close">Zamknij (P)</button></div></div>`, {
     tab: (v) => { PS.tab = v; showParty(); },
     ...paintActs(() => showParty()),
+    ...companionExtraActs(w, () => showParty()),
     view: (v) => { PS.view = v; showParty(); },
     sqT: (v) => { const [k, q] = v.split(":"); ((P as any).squadOf ||= {})[k] = Number(q) || 0; showParty(); },
     sel: (v) => { if (p.troops.some((x) => x.type === v)) PS.sel = v; showParty(); },
@@ -2202,7 +2207,10 @@ function heroTraits(P: PlayerState) {
   if ((P as any).spouse) t.push({ name: "Żonaty", desc: `Małżeństwo: ${(P as any).spouse}.`, icon: "heart" });
   if (P.status === "król") t.push({ name: "Władca", desc: `Panujesz: ${P.kingdom}.`, icon: "crown" });
   if (WORLD.chronicle.filter((c) => c.text.includes(P.name) && c.text.includes("turniej")).length) t.push({ name: "Zwycięzca turnieju", desc: "Wygrałeś turniej.", icon: "banner" });
-  if (WORLD.chronicle.some((c) => c.text.includes(P.name) && c.text.includes("pali"))) t.push({ name: "Podpalacz", desc: "Paliłeś osady.", icon: "fire", bad: true });
+  for (const d of deedTraits(P)) if (!t.some((x) => x.name === d.name)) t.push({ name: d.name, desc: d.desc, icon: d.icon, bad: d.bad });
+  for (const k of woundsOf(P)) t.push({ name: WOUNDS[k].name, desc: WOUNDS[k].desc, icon: "drop", bad: true });
+  for (const [f, v] of Object.entries(bounties(P))) if (v >= 50) t.push({ name: `List gończy: ${factionShort(Number(f))}`, desc: `Nagroda ${v} den. za twoją głowę. Spada z czasem albo zapłać grzywnę w ich mieście.`, icon: "scroll", bad: true });
+  if (nickOf(P)) t.unshift({ name: `„${nickOf(P)}”`, desc: "Tak nazywa cię lud w karczmach i na traktach.", icon: "star" });
   return t;
 }
 function heroStatsHtml(P: PlayerState) {

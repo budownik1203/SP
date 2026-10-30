@@ -1496,6 +1496,7 @@ class Battle {
     this.lastHitT = this.time;
     if (!d.active) return;
     if (this.onWall(d)) dmg *= 0.6;                       // obrońca za blankami
+    if (d.def.undead && src && src.team === 0 && this.P("undeadDmg")) dmg *= 1 + this.P("undeadDmg");
     else if (this.map.wall && this.cell(d.x, d.y) === 5) dmg *= 1.25;   // na drabinie łatwo oberwać
     if (d.hero) {
       dmg *= 1 - (type === "cut" ? this.P("cutRes") : type === "blunt" ? this.P("bluntRes") : 0);

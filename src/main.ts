@@ -1,6 +1,6 @@
 // Start gry: płótno, skalowanie, przybliżenie, pętla, HUD bitwy i mapy, klawisze, ustawienia, pełny ekran.
 
-const BUILD = "Build 0.25";
+const BUILD = "Build 0.26";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 canvas.width = W; canvas.height = H;
@@ -452,5 +452,5 @@ function spriteSheet(keys: string[], scale = 3): string {
   const [o, g2] = mkCanvas(c.width * scale, c.height * scale); g2.drawImage(c, 0, 0, o.width, o.height); return o.toDataURL();
 }
 (window as any).__T2 = { launchStreets, mineAssault, sallyAgainstPlayer, showCapitulation, playerSiegeDay };
-(window as any).__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed, siegeWon, showKingdom, kingdomDaily, planRoad, planBridge, works, partyLimit, serializeWorld, deserializeWorld, KG, sendSpy, intelDaily, treatyDaily, sendTreaty, hireCompany, mercCompany, intrigue, spies, treaties, contracts, spyAct, IG, setWar, playerDeclareWar };
+(window as any).__T3 = { meetParty, commanderDuel, igniteAt, placeTrap, orderDismount, trapsAllowed, siegeWon, showKingdom, kingdomDaily, planRoad, planBridge, works, partyLimit, serializeWorld, deserializeWorld, KG, sendSpy, intelDaily, treatyDaily, sendTreaty, hireCompany, mercCompany, intrigue, spies, treaties, contracts, spyAct, IG, setWar, playerDeclareWar, addDeed, addBounty, bountyDaily, maybeWound, deedTraits, enterSettlement, perk, companionQuestsDaily, makeCompanion, ennoble, gearUp, completeQuest, pquestDo };
 (window as any).__T = { spriteSheet, worldTick, serializeWorld, deserializeWorld, launchBattle, arenaFight, enterSettlement, castHeroAbility, meetParty, showCharacter, showInventory, showParty, showFactions, showChronicle, enterPlace, showCaptivity, captivity, troopCount, partyPower, startQuickBattle, QB, UNITS, unitCanvas, rumor, renderSettlement, SET, startTourney, autoResolve, showAftermath, playerParty, maybeTravelEvent, showLordTalk, showQuests, offerQuest, offerLordQuest, ensureItem, qid, showDice, respecNodes, makeCompanion, startEscape, showPending, pending, dailyPolitics, factionPower, showHelp, showLog, showSaves, startPrologue, interrogate, rearguard, acceptQuest, plotRuins, plotChoose, startRebellion, mapImage: () => { if (!WMAP) renderWorldMap(WORLD); const [c, g] = mkCanvas(WMAP.width, WMAP.height); g.drawImage(WMAP, 0, 0); if (WBORDER) g.drawImage(WBORDER, 0, 0); g.font = "10px monospace"; for (const s of WORLD.settlements) { g.fillStyle = "#000"; g.fillRect(s.cx * WCELL - 2, s.cy * WCELL - 2, 12, 12); g.fillStyle = factionCol(s.faction)[0]; g.fillRect(s.cx * WCELL, s.cy * WCELL, 8, 8); g.fillStyle = "#fff"; g.fillText(s.name, s.cx * WCELL + 10, s.cy * WCELL + 8); } for (const p of WORLD.places) { g.fillStyle = "#f0f"; g.fillRect(p.cx * WCELL, p.cy * WCELL, 6, 6); } return c.toDataURL(); } };
