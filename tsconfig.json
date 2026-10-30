@@ -30,7 +30,7 @@
     "src/screens.ts",
     "src/camp.ts",
     "src/craft.ts",
-    "src/siege.ts", "src/tactics.ts", "src/kingdom.ts",
+    "src/siege.ts", "src/tactics.ts", "src/kingdom.ts", "src/intel.ts",
     "src/main.ts"
   ]
 }

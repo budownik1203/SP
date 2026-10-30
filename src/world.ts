@@ -621,6 +621,7 @@ function lordRel(w: World, L: Lord, d: number, why = "") {
 // ---------- Wojna i pokój ----------
 function setWar(w: World, a: number, b: number, war: boolean, silent = false) {
   if (!w.factions[a] || !w.factions[b]) return;
+  if (war && b === PLAYER_FACTION && a !== PLAYER_FACTION && hostageHeld(w, a)) return;   // zakładnik trzyma ich w ryzach
   w.factions[a].war[b] = war; w.factions[b].war[a] = war;
   w.factions[a].warDays[b] = 0; w.factions[b].warDays[a] = 0;
   if (!war) { w.factions[a].truce[b] = 40; w.factions[b].truce[a] = 40; }
@@ -653,7 +654,7 @@ function hostile(w: World, a: Party, b: Party) {
 function playerDeclareWar(w: World, f: number) {
   const P = w.player;
   if (f === 6 || f === 7 || playerAtWarWith(w, f)) return;
-  if (P.status === "król") { if (!w.factions[PLAYER_FACTION]) return; setWar(w, PLAYER_FACTION, f, true); return; }
+  if (P.status === "król") { if (!w.factions[PLAYER_FACTION]) return; if (hostageHeld(w, f)) { const t = treaties(w).find((x) => x.f === f)!; const H = lordById(w, t.hostage); P.honor -= 10; t.until = w.day; if (H) { H.captive = -1; } chron(w, `${P.name} łamie traktat z ${factionName(f)}. Wieść o wiarołomstwie niesie się szeroko.`, PAL.redL, "war"); } setWar(w, PLAYER_FACTION, f, true); return; }
   if (P.liege > 0) { // atak na neutralną frakcję jako wasal: zrywa przysięgę
     chron(w, `${P.name} łamie słowo dane władcy: ${factionName(P.liege)}.`, PAL.redL);
     leaveLiege(w, true);
@@ -765,7 +766,7 @@ function dailyTick(w: World) {
   // dyplomacja, wyprawy, lojalność, zaraza (politics.ts)
   dailyPolitics(w);
   campDaily(w);
-  craftDaily(w); kingdomDaily(w);
+  craftDaily(w); kingdomDaily(w); intelDaily(w); treatyDaily(w);
   // królestwo gracza: wrogowie mogą zaproponować pokój, inni wypowiedzieć wojnę
   // osady
   for (const s of w.settlements) {
@@ -935,7 +936,7 @@ function captureSettlement(w: World, s: Settlement, faction: number, ownerLord: 
   if (old === 5 || faction === 5) recomputeBlight(w);
   if (ownerLord >= 0) councilVote(w, s, faction, ownerLord);
 }
-function siegeStores(s: Settlement) { return Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)) + ((s as any).build?.mury ? 5 : 0); }
+function siegeStores(s: Settlement) { return Math.max(2, Math.round((s.kind === "castle" ? 12 : 9) * (0.6 + s.prosperity / 100)) + ((s as any).build?.mury ? 5 : 0) - (((s as any).sabot || 0) > (WORLD?.day ?? 0) ? 5 : 0)); }
 function applyLosses(list: Troop[], frac: number) {
   for (const t of list.slice()) { const n = Math.min(t.n, Math.round(t.n * frac * rr(0.8, 1.2))); removeTroops(list, t.type, n); }
 }

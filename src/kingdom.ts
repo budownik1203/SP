@@ -157,7 +157,7 @@ function showCoronation() {
 const KG = { tab: "lands", from: -1, to: -1, unit: "", road: -1 };
 function showKingdom() {
   const w = WORLD, P = w.player, king = P.status === "król";
-  const tabs: [string, string][] = [["lands", "Ziemie"], ["works", "Budowy"], ["court", king ? "Dwór" : "Tytuł"]];
+  const tabs: [string, string][] = [["lands", "Ziemie"], ["works", "Budowy"], ["court", king ? "Dwór" : "Tytuł"], ["intel", "Wywiad i traktaty"]];
   const re = () => showKingdom();
   let body = "", acts: Acts = {};
   if (KG.tab === "lands") {
@@ -192,6 +192,8 @@ function showKingdom() {
       bridge: () => { if (!bp) return; const ns = w.settlements[w.nearest[cidx(cx, cy)]]; startWork(w, "bridge", bp.cells, bp.cost, bp.days, `Most pod ${ns.name}`); re(); },
       tower: () => { if (tw) return; const s = w.settlements[w.nearest[cidx(cx, cy)]]; startWork(w, "tower", [], 500, 4, `Strażnica pod ${s.name}`); re(); },
     };
+  } else if (KG.tab === "intel") {
+    body = intelHtml(w); acts = intelActs(w, re);
   } else {
     body = king ? courtHtml(w) : titleHtml(w);
     acts = king ? courtActs(w, re) : {};
@@ -201,6 +203,7 @@ function showKingdom() {
     ktab: (v) => { KG.tab = v; (KG as any).picked = 0; re(); },
     close: () => closeScreen(),
   }, "win kingdom-scr");
+  intelBind(re);
   const sel = document.getElementById("kroad") as HTMLSelectElement | null;
   if (sel) sel.onchange = () => { KG.road = Number(sel.value); (KG as any).picked = 1; re(); };
   for (const id of ["kfrom", "kto", "kunit"]) { const e = document.getElementById(id) as HTMLSelectElement | null; if (e) e.onchange = () => { if (id === "kfrom") { KG.from = Number(e.value); KG.unit = ""; } else if (id === "kto") KG.to = Number(e.value); else KG.unit = e.value; re(); }; }
